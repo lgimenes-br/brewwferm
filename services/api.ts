@@ -65,6 +65,15 @@ export const fetchBatches = async (token?: string | null) => {
   return res.json();
 };
 
+export const deleteBatch = async (id: string | number, token?: string | null) => {
+  const res = await fetch(`${API_URL}/batches/${id}`, {
+    method: 'DELETE',
+    headers: getHeaders(token)
+  });
+  if (!res.ok) throw new Error('Failed to delete batch');
+  return res.json();
+};
+
 export const addDevice = async (serialCode: string, name: string) => {
   const res = await fetch(`${API_URL}/devices`, {
     method: 'POST',

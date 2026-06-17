@@ -4,13 +4,29 @@ import { FinishedBrew } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { Calendar, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight, Loader2, Trash2 } from 'lucide-react';
+import { deleteBatch } from '../services/api';
+import { toast } from 'react-hot-toast';
 
 export const FermentationHistory: React.FC = () => {
     const { token } = useAuth();
     const navigate = useNavigate();
     const [history, setHistory] = useState<FinishedBrew[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm('Tem certeza que deseja excluir permanentemente este lote e todo o seu histórico de dados?')) return;
+        
+        try {
+            await deleteBatch(id, token);
+            setHistory(prev => prev.filter(b => b.id !== id));
+            toast.success('Lote excluído com sucesso!');
+        } catch (err) {
+            console.error('Failed to delete batch', err);
+            toast.error('Erro ao excluir lote.');
+        }
+    };
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -155,9 +171,16 @@ export const FermentationHistory: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Arrow */}
-                        <div className="col-span-1 text-right">
-                            <div className="w-8 h-8 rounded-full bg-transparent group-hover:bg-neutral-800 flex items-center justify-center text-neutral-600 group-hover:text-white transition-all ml-auto">
+                        {/* Actions */}
+                        <div className="col-span-1 flex items-center justify-end gap-2">
+                            <button 
+                                onClick={(e) => handleDelete(e, brew.id)}
+                                className="w-8 h-8 rounded-full bg-transparent hover:bg-red-500/20 text-neutral-600 hover:text-red-500 flex items-center justify-center transition-all z-10 relative"
+                                title="Excluir lote"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                            <div className="w-8 h-8 rounded-full bg-transparent group-hover:bg-neutral-800 flex items-center justify-center text-neutral-600 group-hover:text-white transition-all">
                                 <ChevronRight size={16} />
                             </div>
                         </div>
