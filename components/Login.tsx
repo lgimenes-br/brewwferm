@@ -30,11 +30,14 @@ export const Login: React.FC = () => {
       </div>
 
       <div className="bg-neutral-900/30 backdrop-blur-sm border border-neutral-800 p-8 rounded-3xl shadow-2xl w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 bg-white text-black border border-white rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.15)] mb-4 transform rotate-3 hover:rotate-6 transition-transform font-black text-4xl">
-            B
+        <div className="flex flex-col items-center mb-10">
+          <div className="flex items-baseline mb-2">
+            <span className="text-5xl font-black text-white tracking-tighter">BREW</span>
+            <div className="relative">
+              <span className="text-5xl font-black text-white tracking-tighter">W</span>
+              <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
+            </div>
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tighter">BREWW</h1>
           <p className="text-neutral-400 text-sm mt-1 uppercase tracking-widest font-bold">Smart Brewing</p>
         </div>
 
