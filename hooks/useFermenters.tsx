@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -265,7 +266,7 @@ export const useFermenters = () => {
     });
 
     // Local manual update for instant UI feedback (or when MQTT message arrives)
-    const updateFermenterLocal = (serialCode: string, updates: Partial<Fermenter> & { newReading?: any }) => {
+    const updateFermenterLocal = useCallback((serialCode: string, updates: Partial<Fermenter> & { newReading?: any }) => {
         if (updates.events !== undefined) {
             try {
                 localStorage.setItem(`events_${serialCode}`, JSON.stringify(updates.events));
@@ -295,7 +296,7 @@ export const useFermenters = () => {
                 return f;
             });
         });
-    };
+    }, [queryClient]);
 
     return {
         fermenters,
