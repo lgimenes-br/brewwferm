@@ -8,9 +8,6 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import crypto from 'crypto';
 import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
-import { OAuth2Client } from 'google-auth-library';
-
-const client = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID || '186122113143-5ao2f53lkggo3a2jd3f5jo62v6tbc39j.apps.googleusercontent.com');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -173,15 +170,19 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/auth/google', async (req, res) => {
     try {
-        const { idToken } = req.body;
-        if (!idToken) return res.status(400).json({ error: 'idToken é obrigatório' });
+        const { idToken } = req.body; // Actually this is the access_token now from useGoogleLogin
+        if (!idToken) return res.status(400).json({ error: 'Token é obrigatório' });
         
-        const ticket = await client.verifyIdToken({
-            idToken: idToken,
-            audience: process.env.VITE_GOOGLE_CLIENT_ID || '186122113143-5ao2f53lkggo3a2jd3f5jo62v6tbc39j.apps.googleusercontent.com'
+        // Obter dados do usuário no Google usando o access_token
+        const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${idToken}` }
         });
         
-        const payload = ticket.getPayload();
+        if (!googleRes.ok) {
+            throw new Error('Token inválido ou expirado');
+        }
+
+        const payload = await googleRes.json();
         const email = payload.email;
         const name = payload.name;
         const googleId = payload.sub;
