@@ -79,6 +79,14 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         }
     };
 
+    useEffect(() => {
+        const handleRequestModeChange = (e: any) => {
+            setPendingMode(e.detail.mode);
+        };
+        window.addEventListener('requestModeChange', handleRequestModeChange);
+        return () => window.removeEventListener('requestModeChange', handleRequestModeChange);
+    }, []);
+
     const handleActivateMode = () => {
         if (pendingMode !== null) {
             onUpdate(fermenter.id, { mode: pendingMode });
@@ -309,37 +317,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                 </div>
-            </div>
-
-            {/* Mode Selector - Inner pill style */}
-            <div className="flex w-full bg-neutral-900/20 border border-neutral-800 rounded-xl p-1 mb-8">
-                <button
-                    onClick={() => handleModeChange(DeviceMode.FERMENTER)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${displayMode === DeviceMode.FERMENTER
-                        ? 'bg-neutral-800 text-white'
-                        : 'text-neutral-500 hover:text-neutral-300'
-                        }`}
-                >
-                    <FlaskConical size={14} /> Fermentador
-                </button>
-                <button
-                    onClick={() => handleModeChange(DeviceMode.KEGERATOR)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${displayMode === DeviceMode.KEGERATOR
-                        ? 'bg-neutral-800 text-white'
-                        : 'text-neutral-500 hover:text-neutral-300'
-                        }`}
-                >
-                    <Beer size={14} /> Chopeira
-                </button>
-                <button
-                    onClick={() => handleModeChange(DeviceMode.FRIDGE)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${displayMode === DeviceMode.FRIDGE
-                        ? 'bg-neutral-800 text-white'
-                        : 'text-neutral-500 hover:text-neutral-300'
-                        }`}
-                >
-                    <Snowflake size={14} /> Geladeira
-                </button>
             </div>
 
             {/* ATIVAR MODO Banner */}

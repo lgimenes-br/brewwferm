@@ -8,7 +8,8 @@ import { Register } from './components/Register';
 import { FermentationHistory } from './components/FermentationHistory';
 import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrapper';
 import { Settings } from './components/Settings';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check } from 'lucide-react';
+import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -25,6 +26,13 @@ const NavConfig = () => {
     const match = location.pathname.match(/\/fermenter\/(.+)/);
     const deviceId = match ? match[1] : null;
     const activeDevice = deviceId ? fermenters.find(f => f.id === deviceId) : null;
+
+    const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+
+    const handleModeDropdownSelect = (mode: DeviceMode) => {
+        setIsModeDropdownOpen(false);
+        window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode } }));
+    };
 
     let isOnline = false;
     let statOp = 'INATIVO';
@@ -90,6 +98,55 @@ const NavConfig = () => {
                                     <Circle size={14} /> {statOp === 'INATIVO' ? 'PARADO' : statOp}
                                 </div>
                             )}
+
+                            {/* MODE DROPDOWN Badge in Navbar */}
+                            <div className="relative ml-1">
+                                <button 
+                                    onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
+                                    className="flex items-center gap-2 px-3 h-10 rounded-md border border-neutral-800 hover:border-neutral-600 bg-black text-neutral-300 hover:text-white transition-all"
+                                >
+                                    {activeDevice.mode === DeviceMode.FERMENTER && <FlaskConical size={14} />}
+                                    {activeDevice.mode === DeviceMode.KEGERATOR && <Beer size={14} />}
+                                    {activeDevice.mode === DeviceMode.FRIDGE && <Snowflake size={14} />}
+                                    
+                                    <span className="text-[11px] font-bold uppercase tracking-widest hidden lg:block">
+                                        {activeDevice.mode === DeviceMode.FERMENTER ? 'Fermentador' : activeDevice.mode === DeviceMode.KEGERATOR ? 'Chopeira' : 'Geladeira'}
+                                    </span>
+                                    <ChevronDown size={14} className={`text-neutral-500 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {isModeDropdownOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsModeDropdownOpen(false)}></div>
+                                        <div className="absolute top-full right-0 mt-2 w-48 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <button
+                                                onClick={() => handleModeDropdownSelect(DeviceMode.FERMENTER)}
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-800 transition-colors text-left"
+                                            >
+                                                <FlaskConical size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-white' : 'text-neutral-500'}`} />
+                                                <span className={`text-xs font-bold uppercase tracking-widest flex-1 transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-white' : 'text-neutral-400'}`}>Fermentador</span>
+                                                {activeDevice.mode === DeviceMode.FERMENTER && <Check size={14} className="text-emerald-500" />}
+                                            </button>
+                                            <button
+                                                onClick={() => handleModeDropdownSelect(DeviceMode.KEGERATOR)}
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-800 transition-colors text-left"
+                                            >
+                                                <Beer size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-white' : 'text-neutral-500'}`} />
+                                                <span className={`text-xs font-bold uppercase tracking-widest flex-1 transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-white' : 'text-neutral-400'}`}>Chopeira</span>
+                                                {activeDevice.mode === DeviceMode.KEGERATOR && <Check size={14} className="text-emerald-500" />}
+                                            </button>
+                                            <button
+                                                onClick={() => handleModeDropdownSelect(DeviceMode.FRIDGE)}
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-800 transition-colors text-left"
+                                            >
+                                                <Snowflake size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-white' : 'text-neutral-500'}`} />
+                                                <span className={`text-xs font-bold uppercase tracking-widest flex-1 transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-white' : 'text-neutral-400'}`}>Geladeira</span>
+                                                {activeDevice.mode === DeviceMode.FRIDGE && <Check size={14} className="text-emerald-500" />}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     )}
 
