@@ -505,7 +505,15 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
         const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         const [rows] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, recorded_at, step_name FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`, [req.params.id]);
-        res.json(rows);
+        
+        let finalRows = rows;
+        const targetPoints = 500;
+        if (rows.length > targetPoints) {
+            const step = Math.ceil(rows.length / targetPoints);
+            finalRows = rows.filter((_, index) => index % step === 0);
+        }
+        
+        res.json(finalRows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
