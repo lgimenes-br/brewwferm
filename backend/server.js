@@ -8,6 +8,9 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import crypto from 'crypto';
 import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
+import { OAuth2Client } from 'google-auth-library';
+
+const client = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID || '186122113143-5ao2f53lkggo3a2jd3f5jo62v6tbc39j.apps.googleusercontent.com');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,14 +174,41 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/auth/google', async (req, res) => {
     try {
         const { idToken } = req.body;
-        // MOCK: Verify token and find/create user
         if (!idToken) return res.status(400).json({ error: 'idToken é obrigatório' });
         
-        // Simulating user retrieval
-        const mockUser = { id: 999, name: 'Google User', email: 'user@google.com' };
-        const token = jwt.sign({ id: mockUser.id, name: mockUser.name }, JWT_SECRET);
-        res.json({ token, name: mockUser.name });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        const ticket = await client.verifyIdToken({
+            idToken: idToken,
+            audience: process.env.VITE_GOOGLE_CLIENT_ID || '186122113143-5ao2f53lkggo3a2jd3f5jo62v6tbc39j.apps.googleusercontent.com'
+        });
+        
+        const payload = ticket.getPayload();
+        const email = payload.email;
+        const name = payload.name;
+        const googleId = payload.sub;
+
+        if (!email) return res.status(400).json({ error: 'Token não possui email' });
+
+        // Verifica se o usuário existe no DB
+        let [users] = await pool.execute('SELECT id, name, email FROM users WHERE email = ?', [email]);
+        
+        let userId;
+        let userName = name;
+
+        if (users.length === 0) {
+            // Cria usuário novo
+            const [result] = await pool.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', [name, email, 'google_sso_' + googleId]);
+            userId = result.insertId;
+        } else {
+            userId = users[0].id;
+            userName = users[0].name;
+        }
+
+        const token = jwt.sign({ id: userId, name: userName }, JWT_SECRET);
+        res.json({ token, name: userName });
+    } catch (err) { 
+        console.error('Google Auth Error:', err);
+        res.status(500).json({ error: 'Falha na autenticação com o Google' }); 
+    }
 });
 
 // --- ROTAS DE COMPARTILHAMENTO (NOVO) ---
