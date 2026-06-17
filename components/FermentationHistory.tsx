@@ -54,45 +54,6 @@ export const FermentationHistory: React.FC = () => {
                         let og = parseFloat(b.og) || 0;
                         let fg = parseFloat(b.fg) || 0;
 
-                        // If OG/FG are missing from backend, try to get from telemetry
-                        if ((!og || !fg) && b.id) {
-                            try {
-                                const telRes = await fetch(`${API_URL}/batch/${b.id}/data`, {
-                                    headers: { 'Authorization': `Bearer ${token}` }
-                                });
-                                if (telRes.ok) {
-                                    const telemetry = await telRes.json();
-                                    if (telemetry.length > 0) {
-                                        // Get first VALID gravity reading as OG (skip zeros/nulls/invalid values)
-                                        if (!og) {
-                                            for (const reading of telemetry) {
-                                                const gravityValue = parseFloat(reading.gravity);
-                                                // Valid OG should be between 1.000 and 1.200
-                                                if (gravityValue && gravityValue >= 1.000 && gravityValue <= 1.200) {
-                                                    og = gravityValue;
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        // Get last VALID gravity reading as FG (skip zeros/nulls/invalid values)
-                                        if (!fg) {
-                                            for (let i = telemetry.length - 1; i >= 0; i--) {
-                                                const gravityValue = parseFloat(telemetry[i].gravity);
-                                                // Valid FG should be between 0.990 and 1.200
-                                                if (gravityValue && gravityValue >= 0.990 && gravityValue <= 1.200) {
-                                                    fg = gravityValue;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (e) {
-                                // Silently fail - will use zeros
-                            }
-                        }
-
                         return {
                             id: String(b.id),
                             batchNumber: String(b.id),
