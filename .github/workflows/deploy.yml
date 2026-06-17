@@ -1,0 +1,61 @@
+name: Deploy Automático na Locaweb
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Pegando o código completo do GitHub
+        uses: actions/checkout@v4
+
+      - name: 2. Preparando o computador da nuvem
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 3. Construindo o Layout novo (Build)
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_MQTT_BROKER: ${{ secrets.VITE_MQTT_BROKER }}
+        run: |
+          npm install
+          npm run build
+
+      - name: 4. Copiando a vitrine (Frontend) para a Locaweb
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          source: "dist/*" 
+          target: "/var/www/breww.live/html/"
+          strip_components: 1
+
+      - name: 5. Copiando o motor (Backend) para a Locaweb
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          source: "backend/*" 
+          target: "/var/www/breww-backend/"
+          strip_components: 1
+
+      - name: 6. Reiniciando a fermentação silenciosamente
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            cd /var/www/breww-backend/
+            npm install
+            pm2 restart breww-server || pm2 start server.js --name "breww-server"
+            pm2 save
