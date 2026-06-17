@@ -35,20 +35,28 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     onFinishProfile
 }) => {
     const [isEditing, setIsEditing] = useState(false);
+    const [localSteps, setLocalSteps] = useState<FermentationStep[]>(steps);
+
+    // Keep local steps synced when not editing
+    React.useEffect(() => {
+        if (!isEditing) {
+            setLocalSteps(steps);
+        }
+    }, [steps, isEditing]);
 
     const getStepTimeRemaining = (stepIndex: number) => {
-        if (!startDate || steps.length === 0) return null;
+        if (!startDate || localSteps.length === 0) return null;
 
         const start = new Date(startDate).getTime();
         let daysPrior = 0;
 
         // Sum previous steps
         for (let i = 0; i < stepIndex; i++) {
-            daysPrior += steps[i].duration;
+            daysPrior += localSteps[i].duration;
         }
 
         // Add current step duration to calculate target end time
-        const currentDuration = steps[stepIndex]?.duration || 0;
+        const currentDuration = localSteps[stepIndex]?.duration || 0;
         const targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         const now = Date.now();
         const diff = targetEndTime - now;
@@ -69,25 +77,33 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             temperature: 18,
             duration: 1
         };
-        onUpdateSteps([...steps, newStep]);
+        setLocalSteps([...localSteps, newStep]);
     };
 
     const handleRemoveStep = (id: string) => {
-        onUpdateSteps(steps.filter(s => s.id !== id));
+        setLocalSteps(localSteps.filter(s => s.id !== id));
     };
 
     const handleChangeStep = (id: string, field: keyof FermentationStep, value: any) => {
-        onUpdateSteps(steps.map(s => s.id === id ? { ...s, [field]: value } : s));
+        setLocalSteps(localSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
     };
 
-    const isLastStep = currentStepIndex >= steps.length - 1;
+    const handleToggleEdit = () => {
+        if (isEditing) {
+            // User finished editing, save to backend
+            onUpdateSteps(localSteps);
+        }
+        setIsEditing(!isEditing);
+    };
+
+    const isLastStep = currentStepIndex >= localSteps.length - 1;
 
     return (
         <div className="bg-neutral-900/40 rounded-3xl p-8 border border-neutral-800 backdrop-blur-sm flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Perfil de Fermentação</h3>
                 <button
-                    onClick={() => setIsEditing(!isEditing)}
+                    onClick={handleToggleEdit}
                     className="text-neutral-400 hover:text-white transition-colors"
                 >
                     {isEditing ? <Check size={16} className="text-green-500" /> : <Edit2 size={16} />}
@@ -121,9 +137,9 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
             <div className="space-y-3 relative mb-6">
                 {/* Linha conectora vertical */}
-                {steps.length > 0 && <div className="absolute left-[19px] top-4 bottom-4 w-px bg-neutral-800 z-0"></div>}
+                {localSteps.length > 0 && <div className="absolute left-[19px] top-4 bottom-4 w-px bg-neutral-800 z-0"></div>}
 
-                {steps.map((step, index) => {
+                {localSteps.map((step, index) => {
                     const isActive = index === currentStepIndex;
                     const isPast = index < currentStepIndex;
 
@@ -227,7 +243,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             </div>
 
             {/* Control Bar Footer */}
-            {!isEditing && steps.length > 0 && (
+            {!isEditing && localSteps.length > 0 && (
                 <div className="grid grid-cols-4 gap-2 mt-auto pt-4 border-t border-neutral-800">
                     <button
                         onClick={onTogglePause}
