@@ -1,0 +1,5 @@
+{
+  "name": "BREWW Dashboard",
+  "description": "Painel de controle moderno para fermentação de cerveja com integração iSpindel e insights via Gemini AI.",
+  "requestFramePermissions": []
+}
