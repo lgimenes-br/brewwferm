@@ -240,7 +240,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.start_date as active_batch_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
+        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -286,7 +286,7 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
         // Store profile as JSON string if provided
         const profileJson = profile ? JSON.stringify(profile) : null;
         const [result] = await pool.execute(
-            'INSERT INTO batches (device_id, name, style, og, fg, profile, start_date, is_active) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)',
+            'INSERT INTO batches (device_id, name, style, og, fg, profile, started_at, is_active) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)',
             [deviceId, name, style || '', og || null, fg || null, profileJson]
         );
 
