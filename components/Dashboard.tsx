@@ -321,7 +321,7 @@ export const Dashboard: React.FC = () => {
                                                     OG: {safeOG.toFixed(3)}
                                                 </span>
                                                 {safeFG && (
-                                                    <span className="text-[10px] text-neutral-600 uppercase tracking-wider block">
+                                                    <span className="text-xs text-neutral-500 uppercase tracking-wider block">
                                                         FG: {safeFG.toFixed(3)}
                                                     </span>
                                                 )}
