@@ -53,7 +53,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     // SAFE PARSING OF NUMBERS (Fix for string data from API)
     const safeTargetTemp = parseFloat(String(fermenter.targetTemp || 0));
     const safeCurrentTemp = parseFloat(String(fermenter.currentDevice?.temperature || 0));
-    const safeCurrentGravity = parseFloat(String(fermenter.currentDevice?.gravity || 0));
+    const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
+        ? fermenter.readings[fermenter.readings.length - 1].gravity 
+        : 0;
+    const safeCurrentGravity = fermenter.currentDevice?.gravity > 0 
+        ? parseFloat(String(fermenter.currentDevice.gravity))
+        : (parseFloat(String(lastChartGravity)) || 0);
     const safeCurrentFridgeTemp = parseFloat(String(fermenter.currentFridgeTemp || 0));
     const safeOG = parseFloat(String(fermenter.og || 0));
     const safeFG = fermenter.fg ? parseFloat(String(fermenter.fg)) : null;
@@ -200,13 +205,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     };
 
     // Calculations
-    const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
-        ? fermenter.readings[fermenter.readings.length - 1].gravity 
-        : 0;
-        
-    const safeCurrentGravity = fermenter.currentDevice?.gravity > 0 
-        ? fermenter.currentDevice.gravity 
-        : (lastChartGravity || 0);
 
     const abv = ((safeOG - safeCurrentGravity) * 131.25).toFixed(1);
 
