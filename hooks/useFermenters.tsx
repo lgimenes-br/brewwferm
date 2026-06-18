@@ -289,8 +289,32 @@ export const useFermenters = () => {
 
                     let updatedReadings = f.readings;
                     if (newReading) {
+                        // Se for uma leitura sem SG, tenta manter o último SG recebido neste lote (caso exista e seja > 0)
+                        if (f.batchId && (!newReading.gravity || newReading.gravity === 0)) {
+                            // Pega o SG da leitura anterior, se existir
+                            const lastReading = f.readings && f.readings.length > 0 ? f.readings[f.readings.length - 1] : null;
+                            if (lastReading && lastReading.gravity > 0) {
+                                newReading.gravity = lastReading.gravity;
+                            }
+                        }
                         updatedReadings = [...(f.readings || []), newReading];
                     }
+
+                    // Mesclar currentDevice com segurança para manter dados do iSpindel (como gravity) que demoram a chegar
+                    let updatedCurrentDevice = filteredRest.currentDevice as any;
+                    if (updatedCurrentDevice && f.currentDevice) {
+                        updatedCurrentDevice = { ...f.currentDevice, ...updatedCurrentDevice };
+                        // Se SG vier zerado ou NaN no pacote atual, mantem o antigo (se houver lote ativo)
+                        if (f.batchId && (!updatedCurrentDevice.gravity || isNaN(updatedCurrentDevice.gravity))) {
+                            if (f.currentDevice.gravity > 0) {
+                                updatedCurrentDevice.gravity = f.currentDevice.gravity;
+                            } else {
+                                updatedCurrentDevice.gravity = 0;
+                            }
+                        }
+                        filteredRest.currentDevice = updatedCurrentDevice;
+                    }
+
                     return { ...f, ...filteredRest, readings: updatedReadings } as Fermenter;
                 }
                 return f;
