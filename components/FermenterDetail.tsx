@@ -200,6 +200,14 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     };
 
     // Calculations
+    const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
+        ? fermenter.readings[fermenter.readings.length - 1].gravity 
+        : 0;
+        
+    const safeCurrentGravity = fermenter.currentDevice?.gravity > 0 
+        ? fermenter.currentDevice.gravity 
+        : (lastChartGravity || 0);
+
     const abv = ((safeOG - safeCurrentGravity) * 131.25).toFixed(1);
 
     const currentAttenuation = safeOG > 1.000
