@@ -113,9 +113,10 @@ mqttClient.on('message', async (topic, message) => {
                 const currentBatchId = activeBatches[serialCode] || null;
 
                 let finalGravity = sanitizeNum(payload.is_sg, 3);
-                if (finalGravity === null && currentBatchId) {
+                // O ESP32 envia 0 quando não tem leitura do iSpindel. Tratamos como nulo.
+                if ((finalGravity === null || parseFloat(finalGravity) === 0) && currentBatchId) {
                     try {
-                        const [lastRow] = await pool.execute('SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL ORDER BY recorded_at DESC LIMIT 1', [currentBatchId]);
+                        const [lastRow] = await pool.execute('SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 ORDER BY recorded_at DESC LIMIT 1', [currentBatchId]);
                         if (lastRow.length > 0) {
                             finalGravity = lastRow[0].gravity;
                         }
@@ -556,6 +557,18 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
             const step = Math.ceil(rows.length / targetPoints);
             finalRows = rows.filter((_, index) => index % step === 0);
         }
+
+        // Fill in missing/zero gravities with the previous valid value so the chart doesn't drop
+        let lastValidGravity = null;
+        finalRows = finalRows.map(row => {
+            const currentGravity = row.gravity !== null ? parseFloat(row.gravity) : null;
+            if (currentGravity !== null && currentGravity > 0) {
+                lastValidGravity = currentGravity;
+            } else if (lastValidGravity !== null) {
+                row.gravity = lastValidGravity;
+            }
+            return row;
+        });
         
         res.json(finalRows);
     } catch (err) { res.status(500).json({ error: err.message }); }
