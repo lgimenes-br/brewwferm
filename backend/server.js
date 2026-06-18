@@ -111,9 +111,22 @@ mqttClient.on('message', async (topic, message) => {
                     target = payload.steps[payload.currStep].t;
                 }
                 const currentBatchId = activeBatches[serialCode] || null;
+
+                let finalGravity = sanitizeNum(payload.is_sg, 3);
+                if (finalGravity === null && currentBatchId) {
+                    try {
+                        const [lastRow] = await pool.execute('SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL ORDER BY recorded_at DESC LIMIT 1', [currentBatchId]);
+                        if (lastRow.length > 0) {
+                            finalGravity = lastRow[0].gravity;
+                        }
+                    } catch (err) {
+                        console.error('Failed to get last gravity', err);
+                    }
+                }
+
                 await pool.execute(
                     `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-                    [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), sanitizeNum(payload.is_sg, 3), sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat]
+                    [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat]
                 ).catch(() => { });
                 lastLogTimes[serialCode] = now;
             }

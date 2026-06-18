@@ -116,7 +116,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...(isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
                     currentDevice: {
                         temperature: parseFloat(payload.ferm),
-                        gravity: parseFloat(payload.is_sg),
+                        gravity: payload.is_sg !== undefined ? parseFloat(payload.is_sg) : undefined,
                         battery: parseFloat(payload.is_bat),
                         rssi: parseFloat(payload.rssi),
                         lastUpdate: new Date().toISOString(),
@@ -130,7 +130,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         beerTemp: parseFloat(payload.ferm) || 0,
                         fridgeTemp: parseFloat(payload.amb) || 0,
                         targetTemp: parseFloat(target as any) || 20,
-                        gravity: parseFloat(payload.is_sg) || 0
+                        gravity: payload.is_sg !== undefined ? parseFloat(payload.is_sg) : undefined
                     }
                     // Note: Ideally readings should be updated here, doing it in local hook might be tricky without previous state
                     // We can augment updateFermenterLocal to receive a callback to access old state.
