@@ -218,6 +218,7 @@ export const Dashboard: React.FC = () => {
                     const safeFridge = parseFloat(String(f.currentFridgeTemp || 0));
                     const safeGravity = parseFloat(String(f.currentDevice?.gravity || 0));
                     const safeOG = parseFloat(String(f.og || 0));
+                    const safeFG = f.fg ? parseFloat(String(f.fg)) : null;
                     const safeRSSI = f.currentDevice?.rssi || 0;
 
 
@@ -315,9 +316,16 @@ export const Dashboard: React.FC = () => {
                                                 </span>
                                                 <span className="text-lg text-neutral-500 font-light mt-1">SG</span>
                                             </div>
-                                            <span className="text-xs text-neutral-500 uppercase tracking-wider block mt-2">
-                                                OG: {safeOG.toFixed(3)}
-                                            </span>
+                                            <div className="flex flex-col items-end gap-0.5 mt-2">
+                                                <span className="text-xs text-neutral-500 uppercase tracking-wider block">
+                                                    OG: {safeOG.toFixed(3)}
+                                                </span>
+                                                {safeFG && (
+                                                    <span className="text-[10px] text-neutral-600 uppercase tracking-wider block">
+                                                        FG: {safeFG.toFixed(3)}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </>
                                     ) : (
                                         <div className="flex flex-col items-end justify-center h-full opacity-30">
