@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { X, Plus, Trash2, Thermometer, Clock } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Plus, Trash2, Thermometer, Clock, Upload } from 'lucide-react';
 import { FermentationStep, BeerStyle } from '../types';
 
 interface NewBatchModalProps {
@@ -37,6 +37,67 @@ export const NewBatchModal: React.FC<NewBatchModalProps> = ({ isOpen, onClose, o
         { id: '1', name: 'Fermentação Primária', temperature: 18, duration: 7 },
         { id: '2', name: 'Maturação', temperature: 18, duration: 3 }
     ]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const content = event.target?.result as string;
+                if (file.name.endsWith('.json')) {
+                    const data = JSON.parse(content);
+                    if (data.name) setName(data.name);
+                    if (data.style?.name) {
+                        // find closest match in our list or just set 'OTHER'
+                        const matchedStyle = BEER_STYLES.find(s => data.style.name.toUpperCase().includes(s)) || 'OTHER';
+                        setStyle(matchedStyle);
+                    }
+                    if (data.og) setOg(Number(data.og).toFixed(3));
+                    if (data.fg) setFg(Number(data.fg).toFixed(3));
+                    
+                    if (data.fermentation?.steps && data.fermentation.steps.length > 0) {
+                        const newProfile = data.fermentation.steps.map((step: any, index: number) => ({
+                            id: Date.now().toString() + index,
+                            name: step.name || `Etapa ${index + 1}`,
+                            temperature: step.stepTemp || 18,
+                            duration: step.stepTime || 7
+                        }));
+                        setProfile(newProfile);
+                    }
+                } else if (file.name.endsWith('.xml')) {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(content, "text/xml");
+                    const recipe = xmlDoc.getElementsByTagName("RECIPE")[0];
+                    if (recipe) {
+                        const rName = recipe.getElementsByTagName("NAME")[0]?.textContent;
+                        const rOg = recipe.getElementsByTagName("EST_OG")[0]?.textContent || recipe.getElementsByTagName("OG")[0]?.textContent;
+                        const rFg = recipe.getElementsByTagName("EST_FG")[0]?.textContent || recipe.getElementsByTagName("FG")[0]?.textContent;
+                        const rStyle = recipe.getElementsByTagName("STYLE")[0]?.getElementsByTagName("NAME")[0]?.textContent;
+
+                        if (rName) setName(rName);
+                        if (rOg) setOg(Number(rOg).toFixed(3));
+                        if (rFg) setFg(Number(rFg).toFixed(3));
+                        if (rStyle) {
+                            const matchedStyle = BEER_STYLES.find(s => rStyle.toUpperCase().includes(s)) || 'OTHER';
+                            setStyle(matchedStyle);
+                        }
+                        
+                        // XML profiles are harder, so we stick to the basic for XML unless requested.
+                    }
+                }
+            } catch (err) {
+                console.error("Error parsing Brewfather file", err);
+                alert("Erro ao ler o arquivo. Certifique-se de que é um JSON ou BeerXML válido.");
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset file input so same file can be uploaded again if needed
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
     const handleAddStep = () => {
         const newStep: FermentationStep = {
@@ -112,12 +173,30 @@ export const NewBatchModal: React.FC<NewBatchModalProps> = ({ isOpen, onClose, o
                 {/* Header */}
                 <div className="sticky top-0 bg-neutral-900 border-b border-neutral-800 p-6 flex justify-between items-center">
                     <h2 className="text-2xl font-light text-white">Iniciar Nova Produção</h2>
-                    <button
-                        onClick={onClose}
-                        className="text-neutral-500 hover:text-white transition-colors"
-                    >
-                        <X size={24} />
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#F2C94C]/10 hover:bg-[#F2C94C]/20 border border-[#F2C94C]/30 rounded-xl text-[#F2C94C] text-sm font-medium transition-colors"
+                            title="Importar receita do Brewfather"
+                        >
+                            <Upload size={16} />
+                            <span className="hidden sm:inline">Importar do Brewfather</span>
+                            <span className="sm:hidden">Importar</span>
+                        </button>
+                        <input 
+                            type="file" 
+                            accept=".json,.xml" 
+                            ref={fileInputRef} 
+                            onChange={handleFileUpload} 
+                            className="hidden" 
+                        />
+                        <button
+                            onClick={onClose}
+                            className="text-neutral-500 hover:text-white transition-colors"
+                        >
+                            <X size={24} />
+                        </button>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
