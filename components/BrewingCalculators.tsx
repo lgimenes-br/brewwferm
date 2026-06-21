@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
     Percent, 
     FlaskConical, 
@@ -8,8 +8,11 @@ import {
     Beer, 
     Leaf, 
     ChevronRight,
-    Calculator
+    ChevronRight,
+    Calculator,
+    ArrowLeft
 } from 'lucide-react';
+import { AbvCalculator } from './calculators/AbvCalculator';
 
 interface CalculatorItem {
     id: string;
@@ -72,6 +75,24 @@ const calculators: CalculatorItem[] = [
 ];
 
 export const BrewingCalculators: React.FC = () => {
+    const [activeCalculator, setActiveCalculator] = useState<string | null>(null);
+
+    // Render logic
+    if (activeCalculator === 'abv') {
+        return (
+            <div className="max-w-4xl mx-auto pb-24">
+                <button 
+                    onClick={() => setActiveCalculator(null)}
+                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
+                >
+                    <ArrowLeft size={20} />
+                    <span>Voltar para Calculadoras</span>
+                </button>
+                <AbvCalculator />
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-4xl mx-auto pb-24">
             {/* Header */}
@@ -95,7 +116,13 @@ export const BrewingCalculators: React.FC = () => {
                         <button 
                             key={calc.id}
                             className="w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left"
-                            onClick={() => alert(`A calculadora "${calc.title}" será implementada em breve!`)}
+                            onClick={() => {
+                                if (calc.id === 'abv') {
+                                    setActiveCalculator(calc.id);
+                                } else {
+                                    alert(`A calculadora "${calc.title}" será implementada em breve!`);
+                                }
+                            }}
                         >
                             <div className="flex items-center gap-4">
                                 <div className={`p-3 rounded-xl flex items-center justify-center ${calc.color} transition-transform group-hover:scale-110`}>
