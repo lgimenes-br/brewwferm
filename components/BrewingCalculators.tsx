@@ -8,7 +8,6 @@ import {
     Beer, 
     Leaf, 
     ChevronRight,
-    ChevronRight,
     Calculator,
     ArrowLeft
 } from 'lucide-react';
