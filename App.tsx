@@ -8,7 +8,8 @@ import { Register } from './components/Register';
 import { FermentationHistory } from './components/FermentationHistory';
 import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrapper';
 import { Settings } from './components/Settings';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check } from 'lucide-react';
+import { BrewingCalculators } from './components/BrewingCalculators';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute } from './components/AuthGuard';
@@ -157,12 +158,15 @@ const NavConfig = () => {
                     <button title="Logs" onClick={() => navigate('/history')} className={iconOnlyBase} >
                         <History size={18} />
                     </button>
+                    <button title="Calculadoras" onClick={() => navigate('/calculators')} className={iconOnlyBase} >
+                        <Calculator size={18} />
+                    </button>
                     <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
                         <SettingsIcon size={18} />
                     </button>
 
                     {/* Voltar Button - moved to the right corner */}
-                    {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings') && (
+                    {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators') && (
                         <button title="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
                             <ArrowLeft size={18} />
                         </button>
@@ -217,6 +221,7 @@ const AppRoutes = () => {
                                     <Route path="/fermenter/:id" element={<FermenterDetailWrapper />} />
                                     <Route path="/history" element={<FermentationHistory />} />
                                     <Route path="/history/:id" element={<FinishedBrewDetailWrapper />} />
+                                    <Route path="/calculators" element={<BrewingCalculators />} />
                                     <Route path="/settings" element={<Settings />} />
                                     <Route path="*" element={<Navigate to="/" replace />} />
                                 </Routes>
