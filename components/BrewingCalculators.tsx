@@ -12,6 +12,7 @@ import {
     ArrowLeft
 } from 'lucide-react';
 import { AbvCalculator } from './calculators/AbvCalculator';
+import { RefractometerCalculator } from './calculators/RefractometerCalculator';
 
 interface CalculatorItem {
     id: string;
@@ -91,6 +92,21 @@ export const BrewingCalculators: React.FC = () => {
             </div>
         );
     }
+    
+    if (activeCalculator === 'refractometer') {
+        return (
+            <div className="max-w-4xl mx-auto pb-24">
+                <button 
+                    onClick={() => setActiveCalculator(null)}
+                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
+                >
+                    <ArrowLeft size={20} />
+                    <span>Voltar para Calculadoras</span>
+                </button>
+                <RefractometerCalculator />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto pb-24">
@@ -116,7 +132,7 @@ export const BrewingCalculators: React.FC = () => {
                             key={calc.id}
                             className="w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left"
                             onClick={() => {
-                                if (calc.id === 'abv') {
+                                if (calc.id === 'abv' || calc.id === 'refractometer') {
                                     setActiveCalculator(calc.id);
                                 } else {
                                     alert(`A calculadora "${calc.title}" será implementada em breve!`);
