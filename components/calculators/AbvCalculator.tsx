@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Percent, ArrowRight } from 'lucide-react';
 
 export const AbvCalculator: React.FC = () => {
-    const [unit, setUnit] = useState<'SG' | 'Plato'>('SG');
+    const [unit, setUnit] = useState<'SG' | 'Plato' | 'Brix'>('SG');
     const [ogInput, setOgInput] = useState<string>('1.050');
     const [fgInput, setFgInput] = useState<string>('1.010');
 
@@ -64,7 +64,7 @@ export const AbvCalculator: React.FC = () => {
         }
     }, [ogInput, fgInput, unit]);
 
-    const handleUnitToggle = (selectedUnit: 'SG' | 'Plato') => {
+    const handleUnitToggle = (selectedUnit: 'SG' | 'Plato' | 'Brix') => {
         if (selectedUnit === unit) return;
         
         // Convert current inputs to new unit
@@ -72,12 +72,16 @@ export const AbvCalculator: React.FC = () => {
         const currentFg = parseFloat(fgInput.replace(',', '.'));
         
         if (!isNaN(currentOg) && !isNaN(currentFg)) {
-            if (selectedUnit === 'Plato') {
-                setOgInput(Math.max(0, sgToPlato(currentOg)).toFixed(1));
-                setFgInput(Math.max(0, sgToPlato(currentFg)).toFixed(1));
+            if (selectedUnit === 'Plato' || selectedUnit === 'Brix') {
+                if (unit === 'SG') {
+                    setOgInput(Math.max(0, sgToPlato(currentOg)).toFixed(1));
+                    setFgInput(Math.max(0, sgToPlato(currentFg)).toFixed(1));
+                }
             } else {
-                setOgInput(Math.max(1, platoToSg(currentOg)).toFixed(3));
-                setFgInput(Math.max(1, platoToSg(currentFg)).toFixed(3));
+                if (unit !== 'SG') {
+                    setOgInput(Math.max(1, platoToSg(currentOg)).toFixed(3));
+                    setFgInput(Math.max(1, platoToSg(currentFg)).toFixed(3));
+                }
             }
         }
         setUnit(selectedUnit);
@@ -107,15 +111,21 @@ export const AbvCalculator: React.FC = () => {
                         <div className="flex bg-neutral-950 rounded-xl p-1 border border-neutral-800">
                             <button 
                                 onClick={() => handleUnitToggle('SG')}
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${unit === 'SG' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'SG' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
                             >
                                 Gravidade (SG)
                             </button>
                             <button 
                                 onClick={() => handleUnitToggle('Plato')}
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${unit === 'Plato' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Plato' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
                             >
                                 Graus Plato (°P)
+                            </button>
+                            <button 
+                                onClick={() => handleUnitToggle('Brix')}
+                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Brix' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                            >
+                                Brix
                             </button>
                         </div>
                     </div>
@@ -132,7 +142,7 @@ export const AbvCalculator: React.FC = () => {
                                     onChange={(e) => setOgInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-blue-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : '°P'}</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : (unit === 'Plato' ? '°P' : 'Bx')}</span>
                             </div>
                         </div>
 
@@ -147,7 +157,7 @@ export const AbvCalculator: React.FC = () => {
                                     onChange={(e) => setFgInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-blue-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : '°P'}</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : (unit === 'Plato' ? '°P' : 'Bx')}</span>
                             </div>
                         </div>
                     </div>
