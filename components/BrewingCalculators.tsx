@@ -14,6 +14,7 @@ import {
 import { AbvCalculator } from './calculators/AbvCalculator';
 import { RefractometerCalculator } from './calculators/RefractometerCalculator';
 import { YeastCalculator } from './calculators/YeastCalculator';
+import { BoilOffCalculator } from './calculators/BoilOffCalculator';
 
 interface CalculatorItem {
     id: string;
@@ -123,6 +124,21 @@ export const BrewingCalculators: React.FC = () => {
             </div>
         );
     }
+    
+    if (activeCalculator === 'boiloff') {
+        return (
+            <div className="max-w-4xl mx-auto pb-24">
+                <button 
+                    onClick={() => setActiveCalculator(null)}
+                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
+                >
+                    <ArrowLeft size={20} />
+                    <span>Voltar para Calculadoras</span>
+                </button>
+                <BoilOffCalculator />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto pb-24">
@@ -148,7 +164,7 @@ export const BrewingCalculators: React.FC = () => {
                             key={calc.id}
                             className="w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left"
                             onClick={() => {
-                                if (calc.id === 'abv' || calc.id === 'refractometer' || calc.id === 'yeast') {
+                                if (calc.id === 'abv' || calc.id === 'refractometer' || calc.id === 'yeast' || calc.id === 'boiloff') {
                                     setActiveCalculator(calc.id);
                                 } else {
                                     alert(`A calculadora "${calc.title}" será implementada em breve!`);
