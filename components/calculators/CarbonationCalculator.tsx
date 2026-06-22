@@ -166,18 +166,7 @@ export const CarbonationCalculator: React.FC = () => {
     }, [co2VolInput, tempInput, typeInput, batchVolInput, fermTempInput]);
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-8 pb-6 border-b border-neutral-800/50">
-                <div className="p-4 bg-yellow-500/10 rounded-2xl text-yellow-500">
-                    <Wind size={28} />
-                </div>
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tighter">Carbonatação</h2>
-                    <p className="text-neutral-500 mt-1">Calcule a pressão do barril ou o açúcar de priming para seu estilo.</p>
-                </div>
-            </div>
-
+        <div className="w-full">
             {/* Content */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 

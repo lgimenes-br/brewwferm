@@ -45,18 +45,7 @@ export const HydrometerTempCalculator: React.FC = () => {
     }, [measuredGravInput, tempInput, calibTempInput]);
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-8 pb-6 border-b border-neutral-800/50">
-                <div className="p-4 bg-orange-400/10 rounded-2xl text-orange-400">
-                    <Thermometer size={28} />
-                </div>
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tighter">Correção de Temperatura do Densímetro</h2>
-                    <p className="text-neutral-500 mt-1">Ajuste a leitura da densidade de acordo com a temperatura do mosto.</p>
-                </div>
-            </div>
-
+        <div className="w-full">
             {/* Content */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 
