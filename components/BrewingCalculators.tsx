@@ -6,10 +6,8 @@ import {
     Scale, 
     Thermometer, 
     Beer, 
-    Leaf, 
     ChevronRight,
-    Calculator,
-    ArrowLeft
+    Calculator
 } from 'lucide-react';
 import { AbvCalculator } from './calculators/AbvCalculator';
 import { RefractometerCalculator } from './calculators/RefractometerCalculator';
@@ -74,97 +72,6 @@ const calculators: CalculatorItem[] = [
 export const BrewingCalculators: React.FC = () => {
     const [activeCalculator, setActiveCalculator] = useState<string | null>(null);
 
-    // Render logic
-    if (activeCalculator === 'abv') {
-        return (
-            <div className="w-full px-4 md:px-10 mx-auto pb-24">
-                <button 
-                    onClick={() => setActiveCalculator(null)}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
-                >
-                    <ArrowLeft size={20} />
-                    <span>Voltar para Calculadoras</span>
-                </button>
-                <AbvCalculator />
-            </div>
-        );
-    }
-    
-    if (activeCalculator === 'refractometer') {
-        return (
-            <div className="w-full px-4 md:px-10 mx-auto pb-24">
-                <button 
-                    onClick={() => setActiveCalculator(null)}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
-                >
-                    <ArrowLeft size={20} />
-                    <span>Voltar para Calculadoras</span>
-                </button>
-                <RefractometerCalculator />
-            </div>
-        );
-    }
-    
-    if (activeCalculator === 'yeast') {
-        return (
-            <div className="w-full px-4 md:px-10 mx-auto pb-24">
-                <button 
-                    onClick={() => setActiveCalculator(null)}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
-                >
-                    <ArrowLeft size={20} />
-                    <span>Voltar para Calculadoras</span>
-                </button>
-                <YeastCalculator />
-            </div>
-        );
-    }
-    
-    if (activeCalculator === 'density') {
-        return (
-            <div className="w-full px-4 md:px-10 mx-auto pb-24">
-                <button 
-                    onClick={() => setActiveCalculator(null)}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
-                >
-                    <ArrowLeft size={20} />
-                    <span>Voltar para Calculadoras</span>
-                </button>
-                <BoilOffCalculator />
-            </div>
-        );
-    }
-    
-    if (activeCalculator === 'hydrometer') {
-        return (
-            <div className="w-full px-4 md:px-10 mx-auto pb-24">
-                <button 
-                    onClick={() => setActiveCalculator(null)}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
-                >
-                    <ArrowLeft size={20} />
-                    <span>Voltar para Calculadoras</span>
-                </button>
-                <HydrometerTempCalculator />
-            </div>
-        );
-    }
-    
-    if (activeCalculator === 'carbonation') {
-        return (
-            <div className="w-full px-4 md:px-10 mx-auto pb-24">
-                <button 
-                    onClick={() => setActiveCalculator(null)}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
-                >
-                    <ArrowLeft size={20} />
-                    <span>Voltar para Calculadoras</span>
-                </button>
-                <CarbonationCalculator />
-            </div>
-        );
-    }
-
     return (
         <div className="w-full px-4 md:px-10 mx-auto pb-24">
             {/* Header */}
@@ -182,33 +89,48 @@ export const BrewingCalculators: React.FC = () => {
 
             {/* List */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden divide-y divide-neutral-800/50 shadow-2xl">
-                {calculators.map((calc, index) => {
+                {calculators.map((calc) => {
                     const Icon = calc.icon;
+                    const isActive = activeCalculator === calc.id;
+                    
                     return (
-                        <button 
-                            key={calc.id}
-                            className="w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left"
-                            onClick={() => {
-                                if (calc.id === 'abv' || calc.id === 'refractometer' || calc.id === 'yeast' || calc.id === 'density' || calc.id === 'hydrometer' || calc.id === 'carbonation') {
-                                    setActiveCalculator(calc.id);
-                                } else {
-                                    alert(`A calculadora "${calc.title}" será implementada em breve!`);
-                                }
-                            }}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`p-3 rounded-xl flex items-center justify-center ${calc.color} transition-transform group-hover:scale-110`}>
-                                    <Icon size={20} />
+                        <div key={calc.id} className="w-full flex flex-col">
+                            <button 
+                                className={`w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left ${isActive ? 'bg-neutral-800/30' : ''}`}
+                                onClick={() => {
+                                    if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation'].includes(calc.id)) {
+                                        setActiveCalculator(isActive ? null : calc.id);
+                                    } else {
+                                        alert(`A calculadora "${calc.title}" será implementada em breve!`);
+                                    }
+                                }}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`p-3 rounded-xl flex items-center justify-center ${calc.color} transition-transform group-hover:scale-110`}>
+                                        <Icon size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-white font-bold tracking-tight text-lg group-hover:text-neutral-200 transition-colors">{calc.title}</h3>
+                                        <p className="text-neutral-500 text-sm mt-0.5 max-w-xl">{calc.description}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-white font-bold tracking-tight text-lg group-hover:text-neutral-200 transition-colors">{calc.title}</h3>
-                                    <p className="text-neutral-500 text-sm mt-0.5 max-w-xl">{calc.description}</p>
+                                <div className={`text-neutral-600 transition-transform duration-300 ${isActive ? 'rotate-90 text-white' : 'group-hover:text-white group-hover:translate-x-1'}`}>
+                                    <ChevronRight size={20} />
                                 </div>
-                            </div>
-                            <div className="text-neutral-600 group-hover:text-white group-hover:translate-x-1 transition-all">
-                                <ChevronRight size={20} />
-                            </div>
-                        </button>
+                            </button>
+                            
+                            {/* Accordion Content */}
+                            {isActive && (
+                                <div className="p-4 md:p-6 border-t border-neutral-800/50 animate-in fade-in slide-in-from-top-4 duration-300">
+                                    {calc.id === 'abv' && <AbvCalculator />}
+                                    {calc.id === 'refractometer' && <RefractometerCalculator />}
+                                    {calc.id === 'yeast' && <YeastCalculator />}
+                                    {calc.id === 'density' && <BoilOffCalculator />}
+                                    {calc.id === 'hydrometer' && <HydrometerTempCalculator />}
+                                    {calc.id === 'carbonation' && <CarbonationCalculator />}
+                                </div>
+                            )}
+                        </div>
                     )
                 })}
             </div>
