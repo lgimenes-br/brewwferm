@@ -2,115 +2,95 @@ import React, { useState, useEffect } from 'react';
 import { Droplets } from 'lucide-react';
 
 export const BoilOffCalculator: React.FC = () => {
-    const [unit, setUnit] = useState<'SG' | 'Plato'>('SG');
+    const [currentGravInput, setCurrentGravInput] = useState<string>('1.042');
+    const [targetGravInput, setTargetGravInput] = useState<string>('1.050');
+    const [currentVolInput, setCurrentVolInput] = useState<string>('24');
     
-    const [currentVolInput, setCurrentVolInput] = useState<string>('25');
-    const [currentGravInput, setCurrentGravInput] = useState<string>('1.040');
+    const [extractType, setExtractType] = useState<'DME' | 'LME' | 'Sugar'>('DME');
     
-    const [targetType, setTargetType] = useState<'Volume' | 'Gravity'>('Gravity');
-    const [targetInput, setTargetInput] = useState<string>('1.050');
-    
-    const [boilOffRateInput, setBoilOffRateInput] = useState<string>('3.5');
+    const [calcBoil, setCalcBoil] = useState(true);
+    const [boilOffRateInput, setBoilOffRateInput] = useState<string>('10');
 
     const [results, setResults] = useState({
-        finalVol: 0,
-        finalGravSg: 1.000,
-        finalGravPlato: 0,
-        boilOffVol: 0,
-        boilTimeMins: 0
+        extractNeeded: 0,
+        evapNeeded: 0,
+        diluteNeeded: 0,
+        boilTimeMins: 0,
+        isDilution: false
     });
 
-    // Helper conversions
-    const sgToPlato = (sg: number) => {
-        return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
+    const extractPpg = {
+        'DME': 44,
+        'LME': 36,
+        'Sugar': 46
     };
-    
-    const platoToSg = (p: number) => 1 + (p / (258.6 - ((p / 258.2) * 227.1)));
+
+    const extractNames = {
+        'DME': 'Extrato de Malte Seco (DME)',
+        'LME': 'Extrato de Malte Líquido (LME)',
+        'Sugar': 'Açúcar de Mesa / Dextrose'
+    };
 
     useEffect(() => {
-        const cVol = parseFloat(currentVolInput.replace(',', '.'));
         const cGrav = parseFloat(currentGravInput.replace(',', '.'));
-        const target = parseFloat(targetInput.replace(',', '.'));
+        const tGrav = parseFloat(targetGravInput.replace(',', '.'));
+        const cVol = parseFloat(currentVolInput.replace(',', '.'));
         const boilRate = parseFloat(boilOffRateInput.replace(',', '.'));
 
-        if (isNaN(cVol) || isNaN(cGrav) || isNaN(target) || isNaN(boilRate) || cVol <= 0 || target <= 0) return;
+        if (isNaN(cGrav) || isNaN(tGrav) || isNaN(cVol) || cVol <= 0 || cGrav < 1 || tGrav < 1) return;
 
-        let currentSg = 1.000;
-        let currentPlato = 0;
-
-        if (unit === 'SG') {
-            currentSg = cGrav;
-            currentPlato = sgToPlato(cGrav);
-        } else {
-            currentSg = platoToSg(cGrav);
-            currentPlato = cGrav;
-        }
-
-        const points = (currentSg - 1) * 1000;
-        const totalPoints = points * cVol;
-
-        let finalVol = 0;
-        let finalSg = 1.000;
-
-        if (targetType === 'Volume') {
-            finalVol = target;
-            if (finalVol > 0) {
-                const finalPoints = totalPoints / finalVol;
-                finalSg = 1 + (finalPoints / 1000);
-            }
-        } else {
-            // Target is Gravity
-            let targetSg = 1.000;
-            if (unit === 'SG') {
-                targetSg = target;
-            } else {
-                targetSg = platoToSg(target);
-            }
-            
-            const targetPoints = (targetSg - 1) * 1000;
-            if (targetPoints > 0) {
-                finalVol = totalPoints / targetPoints;
-            }
-            finalSg = targetSg;
-        }
-
-        const boilOffVol = cVol - finalVol;
+        const currentPoints = (cGrav - 1) * 1000;
+        const targetPoints = (tGrav - 1) * 1000;
+        const totalCurrentPoints = currentPoints * cVol;
+        const totalTargetPoints = targetPoints * cVol; // If volume was kept same
+        
+        let extractNeeded = 0;
+        let evapNeeded = 0;
+        let diluteNeeded = 0;
         let boilTimeMins = 0;
-        if (boilRate > 0 && boilOffVol > 0) {
-            boilTimeMins = (boilOffVol / boilRate) * 60;
+        let isDilution = false;
+
+        if (tGrav > cGrav) {
+            // Need to ADD extract or EVAPORATE
+            isDilution = false;
+            
+            // 1. Extract calculation
+            const pointsDeficit = targetPoints - currentPoints; // Points per liter deficit
+            const totalPointsNeeded = pointsDeficit * cVol; // Total points needed
+            
+            const ppg = extractPpg[extractType];
+            const pointsPerKgL = ppg * 8.345404; // Conversion factor from ppg to pt*L/kg
+            extractNeeded = (totalPointsNeeded / pointsPerKgL) * 1000; // in grams
+
+            // 2. Evaporation calculation
+            // Target Vol = Total Current Points / Target Points
+            const targetVolForEvap = totalCurrentPoints / targetPoints;
+            evapNeeded = cVol - targetVolForEvap;
+            
+            // 3. Boil time calculation
+            if (calcBoil && !isNaN(boilRate) && boilRate > 0) {
+                boilTimeMins = (evapNeeded / boilRate) * 60;
+            }
+
+        } else if (tGrav < cGrav) {
+            // Need to DILUTE (Add water)
+            isDilution = true;
+            
+            // Target Vol = Total Current Points / Target Points
+            const targetVolForDilute = totalCurrentPoints / targetPoints;
+            diluteNeeded = targetVolForDilute - cVol;
         }
 
         setResults({
-            finalVol: Math.max(0, finalVol),
-            finalGravSg: Math.max(1.000, finalSg),
-            finalGravPlato: Math.max(0, sgToPlato(finalSg)),
-            boilOffVol: boilOffVol,
-            boilTimeMins: Math.max(0, boilTimeMins)
+            extractNeeded: Math.max(0, extractNeeded),
+            evapNeeded: Math.max(0, evapNeeded),
+            diluteNeeded: Math.max(0, diluteNeeded),
+            boilTimeMins: Math.max(0, boilTimeMins),
+            isDilution
         });
 
-    }, [currentVolInput, currentGravInput, targetType, targetInput, boilOffRateInput, unit]);
+    }, [currentGravInput, targetGravInput, currentVolInput, extractType, calcBoil, boilOffRateInput]);
 
-    const handleUnitToggle = (selectedUnit: 'SG' | 'Plato') => {
-        if (selectedUnit === unit) return;
-        
-        const currentGrav = parseFloat(currentGravInput.replace(',', '.'));
-        const tInput = parseFloat(targetInput.replace(',', '.'));
-        
-        if (!isNaN(currentGrav)) {
-            if (selectedUnit === 'Plato') {
-                setCurrentGravInput(Math.max(0, sgToPlato(currentGrav)).toFixed(1));
-                if (targetType === 'Gravity' && !isNaN(tInput)) {
-                    setTargetInput(Math.max(0, sgToPlato(tInput)).toFixed(1));
-                }
-            } else {
-                setCurrentGravInput(Math.max(1, platoToSg(currentGrav)).toFixed(3));
-                if (targetType === 'Gravity' && !isNaN(tInput)) {
-                    setTargetInput(Math.max(1, platoToSg(tInput)).toFixed(3));
-                }
-            }
-        }
-        setUnit(selectedUnit);
-    };
 
     return (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
@@ -120,155 +100,118 @@ export const BoilOffCalculator: React.FC = () => {
                     <Droplets size={28} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-black text-white tracking-tighter">Correção de Densidade / Fervura</h2>
-                    <p className="text-neutral-500 mt-1">Calcule a evaporação necessária para atingir a gravidade alvo (ou vice-versa).</p>
+                    <h2 className="text-2xl font-black text-white tracking-tighter">Correção da Densidade / Evaporação</h2>
+                    <p className="text-neutral-500 mt-1">Calcule adições, diluições e tempos de fervura para bater seu alvo.</p>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div className="space-y-8">
                 
-                {/* Left Column: Inputs */}
-                <div className="space-y-6">
-                    {/* Unit Toggle */}
+                {/* Inputs Top Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    {/* Current Grav */}
                     <div>
-                        <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Unidade de Densidade</label>
-                        <div className="flex bg-neutral-950 rounded-xl p-1 border border-neutral-800">
-                            <button 
-                                onClick={() => handleUnitToggle('SG')}
-                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'SG' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                            >
-                                Gravidade (SG)
-                            </button>
-                            <button 
-                                onClick={() => handleUnitToggle('Plato')}
-                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Plato' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                            >
-                                Graus Plato (°P)
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
-                        <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1 border-b border-neutral-800/50 pb-2">Status Atual (Pré-Fervura)</label>
-                        <div className="grid grid-cols-2 gap-4 pt-1">
-                            {/* Current Vol */}
-                            <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual</span>
-                                <div className="relative">
-                                    <input 
-                                        type="number" step="0.1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">L</span>
-                                </div>
-                            </div>
-                            {/* Current Grav */}
-                            <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</span>
-                                <div className="relative">
-                                    <input 
-                                        type="number" step={unit === 'SG' ? '0.001' : '0.1'} value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : '°P'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
-                        <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2 mb-1">
-                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest">O que você quer calcular?</label>
-                            <select 
-                                value={targetType} onChange={(e) => setTargetType(e.target.value as any)} 
-                                className="bg-transparent text-white text-[10px] font-bold uppercase tracking-wider focus:outline-none appearance-none cursor-pointer text-right"
-                            >
-                                <option value="Gravity" className="bg-neutral-900">Atingir Densidade Alvo</option>
-                                <option value="Volume" className="bg-neutral-900">Atingir Volume Alvo</option>
-                            </select>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2">
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">
-                                    {targetType === 'Gravity' ? 'Densidade Alvo (Pós-Fervura)' : 'Volume Alvo (Pós-Fervura)'}
-                                </span>
-                                <div className="relative">
-                                    <input 
-                                        type="number" step={targetType === 'Gravity' && unit === 'SG' ? '0.001' : '0.1'} value={targetInput} onChange={(e) => setTargetInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">
-                                        {targetType === 'Volume' ? 'L' : (unit === 'SG' ? 'SG' : '°P')}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-neutral-800/50 pt-4 flex justify-between items-center">
-                        <div>
-                            <span className="block text-xs font-bold text-neutral-300">Taxa de Evaporação do Equipamento</span>
-                            <span className="block text-[10px] text-neutral-500 mt-0.5">Usado para estimar o tempo de fervura</span>
-                        </div>
-                        <div className="relative w-28">
+                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</span>
+                        <div className="relative">
                             <input 
-                                type="number" step="0.1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)}
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 text-right"
+                                type="number" step="0.001" value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
+                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs pointer-events-none">L/h</span>
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
                         </div>
+                    </div>
+                    {/* Target Grav */}
+                    <div>
+                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Desejada</span>
+                        <div className="relative">
+                            <input 
+                                type="number" step="0.001" value={targetGravInput} onChange={(e) => setTargetGravInput(e.target.value)}
+                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
+                        </div>
+                    </div>
+                    {/* Current Vol */}
+                    <div>
+                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual <span className="text-white">L</span></span>
+                        <div className="relative">
+                            <input 
+                                type="number" step="1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
+                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
+                            />
+                        </div>
+                    </div>
+                    {/* Adição Dropdown */}
+                    <div>
+                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Adição</span>
+                        <select 
+                            value={extractType} onChange={(e) => setExtractType(e.target.value as any)} 
+                            className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                        >
+                            <option value="DME" className="bg-neutral-900">Extrato de Malte Seco (DME)</option>
+                            <option value="LME" className="bg-neutral-900">Extrato de Malte Líquido (LME)</option>
+                            <option value="Sugar" className="bg-neutral-900">Açúcar de Mesa</option>
+                        </select>
                     </div>
                 </div>
 
-                {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
-                    
-                    {results.boilOffVol < 0 ? (
-                        <div className="text-center py-10">
-                            <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Droplets size={32} />
-                            </div>
-                            <h3 className="text-white font-bold mb-1">Cálculo Inválido</h3>
-                            <p className="text-neutral-500 text-sm">A densidade alvo deve ser maior que a atual, ou o volume alvo menor que o atual para haver evaporação.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="text-center mb-8">
-                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Volume Final Estimado</span>
-                                <div className="text-6xl font-black text-cyan-400 tracking-tighter mb-2">
-                                    {results.finalVol.toFixed(1)}<span className="text-2xl text-cyan-400/50 ml-1">L</span>
-                                </div>
-                                <div className="text-sm font-bold text-white">com densidade de {unit === 'SG' ? results.finalGravSg.toFixed(3) : results.finalGravPlato.toFixed(1)}{unit === 'SG' ? ' SG' : ' °P'}</div>
-                            </div>
+                {/* Main Result Banner */}
+                <div className="bg-neutral-800 rounded-lg p-5 border border-neutral-700">
+                    <h3 className="text-xl text-white font-medium">
+                        {results.isDilution ? (
+                            <>Água para adicionar: <span className="font-bold">{results.diluteNeeded.toFixed(2)} L</span></>
+                        ) : (
+                            <>
+                                {extractNames[extractType]} para adicionar: <span className="font-bold">{results.extractNeeded.toFixed(1)} g</span>
+                                , ou evaporar: <span className="font-bold">{results.evapNeeded.toFixed(2)} L</span>
+                            </>
+                        )}
+                    </h3>
+                </div>
 
-                            <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Resumo da Fervura</span>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center py-2 border-b border-neutral-800/50">
-                                        <span className="text-sm text-neutral-300">Evaporação Necessária</span>
-                                        <span className="font-mono font-bold text-cyan-400">{results.boilOffVol.toFixed(1)} L</span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-2 border-b border-neutral-800/50">
-                                        <span className="text-sm text-neutral-300">Tempo de Fervura Estimado</span>
-                                        <span className="font-mono font-bold text-amber-400">{results.boilTimeMins.toFixed(0)} mins</span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-2">
-                                        <span className="text-sm text-neutral-300">Pontos de Gravidade Totais</span>
-                                        <span className="font-mono text-white">{((results.finalGravSg - 1) * 1000 * results.finalVol).toFixed(0)} pts</span>
-                                    </div>
+                {/* Correção da Fervura Section */}
+                {!results.isDilution && (
+                    <div className="pt-4 border-t border-neutral-800/50 space-y-4">
+                        <span className="block text-xs font-bold text-neutral-500 mb-2">Correção da fervura</span>
+                        
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <label className="flex items-center gap-3 text-neutral-300 text-sm cursor-pointer select-none">
+                                <input 
+                                    type="checkbox" checked={calcBoil} onChange={(e) => setCalcBoil(e.target.checked)} 
+                                    className="w-4 h-4 rounded bg-neutral-800 border-neutral-700 text-cyan-500 focus:ring-0" 
+                                />
+                                Calcular correção da fervura?
+                            </label>
+
+                            <div className="flex items-center gap-4">
+                                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Evaporação</span>
+                                <div className="relative w-24">
+                                    <input 
+                                        type="number" step="1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)} disabled={!calcBoil}
+                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 text-right"
+                                    />
+                                    <span className="absolute right-3 top-[-18px] text-neutral-500 font-bold text-[9px] uppercase pointer-events-none">L/hora</span>
                                 </div>
                             </div>
-                            
-                            <p className="text-[10px] text-neutral-600 text-center mt-6">
-                                Este cálculo assume que os açúcares não evaporam. Os pontos de gravidade totais do mosto permanecem constantes durante a fervura.
-                            </p>
-                        </>
-                    )}
+                        </div>
+
+                        {/* Boil Time Result Banner */}
+                        {calcBoil && (
+                            <div className="bg-neutral-800 rounded-lg p-5 border border-neutral-700">
+                                <h3 className="text-xl text-white font-medium">
+                                    Estender a fervura em <span className="font-bold">{results.boilTimeMins.toFixed(0)} minutos</span>
+                                </h3>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <div className="text-center pt-8">
+                     <p className="text-[10px] text-neutral-500 flex items-center justify-center gap-2 max-w-2xl mx-auto">
+                        <span className="inline-block min-w-4 min-h-4 w-4 h-4 bg-neutral-700 text-neutral-300 rounded-full text-[9px] font-bold text-center leading-4">i</span>
+                        Digite sua densidade atual, densidade desejada e volume para calcular quanto extrato você precisa adicionar, ou quanto você precisa diluir seu mosto para atingir a densidade desejada. Alternativamente, você pode calcular o quanto precisa alterar na duração de sua fervura para compensar.
+                    </p>
                 </div>
 
             </div>
