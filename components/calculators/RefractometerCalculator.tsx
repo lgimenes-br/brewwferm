@@ -2,47 +2,66 @@ import React, { useState, useEffect } from 'react';
 import { Pipette } from 'lucide-react';
 
 export const RefractometerCalculator: React.FC = () => {
-    const [wcfInput, setWcfInput] = useState<string>('1.04');
-    const [ogBrixInput, setOgBrixInput] = useState<string>('12.4');
-    const [fgBrixInput, setFgBrixInput] = useState<string>('6.0');
+    const [isFermented, setIsFermented] = useState(true);
+    const [wcfInput, setWcfInput] = useState<string>('1.00');
+    const [ogSgInput, setOgSgInput] = useState<string>('1.045');
+    const [brixWriInput, setBrixWriInput] = useState<string>('5.3');
 
     const [results, setResults] = useState({
-        originalSg: 1.000,
-        correctedFg: 1.000,
-        abv: 0
+        sg: 1.000,
+        abv: 0,
+        abw: 0
     });
 
+    const sgToBrix = (sg: number) => {
+        return (((135.997 * sg - 630.272) * sg + 1111.14) * sg - 616.868);
+    };
+
     useEffect(() => {
+        const ogSg = parseFloat(ogSgInput.replace(',', '.'));
+        const brixWri = parseFloat(brixWriInput.replace(',', '.'));
         const wcf = parseFloat(wcfInput.replace(',', '.'));
-        const ogBrix = parseFloat(ogBrixInput.replace(',', '.'));
-        const fgBrix = parseFloat(fgBrixInput.replace(',', '.'));
 
-        if (isNaN(wcf) || isNaN(ogBrix) || wcf <= 0) return;
+        if (isNaN(brixWri) || isNaN(wcf) || wcf <= 0) return;
 
-        // Corrected Original Brix
-        const ogi = ogBrix / wcf;
-
-        // Unfermented Wort SG
-        const originalSg = 1 + (ogi / (258.6 - ((ogi / 258.2) * 227.1)));
-
-        let correctedFg = originalSg;
+        let currentSg = 1.000;
         let abv = 0;
+        let abw = 0;
 
-        if (!isNaN(fgBrix) && fgBrix > 0) {
+        if (!isFermented) {
+            // Unfermented wort
+            const brix = brixWri / wcf;
+            currentSg = 1 + (brix / (258.6 - ((brix / 258.2) * 227.1)));
+        } else {
+            // Fermented wort
+            if (isNaN(ogSg) || ogSg < 1) return;
+
+            const ogBrix = sgToBrix(ogSg) / wcf;
+            const fgBrix = brixWri / wcf;
+
             // Sean Terrill's Formula
-            correctedFg = 1.0000 - 0.0044993 * ogi + 0.011774 * fgBrix + 0.00027581 * Math.pow(ogi, 2) - 0.0012717 * Math.pow(fgBrix, 2) - 0.00000728 * Math.pow(ogi, 3) + 0.000063293 * Math.pow(fgBrix, 3);
-            
-            // ABV
-            abv = (originalSg - correctedFg) * 131.25;
+            currentSg = 1.0000 - 0.0044993 * ogBrix + 0.011774 * fgBrix 
+                      + 0.00027581 * Math.pow(ogBrix, 2) - 0.0012717 * Math.pow(fgBrix, 2) 
+                      - 0.00000728 * Math.pow(ogBrix, 3) + 0.000063293 * Math.pow(fgBrix, 3);
+
+            // ABV Calculation
+            if (ogSg > currentSg) {
+                // Standard ABV
+                const abvStd = (ogSg - currentSg) * 131.25;
+                // Advanced ABV
+                abv = (76.08 * (ogSg - currentSg) / (1.775 - ogSg)) * (currentSg / 0.794);
+                // ABW
+                abw = (0.79 * abv) / currentSg;
+            }
         }
 
         setResults({
-            originalSg: Math.max(1.000, originalSg),
-            correctedFg: Math.max(1.000, correctedFg),
-            abv: Math.max(0, abv)
+            sg: Math.max(1.000, currentSg),
+            abv: Math.max(0, abv),
+            abw: Math.max(0, abw)
         });
 
-    }, [wcfInput, ogBrixInput, fgBrixInput]);
+    }, [isFermented, ogSgInput, brixWriInput, wcfInput]);
 
     return (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -62,49 +81,62 @@ export const RefractometerCalculator: React.FC = () => {
                 
                 {/* Left Column: Inputs */}
                 <div className="space-y-6">
-                    {/* WCF */}
-                    <div>
-                        <div className="flex justify-between mb-2">
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest">Wort Correction Factor</label>
-                            <span className="text-xs text-neutral-600">Padrão: 1.04</span>
+                    {/* Toggle Fermentado */}
+                    <div className="flex items-center justify-between p-4 bg-neutral-950 border border-neutral-800 rounded-xl cursor-pointer select-none" onClick={() => setIsFermented(!isFermented)}>
+                        <div>
+                            <span className="block text-sm font-bold text-white">Mosto Fermentado?</span>
+                            <span className="text-xs text-neutral-500">Ative se a fermentação já começou</span>
                         </div>
-                        <input 
-                            type="number" 
-                            step="0.01"
-                            value={wcfInput}
-                            onChange={(e) => setWcfInput(e.target.value)}
-                            className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
-                        />
+                        <div className={`w-12 h-6 rounded-full transition-colors relative ${isFermented ? 'bg-emerald-500' : 'bg-neutral-800'}`}>
+                            <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isFermented ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        {/* OG Brix */}
+                        {/* OG SG - Only if Fermented */}
+                        {isFermented && (
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Original (OG)</label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        step="0.001"
+                                        value={ogSgInput}
+                                        onChange={(e) => setOgSgInput(e.target.value)}
+                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">SG</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Current/FG Brix */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Brix</label>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Brix WRI</label>
                             <div className="relative">
                                 <input 
                                     type="number" 
                                     step="0.1"
-                                    value={ogBrixInput}
-                                    onChange={(e) => setOgBrixInput(e.target.value)}
+                                    value={brixWriInput}
+                                    onChange={(e) => setBrixWriInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">Bx</span>
                             </div>
                         </div>
 
-                        {/* Current/FG Brix */}
+                        {/* WCF */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Brix Atual</label>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Fator de Correção</label>
                             <div className="relative">
                                 <input 
                                     type="number" 
-                                    step="0.1"
-                                    value={fgBrixInput}
-                                    onChange={(e) => setFgBrixInput(e.target.value)}
+                                    step="0.01"
+                                    value={wcfInput}
+                                    onChange={(e) => setWcfInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">Bx</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">WCF</span>
                             </div>
                         </div>
                     </div>
@@ -115,24 +147,25 @@ export const RefractometerCalculator: React.FC = () => {
                     
                     {/* Main FG Result */}
                     <div className="text-center mb-8">
-                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">FG Corrigida (SG)</span>
+                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Corrigida</span>
                         <div className="text-6xl font-black text-emerald-400 tracking-tighter font-mono">
-                            {results.correctedFg.toFixed(3)}
+                            {results.sg.toFixed(3)}
                         </div>
-                        <span className="text-[11px] text-neutral-600 block mt-2 font-mono uppercase tracking-widest">Fórmula: Sean Terrill</span>
                     </div>
 
                     {/* Secondary Results */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">OG Estimada</span>
-                            <div className="text-xl font-bold text-white font-mono">{results.originalSg.toFixed(3)}</div>
+                    {isFermented && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
+                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">ABV Estimado</span>
+                                <div className="text-xl font-bold text-white font-mono">{results.abv.toFixed(2)}%</div>
+                            </div>
+                            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
+                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">ABW Estimado</span>
+                                <div className="text-xl font-bold text-amber-400 font-mono">{results.abw.toFixed(2)}%</div>
+                            </div>
                         </div>
-                        <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">ABV Estimado</span>
-                            <div className="text-xl font-bold text-amber-400 font-mono">{results.abv.toFixed(1)}%</div>
-                        </div>
-                    </div>
+                    )}
 
                 </div>
             </div>
