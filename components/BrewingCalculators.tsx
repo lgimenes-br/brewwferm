@@ -77,7 +77,7 @@ export const BrewingCalculators: React.FC = () => {
     // Render logic
     if (activeCalculator === 'abv') {
         return (
-            <div className="max-w-4xl mx-auto pb-24">
+            <div className="w-full px-4 md:px-10 mx-auto pb-24">
                 <button 
                     onClick={() => setActiveCalculator(null)}
                     className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
@@ -92,7 +92,7 @@ export const BrewingCalculators: React.FC = () => {
     
     if (activeCalculator === 'refractometer') {
         return (
-            <div className="max-w-4xl mx-auto pb-24">
+            <div className="w-full px-4 md:px-10 mx-auto pb-24">
                 <button 
                     onClick={() => setActiveCalculator(null)}
                     className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
@@ -107,7 +107,7 @@ export const BrewingCalculators: React.FC = () => {
     
     if (activeCalculator === 'yeast') {
         return (
-            <div className="max-w-4xl mx-auto pb-24">
+            <div className="w-full px-4 md:px-10 mx-auto pb-24">
                 <button 
                     onClick={() => setActiveCalculator(null)}
                     className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
@@ -122,7 +122,7 @@ export const BrewingCalculators: React.FC = () => {
     
     if (activeCalculator === 'density') {
         return (
-            <div className="max-w-4xl mx-auto pb-24">
+            <div className="w-full px-4 md:px-10 mx-auto pb-24">
                 <button 
                     onClick={() => setActiveCalculator(null)}
                     className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
@@ -137,7 +137,7 @@ export const BrewingCalculators: React.FC = () => {
     
     if (activeCalculator === 'hydrometer') {
         return (
-            <div className="max-w-4xl mx-auto pb-24">
+            <div className="w-full px-4 md:px-10 mx-auto pb-24">
                 <button 
                     onClick={() => setActiveCalculator(null)}
                     className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
@@ -152,7 +152,7 @@ export const BrewingCalculators: React.FC = () => {
     
     if (activeCalculator === 'carbonation') {
         return (
-            <div className="max-w-4xl mx-auto pb-24">
+            <div className="w-full px-4 md:px-10 mx-auto pb-24">
                 <button 
                     onClick={() => setActiveCalculator(null)}
                     className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6"
@@ -166,7 +166,7 @@ export const BrewingCalculators: React.FC = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto pb-24">
+        <div className="w-full px-4 md:px-10 mx-auto pb-24">
             {/* Header */}
             <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
