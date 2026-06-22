@@ -1,27 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Percent, ArrowRight } from 'lucide-react';
+import { Percent } from 'lucide-react';
 
 export const AbvCalculator: React.FC = () => {
     const [unit, setUnit] = useState<'SG' | 'Plato' | 'Brix'>('SG');
-    const [ogInput, setOgInput] = useState<string>('1.050');
-    const [fgInput, setFgInput] = useState<string>('1.010');
+    const [ogInput, setOgInput] = useState<string>('1.045');
+    const [fgInput, setFgInput] = useState<string>('1.007');
 
     const [results, setResults] = useState({
-        abvStandard: 0,
-        abvAdvanced: 0,
-        attenuation: 0,
-        calories: 0
+        abv: 0,
+        abw: 0,
+        kcalPer100ml: 0,
+        kjPer100ml: 0,
+        carbsPer100ml: 0,
+        appAttenuation: 0,
+        realAttenuation: 0,
+        oe: 0,
+        ae: 0,
+        re: 0
     });
 
     // Helper conversions
-    const sgToPlato = (sg: number) => (-1 * 616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
+    const sgToPlato = (sg: number) => {
+        return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
+    };
     const platoToSg = (p: number) => 1 + (p / (258.6 - ((p / 258.2) * 227.1)));
 
     useEffect(() => {
         let ogSg = 1.000;
         let fgSg = 1.000;
-        let ogPlato = 0;
-        let fgPlato = 0;
 
         const ogVal = parseFloat(ogInput.replace(',', '.'));
         const fgVal = parseFloat(fgInput.replace(',', '.'));
@@ -31,43 +37,58 @@ export const AbvCalculator: React.FC = () => {
         if (unit === 'SG') {
             ogSg = ogVal;
             fgSg = fgVal;
-            ogPlato = sgToPlato(ogSg);
-            fgPlato = sgToPlato(fgSg);
         } else {
-            ogPlato = ogVal;
-            fgPlato = fgVal;
-            ogSg = platoToSg(ogPlato);
-            fgSg = platoToSg(fgPlato);
+            ogSg = platoToSg(ogVal);
+            fgSg = platoToSg(fgVal);
         }
 
-        // Only calculate if OG >= FG and OG > 1
+        let abv = 0, abw = 0, kcalPer100ml = 0, kjPer100ml = 0, carbsPer100ml = 0;
+        let appAttenuation = 0, realAttenuation = 0, oe = 0, ae = 0, re = 0;
+
         if (ogSg >= fgSg && ogSg > 1.000) {
-            const abvStd = (ogSg - fgSg) * 131.25;
-            const abvAdv = (76.08 * (ogSg - fgSg) / (1.775 - ogSg)) * (fgSg / 0.794);
-            const attenuation = ((ogSg - fgSg) / (ogSg - 1)) * 100;
+            oe = sgToPlato(ogSg);
+            ae = sgToPlato(fgSg);
 
-            // Calories formula per 12oz (approx 355ml)
-            // Real Extract (RE)
-            const re = (0.1808 * ogPlato) + (0.8192 * fgPlato);
-            // Alcohol by weight
-            const abw = (0.79 * abvStd) / fgSg;
-            const calories = Math.max(0, 12 * ((6.9 * abw) + 4.0 * (re - 0.1)) * fgSg);
+            // Real Extract (Balling's formula)
+            re = (0.1808 * oe) + (0.8192 * ae);
 
-            setResults({
-                abvStandard: Math.max(0, abvStd),
-                abvAdvanced: Math.max(0, abvAdv),
-                attenuation: Math.max(0, attenuation),
-                calories: calories
-            });
-        } else {
-            setResults({ abvStandard: 0, abvAdvanced: 0, attenuation: 0, calories: 0 });
+            // ABV Standard
+            abv = (ogSg - fgSg) * 131.25;
+
+            // ABW
+            abw = (oe - re) / (2.0665 - 0.010665 * oe);
+
+            // Attenuation (using Plato for more accuracy like Brewfather)
+            appAttenuation = ((oe - ae) / oe) * 100;
+            realAttenuation = ((oe - re) / oe) * 100;
+
+            // Calories (per 100ml)
+            const kcalPer100g = (6.9 * abw) + 4.0 * (re - 0.1);
+            kcalPer100ml = kcalPer100g * fgSg;
+            kjPer100ml = kcalPer100ml * 4.184;
+
+            // Carbohydrates (g per 100ml)
+            carbsPer100ml = Math.max(0, (re - 0.1) * fgSg);
         }
+
+        setResults({
+            abv: Math.max(0, abv),
+            abw: Math.max(0, abw),
+            kcalPer100ml: Math.max(0, kcalPer100ml),
+            kjPer100ml: Math.max(0, kjPer100ml),
+            carbsPer100ml: Math.max(0, carbsPer100ml),
+            appAttenuation: Math.max(0, appAttenuation),
+            realAttenuation: Math.max(0, realAttenuation),
+            oe: Math.max(0, oe),
+            ae: Math.max(0, ae),
+            re: Math.max(0, re)
+        });
+
     }, [ogInput, fgInput, unit]);
 
     const handleUnitToggle = (selectedUnit: 'SG' | 'Plato' | 'Brix') => {
         if (selectedUnit === unit) return;
         
-        // Convert current inputs to new unit
         const currentOg = parseFloat(ogInput.replace(',', '.'));
         const currentFg = parseFloat(fgInput.replace(',', '.'));
         
@@ -164,31 +185,57 @@ export const AbvCalculator: React.FC = () => {
                 </div>
 
                 {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
+                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center gap-6">
                     
                     {/* Main ABV Result */}
-                    <div className="text-center mb-8">
-                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">ABV (Padrão)</span>
-                        <div className="text-6xl font-black text-blue-400 tracking-tighter">
-                            {results.abvStandard.toFixed(1)}<span className="text-3xl text-blue-400/50">%</span>
+                    <div className="text-center">
+                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Álcool por Volume</span>
+                        <div className="text-5xl font-black text-blue-400 tracking-tighter">
+                            {results.abv.toFixed(1)}<span className="text-3xl text-blue-400/50">%</span>
+                        </div>
+                        <span className="block text-xs text-neutral-500 mt-2">Álcool por Peso (ABW) {results.abw.toFixed(1)}%</span>
+                    </div>
+
+                    {/* Extratos */}
+                    <div className="grid grid-cols-3 gap-2 border-t border-b border-neutral-800/50 py-4">
+                        <div className="text-center">
+                            <span className="block text-[10px] font-bold text-neutral-600 uppercase tracking-widest mb-1">Ext. Original</span>
+                            <div className="text-sm font-bold text-white font-mono">{results.oe.toFixed(2)} °P</div>
+                        </div>
+                        <div className="text-center border-l border-r border-neutral-800/50 px-2">
+                            <span className="block text-[10px] font-bold text-neutral-600 uppercase tracking-widest mb-1">Ext. Aparente</span>
+                            <div className="text-sm font-bold text-white font-mono">{results.ae.toFixed(2)} °P</div>
+                        </div>
+                        <div className="text-center">
+                            <span className="block text-[10px] font-bold text-neutral-600 uppercase tracking-widest mb-1">Ext. Real</span>
+                            <div className="text-sm font-bold text-white font-mono">{results.re.toFixed(2)} °P</div>
                         </div>
                     </div>
 
-                    {/* Secondary Results */}
+                    {/* Outras Infos */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">ABV (Avançado)</span>
-                            <div className="text-xl font-bold text-white font-mono">{results.abvAdvanced.toFixed(2)}%</div>
-                            <span className="text-[10px] text-neutral-600 block mt-1 leading-tight">Melhor para High Gravity</span>
+                        <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex flex-col justify-center">
+                            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Calorias / Carb.</span>
+                            <div className="text-sm font-medium text-amber-400">
+                                {results.kcalPer100ml.toFixed(1)} <span className="text-xs text-neutral-500">kcal</span>
+                            </div>
+                            <div className="text-xs text-neutral-500 mt-0.5">
+                                / {results.kjPer100ml.toFixed(1)} kJ
+                            </div>
+                            <div className="text-sm font-medium text-amber-400 mt-2">
+                                {results.carbsPer100ml.toFixed(1)} <span className="text-xs text-neutral-500">g carb.</span>
+                            </div>
+                            <span className="text-[9px] text-neutral-600 block mt-1">(por 100ml)</span>
                         </div>
-                        <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Atenuação Aparente</span>
-                            <div className="text-xl font-bold text-white font-mono">{results.attenuation.toFixed(1)}%</div>
-                        </div>
-                        <div className="col-span-2 bg-neutral-900 rounded-xl p-4 border border-neutral-800 flex items-center justify-between px-6">
-                            <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest">Calorias Estimadas</span>
-                            <div className="text-lg font-bold text-amber-400 font-mono">
-                                {results.calories.toFixed(0)} <span className="text-sm text-neutral-500 font-sans font-medium">kcal <span className="text-neutral-600">/ 355ml</span></span>
+
+                        <div className="flex flex-col gap-2">
+                            <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-1 flex flex-col justify-center">
+                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Aten. Aparente</span>
+                                <div className="text-lg font-bold text-white font-mono leading-none">{results.appAttenuation.toFixed(1)}%</div>
+                            </div>
+                            <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-1 flex flex-col justify-center">
+                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Aten. Real</span>
+                                <div className="text-lg font-bold text-white font-mono leading-none">{results.realAttenuation.toFixed(1)}%</div>
                             </div>
                         </div>
                     </div>
