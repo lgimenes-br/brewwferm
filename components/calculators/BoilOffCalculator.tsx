@@ -42,7 +42,7 @@ export const BoilOffCalculator: React.FC = () => {
         const currentPoints = (cGrav - 1) * 1000;
         const targetPoints = (tGrav - 1) * 1000;
         const totalCurrentPoints = currentPoints * cVol;
-        const totalTargetPoints = targetPoints * cVol; // If volume was kept same
+        const totalTargetPoints = targetPoints * cVol; 
         
         let extractNeeded = 0;
         let evapNeeded = 0;
@@ -51,32 +51,22 @@ export const BoilOffCalculator: React.FC = () => {
         let isDilution = false;
 
         if (tGrav > cGrav) {
-            // Need to ADD extract or EVAPORATE
             isDilution = false;
-            
-            // 1. Extract calculation
-            const pointsDeficit = targetPoints - currentPoints; // Points per liter deficit
-            const totalPointsNeeded = pointsDeficit * cVol; // Total points needed
+            const pointsDeficit = targetPoints - currentPoints; 
+            const totalPointsNeeded = pointsDeficit * cVol; 
             
             const ppg = extractPpg[extractType];
-            const pointsPerKgL = ppg * 8.345404; // Conversion factor from ppg to pt*L/kg
-            extractNeeded = (totalPointsNeeded / pointsPerKgL) * 1000; // in grams
+            const pointsPerKgL = ppg * 8.345404; 
+            extractNeeded = (totalPointsNeeded / pointsPerKgL) * 1000; 
 
-            // 2. Evaporation calculation
-            // Target Vol = Total Current Points / Target Points
             const targetVolForEvap = totalCurrentPoints / targetPoints;
             evapNeeded = cVol - targetVolForEvap;
             
-            // 3. Boil time calculation
             if (calcBoil && !isNaN(boilRate) && boilRate > 0) {
                 boilTimeMins = (evapNeeded / boilRate) * 60;
             }
-
         } else if (tGrav < cGrav) {
-            // Need to DILUTE (Add water)
             isDilution = true;
-            
-            // Target Vol = Total Current Points / Target Points
             const targetVolForDilute = totalCurrentPoints / targetPoints;
             diluteNeeded = targetVolForDilute - cVol;
         }
@@ -106,112 +96,136 @@ export const BoilOffCalculator: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 
-                {/* Inputs Top Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    {/* Current Grav */}
-                    <div>
-                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</span>
-                        <div className="relative">
-                            <input 
-                                type="number" step="0.001" value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                            />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
-                        </div>
-                    </div>
-                    {/* Target Grav */}
-                    <div>
-                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Desejada</span>
-                        <div className="relative">
-                            <input 
-                                type="number" step="0.001" value={targetGravInput} onChange={(e) => setTargetGravInput(e.target.value)}
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                            />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
-                        </div>
-                    </div>
-                    {/* Current Vol */}
-                    <div>
-                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual <span className="text-white">L</span></span>
-                        <div className="relative">
-                            <input 
-                                type="number" step="1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                            />
-                        </div>
-                    </div>
-                    {/* Adição Dropdown */}
-                    <div>
-                        <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Adição</span>
-                        <select 
-                            value={extractType} onChange={(e) => setExtractType(e.target.value as any)} 
-                            className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
-                        >
-                            <option value="DME" className="bg-neutral-900">Extrato de Malte Seco (DME)</option>
-                            <option value="LME" className="bg-neutral-900">Extrato de Malte Líquido (LME)</option>
-                            <option value="Sugar" className="bg-neutral-900">Açúcar de Mesa</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Main Result Banner */}
-                <div className="bg-neutral-800 rounded-lg p-5 border border-neutral-700">
-                    <h3 className="text-xl text-white font-medium">
-                        {results.isDilution ? (
-                            <>Água para adicionar: <span className="font-bold">{results.diluteNeeded.toFixed(2)} L</span></>
-                        ) : (
-                            <>
-                                {extractNames[extractType]} para adicionar: <span className="font-bold">{results.extractNeeded.toFixed(1)} g</span>
-                                , ou evaporar: <span className="font-bold">{results.evapNeeded.toFixed(2)} L</span>
-                            </>
-                        )}
-                    </h3>
-                </div>
-
-                {/* Correção da Fervura Section */}
-                {!results.isDilution && (
-                    <div className="pt-4 border-t border-neutral-800/50 space-y-4">
-                        <span className="block text-xs font-bold text-neutral-500 mb-2">Correção da fervura</span>
-                        
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <label className="flex items-center gap-3 text-neutral-300 text-sm cursor-pointer select-none">
+                {/* Left Column: Inputs */}
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Current Grav */}
+                        <div>
+                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</label>
+                            <div className="relative">
                                 <input 
-                                    type="checkbox" checked={calcBoil} onChange={(e) => setCalcBoil(e.target.checked)} 
-                                    className="w-4 h-4 rounded bg-neutral-800 border-neutral-700 text-cyan-500 focus:ring-0" 
+                                    type="number" step="0.001" value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                Calcular correção da fervura?
-                            </label>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
+                            </div>
+                        </div>
 
-                            <div className="flex items-center gap-4">
-                                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Evaporação</span>
-                                <div className="relative w-24">
-                                    <input 
-                                        type="number" step="1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)} disabled={!calcBoil}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 text-right"
-                                    />
-                                    <span className="absolute right-3 top-[-18px] text-neutral-500 font-bold text-[9px] uppercase pointer-events-none">L/hora</span>
+                        {/* Target Grav */}
+                        <div>
+                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Alvo</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" step="0.001" value={targetGravInput} onChange={(e) => setTargetGravInput(e.target.value)}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
+                            </div>
+                        </div>
+
+                        {/* Current Vol */}
+                        <div>
+                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" step="1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">L</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
+                        <div>
+                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Qual Adição Usar?</span>
+                            <select 
+                                value={extractType} onChange={(e) => setExtractType(e.target.value as any)} 
+                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                            >
+                                <option value="DME" className="bg-neutral-900">Extrato de Malte Seco (DME)</option>
+                                <option value="LME" className="bg-neutral-900">Extrato de Malte Líquido (LME)</option>
+                                <option value="Sugar" className="bg-neutral-900">Açúcar de Mesa / Dextrose</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-6">
+                        <label className="flex items-center gap-3 text-neutral-300 text-sm cursor-pointer select-none">
+                            <input 
+                                type="checkbox" checked={calcBoil} onChange={(e) => setCalcBoil(e.target.checked)} 
+                                className="w-4 h-4 rounded bg-neutral-800 border-neutral-700 text-cyan-500 focus:ring-0" 
+                            />
+                            Calcular extensão da fervura?
+                        </label>
+
+                        <div>
+                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Evaporação do Equipamento</span>
+                            <div className="relative">
+                                <input 
+                                    type="number" step="1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)} disabled={!calcBoil}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs uppercase">L/hora</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column: Results */}
+                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
+                    
+                    {results.isDilution ? (
+                        <>
+                            <div className="text-center mb-8">
+                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Diluição Necessária</span>
+                                <div className="text-6xl font-black text-cyan-400 tracking-tighter mb-2">
+                                    +{results.diluteNeeded.toFixed(2)}<span className="text-2xl text-cyan-400/50 ml-1">L</span>
+                                </div>
+                                <div className="text-sm font-bold text-white">de Água Purificada</div>
+                            </div>
+
+                            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
+                                <span className="block text-xs text-neutral-400">
+                                    Adicione essa quantidade de água para baixar a densidade de <strong>{currentGravInput}</strong> para <strong>{targetGravInput}</strong>.
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="text-center mb-6 border-b border-neutral-800/50 pb-6">
+                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Adição de {extractType}</span>
+                                <div className="text-5xl font-black text-amber-400 tracking-tighter mb-2">
+                                    +{results.extractNeeded.toFixed(1)}<span className="text-2xl text-amber-400/50 ml-1">g</span>
+                                </div>
+                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                                    Para atingir {targetGravInput} sem ferver a mais
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Boil Time Result Banner */}
-                        {calcBoil && (
-                            <div className="bg-neutral-800 rounded-lg p-5 border border-neutral-700">
-                                <h3 className="text-xl text-white font-medium">
-                                    Estender a fervura em <span className="font-bold">{results.boilTimeMins.toFixed(0)} minutos</span>
-                                </h3>
+                            <div className="text-center mb-6">
+                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">OU: Evaporação por Fervura</span>
+                                <div className="text-5xl font-black text-cyan-400 tracking-tighter mb-2">
+                                    -{results.evapNeeded.toFixed(2)}<span className="text-2xl text-cyan-400/50 ml-1">L</span>
+                                </div>
+                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                                    Volume de água a ser evaporado
+                                </div>
                             </div>
-                        )}
-                    </div>
-                )}
 
-                <div className="text-center pt-8">
-                     <p className="text-[10px] text-neutral-500 flex items-center justify-center gap-2 max-w-2xl mx-auto">
-                        <span className="inline-block min-w-4 min-h-4 w-4 h-4 bg-neutral-700 text-neutral-300 rounded-full text-[9px] font-bold text-center leading-4">i</span>
-                        Digite sua densidade atual, densidade desejada e volume para calcular quanto extrato você precisa adicionar, ou quanto você precisa diluir seu mosto para atingir a densidade desejada. Alternativamente, você pode calcular o quanto precisa alterar na duração de sua fervura para compensar.
-                    </p>
+                            {calcBoil && (
+                                <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest">Estender a Fervura em</span>
+                                        <span className="font-mono font-bold text-white text-lg">+{results.boilTimeMins.toFixed(0)} mins</span>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
                 </div>
 
             </div>
