@@ -103,6 +103,22 @@ export const CarbonationCalculator: React.FC = () => {
         { name: 'Rye IPA', min: 2.4, max: 2.8 },
         { name: 'Sahti', min: 2.0, max: 2.5 },
         { name: 'Saison', min: 2.4, max: 3.0 },
+        { name: 'Schwarzbier', min: 2.2, max: 2.6 },
+        { name: 'Scottish Export', min: 1.5, max: 2.2 },
+        { name: 'Scottish Heavy', min: 1.5, max: 2.2 },
+        { name: 'Scottish Light', min: 1.5, max: 2.2 },
+        { name: 'Specialty IPA', min: 2.2, max: 2.8 },
+        { name: 'Strong Bitter', min: 0.8, max: 1.3 },
+        { name: 'Sweet Stout', min: 2.0, max: 2.4 },
+        { name: 'Trappist Single', min: 2.4, max: 3.0 },
+        { name: 'Tropical Stout', min: 2.0, max: 2.6 },
+        { name: 'Vienna Lager', min: 2.2, max: 2.6 },
+        { name: 'Wee Heavy', min: 1.5, max: 2.2 },
+        { name: 'Weissbier', min: 3.0, max: 4.5 },
+        { name: 'Weizenbock', min: 3.0, max: 4.5 },
+        { name: 'Wheatwine', min: 1.6, max: 2.2 },
+        { name: 'White IPA-White', min: 2.2, max: 2.8 },
+        { name: 'Witbier', min: 2.4, max: 3.0 },
         { name: 'Outro / Personalizado', min: 0.0, max: 0.0 }
     ];
 
