@@ -125,7 +125,7 @@ export const BrewingCalculators: React.FC = () => {
         );
     }
     
-    if (activeCalculator === 'boiloff') {
+    if (activeCalculator === 'density') {
         return (
             <div className="max-w-4xl mx-auto pb-24">
                 <button 
@@ -164,7 +164,7 @@ export const BrewingCalculators: React.FC = () => {
                             key={calc.id}
                             className="w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left"
                             onClick={() => {
-                                if (calc.id === 'abv' || calc.id === 'refractometer' || calc.id === 'yeast' || calc.id === 'boiloff') {
+                                if (calc.id === 'abv' || calc.id === 'refractometer' || calc.id === 'yeast' || calc.id === 'density') {
                                     setActiveCalculator(calc.id);
                                 } else {
                                     alert(`A calculadora "${calc.title}" será implementada em breve!`);
