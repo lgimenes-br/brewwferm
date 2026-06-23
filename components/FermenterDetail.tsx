@@ -126,18 +126,48 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // Profile Control Handlers
     const handleTogglePause = () => {
-        onUpdate(fermenter.id, { isPaused: !fermenter.isPaused });
+        const newStatus = !fermenter.isPaused;
+        const newEvent: FermentationEvent = {
+            id: Math.random().toString(36).substr(2, 9),
+            type: EventType.SYSTEM_ACTION,
+            description: newStatus ? 'Fermentação Pausada' : 'Fermentação Retomada',
+            timestamp: new Date().toISOString()
+        };
+        const updatedEvents = [...(fermenter.events || []), newEvent];
+        onUpdate(fermenter.id, { isPaused: newStatus, events: updatedEvents });
     };
 
     const handleNextStep = () => {
         if (fermenter.profile && fermenter.currentStepIndex < fermenter.profile.length - 1) {
-            onUpdate(fermenter.id, { currentStepIndex: fermenter.currentStepIndex + 1 });
+            const nextStep = fermenter.profile[fermenter.currentStepIndex + 1];
+            const newEvent: FermentationEvent = {
+                id: Math.random().toString(36).substr(2, 9),
+                type: EventType.SYSTEM_ACTION,
+                description: `Avançou para a etapa: ${nextStep.name} (${nextStep.temperature}°C)`,
+                timestamp: new Date().toISOString()
+            };
+            const updatedEvents = [...(fermenter.events || []), newEvent];
+            onUpdate(fermenter.id, { 
+                currentStepIndex: fermenter.currentStepIndex + 1,
+                events: updatedEvents 
+            });
         }
     };
 
     const handlePrevStep = () => {
         if (fermenter.profile && fermenter.currentStepIndex > 0) {
-            onUpdate(fermenter.id, { currentStepIndex: fermenter.currentStepIndex - 1 });
+            const prevStep = fermenter.profile[fermenter.currentStepIndex - 1];
+            const newEvent: FermentationEvent = {
+                id: Math.random().toString(36).substr(2, 9),
+                type: EventType.SYSTEM_ACTION,
+                description: `Voltou para a etapa: ${prevStep.name} (${prevStep.temperature}°C)`,
+                timestamp: new Date().toISOString()
+            };
+            const updatedEvents = [...(fermenter.events || []), newEvent];
+            onUpdate(fermenter.id, { 
+                currentStepIndex: fermenter.currentStepIndex - 1,
+                events: updatedEvents 
+            });
         }
     };
 
@@ -657,6 +687,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                         
                         <FermentationTimeline 
                             events={fermenter.events || []} 
+                            startDate={fermenter.startDate}
                             onAddEvent={handleAddEvent} 
                             onRemoveEvent={handleRemoveEvent} 
                         />

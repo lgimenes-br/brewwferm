@@ -27,7 +27,8 @@ export enum EventType {
   FRUIT = 'Adição de Fruta',
   CLARIFIER = 'Clarificador',
   SPICE = 'Especiarias',
-  OTHER = 'Outro'
+  OTHER = 'Outro',
+  SYSTEM_ACTION = 'Sistema'
 }
 
 export interface FermentationEvent {
