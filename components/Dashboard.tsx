@@ -216,7 +216,14 @@ export const Dashboard: React.FC = () => {
                     const safeTemp = parseFloat(String(f.currentDevice?.temperature || 0));
                     const safeTarget = parseFloat(String(f.targetTemp || 0));
                     const safeFridge = parseFloat(String(f.currentFridgeTemp || 0));
-                    const safeGravity = parseFloat(String(f.currentDevice?.gravity || 0));
+                    
+                    const lastChartGravity = f.readings && f.readings.length > 0 
+                        ? f.readings[f.readings.length - 1].gravity 
+                        : 0;
+                    const safeGravity = f.currentDevice?.gravity > 0 
+                        ? parseFloat(String(f.currentDevice.gravity))
+                        : (parseFloat(String(lastChartGravity)) || 0);
+                        
                     const safeOG = parseFloat(String(f.og || 0));
                     const safeFG = f.fg ? parseFloat(String(f.fg)) : null;
                     const safeRSSI = f.currentDevice?.rssi || 0;
@@ -311,7 +318,7 @@ export const Dashboard: React.FC = () => {
                                     {f.mode === DeviceMode.FERMENTER ? (
                                         <>
                                             <div className="flex items-start justify-end gap-1">
-                                                <span className="text-4xl font-light tracking-tighter text-purple-200">
+                                                <span className="text-4xl font-light tracking-tighter text-purple-400 font-mono">
                                                     {safeGravity.toFixed(3)}
                                                 </span>
                                                 <span className="text-lg text-neutral-500 font-light mt-1">SG</span>

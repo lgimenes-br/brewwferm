@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brew-dark: #000000;
+  --color-brew-card: #171717;
+  --color-brew-accent: #e94560;
+  --color-brew-gold: #fbbf24;
+  --color-brew-foam: #fef3c7;
+}

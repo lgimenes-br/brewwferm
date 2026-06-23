@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { BrewProvider } from './context/BrewContext';
 import { registerSW } from 'virtual:pwa-register';
+import './index.css';
 
 if ('serviceWorker' in navigator) {
   // Register Vite PWA
