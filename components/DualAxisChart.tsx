@@ -66,7 +66,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
       <div className="w-full h-[350px] relative">
         {shouldRenderChart ? (
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={safeData.length > 0 ? safeData : mockData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+            <ComposedChart data={safeData.length > 0 ? safeData : mockData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorGravityDual" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
