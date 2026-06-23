@@ -9,7 +9,7 @@ import { FermentationHistory } from './components/FermentationHistory';
 import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrapper';
 import { Settings } from './components/Settings';
 import { BrewingCalculators } from './components/BrewingCalculators';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute } from './components/AuthGuard';
@@ -29,6 +29,7 @@ const NavConfig = () => {
     const activeDevice = deviceId ? fermenters.find(f => f.id === deviceId) : null;
 
     const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleModeDropdownSelect = (mode: DeviceMode) => {
         setIsModeDropdownOpen(false);
@@ -52,19 +53,30 @@ const NavConfig = () => {
         <nav className="bg-black py-4 md:py-6 no-print border-b border-neutral-900 mb-6">
             <div className="w-full mx-auto px-6 md:px-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 
-                {/* Left Side: Logo Only */}
-                <div className="flex items-center cursor-pointer select-none" onClick={() => navigate('/')}>
-                    <div className="flex items-baseline">
-                        <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
-                        <div className="relative">
-                            <span className="text-4xl font-black text-white tracking-tighter">W</span>
-                            <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
+                {/* Top Row for Mobile (Logo + Hamburger) */}
+                <div className="flex items-center justify-between w-full md:w-auto">
+                    {/* Left Side: Logo Only */}
+                    <div className="flex items-center cursor-pointer select-none" onClick={() => navigate('/')}>
+                        <div className="flex items-baseline">
+                            <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
+                            <div className="relative">
+                                <span className="text-4xl font-black text-white tracking-tighter">W</span>
+                                <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Mobile Hamburger Button */}
+                    <button 
+                        className="md:hidden flex items-center justify-center w-10 h-10 text-neutral-400 hover:text-white transition-colors border border-neutral-800 rounded-md"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    >
+                        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                    </button>
                 </div>
 
                 {/* Right Side: Badges + Nav */}
-                <div className="flex items-center gap-2">
+                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300 md:animate-none`}>
                     {/* Contextual Badges for Device Pages */}
                     {activeDevice && (
                         <div className="hidden md:flex items-center gap-2 mr-3 animate-in fade-in slide-in-from-right-4 duration-500">
