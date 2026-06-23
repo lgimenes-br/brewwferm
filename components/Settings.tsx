@@ -68,6 +68,9 @@ export const Settings: React.FC = () => {
   }, [selectedDeviceId, activeDevice?.currentDevice?.logInterval, activeDevice?.currentDevice?.compressorDelay]);
 
   const [relayState, setRelayState] = useState<'AUTO' | 'HEAT' | 'COOL'>('AUTO');
+  
+  const [otaUrl, setOtaUrl] = useState<string>('http://breww.live/firmware/update.bin');
+  const [otaMd5, setOtaMd5] = useState<string>('');
 
   const handleChange = (field: keyof SystemSettings, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -168,6 +171,16 @@ export const Settings: React.FC = () => {
     if(mode === 0) toast.success('Modo Automático ativado');
     if(mode === 1) toast.success('Aquecimento forçado LIGADO');
     if(mode === 2) toast.success('Refrigeração forçada LIGADA');
+  };
+
+  const handleTriggerOTA = () => {
+    if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
+    if (!otaUrl || otaUrl.length < 10) return toast.error('Insira uma URL válida para o firmware.');
+    
+    if (confirm('ATENÇÃO: O ESP32 será reiniciado e iniciará o download do novo firmware. Certifique-se que o arquivo existe na URL especificada. Continuar?')) {
+        sendCommand(selectedDeviceId, 'update_firmware', { url: otaUrl, md5: otaMd5 });
+        toast.success('Comando de Atualização OTA enviado! O painel da placa exibirá o progresso.');
+    }
   };
 
   const handleClearLogs = async () => {
@@ -468,6 +481,37 @@ export const Settings: React.FC = () => {
             >
                 <Power size={14} /> Reset Fábrica
             </button>
+        </div>
+      </section>
+
+      {/* 7. Atualização de Firmware (OTA) */}
+      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+        <SectionHeader icon={Download} title="Atualização Remota (OTA)" />
+        <p className="text-neutral-500 text-xs mb-6 -mt-4">Envie um novo arquivo binário de firmware para o ESP32 através de uma URL pública. Opcionalmente, inclua o hash MD5 para validação de integridade.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <InputField 
+            label="URL do Arquivo .bin" 
+            value={otaUrl} 
+            onChange={(v: string) => setOtaUrl(v)} 
+            placeholder="http://seu-servidor.com/firmware.bin"
+          />
+          <InputField 
+            label="Hash MD5 (Opcional)" 
+            value={otaMd5} 
+            onChange={(v: string) => setOtaMd5(v)} 
+            placeholder="Ex: 5d41402abc4b2a76b9719d911017c592"
+          />
+        </div>
+        
+        <div className="flex justify-end">
+          <button 
+            onClick={handleTriggerOTA}
+            disabled={!selectedDeviceId}
+            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-transparent border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white shadow-[0_0_15px_rgba(220,38,38,0.1)]'}`}
+          >
+            <Download size={14} /> Disparar Atualização OTA
+          </button>
         </div>
       </section>
 
