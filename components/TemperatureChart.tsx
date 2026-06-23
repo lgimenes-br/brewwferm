@@ -144,14 +144,6 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {onAddEvent && onRemoveEvent && (
-        <div className="mt-8 pt-6 border-t border-neutral-800/50 -mx-2">
-          <div className="px-2">
-            <EventLog events={events} onAddEvent={onAddEvent} onRemoveEvent={onRemoveEvent} />
-          </div>
-        </div>
-      )}
     </div>
   );
 });

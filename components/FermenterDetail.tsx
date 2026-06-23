@@ -6,6 +6,9 @@ import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationE
 import { ThermometerSnowflake, Flame, PauseCircle, PlayCircle, Snowflake, Wifi, Clock, Percent, FlaskConical, Beer, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X } from 'lucide-react';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
+import { DualAxisChart } from './DualAxisChart';
+import { FermentationTimeline } from './FermentationTimeline';
+import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
 import { FermentationProfile } from './FermentationProfile';
 import { useFermenters } from '../hooks/useFermenters';
@@ -505,23 +508,32 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
                     {/* Left Column: Charts & Events */}
                     <div className="lg:col-span-2 space-y-8 min-w-0 flex flex-col">
+                        {fermenter.mode === DeviceMode.FERMENTER && (
+                            <ForecastingEngine fermenter={fermenter} />
+                        )}
+
                         <div className="flex-1">
                             <ErrorBoundary name="Gráfico de Temperatura">
                                 <TemperatureChart
                                     data={fermenter.readings}
                                     events={fermenter.events}
-                                    onAddEvent={handleAddEvent}
-                                    onRemoveEvent={handleRemoveEvent}
                                 />
                             </ErrorBoundary>
                         </div>
 
                         {fermenter.mode === DeviceMode.FERMENTER && (
-                            <div className="flex-1">
-                                <ErrorBoundary name="Gráfico de Gravidade">
-                                    <GravityChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} />
-                                </ErrorBoundary>
-                            </div>
+                            <>
+                                <div className="flex-1">
+                                    <ErrorBoundary name="Gráfico de Gravidade">
+                                        <GravityChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} />
+                                    </ErrorBoundary>
+                                </div>
+                                <div className="flex-1">
+                                    <ErrorBoundary name="Gráfico Duplo (Temp + Grav)">
+                                        <DualAxisChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} />
+                                    </ErrorBoundary>
+                                </div>
+                            </>
                         )}
                     </div>
 
@@ -642,6 +654,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                         )}
 
                         <GeminiAdvisor fermenter={fermenter} className="flex-1 min-h-[200px]" />
+                        
+                        <FermentationTimeline 
+                            events={fermenter.events || []} 
+                            onAddEvent={handleAddEvent} 
+                            onRemoveEvent={handleRemoveEvent} 
+                        />
                     </div>
                 </div>
             )}
