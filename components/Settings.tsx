@@ -71,6 +71,24 @@ export const Settings: React.FC = () => {
   
   const [otaUrl, setOtaUrl] = useState<string>('http://breww.live/firmware/update.bin');
   const [otaMd5, setOtaMd5] = useState<string>('');
+  const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
+
+  // Fetch latest firmware version from backend
+  useEffect(() => {
+      const fetchFirmwareVersion = async () => {
+          try {
+              const baseUrl = API_URL.replace(/\/api\/?$/, ''); // Remove /api suffix if present
+              const res = await fetch(`${baseUrl}/firmware/version.json`);
+              if (res.ok) {
+                  const data = await res.json();
+                  setLatestFirmware(data);
+              }
+          } catch (e) {
+              console.error('Erro ao buscar versão do firmware:', e);
+          }
+      };
+      fetchFirmwareVersion();
+  }, []);
 
   const handleChange = (field: keyof SystemSettings, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -489,6 +507,36 @@ export const Settings: React.FC = () => {
         <SectionHeader icon={Download} title="Atualização Remota (OTA)" />
         <p className="text-neutral-500 text-xs mb-6 -mt-4">Envie um novo arquivo binário de firmware para o ESP32 através de uma URL pública. Opcionalmente, inclua o hash MD5 para validação de integridade.</p>
         
+        {latestFirmware && activeDevice?.currentDevice?.version && latestFirmware.version !== activeDevice.currentDevice.version && (
+            <div className="bg-emerald-950/20 border border-emerald-900/50 rounded-xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-500">
+                <div>
+                    <h4 className="text-emerald-500 font-bold text-sm mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Nova Versão Oficial Disponível: {latestFirmware.version}
+                    </h4>
+                    <p className="text-emerald-500/70 text-xs">Seu equipamento está na versão {activeDevice.currentDevice.version}. Atualize para obter as últimas melhorias.</p>
+                </div>
+                <button 
+                    onClick={() => {
+                        const baseUrl = API_URL.replace(/\/api\/?$/, '');
+                        const finalUrl = latestFirmware.url || `${baseUrl}/firmware/update.bin`;
+                        setOtaUrl(finalUrl);
+                        if(latestFirmware.md5) setOtaMd5(latestFirmware.md5);
+                        
+                        setTimeout(() => {
+                            if (confirm(`Deseja instalar a versão ${latestFirmware.version} agora? O ESP32 será reiniciado.`)) {
+                                sendCommand(selectedDeviceId, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
+                                toast.success('Comando de Atualização OTA enviado! O painel da placa exibirá o progresso.');
+                            }
+                        }, 100);
+                    }}
+                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0 shadow-[0_0_15px_rgba(5,150,105,0.3)]"
+                >
+                    Instalar Automático
+                </button>
+            </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <InputField 
             label="URL do Arquivo .bin" 
