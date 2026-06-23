@@ -76,7 +76,7 @@ const NavConfig = () => {
                 </div>
 
                 {/* Right Side: Badges + Nav */}
-                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300 md:animate-none`}>
+                <div className="flex items-center gap-2">
                     {/* Contextual Badges for Device Pages */}
                     {activeDevice && (
                         <div className="hidden md:flex items-center gap-2 mr-3 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -163,34 +163,90 @@ const NavConfig = () => {
                         </div>
                     )}
 
-                    {/* Navigation Icons */}
-                    <button title="Grid" onClick={() => navigate('/')} className={iconOnlyBase} >
-                        <LayoutGrid size={18} />
-                    </button>
-                    <button title="Logs" onClick={() => navigate('/history')} className={iconOnlyBase} >
-                        <History size={18} />
-                    </button>
-                    <button title="Calculadoras" onClick={() => navigate('/calculators')} className={iconOnlyBase} >
-                        <Calculator size={18} />
-                    </button>
-                    <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
-                        <SettingsIcon size={18} />
-                    </button>
-
-                    {/* Voltar Button - moved to the right corner */}
-                    {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators') && (
-                        <button title="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
-                            <ArrowLeft size={18} />
+                    {/* Navigation Icons (Desktop only) */}
+                    <div className="hidden md:flex items-center gap-2">
+                        <button title="Grid" onClick={() => navigate('/')} className={iconOnlyBase} >
+                            <LayoutGrid size={18} />
                         </button>
-                    )}
-
-                    {location.pathname === '/' && (
-                        <button onClick={() => logout()} className="ml-2 p-2 text-neutral-700 hover:text-red-500 transition-colors" title="Sair">
-                            <LogOut size={18} />
+                        <button title="Logs" onClick={() => navigate('/history')} className={iconOnlyBase} >
+                            <History size={18} />
                         </button>
-                    )}
+                        <button title="Calculadoras" onClick={() => navigate('/calculators')} className={iconOnlyBase} >
+                            <Calculator size={18} />
+                        </button>
+                        <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
+                            <SettingsIcon size={18} />
+                        </button>
+
+                        {/* Voltar Button - moved to the right corner */}
+                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators') && (
+                            <button title="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
+                                <ArrowLeft size={18} />
+                            </button>
+                        )}
+
+                        {location.pathname === '/' && (
+                            <button onClick={() => logout()} className="ml-2 p-2 text-neutral-700 hover:text-red-500 transition-colors" title="Sair">
+                                <LogOut size={18} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 z-50 bg-black/95 flex flex-col md:hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between p-6 border-b border-neutral-900 bg-black">
+                        <div className="flex items-baseline">
+                            <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
+                            <div className="relative">
+                                <span className="text-4xl font-black text-white tracking-tighter">W</span>
+                                <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
+                            </div>
+                        </div>
+                        <button 
+                            className="flex items-center justify-center w-10 h-10 text-neutral-400 hover:text-white transition-colors border border-neutral-800 rounded-md"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
+                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><LayoutGrid size={24} /></div>
+                            <span className="text-lg font-bold tracking-tight">Dashboard</span>
+                        </button>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/history'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
+                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><History size={24} /></div>
+                            <span className="text-lg font-bold tracking-tight">Histórico / Logs</span>
+                        </button>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/calculators'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
+                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><Calculator size={24} /></div>
+                            <span className="text-lg font-bold tracking-tight">Calculadoras</span>
+                        </button>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/settings'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
+                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><SettingsIcon size={24} /></div>
+                            <span className="text-lg font-bold tracking-tight">Configurações</span>
+                        </button>
+                        
+                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators') && (
+                            <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800 mt-auto">
+                                <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><ArrowLeft size={24} /></div>
+                                <span className="text-lg font-bold tracking-tight">Voltar</span>
+                            </button>
+                        )}
+                        
+                        {location.pathname === '/' && (
+                            <button onClick={() => { setIsMobileMenuOpen(false); logout(); }} className="flex items-center gap-4 p-4 text-red-500 bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-colors text-left border border-red-500/20 mt-auto">
+                                <div className="flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-lg text-red-500"><LogOut size={24} /></div>
+                                <span className="text-lg font-bold tracking-tight">Sair do Sistema</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </nav>
     );
 };
