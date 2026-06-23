@@ -27,9 +27,9 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
     });
   }
   
-  // Sort events chronologically, newest first
+  // Sort events chronologically, oldest first
   const allEvents = [...safeEvents, ...syntheticEvents];
-  const sortedEvents = allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const sortedEvents = allEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   const handleAdd = () => {
     if (!newDesc.trim()) return;
