@@ -21,15 +21,13 @@ const getBestModel = async (apiKey: string): Promise<string> => {
     const availableModels = listData.models.map((m: any) => m.name.replace('models/', ''));
 
     // Preference list: try to find these in order
-    // Prioritizing stable 'latest' aliases which usually map to free-tier capable models
+    // Prioritizing stable 2.0-flash as it handles load better and is faster
     const preferences = [
-      'gemini-flash-latest', // Likely 1.5 Flash (Free Tier friendly)
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
       'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro-latest',
-      'gemini-pro',
-      'gemini-2.0-flash-lite', // Lighter 2.0 might have quota?
-      'gemini-2.0-flash'
+      'gemini-flash-latest',
+      'gemini-1.5-pro'
     ];
 
     for (const pref of preferences) {
