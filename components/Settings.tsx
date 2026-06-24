@@ -78,7 +78,7 @@ export const Settings: React.FC = () => {
       const fetchFirmwareVersion = async () => {
           try {
               const baseUrl = API_URL.replace(/\/api\/?$/, ''); // Remove /api suffix if present
-              const res = await fetch(`${baseUrl}/firmware/version.json`);
+              const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
               if (res.ok) {
                   const data = await res.json();
                   setLatestFirmware(data);
