@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
@@ -24,6 +23,7 @@ interface SystemSettings {
   offsetSG: number;
   pidHeating: PIDParams;
   pidCooling: PIDParams;
+  pwmWindowHeat: number;
 }
 
 export const Settings: React.FC = () => {
@@ -52,7 +52,8 @@ export const Settings: React.FC = () => {
     offsetS2: 0,
     offsetSG: 0,
     pidHeating: { kp: 20000, ki: 100, kd: 0 },
-    pidCooling: { kp: 40000, ki: 200, kd: 0 }
+    pidCooling: { kp: 40000, ki: 200, kd: 0 },
+    pwmWindowHeat: 2000
   });
 
   // Sync settings when selecting a device or when telemetry arrives
@@ -196,6 +197,12 @@ export const Settings: React.FC = () => {
         success: 'PID atualizado com sucesso!',
         error: 'Erro ao enviar PID',
     });
+  };
+
+  const handleStartAutotune = (mode: 'heat' | 'cool') => {
+    if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
+    sendCommand(selectedDeviceId, 'autotune', { mode });
+    toast.success(`Auto-Tune de ${mode === 'heat' ? 'aquecimento' : 'refrigeração'} iniciado!`);
   };
 
   const handleTestRelay = (mode: number, autoState: 'AUTO' | 'HEAT' | 'COOL') => { 
@@ -474,19 +481,38 @@ export const Settings: React.FC = () => {
         <SectionHeader icon={Cpu} title="Parâmetros PID" />
         
         <div className="mb-6">
-            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-neutral-600"></span> Aquecimento
+            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-neutral-600"></span> Aquecimento (Resistência)
+                </div>
+                <button 
+                    onClick={() => handleStartAutotune('heat')}
+                    disabled={!selectedDeviceId}
+                    className="px-3 py-1 bg-amber-500/20 text-amber-500 border border-amber-500/50 rounded text-[10px] hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+                >
+                    Iniciar Auto-Tune
+                </button>
             </h4>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
                 <InputField label="Kp" value={settings.pidHeating.kp} onChange={(v: number) => handlePIDChange('pidHeating', 'kp', v)} type="number" />
                 <InputField label="Ki" value={settings.pidHeating.ki} onChange={(v: number) => handlePIDChange('pidHeating', 'ki', v)} type="number" />
                 <InputField label="Kd" value={settings.pidHeating.kd} onChange={(v: number) => handlePIDChange('pidHeating', 'kd', v)} type="number" />
+                <InputField label="Janela PWM (ms)" value={settings.pwmWindowHeat} onChange={(v: number) => handleChange('pwmWindowHeat', v)} type="number" />
             </div>
         </div>
 
         <div className="border-t border-neutral-800/50 pt-6">
-            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-neutral-600"></span> Refrigeração
+            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-neutral-600"></span> Refrigeração (Compressor)
+                </div>
+                <button 
+                    onClick={() => handleStartAutotune('cool')}
+                    disabled={!selectedDeviceId}
+                    className="px-3 py-1 bg-blue-500/20 text-blue-500 border border-blue-500/50 rounded text-[10px] hover:bg-blue-500/30 transition-colors disabled:opacity-50"
+                >
+                    Iniciar Auto-Tune
+                </button>
             </h4>
             <div className="grid grid-cols-3 gap-4">
                 <InputField label="Kp" value={settings.pidCooling.kp} onChange={(v: number) => handlePIDChange('pidCooling', 'kp', v)} type="number" />

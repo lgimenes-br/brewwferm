@@ -133,9 +133,17 @@ mqttClient.on('message', async (topic, message) => {
                     }
                 }
 
+                let dateSQL = 'NOW()';
+                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat];
+                
+                if (payload.ts) {
+                    dateSQL = 'FROM_UNIXTIME(?)';
+                    queryArgs.push(payload.ts);
+                }
+
                 await pool.execute(
-                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-                    [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat]
+                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
+                    queryArgs
                 ).catch(() => { });
                 lastLogTimes[serialCode] = now;
             }
