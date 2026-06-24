@@ -1017,11 +1017,11 @@ app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin,
 });
 
 app.get('/firmware/version.json', (req, res) => {
-    res.sendFile('/var/www/breww-backend/firmware/version.json');
+    res.sendFile(path.resolve(process.cwd(), 'firmware/version.json'));
 });
 
 app.get('/firmware/update.bin', (req, res) => {
-    res.download('/var/www/breww-backend/firmware/update.bin');
+    res.download(path.resolve(process.cwd(), 'firmware/update.bin'));
 });
 
 app.use(express.static(path.join(__dirname, 'dist')));
