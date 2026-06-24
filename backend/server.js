@@ -1016,12 +1016,24 @@ app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin,
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+import fs from 'fs';
+
 app.get('/firmware/version.json', (req, res) => {
-    res.sendFile(path.resolve(process.cwd(), 'firmware/version.json'));
+    const filePath = path.resolve(process.cwd(), 'firmware/version.json');
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.status(404).json({ version: "0.0.0" });
+    }
 });
 
 app.get('/firmware/update.bin', (req, res) => {
-    res.download(path.resolve(process.cwd(), 'firmware/update.bin'));
+    const filePath = path.resolve(process.cwd(), 'firmware/update.bin');
+    if (fs.existsSync(filePath)) {
+        res.download(filePath);
+    } else {
+        res.status(404).send('Firmware update not found');
+    }
 });
 
 app.use(express.static(path.join(__dirname, 'dist')));
