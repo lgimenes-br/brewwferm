@@ -1165,6 +1165,7 @@ app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res
     try {
         const [devices] = await pool.execute(`
             SELECT d.id, d.serial_code, d.device_name, d.last_seen, u.name as owner_name,
+            (d.last_seen > NOW() - INTERVAL 1 HOUR) as is_online,
             (SELECT temp_ferm FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_temp,
             (SELECT battery FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_battery
             FROM devices d

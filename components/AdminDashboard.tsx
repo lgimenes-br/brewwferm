@@ -181,11 +181,6 @@ const TelemetryTab = () => {
         .catch(() => setLoading(false));
     }, [token]);
 
-    const isOnline = (lastSeen: string) => {
-        if (!lastSeen) return false;
-        return (new Date().getTime() - new Date(lastSeen).getTime()) < 60 * 60 * 1000; // 1 hour
-    };
-
     if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
     return (
@@ -205,7 +200,7 @@ const TelemetryTab = () => {
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
                         {devices.map(dev => {
-                            const online = isOnline(dev.last_seen);
+                            const online = Boolean(dev.is_online);
                             return (
                                 <tr key={dev.id} className="hover:bg-neutral-800/30 transition-colors">
                                     <td className="py-3 px-4">
