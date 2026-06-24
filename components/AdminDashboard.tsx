@@ -158,7 +158,7 @@ const OverviewTab = () => {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl"></div>
                     <div className="p-3 bg-red-500/10 rounded-full text-red-400 mb-3 z-10"><Zap size={24} /></div>
                     <div className="text-3xl font-black text-white z-10">{analytics.zombies || 0}</div>
-                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">Dispositivos Zumbis (>30 dias)</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">Dispositivos Zumbis (&gt;30 dias)</div>
                 </div>
             </div>
 
