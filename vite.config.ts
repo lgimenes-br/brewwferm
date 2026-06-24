@@ -10,15 +10,20 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      headers: {
+        'Cross-Origin-Opener-Policy': 'unsafe-none',
+        'Cross-Origin-Embedder-Policy': 'unsafe-none'
+      },
       proxy: {
         '/api': {
-          target: 'http://localhost:3001',
+          target: 'https://breww.live',
           changeOrigin: true,
           secure: false,
         },
         '/firmware': {
-          target: 'http://localhost:3001',
-          changeOrigin: true
+          target: 'https://breww.live',
+          changeOrigin: true,
+          secure: false
         }
       }
     },

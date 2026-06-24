@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import mqtt from 'mqtt';
 import mysql from 'mysql2/promise';
@@ -981,6 +982,71 @@ app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { name, email, password, role } = req.body;
+        if (!name || !email || !password) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hashedPassword, role || 'user']);
+        res.status(201).json({ message: 'User created' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, role, password } = req.body;
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await pool.execute('UPDATE users SET name=?, email=?, role=?, password_hash=? WHERE id=?', [name, email, role, hashedPassword, id]);
+        } else {
+            await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [name, email, role, id]);
+        }
+        res.json({ message: 'User updated' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [devices] = await pool.execute('SELECT id FROM devices WHERE user_id = ?', [id]);
+        for (let dev of devices) {
+            await pool.execute('DELETE FROM readings WHERE device_id = ?', [dev.id]);
+        }
+        await pool.execute('DELETE FROM devices WHERE user_id = ?', [id]);
+        await pool.execute('DELETE FROM batches WHERE user_id = ?', [id]);
+        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        res.json({ message: 'User and all related data deleted' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { serial_code, device_name, user_id } = req.body;
+        if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
+        await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code, device_name || null, user_id]);
+        res.status(201).json({ message: 'Device created' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { serial_code, device_name, user_id } = req.body;
+        await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code, device_name || null, user_id, id]);
+        res.json({ message: 'Device updated' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.execute('DELETE FROM readings WHERE device_id = ?', [id]);
+        await pool.execute('DELETE FROM devices WHERE id = ?', [id]);
+        res.json({ message: 'Device deleted' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/admin/ingredients/:table', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { table } = req.params;
@@ -1016,23 +1082,29 @@ app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin,
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-import fs from 'fs';
-
 app.get('/firmware/version.json', (req, res) => {
-    const filePath = path.resolve(process.cwd(), 'firmware/version.json');
-    if (fs.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-        res.status(404).json({ version: "0.0.0" });
+    try {
+        const filePath = path.resolve(__dirname, 'firmware/version.json');
+        if (fs.existsSync(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            res.status(404).json({ version: "0.0.0" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message, stack: error.stack });
     }
 });
 
 app.get('/firmware/update.bin', (req, res) => {
-    const filePath = path.resolve(process.cwd(), 'firmware/update.bin');
-    if (fs.existsSync(filePath)) {
-        res.download(filePath);
-    } else {
-        res.status(404).send('Firmware update not found');
+    try {
+        const filePath = path.resolve(__dirname, 'firmware/update.bin');
+        if (fs.existsSync(filePath)) {
+            res.download(filePath);
+        } else {
+            res.status(404).send('Firmware update not found');
+        }
+    } catch (error) {
+        res.status(500).send(`Error: ${error.message}`);
     }
 });
 

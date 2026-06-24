@@ -23,6 +23,9 @@ const NavConfig = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout, role } = useAuth();
+
+    // If admin, we don't render this NavConfig. They get a full-screen admin experience.
+    if (role === 'admin') return null;
     const { fermenters } = useFermenters();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
 
@@ -349,7 +352,7 @@ const AppRoutes = () => {
                         <main className="mt-0">
                             <ErrorBoundary name="Rotas Principais">
                                 <Routes>
-                                    <Route path="/" element={<Dashboard />} />
+                                    <Route path="/" element={role === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />} />
                                     <Route path="/fermenter/:id" element={<FermenterDetailWrapper />} />
                                     <Route path="/history" element={<FermentationHistory />} />
                                     <Route path="/history/:id" element={<FinishedBrewDetailWrapper />} />

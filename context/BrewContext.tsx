@@ -145,7 +145,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         client.on('close', () => setConnectionStatus('disconnected'));
-        client.on('error', (err) => console.error("MQTT Error", err));
+        client.on('error', (err) => {
+            if (err.message && err.message.includes('client disconnecting')) return;
+            console.error("MQTT Error", err);
+        });
 
         return () => {
             if (clientRef.current) clientRef.current.end();
