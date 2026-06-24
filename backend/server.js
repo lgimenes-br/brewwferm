@@ -66,6 +66,9 @@ const initDb = async () => {
         try { await pool.execute('ALTER TABLE users ADD COLUMN plan_type ENUM("free", "premium") DEFAULT "free"'); } catch (e) { }
         try { await pool.execute('ALTER TABLE users ADD COLUMN max_devices INT DEFAULT 1'); } catch (e) { }
         try { await pool.execute('ALTER TABLE telemetry ADD COLUMN rssi INT DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE users ADD COLUMN lat FLOAT DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE users ADD COLUMN lon FLOAT DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL'); } catch (e) { }
         
         console.log('Main DB tables initialized');
         
@@ -252,6 +255,9 @@ mqttClient.on('message', async (topic, message) => {
         if (deviceId) {
             delete discoveredUnknowns[serialCode];
             await pool.execute('UPDATE devices SET last_seen = NOW() WHERE id = ?', [deviceId]).catch(() => { });
+            if (payload.fw) {
+                await pool.execute('UPDATE devices SET firmware_version = ? WHERE id = ?', [payload.fw, deviceId]).catch(() => { });
+            }
 
             const now = Date.now();
             const lastLog = lastLogTimes[serialCode] || 0;
@@ -369,6 +375,18 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+const updateUserLocation = async (userId, ip) => {
+    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) return;
+    try {
+        const cleanIp = ip.includes('::ffff:') ? ip.split('::ffff:')[1] : ip;
+        const res = await fetch(`http://ip-api.com/json/${cleanIp}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.lat && data.lon) {
+            await pool.execute('UPDATE users SET lat = ?, lon = ? WHERE id = ?', [data.lat, data.lon, userId]);
+        }
+    } catch (e) { console.error('Location fetch error:', e.message); }
+};
+
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -379,6 +397,7 @@ app.post('/api/login', async (req, res) => {
             
             // Log successful login
             await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_SUCCESS', 'User logged in', req.ip]);
+            updateUserLocation(users[0].id, req.ip);
             
             res.json({ token, name: users[0].name, role: users[0].role });
         } else { 
@@ -459,6 +478,7 @@ app.post('/api/auth/google', async (req, res) => {
         }
 
         const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET);
+        updateUserLocation(userId, req.ip);
         res.json({ token, name: userName, role: userRole });
     } catch (err) { 
         console.error('Google Auth Error:', err);
@@ -1295,6 +1315,34 @@ app.get('/api/admin/server/status', authenticateToken, requireAdmin, async (req,
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
+});
+
+// ==========================================
+// BI & ANALYTICS
+// ==========================================
+app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [[{ mau }]] = await pool.execute('SELECT COUNT(DISTINCT user_id) as mau FROM devices WHERE last_seen > NOW() - INTERVAL 30 DAY');
+        const [[{ zombies }]] = await pool.execute('SELECT COUNT(*) as zombies FROM devices WHERE last_seen < NOW() - INTERVAL 30 DAY OR last_seen IS NULL');
+        const [growth] = await pool.execute("SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as users FROM users GROUP BY month ORDER BY month ASC LIMIT 12");
+        const [firmwares] = await pool.execute('SELECT firmware_version as name, COUNT(*) as count FROM devices WHERE firmware_version IS NOT NULL GROUP BY firmware_version');
+        res.json({ mau, zombies, growth, firmwares });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/trends', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [[{ total_batches }]] = await pool.execute('SELECT COUNT(*) as total_batches FROM batches');
+        const [styles] = await pool.execute('SELECT style as name, COUNT(*) as count FROM batches WHERE style IS NOT NULL AND style != "" GROUP BY style ORDER BY count DESC LIMIT 5');
+        res.json({ total_batches, styles });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/map', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [locations] = await pool.execute('SELECT u.name, u.lat, u.lon, MAX(d.last_seen) as last_seen FROM users u JOIN devices d ON u.id = d.user_id WHERE u.lat IS NOT NULL AND u.lon IS NOT NULL GROUP BY u.id');
+        res.json(locations);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, res) => {
