@@ -129,8 +129,11 @@ const UsersTab = () => {
             if (res.ok) {
                 toast.success('Usuário apagado com sucesso');
                 loadUsers();
-            } else throw new Error();
-        } catch (e) { toast.error('Falha ao deletar usuário'); }
+            } else {
+                const err = await res.json();
+                toast.error(`Erro do Servidor: ${err.error}`);
+            }
+        } catch (e: any) { toast.error(`Falha ao deletar: ${e.message}`); }
     };
 
     const deleteDevice = async (id: number) => {
