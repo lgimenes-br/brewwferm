@@ -64,6 +64,8 @@ const initDb = async () => {
             }
         }
 
+        try { await pool.execute(`ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
@@ -344,14 +346,21 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+const requireAdmin = (req, res, next) => {
+    if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Acesso negado: Administrador necessário' });
+    }
+    next();
+};
+
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) return res.status(400).json({ error: 'Usuário não encontrado' });
         if (await bcrypt.compare(password, users[0].password_hash)) {
-            const token = jwt.sign({ id: users[0].id, name: users[0].name }, JWT_SECRET);
-            res.json({ token, name: users[0].name });
+            const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET);
+            res.json({ token, name: users[0].name, role: users[0].role });
         } else { res.status(403).json({ error: 'Senha incorreta' }); }
     } catch (err) {
         console.error('MQTT Error:', err);
@@ -409,10 +418,11 @@ app.post('/api/auth/google', async (req, res) => {
         if (!email) return res.status(400).json({ error: 'Token não possui email' });
 
         // Verifica se o usuário existe no DB
-        let [users] = await pool.execute('SELECT id, name, email FROM users WHERE email = ?', [email]);
+        let [users] = await pool.execute('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
         
         let userId;
         let userName = name;
+        let userRole = 'user';
 
         if (users.length === 0) {
             // Cria usuário novo
@@ -421,10 +431,11 @@ app.post('/api/auth/google', async (req, res) => {
         } else {
             userId = users[0].id;
             userName = users[0].name;
+            userRole = users[0].role;
         }
 
-        const token = jwt.sign({ id: userId, name: userName }, JWT_SECRET);
-        res.json({ token, name: userName });
+        const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET);
+        res.json({ token, name: userName, role: userRole });
     } catch (err) { 
         console.error('Google Auth Error:', err);
         res.status(500).json({ error: 'Falha na autenticação com o Google' }); 
@@ -942,6 +953,66 @@ app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
     try {
         const [rows] = await ingredientsPool.execute('SELECT * FROM miscs ORDER BY name ASC');
         res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// ADMIN API
+// ==========================================
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT u.id, u.name, u.email, u.role, COUNT(d.id) as device_count 
+            FROM users u LEFT JOIN devices d ON u.id = d.user_id 
+            GROUP BY u.id ORDER BY u.id DESC
+        `);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT d.id, d.serial_code, d.version, d.last_ip, d.last_update, d.stat_op, u.name as owner_name, u.email as owner_email 
+            FROM devices d JOIN users u ON d.user_id = u.id 
+            ORDER BY d.last_update DESC
+        `);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/ingredients/:table', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { table } = req.params;
+        const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
+        if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
+        
+        const { name, name_pt } = req.body;
+        const [result] = await ingredientsPool.execute(`INSERT INTO ${table} (name, name_pt) VALUES (?, ?)`, [name, name_pt]);
+        res.json({ id: result.insertId, message: 'Ingrediente criado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { table, id } = req.params;
+        const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
+        if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
+        
+        const { name, name_pt } = req.body;
+        await ingredientsPool.execute(`UPDATE ${table} SET name = ?, name_pt = ? WHERE id = ?`, [name, name_pt, id]);
+        res.json({ message: 'Ingrediente atualizado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { table, id } = req.params;
+        const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
+        if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
+        
+        await ingredientsPool.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+        res.json({ message: 'Ingrediente deletado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

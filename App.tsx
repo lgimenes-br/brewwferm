@@ -10,18 +10,19 @@ import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrappe
 import { Settings } from './components/Settings';
 import { BrewingCalculators } from './components/BrewingCalculators';
 import { CompareBatches } from './components/CompareBatches';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare, Shield } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
-import { ProtectedRoute, PublicRoute } from './components/AuthGuard';
+import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AdminDashboard } from './components/AdminDashboard';
 import { useFermenters } from './hooks/useFermenters';
 import { useLocation } from 'react-router-dom';
 
 const NavConfig = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { logout } = useAuth();
+    const { logout, role } = useAuth();
     const { fermenters } = useFermenters();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
 
@@ -204,9 +205,15 @@ const NavConfig = () => {
                         <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
                             <SettingsIcon size={18} />
                         </button>
+                        
+                        {role === 'admin' && (
+                            <button title="Admin Panel" onClick={() => navigate('/admin')} className="flex items-center justify-center w-10 h-10 rounded-md border transition-all shrink-0 border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/20 hover:text-white">
+                                <Shield size={18} />
+                            </button>
+                        )}
 
                         {/* Voltar Button - moved to the right corner */}
-                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare') && (
+                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
                             <button title="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
                                 <ArrowLeft size={18} />
                             </button>
@@ -261,8 +268,15 @@ const NavConfig = () => {
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><SettingsIcon size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Configurações</span>
                         </button>
+
+                        {role === 'admin' && (
+                            <button onClick={() => { setIsMobileMenuOpen(false); navigate('/admin'); }} className="flex items-center gap-4 p-4 text-indigo-400 bg-indigo-900/20 hover:bg-indigo-900/40 rounded-xl transition-colors text-left border border-indigo-500/20">
+                                <div className="flex items-center justify-center w-12 h-12 bg-indigo-500/20 rounded-lg text-indigo-400"><Shield size={24} /></div>
+                                <span className="text-lg font-bold tracking-tight">Admin Panel</span>
+                            </button>
+                        )}
                         
-                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators') && (
+                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname.startsWith('/admin')) && (
                             <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800 mt-auto">
                                 <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><ArrowLeft size={24} /></div>
                                 <span className="text-lg font-bold tracking-tight">Voltar</span>
@@ -342,6 +356,7 @@ const AppRoutes = () => {
                                     <Route path="/calculators" element={<BrewingCalculators />} />
                                     <Route path="/compare" element={<CompareBatches />} />
                                     <Route path="/settings" element={<Settings />} />
+                                    <Route path="/admin/*" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                                     <Route path="*" element={<Navigate to="/" replace />} />
                                 </Routes>
                             </ErrorBoundary>

@@ -13,3 +13,10 @@ export const PublicRoute = ({ children }: { children: ReactNode }) => {
     if (token) return <Navigate to="/" replace />;
     return <>{children}</>;
 };
+
+export const AdminRoute = ({ children }: { children: ReactNode }) => {
+    const { token, role } = useAuth();
+    if (!token) return <Navigate to="/login" replace />;
+    if (role !== 'admin') return <Navigate to="/" replace />;
+    return <>{children}</>;
+};
