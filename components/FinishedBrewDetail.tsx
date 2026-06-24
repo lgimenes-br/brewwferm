@@ -19,7 +19,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const [readings, setReadings] = useState<Reading[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
 
   const [activeTab, setActiveTab] = useState<'telemetry' | 'recipe'>('telemetry');
   const [ingredients, setIngredients] = useState<any>(brew.ingredients || {
