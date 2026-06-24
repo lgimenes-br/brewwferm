@@ -128,29 +128,24 @@ const DevicesTab = () => {
             <table className="w-full text-left text-sm">
                 <thead>
                     <tr className="text-neutral-500 border-b border-neutral-800">
-                        <th className="pb-3 font-medium">Serial</th>
+                        <th className="pb-3 font-medium">Serial / Nome</th>
                         <th className="pb-3 font-medium">Dono</th>
-                        <th className="pb-3 font-medium">Status</th>
-                        <th className="pb-3 font-medium">Firmware</th>
                         <th className="pb-3 font-medium">Última Atividade</th>
                     </tr>
                 </thead>
                 <tbody className="text-neutral-300">
                     {devices.map(dev => (
                         <tr key={dev.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
-                            <td className="py-3 font-mono text-emerald-500">{dev.serial_code}</td>
+                            <td className="py-3">
+                                <div className="font-mono text-emerald-500">{dev.serial_code}</div>
+                                <div className="text-xs text-neutral-400">{dev.device_name || 'Sem nome'}</div>
+                            </td>
                             <td className="py-3">
                                 <div>{dev.owner_name}</div>
                                 <div className="text-xs text-neutral-500">{dev.owner_email}</div>
                             </td>
-                            <td className="py-3">
-                                <span className="px-2 py-1 rounded bg-neutral-800 text-neutral-300 text-xs uppercase tracking-wider">
-                                    {dev.stat_op || 'INATIVO'}
-                                </span>
-                            </td>
-                            <td className="py-3 font-mono">{dev.version || '-'}</td>
                             <td className="py-3 text-neutral-400">
-                                {dev.last_update ? new Date(dev.last_update).toLocaleString('pt-BR') : '-'}
+                                {dev.last_seen ? new Date(dev.last_seen).toLocaleString('pt-BR') : '-'}
                             </td>
                         </tr>
                     ))}

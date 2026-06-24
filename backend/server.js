@@ -973,9 +973,9 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
 app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT d.id, d.serial_code, d.version, d.last_ip, d.last_update, d.stat_op, u.name as owner_name, u.email as owner_email 
+            SELECT d.id, d.serial_code, d.device_name, d.last_seen, u.name as owner_name, u.email as owner_email 
             FROM devices d JOIN users u ON d.user_id = u.id 
-            ORDER BY d.last_update DESC
+            ORDER BY d.id DESC
         `);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
