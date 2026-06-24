@@ -50,12 +50,14 @@ ${JSON.stringify(names)}
 const runTranslation = async () => {
     console.log('🤖 Iniciando Tradutor de Ingredientes via Gemini AI...');
 
-    if (!process.env.GEMINI_API_KEY) {
-        console.error('❌ ERRO: GEMINI_API_KEY não encontrada no .env');
+    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+        console.error('❌ ERRO: GEMINI_API_KEY ou VITE_GEMINI_API_KEY não encontrada no .env');
         process.exit(1);
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const dbName = process.env.DB_INGREDIENTS_NAME || 'breww_ingredients';
 
     const pool = mysql.createPool({
