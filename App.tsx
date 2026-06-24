@@ -22,6 +22,25 @@ const NavConfig = () => {
     const location = useLocation();
     const { logout } = useAuth();
     const { fermenters } = useFermenters();
+    const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
+
+    React.useEffect(() => {
+        const fetchFirmwareVersion = async () => {
+            try {
+                // We use ENV.API_URL from config or hardcode for now if ENV not imported.
+                // Wait, ENV is not imported here. We can import { ENV } from './config/envs'
+                const baseUrl = (window as any).API_URL ? (window as any).API_URL.replace(/\/api\/?$/, '') : 'http://breww.live';
+                const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setLatestFirmware(data);
+                }
+            } catch (e) {
+                console.error('Erro ao buscar versão do firmware:', e);
+            }
+        };
+        fetchFirmwareVersion();
+    }, []);
 
     // Check if we are inside a device page
     const match = location.pathname.match(/\/fermenter\/(.+)/);
@@ -49,8 +68,13 @@ const NavConfig = () => {
     // Icon Styles
     const iconOnlyBase = "flex items-center justify-center w-10 h-10 rounded-md border transition-all shrink-0 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white";
 
+    // Check if any device needs an update
+    const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && f.currentDevice?.version && f.currentDevice.version !== latestFirmware.version);
+    const hasUpdate = devicesNeedingUpdate.length > 0;
+
     return (
-        <nav className="bg-black py-4 md:py-6 no-print border-b border-neutral-900 mb-6">
+        <div className="no-print mb-6">
+        <nav className="bg-black py-4 md:py-6 border-b border-neutral-900">
             <div className="w-full mx-auto px-6 md:px-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 
                 {/* Top Row for Mobile (Logo + Hamburger) */}
@@ -248,6 +272,25 @@ const NavConfig = () => {
                 </div>
             )}
         </nav>
+        
+        {/* Global Firmware Alert */}
+        {hasUpdate && location.pathname !== '/settings' && (
+            <div className="w-full bg-emerald-950/40 border-b border-emerald-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                    <p className="text-emerald-500 text-xs md:text-sm font-medium">
+                        Nova atualização de firmware ({latestFirmware.version}) disponível para {devicesNeedingUpdate.length} equipamento{devicesNeedingUpdate.length > 1 ? 's' : ''}.
+                    </p>
+                </div>
+                <button 
+                    onClick={() => navigate('/settings')}
+                    className="px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-600/50 text-emerald-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+                >
+                    Atualizar Agora
+                </button>
+            </div>
+        )}
+        </div>
     );
 };
 
