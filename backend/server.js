@@ -1009,13 +1009,40 @@ app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res
 app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
+        
+        // 1. Delete recipe_steps
+        const [recipes] = await pool.execute('SELECT id FROM recipes WHERE user_id = ?', [id]);
+        for (let r of recipes) {
+            await pool.execute('DELETE FROM recipe_steps WHERE recipe_id = ?', [r.id]);
+        }
+        
+        // 2. Delete recipes
+        await pool.execute('DELETE FROM recipes WHERE user_id = ?', [id]);
+        
+        // 3. Delete push_subscriptions
+        await pool.execute('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
+        
+        // 4. Delete batch_events
+        const [batches] = await pool.execute('SELECT id FROM batches WHERE user_id = ?', [id]);
+        for (let b of batches) {
+            await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
+        }
+        
+        // 5. Delete batches
+        await pool.execute('DELETE FROM batches WHERE user_id = ?', [id]);
+
+        // 6. Delete readings
         const [devices] = await pool.execute('SELECT id FROM devices WHERE user_id = ?', [id]);
         for (let dev of devices) {
             await pool.execute('DELETE FROM readings WHERE device_id = ?', [dev.id]);
         }
+        
+        // 7. Delete devices
         await pool.execute('DELETE FROM devices WHERE user_id = ?', [id]);
-        await pool.execute('DELETE FROM batches WHERE user_id = ?', [id]);
+        
+        // 8. Finally delete the user
         await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        
         res.json({ message: 'User and all related data deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
