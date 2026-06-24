@@ -23,7 +23,11 @@ const scrapeHops = async () => {
   console.log(`Baixando Lúpulos (Wikipedia)...`);
   const hops = [];
   try {
-    const { data } = await axios.get(URLS.hopsWiki);
+    const { data } = await axios.get(URLS.hopsWiki, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 BrewwBot/1.0'
+      }
+    });
     const $ = cheerio.load(data);
     
     // As tabelas de lúpulos na Wikipedia tem a classe wikitable
