@@ -36,6 +36,16 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
+const ingredientsPool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS,
+    database: process.env.DB_INGREDIENTS_NAME || 'breww_ingredients',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
 // Inicialização de Tabelas
 const initDb = async () => {
     try {
@@ -98,6 +108,41 @@ const sanitizeNum = (val, precision) => {
     if (val === null || val === undefined || val === '' || isNaN(num) || !isFinite(num)) return null;
     return num.toFixed(precision);
 };
+
+// ==========================================
+// INGREDIENTS API (BeerJSON)
+// ==========================================
+app.get('/api/ingredients/fermentables', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM fermentables ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/ingredients/hops', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM hops ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/ingredients/yeasts', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM yeasts ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM miscs ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// WEBPUSH SUBSCRIPTION
+// ==========================================
 
 // --- 11. SMART SCHEDULING (Autonomous Profile Advancement) ---
 setInterval(async () => {
