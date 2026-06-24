@@ -17,11 +17,13 @@ import { EventLog } from './EventLog';
 interface TemperatureChartProps {
   data: Reading[];
   events?: FermentationEvent[];
+  sensor1Name?: string;
+  sensor2Name?: string;
   onAddEvent?: (event: Omit<FermentationEvent, 'id'>) => void;
   onRemoveEvent?: (id: string) => void;
 }
 
-export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ data, events = [], onAddEvent, onRemoveEvent }) => {
+export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ data, events = [], sensor1Name = 'Cerveja', sensor2Name = 'Geladeira', onAddEvent, onRemoveEvent }) => {
   // Safe parsing of data points
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
@@ -82,7 +84,7 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
             <Line
               type="monotone"
               dataKey="beerTemp"
-              name="Cerveja"
+              name={sensor1Name}
               stroke="#ffffff"
               strokeWidth={1.5}
               dot={false}
@@ -100,7 +102,7 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
             <Line
               type="monotone"
               dataKey="fridgeTemp"
-              name="Geladeira"
+              name={sensor2Name}
               stroke="#3b82f6"
               strokeWidth={1}
               dot={false}

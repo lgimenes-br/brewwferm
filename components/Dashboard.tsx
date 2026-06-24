@@ -308,7 +308,7 @@ export const Dashboard: React.FC = () => {
                                         {/* Sub-metric: Fridge */}
                                         <div className="flex items-center gap-1.5">
                                             <Thermometer size={12} className="text-neutral-600" />
-                                            <span className="text-xs text-neutral-500">Geladeira: {safeFridge.toFixed(1)}°</span>
+                                            <span className="text-xs text-neutral-500">{f.sensor2_name || 'Geladeira'}: {safeFridge.toFixed(1)}°</span>
                                         </div>
                                     </div>
                                 </div>
