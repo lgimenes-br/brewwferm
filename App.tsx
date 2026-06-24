@@ -28,8 +28,7 @@ const NavConfig = () => {
         const fetchFirmwareVersion = async () => {
             try {
                 // We use ENV.API_URL from config or hardcode for now if ENV not imported.
-                // Wait, ENV is not imported here. We can import { ENV } from './config/envs'
-                const baseUrl = (window as any).API_URL ? (window as any).API_URL.replace(/\/api\/?$/, '') : 'http://breww.live';
+                const baseUrl = window.location.origin;
                 const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
                 if (res.ok) {
                     const data = await res.json();

@@ -77,7 +77,7 @@ export const Settings: React.FC = () => {
   useEffect(() => {
       const fetchFirmwareVersion = async () => {
           try {
-              const baseUrl = API_URL.replace(/\/api\/?$/, ''); // Remove /api suffix if present
+              const baseUrl = window.location.origin;
               const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
               if (res.ok) {
                   const data = await res.json();
@@ -518,7 +518,7 @@ export const Settings: React.FC = () => {
                 </div>
                 <button 
                     onClick={() => {
-                        const baseUrl = API_URL.replace(/\/api\/?$/, '');
+                        const baseUrl = window.location.origin;
                         const finalUrl = latestFirmware.url || `${baseUrl}/firmware/update.bin`;
                         setOtaUrl(finalUrl);
                         if(latestFirmware.md5) setOtaMd5(latestFirmware.md5);
