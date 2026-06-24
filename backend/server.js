@@ -61,6 +61,13 @@ const initDb = async () => {
         
         await pool.execute(`CREATE TABLE IF NOT EXISTS system_broadcasts (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255), message TEXT NOT NULL, type VARCHAR(50) DEFAULT 'info', is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT NOW())`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS audit_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action VARCHAR(100) NOT NULL, details TEXT, ip_address VARCHAR(45), created_at DATETIME DEFAULT NOW())`);
+
+        // Migrations (Ignoring errors if columns already exist)
+        try { await pool.execute('ALTER TABLE users ADD COLUMN plan_type ENUM("free", "premium") DEFAULT "free"'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE users ADD COLUMN max_devices INT DEFAULT 1'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE telemetry ADD COLUMN rssi INT DEFAULT NULL'); } catch (e) { }
+        
+        console.log('Main DB tables initialized');
         
         // Add ingredients column safely
         try {
@@ -272,7 +279,7 @@ mqttClient.on('message', async (topic, message) => {
                 }
 
                 let dateSQL = 'NOW()';
-                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat];
+                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat, payload.rssi || null];
                 
                 if (payload.ts) {
                     dateSQL = 'FROM_UNIXTIME(?)';
@@ -280,7 +287,7 @@ mqttClient.on('message', async (topic, message) => {
                 }
 
                 await pool.execute(
-                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
+                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
                     queryArgs
                 ).catch(() => { });
                 lastLogTimes[serialCode] = now;
@@ -538,7 +545,15 @@ app.get('/api/discovery', async (req, res) => {
 
 app.post('/api/devices', authenticateToken, async (req, res) => {
     try {
+        const [[{ max_devices }]] = await pool.execute('SELECT max_devices FROM users WHERE id = ?', [req.user.id]);
+        const [[{ count }]] = await pool.execute('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [req.user.id]);
+        
+        if (count >= max_devices) {
+            return res.status(403).json({ error: 'Limite de equipamentos atingido. Atualize seu plano.' });
+        }
+
         await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [req.body.serialCode, req.user.id, req.body.name]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${req.body.serialCode}`, req.ip]);
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
     } catch (err) { res.status(500).json({ error: 'Erro interno' }); }
@@ -559,9 +574,10 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
 app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
         await pool.execute('DELETE FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip]);
         delete activeBatches[req.params.serial.trim().toUpperCase()];
         notifyUpdate();
-        res.json({ message: 'Removido' });
+        res.json({ message: 'Excluído' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -579,6 +595,8 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
             'INSERT INTO batches (device_id, name, style, og, fg, profile, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
             [deviceId, name, style || '', og || null, fg || null, profileJson]
         );
+
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'START_BATCH', `Batch: ${name} (Device: ${serialCode})`, req.ip]);
 
         activeBatches[serialCode.trim().toUpperCase()] = result.insertId;
         notifyUpdate();
@@ -627,6 +645,7 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.body.serialCode, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Device não encontrado' });
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [devs[0].id]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'STOP_BATCH', `Device: ${req.body.serialCode}`, req.ip]);
         delete activeBatches[req.body.serialCode.trim().toUpperCase()];
         notifyUpdate();
         res.json({ message: 'Finalizado' });
@@ -979,12 +998,21 @@ app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
 app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT u.id, u.name, u.email, u.role, COUNT(d.id) as device_count 
+            SELECT u.id, u.name, u.email, u.role, u.plan_type, u.max_devices, u.created_at, COUNT(d.id) as device_count 
             FROM users u LEFT JOIN devices d ON u.id = d.user_id 
             GROUP BY u.id ORDER BY u.id DESC
         `);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/users/:id/plan', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { plan_type } = req.body;
+        const max_devices = plan_type === 'premium' ? 9999 : 1;
+        await pool.execute('UPDATE users SET plan_type = ?, max_devices = ? WHERE id = ?', [plan_type, max_devices, req.params.id]);
+        res.json({ message: 'Plano atualizado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
@@ -1172,7 +1200,8 @@ app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res
             SELECT d.id, d.serial_code, d.device_name, d.last_seen, u.name as owner_name,
             (d.last_seen > NOW() - INTERVAL 1 HOUR) as is_online,
             (SELECT temp_ferm FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_temp,
-            (SELECT battery FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_battery
+            (SELECT battery FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_battery,
+            (SELECT rssi FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_rssi
             FROM devices d
             JOIN users u ON d.user_id = u.id
             ORDER BY d.last_seen DESC

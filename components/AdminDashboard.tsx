@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert, Activity, Zap, Shield, Megaphone, Terminal, CheckCircle2, XCircle } from 'lucide-react';
+import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert, Activity, Zap, Shield, Megaphone, Terminal, CheckCircle2, XCircle, Wifi } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -170,6 +170,7 @@ const TelemetryTab = () => {
                             <th className="py-4 px-4 font-medium">Proprietário</th>
                             <th className="py-4 px-4 font-medium text-center">Última Temp.</th>
                             <th className="py-4 px-4 font-medium text-center">Bateria</th>
+                            <th className="py-4 px-4 font-medium text-center">WiFi (RSSI)</th>
                             <th className="py-4 px-4 font-medium">Último Sinal</th>
                         </tr>
                     </thead>
@@ -201,6 +202,17 @@ const TelemetryTab = () => {
                                                     <div className="h-full bg-emerald-500" style={{ width: `${dev.last_battery}%` }}></div>
                                                 </div>
                                                 <span className="text-xs text-neutral-400">{dev.last_battery}%</span>
+                                            </div>
+                                        ) : '--'}
+                                    </td>
+                                    <td className="py-3 px-4 text-center">
+                                        {dev.last_rssi !== null ? (
+                                            <div className="flex flex-col items-center justify-center gap-0.5" title={`${dev.last_rssi} dBm`}>
+                                                <Wifi size={16} className={
+                                                    dev.last_rssi >= -65 ? "text-emerald-500" :
+                                                    dev.last_rssi >= -80 ? "text-amber-500" : "text-red-500"
+                                                } />
+                                                <span className="text-[9px] font-mono text-neutral-500">{dev.last_rssi}</span>
                                             </div>
                                         ) : '--'}
                                     </td>
@@ -448,6 +460,20 @@ const UsersTab = () => {
         } catch (e: any) { toast.error(`Falha ao deletar: ${e.message}`); }
     };
 
+    const changeUserPlan = async (id: number, plan_type: string) => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/users/${id}/plan`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ plan_type })
+            });
+            if (res.ok) {
+                toast.success('Plano atualizado');
+                loadUsers();
+            } else throw new Error();
+        } catch (e) { toast.error('Falha ao atualizar plano'); }
+    };
+
     const deleteDevice = async (id: number) => {
         if (!window.confirm('Remover este dispositivo?')) return;
         try {
@@ -486,6 +512,7 @@ const UsersTab = () => {
                                 <th className="py-4 px-4 font-medium">Nome</th>
                                 <th className="py-4 px-4 font-medium">Email</th>
                                 <th className="py-4 px-4 font-medium">Role</th>
+                                <th className="py-4 px-4 font-medium text-center">Plano</th>
                                 <th className="py-4 px-4 font-medium text-center">Dispositivos</th>
                                 <th className="py-4 px-4 font-medium text-right">Ações</th>
                             </tr>
@@ -508,6 +535,16 @@ const UsersTab = () => {
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}`}>
                                                 {user.role}
                                             </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-center">
+                                            <select 
+                                                value={user.plan_type || 'free'} 
+                                                onChange={(e) => changeUserPlan(user.id, e.target.value)}
+                                                className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-indigo-500"
+                                            >
+                                                <option value="free">Free</option>
+                                                <option value="premium">Premium</option>
+                                            </select>
                                         </td>
                                         <td className="py-3 px-4 text-center">
                                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-neutral-800 text-xs font-bold text-neutral-300">
