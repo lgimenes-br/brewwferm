@@ -376,7 +376,9 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-const updateUserLocation = async (userId, ip) => {
+const updateUserLocation = async (userId, req) => {
+    let ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip;
+    if (ip && ip.includes(',')) ip = ip.split(',')[0].trim();
     if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) return;
     try {
         const cleanIp = ip.includes('::ffff:') ? ip.split('::ffff:')[1] : ip;
@@ -397,8 +399,9 @@ app.post('/api/login', async (req, res) => {
             const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET);
             
             // Log successful login
-            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_SUCCESS', 'User logged in', req.ip]);
-            updateUserLocation(users[0].id, req.ip);
+            const userIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip;
+            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_SUCCESS', 'User logged in', userIp]);
+            updateUserLocation(users[0].id, req);
             
             res.json({ token, name: users[0].name, role: users[0].role });
         } else { 
@@ -479,7 +482,7 @@ app.post('/api/auth/google', async (req, res) => {
         }
 
         const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET);
-        updateUserLocation(userId, req.ip);
+        updateUserLocation(userId, req);
         res.json({ token, name: userName, role: userRole });
     } catch (err) { 
         console.error('Google Auth Error:', err);
@@ -1341,7 +1344,8 @@ app.get('/api/admin/trends', authenticateToken, requireAdmin, async (req, res) =
 
 app.get('/api/admin/map', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const [locations] = await pool.execute('SELECT u.name, u.lat, u.lon, MAX(d.last_seen) as last_seen FROM users u JOIN devices d ON u.id = d.user_id WHERE u.lat IS NOT NULL AND u.lon IS NOT NULL GROUP BY u.id');
+        // Fallback para quem não tem localização (Média Brasil)
+        const [locations] = await pool.execute('SELECT u.name, IFNULL(u.lat, -23.5505) as lat, IFNULL(u.lon, -46.6333) as lon, MAX(d.last_seen) as last_seen FROM users u JOIN devices d ON u.id = d.user_id GROUP BY u.id');
         res.json(locations);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
