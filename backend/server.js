@@ -747,7 +747,7 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
         if (!batch1 || !batch2) return res.status(400).json({ error: 'Forneça batch1 e batch2' });
 
         // Ensure user owns both batches
-        const [auth] = await pool.execute('SELECT id FROM batches WHERE id IN (?, ?) AND user_id = ?', [batch1, batch2, req.user.id]);
+        const [auth] = await pool.execute('SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id IN (?, ?) AND d.user_id = ?', [batch1, batch2, req.user.id]);
         if (auth.length !== 2) return res.status(403).json({ error: 'Acesso negado aos lotes' });
 
         const [rows1] = await pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch1]);
