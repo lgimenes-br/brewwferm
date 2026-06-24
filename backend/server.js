@@ -8,7 +8,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import crypto from 'crypto';
+import { exec } from 'child_process';
+import util from 'util';
 import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
+
+const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1252,6 +1256,25 @@ app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req
         await pool.execute('DELETE FROM devices WHERE id = ?', [req.params.id]);
         res.json({ message: 'Removido' });
     } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// SERVER TERMINAL & BACKLOG
+app.get('/api/admin/server/status', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { stdout } = await execPromise('pm2 jlist');
+        res.json(JSON.parse(stdout));
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { stdout, stderr } = await execPromise('pm2 logs breww-server --nostream --lines 100');
+        res.send(stdout + '\n' + stderr);
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
 });
 
 // BROADCASTS & LOGS

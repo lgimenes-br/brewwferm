@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 export const AdminDashboard = () => {
     const { token, logout, user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'ingredients'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'ingredients' | 'terminal'>('overview');
 
     const handleLogout = () => {
         logout();
@@ -50,6 +50,9 @@ export const AdminDashboard = () => {
                             <button onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <TestTube size={18} />
                             </button>
+                            <button onClick={() => setActiveTab('terminal')} title="Terminal do Servidor" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'terminal' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Terminal size={18} />
+                            </button>
                         </div>
 
                         <div className="hidden md:flex items-center gap-3 border-l border-neutral-800 pl-4 mr-2">
@@ -76,6 +79,7 @@ export const AdminDashboard = () => {
                 {activeTab === 'users' && <UsersTab />}
                 {activeTab === 'security' && <SecurityTab />}
                 {activeTab === 'ingredients' && <IngredientsTab />}
+                {activeTab === 'terminal' && <TerminalTab />}
             </div>
         </div>
     );
@@ -937,6 +941,117 @@ const IngredientsTab = () => {
                     </div>
                 </div>
             )}
+        </div>
+    );
+};
+
+// ==========================================
+// TERMINAL TAB
+// ==========================================
+const TerminalTab = () => {
+    const { token } = useAuth();
+    const [status, setStatus] = useState<any>(null);
+    const [logs, setLogs] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const logsEndRef = React.useRef<HTMLDivElement>(null);
+
+    const fetchData = async () => {
+        setRefreshing(true);
+        try {
+            const statusRes = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/server/status`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                setStatus(statusData);
+            }
+
+            const logsRes = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/server/logs`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (logsRes.ok) {
+                const logsText = await logsRes.text();
+                setLogs(logsText);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        setLoading(false);
+        setRefreshing(false);
+    };
+
+    useEffect(() => {
+        fetchData();
+        const interval = setInterval(fetchData, 10000); // Auto refresh every 10s
+        return () => clearInterval(interval);
+    }, [token]);
+
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [logs]);
+
+    if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
+
+    const pm2Process = status && status.length > 0 ? status.find((p: any) => p.name === 'breww-server') || status[0] : null;
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Terminal className="text-indigo-500" size={24} /> 
+                    Terminal & Processos
+                </h2>
+                <button 
+                    onClick={fetchData} 
+                    disabled={refreshing}
+                    className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    <Activity size={16} className={refreshing ? 'animate-spin' : ''} />
+                    Atualizar Agora
+                </button>
+            </div>
+
+            {/* Status Cards */}
+            {pm2Process && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-neutral-500 mb-1">Status do Processo</div>
+                        <div className={`text-xl font-bold flex items-center gap-2 ${pm2Process.pm2_env?.status === 'online' ? 'text-green-500' : 'text-red-500'}`}>
+                            <span className={`w-3 h-3 rounded-full ${pm2Process.pm2_env?.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            {pm2Process.pm2_env?.status?.toUpperCase()}
+                        </div>
+                    </div>
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-neutral-500 mb-1">Uso de CPU</div>
+                        <div className="text-xl font-bold text-white">{pm2Process.monit?.cpu || 0}%</div>
+                    </div>
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-neutral-500 mb-1">Memória RAM</div>
+                        <div className="text-xl font-bold text-white">{Math.round((pm2Process.monit?.memory || 0) / 1024 / 1024)} MB</div>
+                    </div>
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-neutral-500 mb-1">Reinicializações</div>
+                        <div className="text-xl font-bold text-amber-500">{pm2Process.pm2_env?.restart_time || 0}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Terminal Window */}
+            <div className="bg-black border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
+                <div className="bg-neutral-900 px-4 py-2 border-b border-neutral-800 flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="ml-2 text-xs font-mono text-neutral-500">pm2 logs breww-server</span>
+                </div>
+                <div className="p-4 h-[500px] overflow-y-auto font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
+                    {logs || "Carregando logs..."}
+                    <div ref={logsEndRef} />
+                </div>
+            </div>
         </div>
     );
 };
