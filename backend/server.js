@@ -198,6 +198,7 @@ const notifyUpdate = () => {
 
 mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/status');
+    mqttClient.subscribe('brewbrother/+/data'); // NOVO: as novas placas enviam para data
     mqttClient.subscribe('brewbrother/+/comando'); // <-- Intercept manual overrides
     mqttClient.subscribe('brewbrother/global/ping');
 });

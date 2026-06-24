@@ -32,79 +32,50 @@ export const AdminDashboard = () => {
                         </span>
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm font-medium hidden md:block">{user?.name}</span>
+                    <div className="flex items-center gap-2">
+                        {/* Tab Buttons as Icons */}
+                        <div className="flex items-center gap-2 mr-2">
+                            <button onClick={() => setActiveTab('overview')} title="Visão Geral" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'overview' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Activity size={18} />
+                            </button>
+                            <button onClick={() => setActiveTab('telemetry')} title="Telemetria" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'telemetry' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Zap size={18} />
+                            </button>
+                            <button onClick={() => setActiveTab('users')} title="Contas e Dispositivos" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Users size={18} />
+                            </button>
+                            <button onClick={() => setActiveTab('security')} title="Segurança e Avisos" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'security' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Shield size={18} />
+                            </button>
+                            <button onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <TestTube size={18} />
+                            </button>
+                        </div>
+
+                        <div className="hidden md:flex items-center gap-3 border-l border-neutral-800 pl-4 mr-2">
+                            <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-neutral-300">
+                                {user?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm font-medium text-neutral-300">{user?.name}</span>
+                        </div>
+                        
                         <button 
                             onClick={handleLogout}
-                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                            title="Sair"
+                            className="w-10 h-10 flex items-center justify-center text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors border border-neutral-800 hover:border-red-500/20"
                         >
-                            <LogOut size={16} /> <span className="hidden md:inline">Sair</span>
+                            <LogOut size={18} />
                         </button>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 animate-in fade-in duration-500">
-                <div className="flex flex-col gap-2 mb-8">
-                    <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                        <ShieldAlert className="text-indigo-500" size={32} />
-                        Centro de Controle
-                    </h1>
-                    <p className="text-neutral-400">Gerencie contas, equipamentos, telemetria global e o banco de ingredientes.</p>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex space-x-2 border-b border-neutral-800 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-                    <button
-                        onClick={() => setActiveTab('overview')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
-                            activeTab === 'overview' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
-                        }`}
-                    >
-                        <Activity size={16} /> Visão Geral
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('telemetry')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
-                            activeTab === 'telemetry' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
-                        }`}
-                    >
-                        <Zap size={16} /> Telemetria Global
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('users')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
-                            activeTab === 'users' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
-                        }`}
-                    >
-                        <Users size={16} /> Contas e Dispositivos
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('security')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
-                            activeTab === 'security' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
-                        }`}
-                    >
-                        <Shield size={16} /> Segurança e Avisos
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('ingredients')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
-                            activeTab === 'ingredients' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
-                        }`}
-                    >
-                        <TestTube size={16} /> Banco de Ingredientes
-                    </button>
-                </div>
-
-                {/* Tab Content */}
-                <div className="bg-neutral-900/30 backdrop-blur-sm rounded-xl border border-neutral-800 p-6 shadow-2xl">
-                    {activeTab === 'overview' && <OverviewTab />}
-                    {activeTab === 'telemetry' && <TelemetryTab />}
-                    {activeTab === 'users' && <UsersTab />}
-                    {activeTab === 'security' && <SecurityTab />}
-                    {activeTab === 'ingredients' && <IngredientsTab />}
-                </div>
+                {activeTab === 'overview' && <OverviewTab />}
+                {activeTab === 'telemetry' && <TelemetryTab />}
+                {activeTab === 'users' && <UsersTab />}
+                {activeTab === 'security' && <SecurityTab />}
+                {activeTab === 'ingredients' && <IngredientsTab />}
             </div>
         </div>
     );
