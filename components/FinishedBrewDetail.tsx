@@ -414,7 +414,11 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               <div className="grid grid-cols-1 gap-8 min-w-0">
                 <div className="space-y-4 min-w-0">
                   <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Perfil de Temperatura</h3>
-                  <TemperatureChart data={readings} />
+                  <TemperatureChart 
+                    data={readings} 
+                    sensor1Name={brew.sensor1_name || 'Fermentador'}
+                    sensor2Name={brew.sensor2_name || 'Geladeira'}
+                  />
                 </div>
                 <div className="space-y-4 min-w-0">
                   <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Curva de Atenuação</h3>

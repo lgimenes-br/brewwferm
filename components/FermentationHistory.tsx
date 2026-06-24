@@ -83,6 +83,8 @@ export const FermentationHistory: React.FC = () => {
                             efficiency: (og && fg && og > 1) ? ((og - fg) / (og - 1.0) * 100) : 0,
                             notes: '',
                             ingredients: b.ingredients,
+                            sensor1_name: b.sensor1_name,
+                            sensor2_name: b.sensor2_name,
                             readings: [] // Details fetched specifically
                         };
                     })

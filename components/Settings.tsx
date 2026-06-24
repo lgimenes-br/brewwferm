@@ -26,6 +26,26 @@ interface SystemSettings {
   pwmWindowHeat: number;
 }
 
+const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
+  <div className="flex items-center gap-2 mb-6 border-b border-neutral-800 pb-2">
+    <Icon size={18} className="text-neutral-400" />
+    <h3 className="text-white font-bold text-sm uppercase tracking-widest">{title}</h3>
+  </div>
+);
+
+const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => (
+  <div className="space-y-2">
+    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
+    <input 
+      type={type}
+      value={value}
+      onChange={(e) => onChange(type === 'number' ? parseFloat(e.target.value) : e.target.value)}
+      placeholder={placeholder}
+      className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors font-mono text-sm"
+    />
+  </div>
+);
+
 export const Settings: React.FC = () => {
   const { fermenters } = useFermenters();
   const { sendCommand } = useBrew();
@@ -119,26 +139,6 @@ export const Settings: React.FC = () => {
       [type]: { ...prev[type], [param]: value }
     }));
   };
-
-  const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
-    <div className="flex items-center gap-2 mb-6 border-b border-neutral-800 pb-2">
-      <Icon size={18} className="text-neutral-400" />
-      <h3 className="text-white font-bold text-sm uppercase tracking-widest">{title}</h3>
-    </div>
-  );
-
-  const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => (
-    <div className="space-y-2">
-      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
-      <input 
-        type={type}
-        value={value}
-        onChange={(e) => onChange(type === 'number' ? parseFloat(e.target.value) : e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors font-mono text-sm"
-      />
-    </div>
-  );
 
   const handleSaveGeneral = () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');

@@ -547,6 +547,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 <TemperatureChart
                                     data={fermenter.readings}
                                     events={fermenter.events}
+                                    sensor1Name={fermenter.sensor1_name || 'Fermentador'}
+                                    sensor2Name={fermenter.sensor2_name || 'Geladeira'}
                                 />
                             </ErrorBoundary>
                         </div>
@@ -580,7 +582,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 {/* Big Numbers */}
                                 <div className="flex items-baseline justify-between">
                                     <div className="flex flex-col">
-                                        <span className="text-neutral-600 text-sm mb-1">Temperatura (Mosto)</span>
+                                        <span className="text-neutral-600 text-sm mb-1">Temperatura ({fermenter.sensor1_name || 'Mosto'})</span>
                                         <div className="flex items-center gap-1">
                                             <span className="text-4xl font-light text-white font-mono">
                                                 {safeCurrentTemp.toFixed(1)}
@@ -608,7 +610,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     </div>
                                     <div className="text-center">
                                         <Snowflake size={16} className="text-neutral-600 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Geladeira</span>
+                                        <span className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">{fermenter.sensor2_name || 'Geladeira'}</span>
                                         <span className="block text-sm font-mono text-blue-300">{safeCurrentFridgeTemp.toFixed(1)}°</span>
                                     </div>
                                     <div className="text-center">

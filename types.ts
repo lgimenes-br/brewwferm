@@ -116,9 +116,12 @@ export interface FinishedBrew {
   abv: number;
   efficiency: number; // attenuation
   rating?: number; // 1-5 stars
+  isActive: boolean;
   notes: string;
   readings: Reading[]; // Adicionado para gráficos históricos
   ingredients?: any; // Receita (Maltes, Lúpulos, Levedura)
+  sensor1_name?: string;
+  sensor2_name?: string;
 }
 
 export interface ScannedDevice {
