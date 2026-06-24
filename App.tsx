@@ -319,6 +319,7 @@ const NavConfig = () => {
 };
 
 const AppRoutes = () => {
+    const { role } = useAuth();
     return (
         <div className="min-h-screen bg-black pb-10">
             <Toaster 
