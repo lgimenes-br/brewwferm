@@ -62,6 +62,10 @@ const initDb = async () => {
         try { await pool.execute(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE batches ADD COLUMN step_started_at DATETIME`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         
+        // Performance Indexes
+        try { await pool.execute(`CREATE INDEX idx_telemetry_batch ON telemetry(batch_id)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME') console.error(e); }
+        try { await pool.execute(`CREATE INDEX idx_telemetry_device ON telemetry(device_id)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME') console.error(e); }
+        
         console.log('✅ [DB] Verificacao de colunas de sensores e scheduling concluida.');
         
         console.log('✅ [DB] Tabelas verificadas.');
