@@ -562,7 +562,13 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 </div>
                                 <div className="flex-1">
                                     <ErrorBoundary name="Gráfico Duplo (Temp + Grav)">
-                                        <DualAxisChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} />
+                                        <DualAxisChart 
+                                            data={fermenter.readings} 
+                                            og={fermenter.og} 
+                                            fg={fermenter.fg} 
+                                            events={fermenter.events} 
+                                            sensor1Name={fermenter.sensor1_name || 'Temperatura'}
+                                        />
                                     </ErrorBoundary>
                                 </div>
                             </>

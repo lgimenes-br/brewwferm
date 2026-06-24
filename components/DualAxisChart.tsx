@@ -18,9 +18,10 @@ interface DualAxisChartProps {
   og?: number;
   fg?: number;
   events?: FermentationEvent[];
+  sensor1Name?: string;
 }
 
-export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, og, fg, events = [] }) => {
+export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, og, fg, events = [], sensor1Name = 'Temperatura' }) => {
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     
@@ -146,7 +147,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 yAxisId="left"
                 type="monotone"
                 dataKey="beerTemp"
-                name="Temperatura"
+                name={sensor1Name}
                 stroke="#ffffff"
                 strokeWidth={2}
                 dot={false}
