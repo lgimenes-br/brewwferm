@@ -54,17 +54,10 @@ const initDb = async () => {
             }
         }
 
-        // Add sensor names columns
-        try {
-            await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
-            await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
-            await pool.execute(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`);
-            console.log('✅ [DB] Colunas de nomes de sensores adicionadas em devices.');
-        } catch (e) {
-            if (e.code !== 'ER_DUP_FIELDNAME') {
-                console.error('Erro ao adicionar colunas de sensores:', e);
-            }
-        }
+        try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+        try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+        try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+        console.log('✅ [DB] Verificacao de colunas de sensores concluida.');
         
         console.log('✅ [DB] Tabelas verificadas.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
