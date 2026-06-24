@@ -1025,8 +1025,8 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
         // 4. Delete devices, batches, batch_events and readings
         const [devices] = await pool.execute('SELECT id FROM devices WHERE user_id = ?', [id]);
         for (let dev of devices) {
-            // Delete readings
-            await pool.execute('DELETE FROM readings WHERE device_id = ?', [dev.id]);
+            // Delete telemetry
+            await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [dev.id]);
             
             // Delete batch_events
             const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [dev.id]);
