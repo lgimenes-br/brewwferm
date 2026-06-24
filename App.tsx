@@ -274,16 +274,16 @@ const NavConfig = () => {
         
         {/* Global Firmware Alert */}
         {hasUpdate && location.pathname !== '/settings' && (
-            <div className="w-full bg-emerald-950/40 border-b border-emerald-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
+            <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
                 <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                    <p className="text-emerald-500 text-xs md:text-sm font-medium">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                    <p className="text-amber-500 text-xs md:text-sm font-medium">
                         Nova atualização de firmware ({latestFirmware.version}) disponível para {devicesNeedingUpdate.length} equipamento{devicesNeedingUpdate.length > 1 ? 's' : ''}.
                     </p>
                 </div>
                 <button 
                     onClick={() => navigate('/settings')}
-                    className="px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-600/50 text-emerald-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+                    className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 border border-amber-600/50 text-amber-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
                 >
                     Atualizar Agora
                 </button>
