@@ -203,8 +203,8 @@ const OverviewTab = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl p-5">
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6">Mapa Global de Dispositivos</h3>
-                    <div className="h-80 w-full bg-neutral-950 rounded-lg overflow-hidden border border-neutral-800">
-                        <ComposableMap projectionConfig={{ scale: 140 }}>
+                    <div className="w-full aspect-[2/1] bg-neutral-950 rounded-lg overflow-hidden border border-neutral-800">
+                        <ComposableMap projectionConfig={{ scale: 140 }} width={800} height={400} style={{ width: "100%", height: "100%" }}>
                             <Geographies geography={geoUrl}>
                                 {({ geographies }) => geographies.map(geo => (
                                     <Geography key={geo.rsmKey} geography={geo} fill="#171717" stroke="#262626" strokeWidth={0.5} />
