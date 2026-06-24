@@ -1334,6 +1334,88 @@ app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req, res
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/admin/financials', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [users] = await pool.execute('SELECT plan_type, COUNT(*) as count FROM users GROUP BY plan_type');
+        let free = 0; let premium = 0;
+        users.forEach(u => {
+            if (u.plan_type === 'premium') premium = u.count;
+            else free = u.count;
+        });
+        const mrr = premium * 29.90; // Exemplo: R$ 29,90 por premium
+        res.json({ free, premium, mrr });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/batch-stats', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [[{ total }]] = await pool.execute('SELECT COUNT(*) as total FROM batches WHERE is_active = 0');
+        const [[{ success }]] = await pool.execute('SELECT COUNT(*) as success FROM batches WHERE is_active = 0 AND DATEDIFF(ended_at, started_at) > 1');
+        res.json({ total, success, abandoned: total - success });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/health-radar', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [devices] = await pool.execute(`
+            SELECT d.serial_code, d.device_name, u.name as user_name, t.rssi, t.battery, t.recorded_at, d.last_seen 
+            FROM devices d 
+            JOIN users u ON d.user_id = u.id
+            LEFT JOIN (SELECT device_id, rssi, battery, recorded_at FROM telemetry WHERE id IN (SELECT MAX(id) FROM telemetry GROUP BY device_id)) t ON t.device_id = d.id
+            WHERE d.last_seen > NOW() - INTERVAL 7 DAY
+            ORDER BY t.rssi ASC, t.battery ASC
+            LIMIT 5
+        `);
+        res.json(devices);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/push-stats', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) as total_users FROM users');
+        const [[{ opt_in }]] = await pool.execute('SELECT COUNT(DISTINCT user_id) as opt_in FROM push_subscriptions');
+        res.json({ total_users, opt_in });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/broadcast-push', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { title, message } = req.body;
+        const [subs] = await pool.execute('SELECT user_id FROM push_subscriptions GROUP BY user_id');
+        let sent = 0;
+        for (const sub of subs) {
+            await sendPushToUser(pool, sub.user_id, title, message);
+            sent++;
+        }
+        res.json({ success: true, sent });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/community-trends', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [styles] = await pool.execute(`
+            SELECT style as name, 
+                   COUNT(*) as count, 
+                   AVG(DATEDIFF(IFNULL(ended_at, NOW()), started_at)) as avg_days,
+                   AVG(CAST(og AS FLOAT)) as avg_og,
+                   AVG(CAST(fg AS FLOAT)) as avg_fg
+            FROM batches 
+            WHERE style IS NOT NULL AND style != "" 
+            GROUP BY style 
+            ORDER BY count DESC 
+            LIMIT 10
+        `);
+        const enriched = styles.map(s => {
+            const og = parseFloat(s.avg_og);
+            const fg = parseFloat(s.avg_fg);
+            let abv = 0;
+            if (og > 1 && fg > 0.99) abv = (og - fg) * 131.25;
+            return { ...s, abv: abv > 0 ? abv.toFixed(1) : '-' };
+        });
+        res.json(enriched);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/admin/trends', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const [[{ total_batches }]] = await pool.execute('SELECT COUNT(*) as total_batches FROM batches');

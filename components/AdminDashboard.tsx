@@ -1,15 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert, Activity, Zap, Shield, Megaphone, Terminal, CheckCircle2, XCircle, Wifi } from 'lucide-react';
+import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert, Activity, Zap, Shield, Megaphone, Terminal, CheckCircle2, XCircle, Wifi, TrendingUp, Battery, WifiOff, BellRing, HeartPulse, DollarSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 
+// ==========================================
+// MARKETING & HEALTH TAB
+// ==========================================
+const MarketingTab = () => {
+    const { token } = useAuth();
+    const [health, setHealth] = useState<any[]>([]);
+    const [pushStats, setPushStats] = useState<any>({ total_users: 0, opt_in: 0 });
+    const [pushTitle, setPushTitle] = useState('');
+    const [pushMessage, setPushMessage] = useState('');
+    const [sending, setSending] = useState(false);
+
+    useEffect(() => {
+        const fetchMarketing = async () => {
+            const headers = { Authorization: `Bearer ${token}` };
+            const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+            try {
+                const [resHealth, resPush] = await Promise.all([
+                    fetch(`${baseUrl}/admin/health-radar`, { headers }),
+                    fetch(`${baseUrl}/admin/push-stats`, { headers })
+                ]);
+                if (resHealth.ok) setHealth(await resHealth.json());
+                if (resPush.ok) setPushStats(await resPush.json());
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchMarketing();
+    }, [token]);
+
+    const handleSendPush = async () => {
+        if (!pushTitle || !pushMessage) return toast.error('Preencha título e mensagem');
+        setSending(true);
+        try {
+            const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+            const res = await fetch(`${baseUrl}/admin/broadcast-push`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ title: pushTitle, message: pushMessage })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(`Push enviado para ${data.sent} dispositivos`);
+                setPushTitle(''); setPushMessage('');
+            } else {
+                toast.error('Erro ao enviar push');
+            }
+        } catch (e) {
+            toast.error('Erro de conexão');
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-black text-white flex items-center gap-2 mb-6">
+                <HeartPulse className="text-indigo-500" /> Radar de Saúde & Marketing
+            </h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <Battery size={16} /> Radar de Dispositivos Problemáticos
+                    </h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-neutral-800">
+                                    <th className="py-2 px-3 text-xs font-bold text-neutral-500">Usuário</th>
+                                    <th className="py-2 px-3 text-xs font-bold text-neutral-500">Device</th>
+                                    <th className="py-2 px-3 text-xs font-bold text-neutral-500">Sinal</th>
+                                    <th className="py-2 px-3 text-xs font-bold text-neutral-500">Bateria</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {health.length > 0 ? health.map((d, i) => (
+                                    <tr key={i} className="border-b border-neutral-800/50">
+                                        <td className="py-3 px-3 text-white text-sm">{d.user_name}</td>
+                                        <td className="py-3 px-3 text-neutral-400 text-sm font-mono">{d.serial_code}</td>
+                                        <td className="py-3 px-3 text-sm">
+                                            {d.rssi < -80 ? <span className="text-red-400 flex items-center gap-1"><WifiOff size={14}/> {d.rssi}dBm</span> : <span className="text-amber-400">{d.rssi}dBm</span>}
+                                        </td>
+                                        <td className="py-3 px-3 text-sm">
+                                            {d.battery < 20 ? <span className="text-red-400 font-bold">{d.battery}%</span> : <span className="text-amber-400">{d.battery}%</span>}
+                                        </td>
+                                    </tr>
+                                )) : <tr><td colSpan={4} className="py-4 text-center text-neutral-500 text-sm">Nenhum dispositivo em estado crítico.</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <BellRing size={16} /> Disparo de Push em Massa
+                    </h3>
+                    
+                    <div className="flex items-center justify-between mb-6 p-4 bg-neutral-950 rounded-lg border border-neutral-800">
+                        <div>
+                            <div className="text-2xl font-bold text-white">{pushStats.opt_in}</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Usuários Opt-in</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-2xl font-bold text-neutral-400">{pushStats.total_users}</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Total da Base</div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Título do Push</label>
+                            <input 
+                                type="text" 
+                                value={pushTitle}
+                                onChange={(e) => setPushTitle(e.target.value)}
+                                className="w-full bg-neutral-950 border border-neutral-800 text-white rounded-lg p-3 outline-none focus:border-indigo-500 transition-all"
+                                placeholder="Ex: Oferta Especial!"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Mensagem</label>
+                            <textarea 
+                                value={pushMessage}
+                                onChange={(e) => setPushMessage(e.target.value)}
+                                className="w-full bg-neutral-950 border border-neutral-800 text-white rounded-lg p-3 outline-none focus:border-indigo-500 transition-all h-24 resize-none"
+                                placeholder="Digite sua mensagem para todos os usuários..."
+                            ></textarea>
+                        </div>
+                        <button 
+                            onClick={handleSendPush}
+                            disabled={sending}
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-all flex justify-center items-center gap-2"
+                        >
+                            {sending ? 'Enviando...' : <><Megaphone size={18} /> Enviar Push Broadcast</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const AdminDashboard = () => {
     const { token, logout, user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'ingredients' | 'terminal'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'ingredients' | 'terminal' | 'marketing'>('overview');
 
     const handleLogout = () => {
         logout();
@@ -55,6 +197,9 @@ export const AdminDashboard = () => {
                             <button onClick={() => setActiveTab('terminal')} title="Terminal do Servidor" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'terminal' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Terminal size={18} />
                             </button>
+                            <button onClick={() => setActiveTab('marketing')} title="Marketing e Saúde" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'marketing' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <HeartPulse size={18} />
+                            </button>
                         </div>
 
                         <div className="hidden md:flex items-center gap-3 border-l border-neutral-800 pl-4 mr-2">
@@ -82,6 +227,7 @@ export const AdminDashboard = () => {
                 {activeTab === 'security' && <SecurityTab />}
                 {activeTab === 'ingredients' && <IngredientsTab />}
                 {activeTab === 'terminal' && <TerminalTab />}
+                {activeTab === 'marketing' && <MarketingTab />}
             </div>
         </div>
     );
@@ -98,6 +244,9 @@ const OverviewTab = () => {
     const [stats, setStats] = useState<any>({ total_users: 0, total_devices: 0, active_batches: 0, online_devices: 0 });
     const [analytics, setAnalytics] = useState<any>({ growth: [], firmwares: [], mau: 0, zombies: 0 });
     const [trends, setTrends] = useState<any>({ styles: [], total_batches: 0 });
+    const [community, setCommunity] = useState<any[]>([]);
+    const [financials, setFinancials] = useState<any>({ free: 0, premium: 0, mrr: 0 });
+    const [batchStats, setBatchStats] = useState<any>({ total: 0, success: 0, abandoned: 0 });
     const [mapData, setMapData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -107,17 +256,23 @@ const OverviewTab = () => {
                 const headers = { Authorization: `Bearer ${token}` };
                 const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
                 
-                const [resStats, resAnalytics, resTrends, resMap] = await Promise.all([
+                const [resStats, resAnalytics, resTrends, resMap, resFin, resBatch, resComm] = await Promise.all([
                     fetch(`${baseUrl}/admin/stats`, { headers }),
                     fetch(`${baseUrl}/admin/analytics`, { headers }),
                     fetch(`${baseUrl}/admin/trends`, { headers }),
-                    fetch(`${baseUrl}/admin/map`, { headers })
+                    fetch(`${baseUrl}/admin/map`, { headers }),
+                    fetch(`${baseUrl}/admin/financials`, { headers }),
+                    fetch(`${baseUrl}/admin/batch-stats`, { headers }),
+                    fetch(`${baseUrl}/admin/community-trends`, { headers })
                 ]);
                 
                 if (resStats.ok) setStats(await resStats.json());
                 if (resAnalytics.ok) setAnalytics(await resAnalytics.json());
                 if (resTrends.ok) setTrends(await resTrends.json());
                 if (resMap.ok) setMapData(await resMap.json());
+                if (resFin.ok) setFinancials(await resFin.json());
+                if (resBatch.ok) setBatchStats(await resBatch.json());
+                if (resComm.ok) setCommunity(await resComm.json());
             } catch (e) {
                 console.error(e);
             } finally {
@@ -149,9 +304,9 @@ const OverviewTab = () => {
                 
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl"></div>
-                    <div className="p-3 bg-amber-500/10 rounded-full text-amber-400 mb-3 z-10"><TestTube size={24} /></div>
-                    <div className="text-3xl font-black text-white z-10">{trends.total_batches || 0}</div>
-                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">Lotes Históricos Fermentados</div>
+                    <div className="p-3 bg-amber-500/10 rounded-full text-amber-400 mb-3 z-10"><DollarSign size={24} /></div>
+                    <div className="text-3xl font-black text-white z-10">R$ {financials.mrr.toFixed(2)}</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">MRR (Premium)</div>
                 </div>
                 
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
@@ -159,6 +314,44 @@ const OverviewTab = () => {
                     <div className="p-3 bg-red-500/10 rounded-full text-red-400 mb-3 z-10"><Zap size={24} /></div>
                     <div className="text-3xl font-black text-white z-10">{analytics.zombies || 0}</div>
                     <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">Dispositivos Zumbis (&gt;30 dias)</div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex justify-between items-center">
+                    <div>
+                        <div className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-1">Funil de Assinatura</div>
+                        <div className="text-xs text-neutral-500">Usuários Premium vs Gratuitos</div>
+                    </div>
+                    <div className="flex items-end gap-3 text-right">
+                        <div>
+                            <div className="text-2xl font-bold text-white">{financials.premium}</div>
+                            <div className="text-xs text-amber-500 uppercase tracking-widest font-bold">Premium</div>
+                        </div>
+                        <div className="text-2xl font-bold text-neutral-700">/</div>
+                        <div>
+                            <div className="text-2xl font-bold text-neutral-400">{financials.free}</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Free</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex justify-between items-center">
+                    <div>
+                        <div className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-1">Taxa de Sucesso (Lotes)</div>
+                        <div className="text-xs text-neutral-500">Completos vs Abortados/Testes</div>
+                    </div>
+                    <div className="flex items-end gap-3 text-right">
+                        <div>
+                            <div className="text-2xl font-bold text-emerald-400">{batchStats.success}</div>
+                            <div className="text-xs text-emerald-500/50 uppercase tracking-widest font-bold">Concluídos</div>
+                        </div>
+                        <div className="text-2xl font-bold text-neutral-700">/</div>
+                        <div>
+                            <div className="text-2xl font-bold text-red-400/50">{batchStats.abandoned}</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Abortados</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -175,6 +368,39 @@ const OverviewTab = () => {
                                 <Line type="monotone" dataKey="users" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
                             </LineChart>
                         </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6">Tendências da Comunidade e Estilos Populares</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-neutral-800">
+                                    <th className="py-3 px-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Estilo</th>
+                                    <th className="py-3 px-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Quantidade</th>
+                                    <th className="py-3 px-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Duração Média</th>
+                                    <th className="py-3 px-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">ABV Médio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {community.length > 0 ? community.map((item, i) => (
+                                    <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/20">
+                                        <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS[i % COLORS.length]}}></span>
+                                            {item.name}
+                                        </td>
+                                        <td className="py-3 px-4 text-neutral-300">{item.count} lotes</td>
+                                        <td className="py-3 px-4 text-neutral-400">{Math.round(item.avg_days || 0)} dias</td>
+                                        <td className="py-3 px-4 text-amber-400 font-mono">{item.abv}%</td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={4} className="py-4 text-center text-neutral-500 text-sm">Nenhum dado disponível.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
