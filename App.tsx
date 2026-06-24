@@ -9,7 +9,8 @@ import { FermentationHistory } from './components/FermentationHistory';
 import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrapper';
 import { Settings } from './components/Settings';
 import { BrewingCalculators } from './components/BrewingCalculators';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X } from 'lucide-react';
+import { CompareBatches } from './components/CompareBatches';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute } from './components/AuthGuard';
@@ -197,12 +198,15 @@ const NavConfig = () => {
                         <button title="Calculadoras" onClick={() => navigate('/calculators')} className={iconOnlyBase} >
                             <Calculator size={18} />
                         </button>
+                        <button title="Comparador" onClick={() => navigate('/compare')} className={iconOnlyBase} >
+                            <GitCompare size={18} />
+                        </button>
                         <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
                             <SettingsIcon size={18} />
                         </button>
 
                         {/* Voltar Button - moved to the right corner */}
-                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators') && (
+                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare') && (
                             <button title="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
                                 <ArrowLeft size={18} />
                             </button>
@@ -248,6 +252,10 @@ const NavConfig = () => {
                         <button onClick={() => { setIsMobileMenuOpen(false); navigate('/calculators'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><Calculator size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Calculadoras</span>
+                        </button>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/compare'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
+                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><GitCompare size={24} /></div>
+                            <span className="text-lg font-bold tracking-tight">Comparar Lotes</span>
                         </button>
                         <button onClick={() => { setIsMobileMenuOpen(false); navigate('/settings'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><SettingsIcon size={24} /></div>
@@ -332,6 +340,7 @@ const AppRoutes = () => {
                                     <Route path="/history" element={<FermentationHistory />} />
                                     <Route path="/history/:id" element={<FinishedBrewDetailWrapper />} />
                                     <Route path="/calculators" element={<BrewingCalculators />} />
+                                    <Route path="/compare" element={<CompareBatches />} />
                                     <Route path="/settings" element={<Settings />} />
                                     <Route path="*" element={<Navigate to="/" replace />} />
                                 </Routes>

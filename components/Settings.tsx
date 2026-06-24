@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown } from 'lucide-react';
+import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
@@ -256,6 +256,45 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    return outputArray;
+  };
+
+  const handleSubscribePush = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return toast.error('Permissão para notificações negada.');
+      
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BL4hVT-vi0XvI2r0Lm91LlaxwNtrqf7gK56y4EjjckSURXsBxSj8EqqyoqZiZggjVLP7o2EhGnEk4ihB7A0VkFs';
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+        });
+      }
+
+      const res = await fetch(`${API_URL}/notifications/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(subscription)
+      });
+      
+      if (res.ok) toast.success('Notificações ativadas com sucesso!');
+      else toast.error('Erro ao salvar no servidor.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao assinar notificações.');
+    }
+  };
+
   return (
     <div className="p-6 md:px-10 w-full mx-auto animate-in fade-in duration-500 space-y-8 pb-20">
       
@@ -290,6 +329,23 @@ export const Settings: React.FC = () => {
             </div>
         </div>
       </header>
+
+      {/* 0. Notificações */}
+      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+        <SectionHeader icon={Bell} title="Notificações no Celular" />
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <p className="text-neutral-300 text-sm mb-1">Receba alertas de temperatura, fim de rampa e quedas de energia (offline) diretamente no seu dispositivo.</p>
+                <p className="text-neutral-500 text-xs">Requer permissão do navegador. Funciona nativamente no iOS (adicionado à tela inicial) e Android.</p>
+            </div>
+            <button 
+                onClick={handleSubscribePush}
+                className="px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/50 whitespace-nowrap"
+            >
+                <Bell size={14} /> Ativar Alertas
+            </button>
+        </div>
+      </section>
 
       {/* 1. Configurações Gerais */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">

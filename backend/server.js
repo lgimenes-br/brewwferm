@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import crypto from 'crypto';
 import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
+import { sendPushToUser } from './pushService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,18 +42,25 @@ const initDb = async () => {
         await pool.execute(`CREATE TABLE IF NOT EXISTS batch_events (id INT AUTO_INCREMENT PRIMARY KEY, batch_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, description TEXT, recorded_at DATETIME NOT NULL, FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL, style VARCHAR(100), est_og VARCHAR(10), est_fg VARCHAR(10), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, endpoint TEXT NOT NULL, p256dh VARCHAR(255), auth VARCHAR(255), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         console.log('✅ [DB] Tabelas verificadas.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
 initDb();
 
-// Cache de Lotes
 const activeBatches = {};
+const activeBatchesUserId = {}; // Para saber quem notificar
+const alertState = {}; // Controle de alertas enviados
+
 const loadActiveBatches = async () => {
     try {
-        const [rows] = await pool.execute(`SELECT b.id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
+        const [rows] = await pool.execute(`SELECT b.id, b.user_id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
         for (const key in activeBatches) delete activeBatches[key];
-        rows.forEach(row => { activeBatches[row.serial_code.trim().toUpperCase()] = row.id; });
+        for (const key in activeBatchesUserId) delete activeBatchesUserId[key];
+        rows.forEach(row => { 
+            activeBatches[row.serial_code.trim().toUpperCase()] = row.id; 
+            activeBatchesUserId[row.serial_code.trim().toUpperCase()] = row.user_id;
+        });
         console.log('🍺 [System] Cache de Lotes:', activeBatches);
     } catch (e) { console.error('❌ Erro Cache:', e); }
 };
@@ -131,6 +139,49 @@ mqttClient.on('message', async (topic, message) => {
                 ).catch(() => { });
                 lastLogTimes[serialCode] = now;
             }
+
+            // --- Lógica de Alertas Push ---
+            const userId = activeBatchesUserId[serialCode];
+            if (userId) {
+                if (!alertState[serialCode]) alertState[serialCode] = {};
+                
+                // Alerta de Temperatura
+                const tempFerm = parseFloat(payload.ferm);
+                const targetTemp = parseFloat(sanitizeNum(target, 1));
+                if (tempFerm && targetTemp && payload.opm === 0) {
+                    if (Math.abs(tempFerm - targetTemp) > 1.5) {
+                        if (!alertState[serialCode].tempAlertStartTime) {
+                            alertState[serialCode].tempAlertStartTime = now;
+                        } else if (now - alertState[serialCode].tempAlertStartTime > 15 * 60 * 1000) { // 15 min
+                            if (!alertState[serialCode].tempAlertSent) {
+                                sendPushToUser(pool, userId, 'Alerta de Temperatura', `Cerveja fora da temperatura alvo: ${tempFerm}ºC (Alvo: ${targetTemp}ºC)`);
+                                alertState[serialCode].tempAlertSent = true;
+                            }
+                        }
+                    } else {
+                        alertState[serialCode].tempAlertStartTime = null;
+                        if (alertState[serialCode].tempAlertSent) {
+                            sendPushToUser(pool, userId, 'Temperatura Normalizada', `A temperatura voltou ao alvo: ${tempFerm}ºC`);
+                            alertState[serialCode].tempAlertSent = false;
+                        }
+                    }
+                }
+
+                // Alerta de Mudança de Passo
+                if (payload.opm === 0 && payload.profStat) {
+                    if (alertState[serialCode].lastStep && alertState[serialCode].lastStep !== payload.profStat) {
+                        sendPushToUser(pool, userId, 'Mudança de Passo', `O fermentador iniciou o passo: ${payload.profStat}`);
+                    }
+                    alertState[serialCode].lastStep = payload.profStat;
+                }
+                
+                // Recuperação de Offline
+                if (alertState[serialCode].offlineAlertSent) {
+                    sendPushToUser(pool, userId, 'Equipamento Online', 'O fermentador voltou a se comunicar com o servidor.');
+                    alertState[serialCode].offlineAlertSent = false;
+                }
+            }
+
         } else {
             // [NEW] Unknown (or DB down) - log it for discovery
             // console.log(`📡 [MQTT] Novo dispositivo detectado/cacheado: ${serialCode}`);
@@ -167,8 +218,27 @@ app.post('/api/login', async (req, res) => {
             const token = jwt.sign({ id: users[0].id, name: users[0].name }, JWT_SECRET);
             res.json({ token, name: users[0].name });
         } else { res.status(403).json({ error: 'Senha incorreta' }); }
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        console.error('MQTT Error:', err);
+    }
 });
+
+// Monitor de Dispositivos Offline
+setInterval(() => {
+    const now = Date.now();
+    for (const serialCode in lastLogTimes) {
+        if (now - lastLogTimes[serialCode] > 10 * 60 * 1000) { // 10 minutos
+            const userId = activeBatchesUserId[serialCode];
+            if (userId) {
+                if (!alertState[serialCode]) alertState[serialCode] = {};
+                if (!alertState[serialCode].offlineAlertSent) {
+                    sendPushToUser(pool, userId, 'Equipamento Offline', `Perdemos comunicação com o fermentador há mais de 10 minutos!`);
+                    alertState[serialCode].offlineAlertSent = true;
+                }
+            }
+        }
+    }
+}, 60000);
 
 app.post('/api/register', async (req, res) => {
     try {
@@ -448,6 +518,29 @@ app.get('/api/recipes/:id', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => {
+    try {
+        const { endpoint, keys } = req.body;
+        if (!endpoint || !keys) {
+            return res.status(400).json({ error: 'Endpoint e keys são obrigatórios.' });
+        }
+        
+        // Verifica se já existe para evitar duplicatas (usando o endpoint)
+        const [existing] = await pool.execute('SELECT id FROM push_subscriptions WHERE user_id = ? AND endpoint = ?', [req.user.id, endpoint]);
+        
+        if (existing.length === 0) {
+            await pool.execute('INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)', [
+                req.user.id, endpoint, keys.p256dh, keys.auth
+            ]);
+        }
+        
+        res.json({ message: 'Inscrição salva com sucesso!' });
+    } catch (err) {
+        console.error('Erro ao salvar inscrição Push:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/recipes', authenticateToken, async (req, res) => {
     const { name, style, og, fg, steps } = req.body;
     const conn = await pool.getConnection();
@@ -518,6 +611,50 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
         rows.forEach(r => { csv += `"${new Date(r.recorded_at).toLocaleString('pt-BR')}","${r.batch_name || ''}",${f(r.temp_ferm)},${f(r.temp_amb)},${f(r.target_temp)},${fs(r.gravity)},${f(r.battery)},"${r.status_op || ''}","${r.step_name || ''}"\n`; });
         res.header('Content-Type', 'text/csv'); res.attachment(`${fileName}.csv`); res.send(csv);
     } catch (err) { res.status(500).send('Erro ao exportar'); }
+});
+
+app.get('/api/batches/compare', authenticateToken, async (req, res) => {
+    try {
+        const { batch1, batch2 } = req.query;
+        if (!batch1 || !batch2) return res.status(400).json({ error: 'Forneça batch1 e batch2' });
+
+        // Ensure user owns both batches
+        const [auth] = await pool.execute('SELECT id FROM batches WHERE id IN (?, ?) AND user_id = ?', [batch1, batch2, req.user.id]);
+        if (auth.length !== 2) return res.status(403).json({ error: 'Acesso negado aos lotes' });
+
+        const [rows1] = await pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch1]);
+        const [rows2] = await pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch2]);
+
+        const normalize = (rows) => {
+            if (rows.length === 0) return [];
+            const t0 = new Date(rows[0].recorded_at).getTime();
+            return rows.map(r => ({
+                hour: (new Date(r.recorded_at).getTime() - t0) / (1000 * 60 * 60),
+                temp: parseFloat(r.temp_ferm),
+                sg: parseFloat(r.gravity)
+            }));
+        };
+
+        const data1 = normalize(rows1);
+        const data2 = normalize(rows2);
+
+        const combined = {};
+        const process = (data, prefix) => {
+            data.forEach(d => {
+                const h = Math.round(d.hour * 10) / 10;
+                if (!combined[h]) combined[h] = { hour: h };
+                if (d.temp) combined[h][`${prefix}_temp`] = d.temp;
+                if (d.sg) combined[h][`${prefix}_sg`] = d.sg;
+            });
+        };
+        process(data1, 'b1');
+        process(data2, 'b2');
+
+        const result = Object.values(combined).sort((a, b) => a.hour - b.hour);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/batches', authenticateToken, async (req, res) => {
