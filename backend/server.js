@@ -53,6 +53,17 @@ const initDb = async () => {
                 console.error('Erro ao adicionar coluna ingredients:', e);
             }
         }
+
+        // Add sensor names columns
+        try {
+            await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
+            await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
+            console.log('✅ [DB] Colunas sensor1_name e sensor2_name adicionadas em devices.');
+        } catch (e) {
+            if (e.code !== 'ER_DUP_FIELDNAME') {
+                console.error('Erro ao adicionar colunas de sensores:', e);
+            }
+        }
         
         console.log('✅ [DB] Tabelas verificadas.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
@@ -400,6 +411,18 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
+app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
+    try {
+        const { sensor1Name, sensor2Name } = req.body;
+        await pool.execute('UPDATE devices SET sensor1_name = ?, sensor2_name = ? WHERE serial_code = ? AND user_id = ?', 
+            [sensor1Name, sensor2Name, req.params.id, req.user.id]);
+        notifyUpdate();
+        res.json({ message: 'Sensores atualizados no backend' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
         await pool.execute('DELETE FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
@@ -719,34 +742,34 @@ app.get('/api/voice/status', async (req, res) => {
         const voiceToken = process.env.VOICE_TOKEN || 'breww123';
         if (token !== voiceToken) return res.status(403).send('Acesso negado. Token inválido.');
 
-        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
+        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
         if (batches.length === 0) {
             return res.send('Não há nenhum lote ativo no momento no Breww Dashboard.');
         }
         
         const batch = batches[0];
-        const [telemetry] = await pool.execute(`SELECT temp_ferm, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
+        const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
         
         if (telemetry.length === 0) {
             return res.send(`O lote ${batch.name} está ativo, mas ainda não recebi dados de temperatura.`);
         }
         
         const t = telemetry[0];
-        const temp = t.temp_ferm ? t.temp_ferm.toString().replace('.', ' vírgula ') : 'desconhecida';
-        const target = t.target_temp ? t.target_temp.toString().replace('.', ' vírgula ') : 'desconhecida';
+        const tempFerm = t.temp_ferm ? t.temp_ferm.toString().replace('.', ' vírgula ') : 'desconhecida';
+        const tempAmb = t.temp_amb ? t.temp_amb.toString().replace('.', ' vírgula ') : 'desconhecida';
         
         let gravText = '';
         if (t.gravity) {
             const parts = t.gravity.toString().split('.');
             if (parts.length === 2) {
                 // e.g., 1.015 -> "um ponto zero quinze"
-                gravText = `, a gravidade é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
+                gravText = `e a gravidade é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
             }
         }
 
-        const statusStr = t.status_op ? t.status_op.toLowerCase() : 'desconhecido';
-        
-        const text = `O lote ${batch.name} estilo ${batch.style} está ativo. A temperatura atual é de ${temp} graus, o alvo é ${target} graus${gravText}. O equipamento está ${statusStr}.`;
+        const s1 = batch.sensor1_name || 'Fermentador';
+        const s2 = batch.sensor2_name || 'Geladeira';
+        const text = `O lote ${batch.name} está ativo. A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
         
         res.send(text);
     } catch (err) {

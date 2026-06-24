@@ -57,6 +57,19 @@ export const fetchDevices = async (token?: string | null) => {
   return res.json();
 };
 
+export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string) => {
+    const res = await fetch(`${API_URL}/devices/${deviceId}/sensors`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ sensor1Name, sensor2Name })
+    });
+    if (!res.ok) throw new Error('Falha ao atualizar sensores');
+    return res.json();
+};
+
 export const fetchBatches = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/batches`, {
     headers: getHeaders(token)

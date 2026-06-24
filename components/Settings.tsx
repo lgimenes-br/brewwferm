@@ -58,15 +58,17 @@ export const Settings: React.FC = () => {
 
   // Sync settings when selecting a device or when telemetry arrives
   useEffect(() => {
-    if (activeDevice?.currentDevice) {
+    if (activeDevice) {
         setSettings(prev => ({
             ...prev,
-            logInterval: activeDevice.currentDevice.logInterval || prev.logInterval,
-            compressorDelay: activeDevice.currentDevice.compressorDelay || prev.compressorDelay
+            sensor1Name: activeDevice.sensor1_name || 'Fermentador',
+            sensor2Name: activeDevice.sensor2_name || 'Geladeira',
+            logInterval: activeDevice.currentDevice?.logInterval || prev.logInterval,
+            compressorDelay: activeDevice.currentDevice?.compressorDelay || prev.compressorDelay
             // Note: add S1/S2 offset mapping here later if needed
         }));
     }
-  }, [selectedDeviceId, activeDevice?.currentDevice?.logInterval, activeDevice?.currentDevice?.compressorDelay]);
+  }, [selectedDeviceId, activeDevice?.sensor1_name, activeDevice?.sensor2_name, activeDevice?.currentDevice?.logInterval, activeDevice?.currentDevice?.compressorDelay]);
 
   const [relayState, setRelayState] = useState<'AUTO' | 'HEAT' | 'COOL'>('AUTO');
   
@@ -153,12 +155,25 @@ export const Settings: React.FC = () => {
     toast.success('Configurações Gerais enviadas!');
   };
 
-  const handleSaveSensorNames = () => {
+  const handleSaveSensorNames = async () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
     sendCommand(selectedDeviceId, 'setNames', { field: 's1n', val: settings.sensor1Name });
     setTimeout(() => { 
         sendCommand(selectedDeviceId, 'setNames', { field: 's2n', val: settings.sensor2Name }); 
     }, 200);
+    
+    if (token) {
+        try {
+            await fetch(`${API_URL}/devices/${selectedDeviceId}/sensors`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ sensor1Name: settings.sensor1Name, sensor2Name: settings.sensor2Name })
+            });
+        } catch (e) {
+            console.error('Falha ao salvar sensores no backend', e);
+        }
+    }
+
     toast.success('Nomes dos sensores atualizados!');
   };
 

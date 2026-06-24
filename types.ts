@@ -83,6 +83,8 @@ export interface Fermenter {
   name: string;
   ipAddress?: string; // IP ou Serial do dispositivo
   mode: DeviceMode; // Novo campo: Modo de Operação
+  sensor1_name?: string;
+  sensor2_name?: string;
   status: FermenterStatus;
   beerName: string;
   style: BeerStyle;
