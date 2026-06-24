@@ -109,36 +109,6 @@ const sanitizeNum = (val, precision) => {
     return num.toFixed(precision);
 };
 
-// ==========================================
-// INGREDIENTS API (BeerJSON)
-// ==========================================
-app.get('/api/ingredients/fermentables', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM fermentables ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/ingredients/hops', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM hops ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/ingredients/yeasts', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM yeasts ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM miscs ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
 // ==========================================
 // WEBPUSH SUBSCRIPTION
@@ -941,6 +911,37 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
         });
         
         res.json(finalRows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// INGREDIENTS API (BeerJSON)
+// ==========================================
+app.get('/api/ingredients/fermentables', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM fermentables ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/ingredients/hops', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM hops ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/ingredients/yeasts', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM yeasts ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await ingredientsPool.execute('SELECT * FROM miscs ORDER BY name ASC');
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
