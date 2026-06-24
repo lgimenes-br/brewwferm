@@ -77,7 +77,7 @@ const MarketingTab = () => {
                                     <th className="py-2 px-3 text-xs font-bold text-neutral-500">Usuário</th>
                                     <th className="py-2 px-3 text-xs font-bold text-neutral-500">Device</th>
                                     <th className="py-2 px-3 text-xs font-bold text-neutral-500">Sinal</th>
-                                    <th className="py-2 px-3 text-xs font-bold text-neutral-500">Bateria</th>
+                                    <th className="py-2 px-3 text-xs font-bold text-neutral-500">Bateria iSpindel</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -499,7 +499,7 @@ const TelemetryTab = () => {
                             <th className="py-4 px-4 font-medium">Dispositivo</th>
                             <th className="py-4 px-4 font-medium">Proprietário</th>
                             <th className="py-4 px-4 font-medium text-center">Última Temp.</th>
-                            <th className="py-4 px-4 font-medium text-center">Bateria</th>
+                            <th className="py-4 px-4 font-medium text-center">Bateria iSpindel</th>
                             <th className="py-4 px-4 font-medium text-center">WiFi (RSSI)</th>
                             <th className="py-4 px-4 font-medium">Último Sinal</th>
                         </tr>
