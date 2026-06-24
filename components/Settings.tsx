@@ -72,6 +72,22 @@ export const Settings: React.FC = () => {
   const [otaUrl, setOtaUrl] = useState<string>('http://breww.live/firmware/update.bin');
   const [otaMd5, setOtaMd5] = useState<string>('');
   const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  useEffect(() => {
+      const checkSubscription = async () => {
+          try {
+              if (Notification.permission === 'granted') {
+                  const registration = await navigator.serviceWorker.ready;
+                  const subscription = await registration.pushManager.getSubscription();
+                  if (subscription) setIsSubscribed(true);
+              }
+          } catch (e) {
+              console.error(e);
+          }
+      };
+      checkSubscription();
+  }, []);
 
   // Fetch latest firmware version from backend
   useEffect(() => {
@@ -287,7 +303,10 @@ export const Settings: React.FC = () => {
         body: JSON.stringify(subscription)
       });
       
-      if (res.ok) toast.success('Notificações ativadas com sucesso!');
+      if (res.ok) {
+        toast.success('Notificações ativadas com sucesso!');
+        setIsSubscribed(true);
+      }
       else toast.error('Erro ao salvar no servidor.');
     } catch (err) {
       console.error(err);
@@ -340,9 +359,14 @@ export const Settings: React.FC = () => {
             </div>
             <button 
                 onClick={handleSubscribePush}
-                className="px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/50 whitespace-nowrap"
+                disabled={isSubscribed}
+                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 border whitespace-nowrap ${
+                    isSubscribed 
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/50 cursor-not-allowed' 
+                        : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/50'
+                }`}
             >
-                <Bell size={14} /> Ativar Alertas
+                <Bell size={14} /> {isSubscribed ? 'Alertas Ativos' : 'Ativar Alertas'}
             </button>
         </div>
       </section>
