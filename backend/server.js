@@ -57,7 +57,12 @@ const initDb = async () => {
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        console.log('✅ [DB] Verificacao de colunas de sensores concluida.');
+        
+        // Smart Scheduling columns
+        try { await pool.execute(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+        try { await pool.execute(`ALTER TABLE batches ADD COLUMN step_started_at DATETIME`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+        
+        console.log('✅ [DB] Verificacao de colunas de sensores e scheduling concluida.');
         
         console.log('✅ [DB] Tabelas verificadas.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
@@ -90,6 +95,68 @@ const sanitizeNum = (val, precision) => {
     return num.toFixed(precision);
 };
 
+// --- 11. SMART SCHEDULING (Autonomous Profile Advancement) ---
+setInterval(async () => {
+    try {
+        const [activeBatches] = await pool.execute(`
+            SELECT b.id, b.profile, b.current_step_index, b.step_started_at, d.serial_code, d.user_id 
+            FROM batches b 
+            JOIN devices d ON b.device_id = d.id 
+            WHERE b.is_active = 1 AND b.profile IS NOT NULL
+        `);
+
+        for (let batch of activeBatches) {
+            if (!batch.profile || !batch.step_started_at) continue;
+            let profile = [];
+            try { profile = typeof batch.profile === 'string' ? JSON.parse(batch.profile) : batch.profile; } catch(e) { continue; }
+            
+            if (Array.isArray(profile) && batch.current_step_index < profile.length - 1) {
+                const currentStep = profile[batch.current_step_index];
+                if (!currentStep || !currentStep.duration) continue;
+
+                const elapsedMs = Date.now() - new Date(batch.step_started_at).getTime();
+                const durationMs = currentStep.duration * 24 * 60 * 60 * 1000;
+
+                if (elapsedMs >= durationMs) {
+                    const newIndex = batch.current_step_index + 1;
+                    const nextStep = profile[newIndex];
+                    
+                    // Update DB
+                    await pool.execute(
+                        'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?', 
+                        [newIndex, batch.id]
+                    );
+
+                    // Send MQTT
+                    if (batch.serial_code) {
+                        mqttClient.publish(`brewbrother/${batch.serial_code}/command`, JSON.stringify({
+                            cmd: 'setProfile',
+                            steps: profile,
+                            currentStep: newIndex
+                        }));
+                    }
+
+                    // Log Event
+                    const desc = `Avançou automaticamente para a etapa: ${nextStep.name} (${nextStep.temperature}°C)`;
+                    await pool.execute(
+                        'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
+                        [batch.id, 'SYSTEM_ACTION', desc]
+                    );
+
+                    // Send Push Notification
+                    if (batch.user_id) {
+                        sendPushToUser(pool, batch.user_id, 'Avanço Automático de Etapa', desc);
+                    }
+                    
+                    console.log(`🤖 [Smart Scheduler] Lote ${batch.id} avançou para etapa ${newIndex}`);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Erro no Smart Scheduler:', e);
+    }
+}, 5 * 60 * 1000); // Roda a cada 5 minutos
+
 // --- 2. MQTT ---
 const brokerUrl = process.env.VITE_MQTT_BROKER || 'mqtt://localhost:1883';
 console.log(`🔌 [MQTT] Conectando a ${brokerUrl}...`);
@@ -104,15 +171,40 @@ const notifyUpdate = () => {
     mqttClient.publish('brewbrother/global/update', JSON.stringify({ ts: Date.now() }));
 };
 
-mqttClient.on('connect', () => { console.log('✅ [MQTT] Monitorando...'); mqttClient.subscribe('brewbrother/+/data'); });
+mqttClient.on('connect', () => {
+    mqttClient.subscribe('brewbrother/+/status');
+    mqttClient.subscribe('brewbrother/+/comando'); // <-- Intercept manual overrides
+    mqttClient.subscribe('brewbrother/global/ping');
+});
 
 mqttClient.on('message', async (topic, message) => {
     try {
+        let payload;
+        try { payload = JSON.parse(message.toString()); } catch (e) { return; }
+        
+        // Intercept Manual Overrides from frontend
+        if (topic.endsWith('/comando')) {
+            const serialCode = topic.split('/')[1];
+            if (payload.type === 'setProfile' && payload.currentStep !== undefined) {
+                // Find active batch and update step_started_at
+                const [batches] = await pool.execute(`
+                    SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id 
+                    WHERE d.serial_code = ? AND b.is_active = 1 LIMIT 1
+                `, [serialCode]);
+                if (batches.length > 0) {
+                    await pool.execute(
+                        'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
+                        [payload.currentStep, batches[0].id]
+                    );
+                    console.log(`⏱️ [Manual Override] Lote ${batches[0].id} alterado para etapa ${payload.currentStep}`);
+                }
+            }
+            return;
+        }
+
         const parts = topic.split('/');
         if (parts.length < 3) return;
         const serialCode = parts[1].trim().toUpperCase();
-        let payload;
-        try { payload = JSON.parse(message.toString()); } catch (e) { return; }
 
         let deviceId = null;
         try {
@@ -379,7 +471,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
+        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -437,7 +529,7 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
         // Store profile as JSON string if provided
         const profileJson = profile ? JSON.stringify(profile) : null;
         const [result] = await pool.execute(
-            'INSERT INTO batches (device_id, name, style, og, fg, profile, started_at, is_active) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)',
+            'INSERT INTO batches (device_id, name, style, og, fg, profile, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
             [deviceId, name, style || '', og || null, fg || null, profileJson]
         );
 
