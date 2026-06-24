@@ -1147,6 +1147,158 @@ app.get('/firmware/update.bin', (req, res) => {
     }
 });
 
+// ==========================================
+// ADMIN E ESTATÍSTICAS
+// ==========================================
+
+app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) as total_users FROM users');
+        const [[{ total_devices }]] = await pool.execute('SELECT COUNT(*) as total_devices FROM devices');
+        const [[{ active_batches }]] = await pool.execute('SELECT COUNT(*) as active_batches FROM batches WHERE is_active = 1');
+        const [[{ online_devices }]] = await pool.execute('SELECT COUNT(*) as online_devices FROM devices WHERE last_seen > NOW() - INTERVAL 1 HOUR');
+        res.json({ total_users, total_devices, active_batches, online_devices });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [devices] = await pool.execute(`
+            SELECT d.id, d.serial_code, d.device_name, d.last_seen, u.name as owner_name,
+            (SELECT temp_ferm FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_temp,
+            (SELECT battery FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_battery
+            FROM devices d
+            JOIN users u ON d.user_id = u.id
+            ORDER BY d.last_seen DESC
+        `);
+        res.json(devices);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [users] = await pool.execute(`
+            SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(d.id) as device_count 
+            FROM users u LEFT JOIN devices d ON u.id = d.user_id GROUP BY u.id ORDER BY u.id DESC
+        `);
+        res.json(users);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { name, email, password, role } = req.body;
+        const hash = await bcrypt.hash(password, 10);
+        await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hash, role]);
+        res.status(201).json({ message: 'Criado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { name, email, password, role } = req.body;
+        if (password) {
+            const hash = await bcrypt.hash(password, 10);
+            await pool.execute('UPDATE users SET name = ?, email = ?, password_hash = ?, role = ? WHERE id = ?', [name, email, hash, role, req.params.id]);
+        } else {
+            await pool.execute('UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?', [name, email, role, req.params.id]);
+        }
+        res.json({ message: 'Atualizado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        // Cascade delete telemetry from this user's devices
+        const [devices] = await pool.execute('SELECT id FROM devices WHERE user_id = ?', [req.params.id]);
+        if (devices.length > 0) {
+            const deviceIds = devices.map(d => d.id).join(',');
+            await pool.execute(`DELETE FROM telemetry WHERE device_id IN (${deviceIds})`);
+        }
+        // DB constraints will cascade delete devices, batches, events
+        await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Deletado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [devices] = await pool.execute('SELECT * FROM devices');
+        res.json(devices);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { serial_code, device_name, user_id } = req.body;
+        await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name, user_id]);
+        res.status(201).json({ message: 'Criado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { serial_code, device_name, user_id } = req.body;
+        await pool.execute('UPDATE devices SET serial_code = ?, device_name = ?, user_id = ? WHERE id = ?', [serial_code.trim().toUpperCase(), device_name, user_id, req.params.id]);
+        res.json({ message: 'Atualizado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [req.params.id]);
+        await pool.execute('DELETE FROM devices WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Removido' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// BROADCASTS & LOGS
+app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [logs] = await pool.execute('SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT 100');
+        res.json(logs);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [broadcasts] = await pool.execute('SELECT * FROM system_broadcasts ORDER BY created_at DESC');
+        res.json(broadcasts);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { title, message, type, is_active, send_push } = req.body;
+        await pool.execute('INSERT INTO system_broadcasts (title, message, type, is_active) VALUES (?, ?, ?, ?)', [title, message, type, is_active ? 1 : 0]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_BROADCAST', `Title: ${title}`, req.ip]);
+        
+        if (send_push) {
+            // Find all active subscriptions and push
+            const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
+            for (const sub of subs) {
+                sendPushToUser(pool, sub.user_id, title || 'Aviso da Plataforma', message);
+            }
+        }
+        res.status(201).json({ message: 'Enviado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/broadcasts/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { is_active } = req.body;
+        await pool.execute('UPDATE system_broadcasts SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, req.params.id]);
+        res.json({ message: 'Atualizado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/broadcasts/active', async (req, res) => {
+    try {
+        const [broadcasts] = await pool.execute('SELECT * FROM system_broadcasts WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1');
+        res.json(broadcasts[0] || null);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
