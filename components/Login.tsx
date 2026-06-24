@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -25,8 +25,31 @@ export const Login: React.FC = () => {
     },
     onError: () => {
       toast.error('Erro de comunicação com o Google');
-    }
+    },
+    ux_mode: 'redirect'
   });
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const token = params.get('access_token');
+      if (token) {
+        // clear hash to prevent loops
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        setLoading(true);
+        loginWithGoogle(token)
+          .then(success => {
+            setLoading(false);
+            if (success) navigate('/');
+          })
+          .catch(err => {
+            setLoading(false);
+            toast.error(err.message || 'Falha ao autenticar com o Google via Redirecionamento');
+          });
+      }
+    }
+  }, [loginWithGoogle, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
