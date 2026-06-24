@@ -162,7 +162,7 @@ export const AdminDashboard = () => {
         <div className="min-h-screen bg-black text-neutral-300">
             {/* Top Bar exclusively for Admin */}
             <div className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-neutral-900/80">
-                <div className="max-w-7xl mx-auto px-4 md:px-10 h-16 flex items-center justify-between">
+                <div className="w-full px-4 md:px-10 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="flex items-baseline">
                             <span className="text-2xl font-black text-white tracking-tighter">BREW</span>
@@ -220,7 +220,7 @@ export const AdminDashboard = () => {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 animate-in fade-in duration-500">
+            <div className="w-full px-4 md:px-10 py-8 animate-in fade-in duration-500">
                 {activeTab === 'overview' && <OverviewTab />}
                 {activeTab === 'telemetry' && <TelemetryTab />}
                 {activeTab === 'users' && <UsersTab />}
