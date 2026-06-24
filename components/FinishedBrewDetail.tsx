@@ -422,7 +422,12 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
                 </div>
                 <div className="space-y-4 min-w-0">
                   <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Curva de Atenuação</h3>
-                  <GravityChart data={readings} og={brew.og} fg={brew.fg} />
+                  <GravityChart 
+                    data={readings} 
+                    og={brew.og} 
+                    fg={brew.fg}
+                    sensorSgName={brew.sensor_sg_name || 'Gravidade (SG)'}
+                  />
                 </div>
               </div>
             </>

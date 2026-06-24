@@ -85,6 +85,7 @@ export interface Fermenter {
   mode: DeviceMode; // Novo campo: Modo de Operação
   sensor1_name?: string;
   sensor2_name?: string;
+  sensor_sg_name?: string;
   status: FermenterStatus;
   beerName: string;
   style: BeerStyle;
@@ -122,6 +123,7 @@ export interface FinishedBrew {
   ingredients?: any; // Receita (Maltes, Lúpulos, Levedura)
   sensor1_name?: string;
   sensor2_name?: string;
+  sensor_sg_name?: string;
 }
 
 export interface ScannedDevice {

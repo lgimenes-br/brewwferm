@@ -57,14 +57,14 @@ export const fetchDevices = async (token?: string | null) => {
   return res.json();
 };
 
-export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string) => {
+export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string, sensorSgName: string) => {
     const res = await fetch(`${API_URL}/devices/${deviceId}/sensors`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ sensor1Name, sensor2Name })
+        body: JSON.stringify({ sensor1Name, sensor2Name, sensorSgName })
     });
     if (!res.ok) throw new Error('Falha ao atualizar sensores');
     return res.json();

@@ -18,6 +18,7 @@ interface SystemSettings {
   chartPoints: number;
   sensor1Name: string;
   sensor2Name: string;
+  sensorSgName: string;
   offsetS1: number;
   offsetS2: number;
   offsetSG: number;
@@ -83,6 +84,7 @@ export const Settings: React.FC = () => {
             ...prev,
             sensor1Name: activeDevice.sensor1_name || 'Fermentador',
             sensor2Name: activeDevice.sensor2_name || 'Geladeira',
+            sensorSgName: activeDevice.sensor_sg_name || 'Gravidade',
             logInterval: activeDevice.currentDevice?.logInterval || prev.logInterval,
             compressorDelay: activeDevice.currentDevice?.compressorDelay || prev.compressorDelay
             // Note: add S1/S2 offset mapping here later if needed
@@ -167,7 +169,7 @@ export const Settings: React.FC = () => {
             await fetch(`${API_URL}/devices/${selectedDeviceId}/sensors`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ sensor1Name: settings.sensor1Name, sensor2Name: settings.sensor2Name })
+                body: JSON.stringify({ sensor1Name: settings.sensor1Name, sensor2Name: settings.sensor2Name, sensorSgName: settings.sensorSgName })
             });
         } catch (e) {
             console.error('Falha ao salvar sensores no backend', e);
@@ -433,7 +435,7 @@ export const Settings: React.FC = () => {
       {/* 2. Personalizar Sensores */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
         <SectionHeader icon={Thermometer} title="Personalizar Sensores" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InputField 
             label="Nome Sensor 1 (Fermentador)" 
             value={settings.sensor1Name} 
@@ -443,6 +445,11 @@ export const Settings: React.FC = () => {
             label="Nome Sensor 2 (Ambiente)" 
             value={settings.sensor2Name} 
             onChange={(v: string) => handleChange('sensor2Name', v)} 
+          />
+          <InputField 
+            label="Nome Sensor SG (Gravidade)" 
+            value={settings.sensorSgName} 
+            onChange={(v: string) => handleChange('sensorSgName', v)} 
           />
         </div>
         <div className="mt-6 flex justify-end">

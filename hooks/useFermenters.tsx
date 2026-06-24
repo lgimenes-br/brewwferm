@@ -34,6 +34,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             ipAddress: d.ip || d.serial_code || '',
             sensor1_name: d.sensor1_name,
             sensor2_name: d.sensor2_name,
+            sensor_sg_name: d.sensor_sg_name,
             mode: (() => {
                 const saved = localStorage.getItem(`device_mode_${d.serial_code}`);
                 if (saved === DeviceMode.FRIDGE) return DeviceMode.FRIDGE;

@@ -557,7 +557,13 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <>
                                 <div className="flex-1">
                                     <ErrorBoundary name="Gráfico de Gravidade">
-                                        <GravityChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} />
+                                        <GravityChart 
+                                            data={fermenter.readings} 
+                                            og={fermenter.og} 
+                                            fg={fermenter.fg} 
+                                            events={fermenter.events} 
+                                            sensorSgName={fermenter.sensor_sg_name || 'Gravidade (SG)'}
+                                        />
                                     </ErrorBoundary>
                                 </div>
                                 <div className="flex-1">
@@ -568,6 +574,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                             fg={fermenter.fg} 
                                             events={fermenter.events} 
                                             sensor1Name={fermenter.sensor1_name || 'Temperatura'}
+                                            sensorSgName={fermenter.sensor_sg_name || 'Gravidade (SG)'}
                                         />
                                     </ErrorBoundary>
                                 </div>
@@ -597,7 +604,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-neutral-600 text-sm mb-1">Gravidade (SG)</span>
+                                        <span className="text-neutral-600 text-sm mb-1">{fermenter.sensor_sg_name || 'Gravidade (SG)'}</span>
                                         <div className="flex items-center gap-1">
                                             <span className="text-4xl font-light text-purple-400 font-mono">
                                                 {safeCurrentGravity.toFixed(3)}

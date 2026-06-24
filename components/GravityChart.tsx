@@ -18,9 +18,10 @@ interface GravityChartProps {
   og?: number;
   fg?: number;
   events?: FermentationEvent[];
+  sensorSgName?: string;
 }
 
-export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og, fg, events = [] }) => {
+export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og, fg, events = [], sensorSgName = 'Gravidade (SG)' }) => {
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     
@@ -140,7 +141,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
               <Area
                 type="monotone"
                 dataKey="gravity"
-                name="Gravidade (SG)"
+                name={sensorSgName}
                 stroke={safeData.length > 0 ? "#8b5cf6" : "none"}
                 fillOpacity={safeData.length > 0 ? 1 : 0}
                 fill="url(#colorGravity)"

@@ -19,9 +19,10 @@ interface DualAxisChartProps {
   fg?: number;
   events?: FermentationEvent[];
   sensor1Name?: string;
+  sensorSgName?: string;
 }
 
-export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, og, fg, events = [], sensor1Name = 'Temperatura' }) => {
+export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, og, fg, events = [], sensor1Name = 'Temperatura', sensorSgName = 'Gravidade (SG)' }) => {
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     
@@ -117,7 +118,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                   labelStyle={{ color: '#a3a3a3', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   labelFormatter={(label) => new Date(label).toLocaleString()}
                   formatter={(value: number, name: string, props: any) => {
-                    if (name === "Gravidade (SG)") {
+                    if (name === sensorSgName) {
                       const original = props?.payload?.originalGravity;
                       const displayVal = original !== undefined ? original : value;
                       return [displayVal.toFixed(3), 'SG'];
@@ -134,7 +135,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 yAxisId="right"
                 type="monotone"
                 dataKey="gravity"
-                name="Gravidade (SG)"
+                name={sensorSgName}
                 stroke={safeData.length > 0 ? "#8b5cf6" : "none"}
                 fillOpacity={safeData.length > 0 ? 1 : 0}
                 fill="url(#colorGravityDual)"
