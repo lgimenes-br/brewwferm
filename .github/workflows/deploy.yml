@@ -57,6 +57,7 @@ jobs:
           port: 22
           script: |
             cd /var/www/breww-backend/
+            if ! grep -q "VITE_GEMINI_API_KEY=" .env; then echo "VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" >> .env; else sed -i "s/^VITE_GEMINI_API_KEY=.*/VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}/" .env; fi
             npm install
             pm2 restart breww-server || pm2 start server.js --name "breww-server"
             pm2 save
