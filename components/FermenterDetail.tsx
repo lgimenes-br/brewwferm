@@ -537,7 +537,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch animate-in fade-in duration-300 min-h-[600px]">
 
                     {/* Left Column: Charts & Events */}
-                    <div className="lg:col-span-2 space-y-8 min-w-0 flex flex-col">
+                    <div className="order-2 lg:order-1 lg:col-span-2 space-y-8 min-w-0 flex flex-col">
                         {fermenter.mode === DeviceMode.FERMENTER && (
                             <ForecastingEngine fermenter={fermenter} />
                         )}
@@ -583,7 +583,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     </div>
 
                     {/* Right Column: Metrics & Controls */}
-                    <div className="flex flex-col gap-8 min-w-0 h-full">
+                    <div className="order-1 lg:order-2 flex flex-col gap-8 min-w-0 h-full">
                         {/* Telemetria Card */}
                         <div className="bg-neutral-900/40 rounded-3xl p-8 border border-neutral-800 backdrop-blur-sm relative overflow-hidden shrink-0">
                             <div className="flex justify-between items-center mb-6">
