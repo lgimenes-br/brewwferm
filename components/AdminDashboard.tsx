@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert } from 'lucide-react';
+import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert, Activity, Zap, Shield, Megaphone, Terminal, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 export const AdminDashboard = () => {
     const { token, logout, user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'users' | 'ingredients'>('users');
+    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'ingredients'>('overview');
 
     const handleLogout = () => {
         logout();
@@ -50,11 +50,27 @@ export const AdminDashboard = () => {
                         <ShieldAlert className="text-indigo-500" size={32} />
                         Centro de Controle
                     </h1>
-                    <p className="text-neutral-400">Gerencie contas, equipamentos e o banco de ingredientes do sistema.</p>
+                    <p className="text-neutral-400">Gerencie contas, equipamentos, telemetria global e o banco de ingredientes.</p>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex space-x-2 border-b border-neutral-800 mb-6 overflow-x-auto pb-2">
+                <div className="flex space-x-2 border-b border-neutral-800 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
+                            activeTab === 'overview' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
+                        }`}
+                    >
+                        <Activity size={16} /> Visão Geral
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('telemetry')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
+                            activeTab === 'telemetry' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
+                        }`}
+                    >
+                        <Zap size={16} /> Telemetria Global
+                    </button>
                     <button
                         onClick={() => setActiveTab('users')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
@@ -62,6 +78,14 @@ export const AdminDashboard = () => {
                         }`}
                     >
                         <Users size={16} /> Contas e Dispositivos
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('security')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-all whitespace-nowrap ${
+                            activeTab === 'security' ? 'bg-neutral-800 text-white shadow-[inset_0_2px_0_0_#6366f1]' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
+                        }`}
+                    >
+                        <Shield size={16} /> Segurança e Avisos
                     </button>
                     <button
                         onClick={() => setActiveTab('ingredients')}
@@ -75,8 +99,326 @@ export const AdminDashboard = () => {
 
                 {/* Tab Content */}
                 <div className="bg-neutral-900/30 backdrop-blur-sm rounded-xl border border-neutral-800 p-6 shadow-2xl">
+                    {activeTab === 'overview' && <OverviewTab />}
+                    {activeTab === 'telemetry' && <TelemetryTab />}
                     {activeTab === 'users' && <UsersTab />}
+                    {activeTab === 'security' && <SecurityTab />}
                     {activeTab === 'ingredients' && <IngredientsTab />}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ==========================================
+// OVERVIEW TAB
+// ==========================================
+const OverviewTab = () => {
+    const { token } = useAuth();
+    const [stats, setStats] = useState<any>({ total_users: 0, total_devices: 0, active_batches: 0, online_devices: 0 });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/stats`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => { setStats(data); setLoading(false); })
+        .catch(() => setLoading(false));
+    }, [token]);
+
+    if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-xl font-bold text-white mb-6">Métricas da Plataforma</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center">
+                    <div className="p-3 bg-indigo-500/10 rounded-full text-indigo-400 mb-3"><Users size={24} /></div>
+                    <div className="text-3xl font-black text-white">{stats.total_users}</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1">Total de Usuários</div>
+                </div>
+                
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center">
+                    <div className="p-3 bg-emerald-500/10 rounded-full text-emerald-400 mb-3"><HardDrive size={24} /></div>
+                    <div className="text-3xl font-black text-white">{stats.total_devices}</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1">Dispositivos Cadastrados</div>
+                </div>
+                
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl"></div>
+                    <div className="p-3 bg-amber-500/10 rounded-full text-amber-400 mb-3 z-10"><Activity size={24} /></div>
+                    <div className="text-3xl font-black text-white z-10">{stats.active_batches}</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">Lotes Fermentando Agora</div>
+                </div>
+                
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full blur-3xl"></div>
+                    <div className="p-3 bg-sky-500/10 rounded-full text-sky-400 mb-3 z-10"><Zap size={24} /></div>
+                    <div className="text-3xl font-black text-white z-10">{stats.online_devices}</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">Dispositivos Online (Última hora)</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ==========================================
+// TELEMETRY TAB
+// ==========================================
+const TelemetryTab = () => {
+    const { token } = useAuth();
+    const [devices, setDevices] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => { setDevices(data); setLoading(false); })
+        .catch(() => setLoading(false));
+    }, [token]);
+
+    const isOnline = (lastSeen: string) => {
+        if (!lastSeen) return false;
+        return (new Date().getTime() - new Date(lastSeen).getTime()) < 60 * 60 * 1000; // 1 hour
+    };
+
+    if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
+
+    return (
+        <div className="space-y-4">
+            <h2 className="text-xl font-bold text-white mb-6">Monitoramento em Tempo Real</h2>
+            <div className="border border-neutral-800 rounded-xl overflow-hidden bg-black/20 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-neutral-900">
+                        <tr className="text-neutral-400">
+                            <th className="py-4 px-4 font-medium">Status</th>
+                            <th className="py-4 px-4 font-medium">Dispositivo</th>
+                            <th className="py-4 px-4 font-medium">Proprietário</th>
+                            <th className="py-4 px-4 font-medium text-center">Última Temp.</th>
+                            <th className="py-4 px-4 font-medium text-center">Bateria</th>
+                            <th className="py-4 px-4 font-medium">Último Sinal</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-800/50">
+                        {devices.map(dev => {
+                            const online = isOnline(dev.last_seen);
+                            return (
+                                <tr key={dev.id} className="hover:bg-neutral-800/30 transition-colors">
+                                    <td className="py-3 px-4">
+                                        <div className={`flex items-center gap-2 ${online ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                                            <div className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-600'}`}></div>
+                                            <span className="text-xs font-bold uppercase tracking-wider">{online ? 'Online' : 'Offline'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                        <div className="font-mono text-emerald-400">{dev.serial_code}</div>
+                                        <div className="text-xs text-neutral-500">{dev.device_name || 'Sem nome'}</div>
+                                    </td>
+                                    <td className="py-3 px-4 text-neutral-300">{dev.owner_name}</td>
+                                    <td className="py-3 px-4 text-center">
+                                        <span className="font-mono text-neutral-200 bg-neutral-800 px-2 py-1 rounded">
+                                            {dev.last_temp !== null ? `${dev.last_temp}°C` : '--'}
+                                        </span>
+                                    </td>
+                                    <td className="py-3 px-4 text-center">
+                                        {dev.last_battery !== null ? (
+                                            <div className="flex items-center justify-center gap-1">
+                                                <div className="w-6 h-3 border border-neutral-600 rounded-sm relative overflow-hidden">
+                                                    <div className="h-full bg-emerald-500" style={{ width: `${dev.last_battery}%` }}></div>
+                                                </div>
+                                                <span className="text-xs text-neutral-400">{dev.last_battery}%</span>
+                                            </div>
+                                        ) : '--'}
+                                    </td>
+                                    <td className="py-3 px-4 text-neutral-400 text-xs">
+                                        {dev.last_seen ? new Date(dev.last_seen).toLocaleString('pt-BR') : 'Nunca'}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {devices.length === 0 && (
+                            <tr><td colSpan={6} className="py-8 text-center text-neutral-500">Nenhum dispositivo encontrado.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+// ==========================================
+// SECURITY & BROADCASTS TAB
+// ==========================================
+const SecurityTab = () => {
+    const { token } = useAuth();
+    const [logs, setLogs] = useState<any[]>([]);
+    const [broadcasts, setBroadcasts] = useState<any[]>([]);
+    
+    const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'info', is_active: true, send_push: false });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const loadData = () => {
+        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/audit`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => res.json()).then(setLogs).catch(() => {});
+            
+        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => res.json()).then(setBroadcasts).catch(() => {});
+    };
+
+    useEffect(() => { loadData(); }, [token]);
+
+    const handleBroadcastSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(broadcastForm)
+            });
+            if (res.ok) {
+                toast.success('Aviso disparado com sucesso!');
+                setBroadcastForm({ title: '', message: '', type: 'info', is_active: true, send_push: false });
+                loadData();
+            } else {
+                toast.error('Erro ao enviar aviso');
+            }
+        } catch (e) { toast.error('Falha na conexão'); }
+        setIsSubmitting(false);
+    };
+
+    const toggleBroadcast = async (id: number, currentStatus: number) => {
+        try {
+            await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ is_active: !currentStatus })
+            });
+            loadData();
+        } catch (e) { toast.error('Erro'); }
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Col: Broadcasts */}
+            <div className="space-y-6">
+                <div>
+                    <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                        <Megaphone className="text-indigo-500" size={20} /> Enviar Aviso Global
+                    </h2>
+                    <p className="text-sm text-neutral-400 mb-6">Crie um banner ou notificação push para todos os usuários.</p>
+                    
+                    <form onSubmit={handleBroadcastSubmit} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Título do Aviso</label>
+                            <input type="text" value={broadcastForm.title} onChange={e => setBroadcastForm({...broadcastForm, title: e.target.value})} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: Manutenção Programada" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Mensagem (obrigatório)</label>
+                            <textarea required value={broadcastForm.message} onChange={e => setBroadcastForm({...broadcastForm, message: e.target.value})} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 min-h-[80px]" placeholder="O servidor será reiniciado hoje às 23h..." />
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Tipo / Cor</label>
+                                <select value={broadcastForm.type} onChange={e => setBroadcastForm({...broadcastForm, type: e.target.value})} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 appearance-none">
+                                    <option value="info">Informativo (Azul/Roxo)</option>
+                                    <option value="warning">Alerta Crítico (Amarelo/Laranja)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-6 pt-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={broadcastForm.is_active} onChange={e => setBroadcastForm({...broadcastForm, is_active: e.target.checked})} className="rounded bg-neutral-800 border-neutral-700 text-indigo-500 focus:ring-indigo-500/20" />
+                                <span className="text-sm font-medium text-neutral-300">Deixar Banner Ativo</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={broadcastForm.send_push} onChange={e => setBroadcastForm({...broadcastForm, send_push: e.target.checked})} className="rounded bg-neutral-800 border-neutral-700 text-indigo-500 focus:ring-indigo-500/20" />
+                                <span className="text-sm font-medium text-neutral-300">Disparar Notificação Push</span>
+                            </label>
+                        </div>
+                        <button type="submit" disabled={isSubmitting} className="w-full mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-indigo-900/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                            <Megaphone size={16} /> {isSubmitting ? 'Enviando...' : 'Publicar Aviso'}
+                        </button>
+                    </form>
+                </div>
+
+                <div className="bg-black/20 border border-neutral-800 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 bg-neutral-900 border-b border-neutral-800">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Histórico de Avisos</h3>
+                    </div>
+                    <div className="divide-y divide-neutral-800/50 max-h-64 overflow-y-auto">
+                        {broadcasts.map(b => (
+                            <div key={b.id} className="p-4 flex items-start justify-between gap-4 hover:bg-neutral-800/30">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`w-2 h-2 rounded-full ${b.type === 'warning' ? 'bg-amber-500' : 'bg-indigo-500'}`}></span>
+                                        <span className="font-bold text-neutral-200 text-sm">{b.title || 'Aviso'}</span>
+                                    </div>
+                                    <p className="text-xs text-neutral-400 line-clamp-2">{b.message}</p>
+                                    <p className="text-[10px] text-neutral-600 mt-1">{new Date(b.created_at).toLocaleString('pt-BR')}</p>
+                                </div>
+                                <button 
+                                    onClick={() => toggleBroadcast(b.id, b.is_active)}
+                                    className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider border ${
+                                        b.is_active ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-neutral-800 text-neutral-500 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-300'
+                                    }`}
+                                >
+                                    {b.is_active ? 'Ativo' : 'Inativo'}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Right Col: Audit Logs */}
+            <div>
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Terminal className="text-neutral-400" size={20} /> Logs de Auditoria
+                </h2>
+                <p className="text-sm text-neutral-400 mb-6">Registro de ações críticas do sistema para fins de segurança.</p>
+                
+                <div className="bg-black/40 border border-neutral-800 rounded-xl overflow-hidden flex flex-col h-[600px]">
+                    <div className="px-4 py-3 bg-neutral-900 border-b border-neutral-800 flex justify-between items-center">
+                        <span className="text-xs font-mono text-neutral-500">tail -f /var/log/audit.log</span>
+                        <div className="flex gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
+                            <div className="w-3 h-3 rounded-full bg-amber-500/50"></div>
+                            <div className="w-3 h-3 rounded-full bg-emerald-500/50"></div>
+                        </div>
+                    </div>
+                    <div className="p-4 overflow-y-auto flex-1 font-mono text-xs space-y-3">
+                        {logs.map(log => {
+                            const isFail = log.action.includes('FAIL');
+                            const isDelete = log.action.includes('DELETE');
+                            const isAuth = log.action.includes('LOGIN');
+                            
+                            return (
+                                <div key={log.id} className="flex items-start gap-3 border-b border-neutral-800/50 pb-2">
+                                    <span className="text-neutral-600 shrink-0">{new Date(log.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                isFail ? 'bg-red-500/20 text-red-400' :
+                                                isDelete ? 'bg-amber-500/20 text-amber-400' :
+                                                isAuth ? 'bg-emerald-500/20 text-emerald-400' :
+                                                'bg-indigo-500/20 text-indigo-400'
+                                            }`}>{log.action}</span>
+                                            <span className="text-neutral-400">by</span>
+                                            <span className="text-indigo-300">{log.user_name || `User #${log.user_id}`}</span>
+                                        </div>
+                                        <div className="text-neutral-300">{log.details}</div>
+                                        <div className="text-neutral-600 text-[10px] mt-0.5">IP: {log.ip_address}</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {logs.length === 0 && <div className="text-neutral-600">Nenhum log registrado.</div>}
+                    </div>
                 </div>
             </div>
         </div>
@@ -145,7 +487,7 @@ const UsersTab = () => {
             });
             if (res.ok) {
                 toast.success('Dispositivo removido');
-                setExpandedUserId(prev => prev); // re-trigger if needed, but we will rely on reload
+                setExpandedUserId(prev => prev);
                 loadUsers();
             } else throw new Error();
         } catch (e) { toast.error('Falha ao remover dispositivo'); }
@@ -270,21 +612,11 @@ const UserDevicesList = ({ userId, onEdit, onDelete }: { userId: number, onEdit:
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Fetch all devices from admin endpoint and filter by user_id
-        // (Assuming the backend endpoint returns user_id or we filter by user)
-        // Actually, the current API GET /api/admin/devices returns d.* or similar?
-        // In server.js it returns: d.id, d.serial_code, d.device_name, d.last_seen, u.name...
-        // Wait, it doesn't return user_id. We need to fetch devices for this specific user.
-        // Let's use the normal GET /api/devices which returns devices for the logged-in user, BUT admin needs ALL.
-        // Let's modify the filtering client side if user_id is missing, but wait, the API was already updated implicitly? No.
-        // Let's just fetch from /api/admin/devices and we will use a quick fix: we'll match by email or modify server.js to include user_id.
-        // Since I'm writing this, I know server.js needs user_id in the query. I will update server.js.
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/devices`, {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => res.json())
         .then(data => { 
-            // In case user_id is returned by the API
             setDevices(data.filter((d: any) => d.user_id === userId)); 
             setLoading(false);
         });

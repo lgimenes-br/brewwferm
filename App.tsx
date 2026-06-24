@@ -18,6 +18,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AdminDashboard } from './components/AdminDashboard';
 import { useFermenters } from './hooks/useFermenters';
 import { useLocation } from 'react-router-dom';
+import { SystemBanner } from './components/SystemBanner';
 
 const NavConfig = () => {
     const navigate = useNavigate();
@@ -332,6 +333,7 @@ const AppRoutes = () => {
                     }
                 }}
             />
+            <SystemBanner />
             <Routes>
                 {/* Public Auth Routes */}
                 <Route path="/login" element={

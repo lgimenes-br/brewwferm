@@ -55,6 +55,9 @@ const initDb = async () => {
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, endpoint TEXT NOT NULL, p256dh VARCHAR(255), auth VARCHAR(255), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         
+        await pool.execute(`CREATE TABLE IF NOT EXISTS system_broadcasts (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255), message TEXT NOT NULL, type VARCHAR(50) DEFAULT 'info', is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT NOW())`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS audit_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action VARCHAR(100) NOT NULL, details TEXT, ip_address VARCHAR(45), created_at DATETIME DEFAULT NOW())`);
+        
         // Add ingredients column safely
         try {
             await pool.execute(`ALTER TABLE batches ADD COLUMN ingredients JSON`);
@@ -361,10 +364,18 @@ app.post('/api/login', async (req, res) => {
         if (users.length === 0) return res.status(400).json({ error: 'Usuário não encontrado' });
         if (await bcrypt.compare(password, users[0].password_hash)) {
             const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET);
+            
+            // Log successful login
+            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_SUCCESS', 'User logged in', req.ip]);
+            
             res.json({ token, name: users[0].name, role: users[0].role });
-        } else { res.status(403).json({ error: 'Senha incorreta' }); }
+        } else { 
+            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_FAILED', 'Invalid password attempt', req.ip]);
+            res.status(403).json({ error: 'Senha incorreta' }); 
+        }
     } catch (err) {
-        console.error('MQTT Error:', err);
+        console.error('Login Error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
