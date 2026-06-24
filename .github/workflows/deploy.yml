@@ -23,7 +23,7 @@ jobs:
           VITE_MQTT_BROKER: ${{ secrets.VITE_MQTT_BROKER }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
 
       - name: 4. Copiando a vitrine (Frontend) para a Locaweb
