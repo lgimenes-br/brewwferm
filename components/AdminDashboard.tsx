@@ -371,6 +371,27 @@ const OverviewTab = () => {
                     </div>
                 </div>
 
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6">Estilos de Cerveja Favoritos</h3>
+                    <div className="h-64 w-full flex justify-center">
+                        {(trends.styles && trends.styles.length > 0) ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={trends.styles} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="count">
+                                        {trends.styles.map((entry: any, index: number) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #262626', borderRadius: '8px' }} />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center text-neutral-500">Sem dados suficientes</div>
+                        )}
+                    </div>
+                </div>
+
                 <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl p-5">
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6">Tendências da Comunidade e Estilos Populares</h3>
                     <div className="overflow-x-auto">
@@ -401,27 +422,6 @@ const OverviewTab = () => {
                                 )}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-6">Estilos de Cerveja Favoritos</h3>
-                    <div className="h-64 w-full flex justify-center">
-                        {(trends.styles && trends.styles.length > 0) ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={trends.styles} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="count">
-                                        {trends.styles.map((entry: any, index: number) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #262626', borderRadius: '8px' }} />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex items-center justify-center text-neutral-500">Sem dados suficientes</div>
-                        )}
                     </div>
                 </div>
             </div>
