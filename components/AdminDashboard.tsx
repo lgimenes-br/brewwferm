@@ -221,7 +221,7 @@ const TelemetryTab = () => {
                                     <td className="py-3 px-4 text-neutral-300">{dev.owner_name}</td>
                                     <td className="py-3 px-4 text-center">
                                         <span className="font-mono text-neutral-200 bg-neutral-800 px-2 py-1 rounded">
-                                            {dev.last_temp !== null ? `${dev.last_temp}°C` : '--'}
+                                            {dev.last_temp !== null ? `${Number(dev.last_temp).toFixed(1)}°C` : '--'}
                                         </span>
                                     </td>
                                     <td className="py-3 px-4 text-center">
