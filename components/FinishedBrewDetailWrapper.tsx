@@ -42,6 +42,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                             abv: 0, // Simplified for wrapper
                             efficiency: 0,
                             notes: '',
+                            ingredients: hb.ingredients,
                             readings: []
                         };
                     }
@@ -64,6 +65,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                 abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
                 efficiency: (og && fg && og > 1) ? ((og - fg) / (og - 1.0) * 100) : 0,
                 notes: '',
+                ingredients: b.ingredients,
                 readings: []
             };
         },

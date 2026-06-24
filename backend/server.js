@@ -43,6 +43,17 @@ const initDb = async () => {
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL, style VARCHAR(100), est_og VARCHAR(10), est_fg VARCHAR(10), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, endpoint TEXT NOT NULL, p256dh VARCHAR(255), auth VARCHAR(255), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
+        
+        // Add ingredients column safely
+        try {
+            await pool.execute(`ALTER TABLE batches ADD COLUMN ingredients JSON`);
+            console.log('✅ [DB] Coluna ingredients adicionada em batches.');
+        } catch (e) {
+            if (e.code !== 'ER_DUP_FIELDNAME') {
+                console.error('Erro ao adicionar coluna ingredients:', e);
+            }
+        }
+        
         console.log('✅ [DB] Tabelas verificadas.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
@@ -666,7 +677,7 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/batches', authenticateToken, async (req, res) => {
-    try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, d.device_name, b.device_id as device_id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, b.device_id as device_id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Get batch details (metadata)
@@ -675,6 +686,18 @@ app.get('/api/batch/:id', authenticateToken, async (req, res) => {
         const [check] = await pool.execute(`SELECT b.* FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         res.json(check[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Update batch ingredients
+app.put('/api/batches/:id/ingredients', authenticateToken, async (req, res) => {
+    try {
+        const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
+        if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
+        
+        const { ingredients } = req.body;
+        await pool.execute('UPDATE batches SET ingredients = ? WHERE id = ?', [JSON.stringify(ingredients), req.params.id]);
+        res.json({ message: 'Ingredientes atualizados com sucesso' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -687,6 +710,49 @@ app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
         await pool.execute('DELETE FROM batches WHERE id = ?', [req.params.id]);
         res.json({ message: 'Batch deletado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Voice Assistant Endpoint (Alexa / Google Home)
+app.get('/api/voice/status', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const voiceToken = process.env.VOICE_TOKEN || 'breww123';
+        if (token !== voiceToken) return res.status(403).send('Acesso negado. Token inválido.');
+
+        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
+        if (batches.length === 0) {
+            return res.send('Não há nenhum lote ativo no momento no Breww Dashboard.');
+        }
+        
+        const batch = batches[0];
+        const [telemetry] = await pool.execute(`SELECT temp_ferm, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
+        
+        if (telemetry.length === 0) {
+            return res.send(`O lote ${batch.name} está ativo, mas ainda não recebi dados de temperatura.`);
+        }
+        
+        const t = telemetry[0];
+        const temp = t.temp_ferm ? t.temp_ferm.toString().replace('.', ' vírgula ') : 'desconhecida';
+        const target = t.target_temp ? t.target_temp.toString().replace('.', ' vírgula ') : 'desconhecida';
+        
+        let gravText = '';
+        if (t.gravity) {
+            const parts = t.gravity.toString().split('.');
+            if (parts.length === 2) {
+                // e.g., 1.015 -> "um ponto zero quinze"
+                gravText = `, a gravidade é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
+            }
+        }
+
+        const statusStr = t.status_op ? t.status_op.toLowerCase() : 'desconhecido';
+        
+        const text = `O lote ${batch.name} estilo ${batch.style} está ativo. A temperatura atual é de ${temp} graus, o alvo é ${target} graus${gravText}. O equipamento está ${statusStr}.`;
+        
+        res.send(text);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Ocorreu um erro ao consultar o servidor.');
+    }
 });
 
 // Get batch telemetry data
@@ -729,5 +795,52 @@ app.get('/firmware/update.bin', (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+
+// --- MAGIC PREDICTION (Fim da Fermentação) ---
+const MAGIC_PREDICTION_INTERVAL = 60 * 60 * 1000; // Roda a cada 1 hora
+setInterval(async () => {
+    try {
+        const [batches] = await pool.execute(`SELECT b.id, b.name, b.user_id, b.fg FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
+        
+        for (const batch of batches) {
+            if (!batch.fg) continue; // Sem FG esperado
+            const targetFg = parseFloat(batch.fg);
+            if (isNaN(targetFg)) continue;
+            
+            // Já alertou?
+            if (alertState[`magic_${batch.id}`]) continue;
+            
+            // Pega dados das últimas 48h
+            const [rows] = await pool.execute(`SELECT gravity, recorded_at FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 AND recorded_at > DATE_SUB(NOW(), INTERVAL 48 HOUR) ORDER BY recorded_at ASC`, [batch.id]);
+            
+            if (rows.length < 5) continue;
+            
+            const first = rows[0];
+            const last = rows[rows.length - 1];
+            
+            const hoursDiff = (new Date(last.recorded_at).getTime() - new Date(first.recorded_at).getTime()) / (1000 * 60 * 60);
+            if (hoursDiff < 6) continue; // Precisa de pelo menos 6 horas de dados
+            
+            const sgDrop = first.gravity - last.gravity;
+            if (sgDrop <= 0.001) continue; // Queda insignificante
+            
+            const dropRatePerHour = sgDrop / hoursDiff;
+            const remainingDrop = last.gravity - targetFg;
+            
+            if (remainingDrop > 0 && dropRatePerHour > 0) {
+                const hoursRemaining = remainingDrop / dropRatePerHour;
+                
+                // Se faltar 24h ou menos, avisa o usuário
+                if (hoursRemaining > 0 && hoursRemaining <= 24) {
+                    alertState[`magic_${batch.id}`] = true;
+                    await sendPushToUser(batch.user_id, 'Previsão Mágica 🔮', `Atenção! Sua ${batch.name} deve atingir o FG esperado (${batch.fg}) nas próximas ${Math.round(hoursRemaining)} horas!`);
+                    console.log(`[Magic Prediction] Alerta enviado para lote ${batch.id} (${batch.name}) - ETA: ${hoursRemaining}h`);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Magic Prediction Error:', e);
+    }
+}, MAGIC_PREDICTION_INTERVAL);
 
 app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });

@@ -82,6 +82,7 @@ export const FermentationHistory: React.FC = () => {
                             abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
                             efficiency: (og && fg && og > 1) ? ((og - fg) / (og - 1.0) * 100) : 0,
                             notes: '',
+                            ingredients: b.ingredients,
                             readings: [] // Details fetched specifically
                         };
                     })

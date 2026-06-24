@@ -116,6 +116,7 @@ export interface FinishedBrew {
   rating?: number; // 1-5 stars
   notes: string;
   readings: Reading[]; // Adicionado para gráficos históricos
+  ingredients?: any; // Receita (Maltes, Lúpulos, Levedura)
 }
 
 export interface ScannedDevice {

@@ -3,7 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { FinishedBrew, Reading } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { Award, Share2, FileDown, Quote, CheckCircle, Loader2 } from 'lucide-react';
+import { Award, Share2, FileDown, Quote, CheckCircle, Loader2, Save } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { toast } from 'react-hot-toast';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
 
@@ -16,6 +19,16 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const [readings, setReadings] = useState<Reading[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const [activeTab, setActiveTab] = useState<'telemetry' | 'recipe'>('telemetry');
+  const [ingredients, setIngredients] = useState<any>(brew.ingredients || {
+    malts: '',
+    hops: '',
+    yeast: '',
+    notes: brew.notes || ''
+  });
+  const [savingIng, setSavingIng] = useState(false);
 
   useEffect(() => {
     console.log("FinishedBrewDetail mounted - brew:", { id: brew.id, og: brew.og, fg: brew.fg, abv: brew.abv, readingsCount: brew.readings?.length || 0 });
@@ -116,8 +129,50 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     : 0;
 
 
-  const handleExportPDF = () => {
-    window.print();
+  const saveIngredients = async () => {
+    setSavingIng(true);
+    try {
+      const res = await fetch(`${API_URL}/batches/${brew.id}/ingredients`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ingredients })
+      });
+      if (res.ok) toast.success('Receita salva com sucesso');
+      else toast.error('Erro ao salvar receita');
+    } catch (e) {
+      toast.error('Erro ao salvar');
+    } finally {
+      setSavingIng(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const element = document.getElementById('pdf-content');
+    if (!element) return;
+    toast.loading('Gerando PDF...', { id: 'pdf' });
+    try {
+      // Temporary hide UI elements not for PDF
+      const noPrintElements = document.querySelectorAll('.no-print');
+      noPrintElements.forEach(el => (el as HTMLElement).style.display = 'none');
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' });
+      
+      noPrintElements.forEach(el => (el as HTMLElement).style.display = '');
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Relatorio_${brew.beerName}.pdf`);
+      toast.success('PDF Exportado!', { id: 'pdf' });
+    } catch (e) {
+      toast.error('Erro ao gerar PDF', { id: 'pdf' });
+    }
   };
 
   const handleShare = async () => {
@@ -150,7 +205,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   );
 
   return (
-    <div className="p-6 md:px-10 w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16">
+    <div id="pdf-content" className="p-6 md:px-10 w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16 bg-[#0a0a0a] min-h-screen text-white">
       <div className="flex justify-end items-center mb-8 no-print">
         <div className="flex items-center gap-3">
           <button
@@ -269,37 +324,106 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         </div>
       )}
 
-      {/* Charts Section - min-w-0 for ResponsiveContainer support */}
-      {loading ? (
-        <div className="p-12 text-center text-neutral-500">
-          <Loader2 className="animate-spin mx-auto mb-2" />
-          Carregando dados de telemetria...
-        </div>
-      ) : readings.length === 0 ? (
-        <div className="p-12 text-center bg-neutral-900/20 rounded-2xl border border-neutral-800 border-dashed">
-          <p className="text-neutral-500 mb-2">📊 Sem dados de telemetria disponíveis</p>
-          <p className="text-neutral-600 text-sm">
-            Este lote não possui registros de temperatura e gravidade salvos durante a fermentação.
-          </p>
-          <p className="text-neutral-700 text-xs mt-2">
-            Batch ID: {brew.id} | Tentou buscar de: /api/batch/{brew.id}/data
-          </p>
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-neutral-800 mb-8 mt-12 no-print">
+        <button 
+          onClick={() => setActiveTab('telemetry')}
+          className={`pb-4 px-4 text-sm font-bold uppercase tracking-widest transition-colors ${activeTab === 'telemetry' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+        >
+          Telemetria
+        </button>
+        <button 
+          onClick={() => setActiveTab('recipe')}
+          className={`pb-4 px-4 text-sm font-bold uppercase tracking-widest transition-colors ${activeTab === 'recipe' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+        >
+          Receita & Ingredientes
+        </button>
+      </div>
+
+      {activeTab === 'recipe' ? (
+        <div className="bg-neutral-900/20 rounded-2xl p-8 border border-neutral-800/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Maltes / Fermentáveis</label>
+              <textarea 
+                value={ingredients.malts}
+                onChange={e => setIngredients({...ingredients, malts: e.target.value})}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
+                placeholder="Ex: 5kg Pilsen, 500g Caramunich..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Lúpulos</label>
+              <textarea 
+                value={ingredients.hops}
+                onChange={e => setIngredients({...ingredients, hops: e.target.value})}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
+                placeholder="Ex: 20g Citra (60 min), 50g Mosaic (Dry Hop)..."
+              />
+            </div>
+          </div>
+          <div className="mb-6">
+            <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Levedura</label>
+            <input 
+              value={ingredients.yeast}
+              onChange={e => setIngredients({...ingredients, yeast: e.target.value})}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white focus:outline-none focus:border-orange-500 transition-colors"
+              placeholder="Ex: US-05 Fermentis"
+            />
+          </div>
+          <div className="mb-8">
+            <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Anotações do Lote</label>
+            <textarea 
+              value={ingredients.notes}
+              onChange={e => setIngredients({...ingredients, notes: e.target.value})}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
+              placeholder="Ex: Mostura a 65°C por 60 minutos, fervura vigorosa..."
+            />
+          </div>
+          
+          <button 
+            onClick={saveIngredients}
+            disabled={savingIng}
+            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-black px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-sm transition-colors no-print"
+          >
+            {savingIng ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+            Salvar Receita
+          </button>
         </div>
       ) : (
         <>
-          <div className="mb-4 text-center text-neutral-600 text-xs">
-            {readings.length} leituras de telemetria carregadas
-          </div>
-          <div className="grid grid-cols-1 gap-8 min-w-0">
-            <div className="space-y-4 min-w-0">
-              <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Perfil de Temperatura</h3>
-              <TemperatureChart data={readings} />
+          {loading ? (
+            <div className="p-12 text-center text-neutral-500">
+              <Loader2 className="animate-spin mx-auto mb-2" />
+              Carregando dados de telemetria...
             </div>
-            <div className="space-y-4 min-w-0">
-              <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Curva de Atenuação</h3>
-              <GravityChart data={readings} og={brew.og} fg={brew.fg} />
+          ) : readings.length === 0 ? (
+            <div className="p-12 text-center bg-neutral-900/20 rounded-2xl border border-neutral-800 border-dashed">
+              <p className="text-neutral-500 mb-2">📊 Sem dados de telemetria disponíveis</p>
+              <p className="text-neutral-600 text-sm">
+                Este lote não possui registros de temperatura e gravidade salvos durante a fermentação.
+              </p>
+              <p className="text-neutral-700 text-xs mt-2">
+                Batch ID: {brew.id} | Tentou buscar de: /api/batch/{brew.id}/data
+              </p>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="mb-4 text-center text-neutral-600 text-xs">
+                {readings.length} leituras de telemetria carregadas
+              </div>
+              <div className="grid grid-cols-1 gap-8 min-w-0">
+                <div className="space-y-4 min-w-0">
+                  <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Perfil de Temperatura</h3>
+                  <TemperatureChart data={readings} />
+                </div>
+                <div className="space-y-4 min-w-0">
+                  <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Curva de Atenuação</h3>
+                  <GravityChart data={readings} og={brew.og} fg={brew.fg} />
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
