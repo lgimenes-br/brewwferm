@@ -7,24 +7,41 @@ import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 dotenv.config();
 
-// URLs oficiais do BeerJSON
-const BEERJSON_URLS = {
-  fermentables: 'https://raw.githubusercontent.com/beerjson/beerjson/master/json/fermentables.json',
-  hops: 'https://raw.githubusercontent.com/beerjson/beerjson/master/json/hops.json',
-  yeasts: 'https://raw.githubusercontent.com/beerjson/beerjson/master/json/yeasts.json',
-  miscs: 'https://raw.githubusercontent.com/beerjson/beerjson/master/json/miscs.json'
+// Devido ao BeerJSON não hospedar um único arquivo JSON contendo todos os ingredientes
+// em sua raiz (eles são apenas um padrão de esquema), incluímos aqui uma carga inicial
+// de ingredientes comuns (Seed Data) seguindo a estrutura BeerJSON.
+// Futuramente você pode apontar para uma API própria ou carregar de arquivos locais .json.
+
+const localSeedData = {
+  fermentables: [
+    { name: "Pilsner Malt", type: "grain", color: { value: 3.5 }, yield: { value: 80.5 }, origin: "Germany", notes: "Malte base claro." },
+    { name: "Pale Ale Malt", type: "grain", color: { value: 5.5 }, yield: { value: 80.0 }, origin: "UK", notes: "Malte base para Ales." },
+    { name: "Munich Malt", type: "grain", color: { value: 15.0 }, yield: { value: 78.0 }, origin: "Germany", notes: "Adiciona cor e sabor maltado." },
+    { name: "Wheat Malt", type: "grain", color: { value: 4.0 }, yield: { value: 82.0 }, origin: "Germany", notes: "Malte de trigo." },
+    { name: "Crystal 60L", type: "grain", color: { value: 60.0 }, yield: { value: 74.0 }, origin: "US", notes: "Malte caramelo." }
+  ],
+  hops: [
+    { name: "Cascade", alpha_acid: { value: 5.5 }, form: "pellet", use: "aroma", origin: "US", notes: "Cítrico, grapefruit." },
+    { name: "Centennial", alpha_acid: { value: 10.0 }, form: "pellet", use: "both", origin: "US", notes: "Floral, cítrico." },
+    { name: "Magnum", alpha_acid: { value: 14.0 }, form: "pellet", use: "bittering", origin: "Germany", notes: "Amargor limpo." },
+    { name: "Saaz", alpha_acid: { value: 3.5 }, form: "pellet", use: "aroma", origin: "Czech", notes: "Terroso, especiarias." },
+    { name: "Citra", alpha_acid: { value: 12.0 }, form: "pellet", use: "aroma", origin: "US", notes: "Frutas tropicais fortes." }
+  ],
+  yeasts: [
+    { name: "US-05 (Safale)", type: "ale", attenuation: { value: 81 }, fermentation_temperature: { minimum: { value: 18 }, maximum: { value: 28 } }, laboratory: "Fermentis", notes: "Levedura Ale americana neutra." },
+    { name: "S-04 (Safale)", type: "ale", attenuation: { value: 75 }, fermentation_temperature: { minimum: { value: 15 }, maximum: { value: 20 } }, laboratory: "Fermentis", notes: "Levedura Ale inglesa." },
+    { name: "W-34/70 (Saflager)", type: "lager", attenuation: { value: 83 }, fermentation_temperature: { minimum: { value: 9 }, maximum: { value: 22 } }, laboratory: "Fermentis", notes: "Levedura Lager clássica de Weihenstephan." }
+  ],
+  miscs: [
+    { name: "Whirlfloc", type: "fining", use: "boil", notes: "Pastilha clarificante." },
+    { name: "Irish Moss", type: "fining", use: "boil", notes: "Alga clarificante." },
+    { name: "Lactose", type: "flavor", use: "boil", notes: "Açúcar não fermentescível." }
+  ]
 };
 
-const fetchJson = (url) => {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
-      });
-    }).on('error', reject);
-  });
+const fetchJson = async (type) => {
+  // Simulando um fetch para manter a estrutura original do seu código
+  return Promise.resolve({ [type]: localSeedData[type] });
 };
 
 const seed = async () => {
@@ -116,7 +133,7 @@ const seed = async () => {
   // 4. Fetch e Insert
   try {
     console.log(`Baixando fermentables...`);
-    const fermData = await fetchJson(BEERJSON_URLS.fermentables);
+    const fermData = await fetchJson('fermentables');
     if (fermData && fermData.fermentables) {
       for (const item of fermData.fermentables) {
         const color = item.color ? item.color.value : null;
@@ -130,7 +147,7 @@ const seed = async () => {
     }
 
     console.log(`Baixando hops...`);
-    const hopData = await fetchJson(BEERJSON_URLS.hops);
+    const hopData = await fetchJson('hops');
     if (hopData && hopData.hops) {
       for (const item of hopData.hops) {
         const alpha = item.alpha_acid ? item.alpha_acid.value : null;
@@ -143,7 +160,7 @@ const seed = async () => {
     }
 
     console.log(`Baixando yeasts...`);
-    const yeastData = await fetchJson(BEERJSON_URLS.yeasts);
+    const yeastData = await fetchJson('yeasts');
     if (yeastData && yeastData.yeasts) {
       for (const item of yeastData.yeasts) {
         const atten = item.attenuation ? item.attenuation.value : null;
@@ -158,7 +175,7 @@ const seed = async () => {
     }
 
     console.log(`Baixando miscs...`);
-    const miscData = await fetchJson(BEERJSON_URLS.miscs);
+    const miscData = await fetchJson('miscs');
     if (miscData && miscData.miscs) {
       for (const item of miscData.miscs) {
         await pool.execute(`
