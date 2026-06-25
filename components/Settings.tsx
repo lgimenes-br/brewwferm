@@ -49,7 +49,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 
 export const Settings: React.FC = () => {
   const { fermenters } = useFermenters();
-  const { sendCommand } = useBrew();
+  const { sendCommand, otaProgress } = useBrew();
   const { token } = useAuth();
   
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -642,7 +642,11 @@ export const Settings: React.FC = () => {
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Nova Versão Oficial Disponível: {latestFirmware.version}
                     </h4>
-                    <p className="text-emerald-500/70 text-xs">Seu equipamento está na versão {activeDevice.currentDevice.version}. Atualize para obter as últimas melhorias.</p>
+                        <div className="mt-4 w-full bg-emerald-950 rounded-full h-2.5 overflow-hidden">
+                            <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${Math.max(0, otaProgress[selectedDeviceId!] || 0)}%` }}></div>
+                        </div>
+                        {otaProgress[selectedDeviceId!] > 0 && <p className="text-emerald-400 text-[10px] text-right mt-1 font-bold">{otaProgress[selectedDeviceId!]}%</p>}
+                    </div>
                 </div>
                 <button 
                     onClick={() => {

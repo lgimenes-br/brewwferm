@@ -8,6 +8,7 @@ import { FermenterStatus, DeviceMode } from '../types';
 interface BrewContextType {
     connectionStatus: 'connected' | 'disconnected';
     sendCommand: (serialCode: string, type: string, payload: any) => void;
+    otaProgress: Record<string, number>;
 }
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
@@ -16,6 +17,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { token } = useAuth();
     const { updateFermenterLocal, refetch } = useFermenters();
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
+    const [otaProgress, setOtaProgress] = useState<Record<string, number>>({});
     const clientRef = useRef<MqttClient | null>(null);
 
     // --- MQTT ---
@@ -41,6 +43,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setConnectionStatus('connected');
             console.log("MQTT Connected");
             client.subscribe('brewbrother/+/data'); // Telemetry
+            client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
         });
 
@@ -49,6 +52,17 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (topic === 'brewbrother/global/update') {
                 refetch();
+                return;
+            }
+
+            if (topic.endsWith('/ota')) {
+                try {
+                    const payload = JSON.parse(msgStr);
+                    const serial = topic.split('/')[1];
+                    if (payload.progress !== undefined) {
+                        setOtaProgress(prev => ({ ...prev, [serial]: payload.progress }));
+                    }
+                } catch (e) {}
                 return;
             }
 
@@ -163,10 +177,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <BrewContext.Provider value={{
-            connectionStatus,
-            sendCommand
-        }}>
+        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress }}>
             {children}
         </BrewContext.Provider>
     );
