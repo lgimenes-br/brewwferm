@@ -600,7 +600,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <div className="flex flex-col">
                                         <span className="text-neutral-600 text-sm mb-1">Temperatura ({fermenter.sensor1_name || 'Mosto'})</span>
                                         <div className="flex items-center gap-1">
-                                            <span className="text-4xl font-light text-white font-mono">
+                                            <span className="text-4xl font-bold text-white font-mono">
                                                 {safeCurrentTemp.toFixed(1)}
                                             </span>
                                             <span className="text-lg text-neutral-500">°C</span>
@@ -609,7 +609,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <div className="flex flex-col items-end">
                                         <span className="text-neutral-600 text-sm mb-1">{fermenter.sensor_sg_name || 'Gravidade (SG)'}</span>
                                         <div className="flex items-center gap-1">
-                                            <span className="text-4xl font-light text-purple-400 font-mono">
+                                            <span className="text-4xl font-bold text-purple-400 font-mono">
                                                 {safeCurrentGravity.toFixed(3)}
                                             </span>
                                         </div>

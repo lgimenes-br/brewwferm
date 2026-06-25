@@ -293,7 +293,7 @@ export const Dashboard: React.FC = () => {
                                 {/* Temperature Column */}
                                 <div className="flex flex-col">
                                     <div className="flex items-start gap-1">
-                                        <span className="text-5xl font-light tracking-tighter text-white">
+                                        <span className="text-5xl font-bold tracking-tighter text-white">
                                             {safeTemp.toFixed(1)}
                                         </span>
                                         <span className="text-lg text-neutral-500 font-light mt-1">°C</span>
@@ -318,7 +318,7 @@ export const Dashboard: React.FC = () => {
                                     {f.mode === DeviceMode.FERMENTER ? (
                                         <>
                                             <div className="flex items-start justify-end gap-1">
-                                                <span className="text-4xl font-light tracking-tighter text-purple-400 font-mono">
+                                                <span className="text-4xl font-bold tracking-tighter text-purple-400 font-mono">
                                                     {safeGravity.toFixed(3)}
                                                 </span>
                                                 <span className="text-lg text-neutral-500 font-light mt-1">SG</span>
