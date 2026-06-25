@@ -17,6 +17,7 @@ import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard'
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AdminDashboard } from './components/AdminDashboard';
 import { useFermenters } from './hooks/useFermenters';
+import { useBrew } from './context/BrewContext';
 import { useLocation } from 'react-router-dom';
 import { SystemBanner } from './components/SystemBanner';
 
@@ -27,7 +28,8 @@ const NavConfig = () => {
 
     // If admin, we don't render this NavConfig. They get a full-screen admin experience.
     if (role === 'admin') return null;
-    const { fermenters, sendCommand } = useFermenters();
+    const { fermenters } = useFermenters();
+    const { sendCommand } = useBrew();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
 
     React.useEffect(() => {
