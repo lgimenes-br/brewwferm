@@ -990,13 +990,14 @@ app.post('/api/voice/alexa', async (req, res) => {
         }
         
         const t = telemetry[0];
-        const tempFerm = t.temp_ferm ? t.temp_ferm.toString().replace('.', ' vírgula ') : 'desconhecida';
-        const tempAmb = t.temp_amb ? t.temp_amb.toString().replace('.', ' vírgula ') : 'desconhecida';
+        const tempFerm = t.temp_ferm ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+        const tempAmb = t.temp_amb ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
         
         const s3 = batch.sensor_sg_name || 'Gravidade';
         let gravText = '';
         if (t.gravity) {
-            const parts = t.gravity.toString().split('.');
+            const gravFormatted = parseFloat(t.gravity).toFixed(3);
+            const parts = gravFormatted.split('.');
             if (parts.length === 2) {
                 gravText = `e o ${s3} é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
             }
