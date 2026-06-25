@@ -534,10 +534,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 </div>
             ) : (
                 // === STANDARD FERMENTER MODE LAYOUT ===
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in duration-300 min-h-[600px]">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch animate-in fade-in duration-300 min-h-[600px]">
 
                     {/* Left Column: Forecasting & Charts */}
-                    <div className="order-3 lg:order-1 lg:col-span-2 space-y-8 min-w-0 flex flex-col">
+                    <div className="order-3 lg:order-1 lg:col-span-2 space-y-8 min-w-0 flex flex-col h-full">
                         {/* Forecasting Engine */}
                         {fermenter.mode === DeviceMode.FERMENTER && (
                             <ForecastingEngine fermenter={fermenter} />
