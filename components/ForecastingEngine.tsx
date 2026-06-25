@@ -66,7 +66,7 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
   }, [readings, og, fg]);
 
   return (
-    <div className="w-full bg-neutral-900/40 p-6 rounded-3xl border border-neutral-800 backdrop-blur-sm mb-6">
+    <div className="w-full bg-neutral-900/40 p-6 rounded-3xl border border-neutral-800 backdrop-blur-sm">
       <h3 className="text-neutral-500 font-bold mb-4 text-xs uppercase tracking-widest pl-2 flex items-center gap-2">
         <Target size={14} />
         Previsão & Progresso
