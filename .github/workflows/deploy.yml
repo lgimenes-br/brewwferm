@@ -41,6 +41,9 @@ jobs:
             echo "--- DEPOIS DA LIMPEZA ---"
             df -h
 
+      - name: 3.6. Pausa para o Firewall da Locaweb (Rate Limit)
+        run: sleep 15
+
       - name: 4. Copiando a vitrine (Frontend) para a Locaweb
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -52,6 +55,9 @@ jobs:
           target: "/var/www/breww.live/html/"
           strip_components: 1
 
+      - name: 4.5. Pausa para o Firewall
+        run: sleep 15
+
       - name: 5. Copiando o motor (Backend) para a Locaweb
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -62,6 +68,9 @@ jobs:
           source: "backend/*" 
           target: "/var/www/breww-backend/"
           strip_components: 1
+
+      - name: 5.5. Pausa para o Firewall
+        run: sleep 15
 
       - name: 6. Reiniciando a fermentação silenciosamente
         uses: appleboy/ssh-action@v1.0.3
