@@ -288,7 +288,8 @@ mqttClient.on('message', async (topic, message) => {
                 let dateSQL = 'NOW()';
                 let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat, payload.rssi || null];
                 
-                if (payload.ts) {
+                // Apenas confia no timestamp do ESP32 se ele for maior que o ano 2020 (NTP Sincronizado)
+                if (payload.ts && payload.ts > 1600000000) {
                     dateSQL = 'FROM_UNIXTIME(?)';
                     queryArgs.push(payload.ts);
                 }
@@ -977,7 +978,7 @@ app.post('/api/voice/alexa', async (req, res) => {
             });
         }
 
-        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
+        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 ORDER BY b.id DESC LIMIT 1`);
         if (batches.length === 0) {
             return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Não há nenhum lote ativo no momento no seu painel Breww." }, shouldEndSession: true } });
         }
