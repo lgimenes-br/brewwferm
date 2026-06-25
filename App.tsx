@@ -29,7 +29,7 @@ const NavConfig = () => {
     // If admin, we don't render this NavConfig. They get a full-screen admin experience.
     if (role === 'admin') return null;
     const { fermenters } = useFermenters();
-    const { sendCommand } = useBrew();
+    const { sendCommand, otaProgress } = useBrew();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
 
     React.useEffect(() => {
@@ -315,22 +315,33 @@ const NavConfig = () => {
         </nav>
         
         {/* Global Firmware Alert */}
-        {hasUpdate && location.pathname !== '/settings' && (
-            <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                    <p className="text-amber-500 text-xs md:text-sm font-medium">
-                        Nova atualização de firmware ({latestFirmware.version}) disponível para {devicesNeedingUpdate.length} equipamento{devicesNeedingUpdate.length > 1 ? 's' : ''}.
-                    </p>
+        {hasUpdate && location.pathname !== '/settings' && (() => {
+            const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, otaProgress?.[dev.serial] || 0), 0);
+            return (
+                <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                        <p className="text-amber-500 text-xs md:text-sm font-medium">
+                            Nova atualização de firmware ({latestFirmware!.version}) disponível para {devicesNeedingUpdate.length} equipamento{devicesNeedingUpdate.length > 1 ? 's' : ''}.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {maxProgress > 0 && (
+                            <div className="hidden md:block w-32 bg-amber-950 rounded-full h-2.5 overflow-hidden">
+                                <div className="bg-amber-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${maxProgress}%` }}></div>
+                            </div>
+                        )}
+                        <button 
+                            onClick={handleUpdateAll}
+                            disabled={maxProgress > 0}
+                            className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 disabled:opacity-50 border border-amber-600/50 text-amber-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+                        >
+                            {maxProgress > 0 ? `${maxProgress}% - Instalando...` : 'Atualizar Agora'}
+                        </button>
+                    </div>
                 </div>
-                <button 
-                    onClick={handleUpdateAll}
-                    className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 border border-amber-600/50 text-amber-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
-                >
-                    Atualizar Agora
-                </button>
-            </div>
-        )}
+            );
+        })()}
         </div>
     );
 };
