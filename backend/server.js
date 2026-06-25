@@ -281,7 +281,7 @@ mqttClient.on('message', async (topic, message) => {
                 // O ESP32 envia 0 quando não tem leitura do iSpindel. Tratamos como nulo.
                 if ((finalGravity === null || parseFloat(finalGravity) === 0) && currentBatchId) {
                     try {
-                        const [lastRow] = await pool.execute('SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 ORDER BY recorded_at DESC LIMIT 1', [currentBatchId]);
+                        const [lastRow] = await pool.execute('SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 ORDER BY id DESC LIMIT 1', [currentBatchId]);
                         if (lastRow.length > 0) {
                             finalGravity = lastRow[0].gravity;
                         }
@@ -1034,8 +1034,8 @@ app.post('/api/voice/alexa', async (req, res) => {
 app.get('/api/debug-alexa', async (req, res) => {
     try {
         const [batches] = await pool.execute(`SELECT b.id, b.name, b.is_active, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id`);
-        const [telemetry] = await pool.execute(`SELECT id, batch_id, temp_ferm, temp_amb, gravity, recorded_at FROM telemetry ORDER BY id DESC LIMIT 5`);
-        res.json({ batches, telemetry, activeBatchesCache: activeBatches, lastLogs: lastLogTimes });
+        const [latestTelemetries] = await pool.execute('SELECT batch_id, temp_ferm, temp_amb, gravity, status_op, step_name, rssi FROM telemetry WHERE id IN (SELECT MAX(id) FROM telemetry GROUP BY batch_id)');
+        res.json({ batches, telemetry: latestTelemetries, activeBatchesCache: activeBatches, lastLogs: lastLogTimes });
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
