@@ -542,7 +542,7 @@ const TelemetryTab = () => {
                                                     dev.last_rssi >= -65 ? "text-emerald-500" :
                                                     dev.last_rssi >= -80 ? "text-amber-500" : "text-red-500"
                                                 } />
-                                                <span className="text-[9px] font-mono text-neutral-500">{dev.last_rssi}</span>
+                                                <span className="text-[9px] font-mono text-neutral-500">{dev.last_rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (dev.last_rssi + 100)))}%</span>
                                             </div>
                                         ) : '--'}
                                     </td>
