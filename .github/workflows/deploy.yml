@@ -26,6 +26,21 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
 
+      - name: 3.5. Limpando lixo e verificando disco (SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            echo "--- ANTES DA LIMPEZA ---"
+            df -h
+            echo "--- LIMPANDO /tmp ---"
+            rm -f /tmp/*.tar.gz
+            echo "--- DEPOIS DA LIMPEZA ---"
+            df -h
+
       - name: 4. Copiando a vitrine (Frontend) para a Locaweb
         uses: appleboy/scp-action@v0.1.7
         with:
