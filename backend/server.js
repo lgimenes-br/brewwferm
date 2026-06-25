@@ -955,6 +955,58 @@ app.get('/api/voice/status', async (req, res) => {
     }
 });
 
+// Native Alexa Custom Skill Endpoint
+app.post('/api/voice/alexa', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const voiceToken = process.env.VOICE_TOKEN || 'breww123';
+        if (token !== voiceToken) return res.status(403).json({ error: 'Acesso negado. Token inválido.' });
+
+        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
+        if (batches.length === 0) {
+            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Não há nenhum lote ativo no momento." }, shouldEndSession: true } });
+        }
+        
+        const batch = batches[0];
+        const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
+        
+        if (telemetry.length === 0) {
+            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: `O lote ${batch.name} está ativo, mas sem dados.` }, shouldEndSession: true } });
+        }
+        
+        const t = telemetry[0];
+        const tempFerm = t.temp_ferm ? t.temp_ferm.toString().replace('.', ' vírgula ') : 'desconhecida';
+        const tempAmb = t.temp_amb ? t.temp_amb.toString().replace('.', ' vírgula ') : 'desconhecida';
+        
+        const s3 = batch.sensor_sg_name || 'Gravidade';
+        let gravText = '';
+        if (t.gravity) {
+            const parts = t.gravity.toString().split('.');
+            if (parts.length === 2) {
+                gravText = `e o ${s3} é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
+            }
+        }
+
+        const s1 = batch.sensor1_name || 'Fermentador';
+        const s2 = batch.sensor2_name || 'Geladeira';
+        const text = `A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
+        
+        res.json({
+            version: "1.0",
+            response: {
+                outputSpeech: {
+                    type: "PlainText",
+                    text: text
+                },
+                shouldEndSession: true
+            }
+        });
+    } catch (err) {
+        console.error("Alexa Endpoint Error:", err);
+        res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Erro ao consultar o servidor Breww." }, shouldEndSession: true } });
+    }
+});
+
 // Get batch telemetry data
 app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
     try {
