@@ -47,10 +47,10 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
   }, [data]);
 
   return (
-    <div className="w-full bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
       <h3 className="text-neutral-500 font-bold mb-6 text-xs uppercase tracking-widest pl-2">Histórico de Temperatura</h3>
       {/* Fixed height container for Recharts */}
-      <div className="w-full h-[350px] overflow-hidden">
+      <div className="w-full flex-1 min-h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={safeData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#404040" vertical={false} strokeWidth={0.5} opacity={0.5} />

@@ -63,9 +63,9 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
   ];
 
   return (
-    <div className="w-full bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
       <h3 className="text-neutral-500 font-bold mb-6 text-xs uppercase tracking-widest pl-2">Análise Combinada (Temp vs Gravidade)</h3>
-      <div className="w-full h-[350px] relative">
+      <div className="w-full flex-1 min-h-[350px] relative">
         {shouldRenderChart ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={safeData.length > 0 ? safeData : mockData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
