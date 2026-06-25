@@ -646,8 +646,8 @@ export const Settings: React.FC = () => {
                 </div>
                 <button 
                     onClick={() => {
-                        const baseUrl = window.location.origin;
-                        const finalUrl = "http://breww.live:8080/firmware/update.bin";
+                        const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+                        const finalUrl = latestFirmware.url || `${baseUrl}/firmware/update.bin`;
                         setOtaUrl(finalUrl);
                         if(latestFirmware.md5) setOtaMd5(latestFirmware.md5);
                         

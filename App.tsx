@@ -84,7 +84,8 @@ const NavConfig = () => {
         if (devicesNeedingUpdate.length === 0) return;
         
         if (confirm(`ATENÇÃO: Deseja iniciar a atualização para a versão ${latestFirmware.version} em ${devicesNeedingUpdate.length} equipamento(s)? Eles serão reiniciados.`)) {
-            const finalUrl = "http://breww.live:8080/firmware/update.bin";
+            const apiUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+            const finalUrl = latestFirmware.url || `${apiUrl}/firmware/update.bin`;
             devicesNeedingUpdate.forEach(device => {
                 sendCommand(device.id, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
             });
