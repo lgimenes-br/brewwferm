@@ -984,7 +984,7 @@ app.post('/api/voice/alexa', async (req, res) => {
         }
         
         const batch = batches[0];
-        const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
+        const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1`, [batch.id]);
         
         if (telemetry.length === 0) {
             return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: `O lote ${batch.name} está ativo, mas ainda não recebi dados de telemetria.` }, shouldEndSession: true } });
