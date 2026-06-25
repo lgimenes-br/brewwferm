@@ -9,6 +9,7 @@ interface BrewContextType {
     connectionStatus: 'connected' | 'disconnected';
     sendCommand: (serialCode: string, type: string, payload: any) => void;
     otaProgress: Record<string, number>;
+    clearOtaProgress: () => void;
 }
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
@@ -69,6 +70,16 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
                 const payload = JSON.parse(msgStr);
                 const serial = topic.split('/')[1]; // brewbrother/SERIAL/data
+
+                // Se recebeu telemetria, significa que reiniciou e já está vivo. Remove o progresso OTA.
+                setOtaProgress(prev => {
+                    if (prev[serial] !== undefined) {
+                        const next = { ...prev };
+                        delete next[serial];
+                        return next;
+                    }
+                    return prev;
+                });
 
                 // Logic isolated directly referencing payload values
                 let newStatus = undefined;
@@ -176,8 +187,12 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const clearOtaProgress = () => {
+        setOtaProgress({});
+    };
+
     return (
-        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress }}>
+        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress, clearOtaProgress }}>
             {children}
         </BrewContext.Provider>
     );

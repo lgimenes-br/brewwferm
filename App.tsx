@@ -29,7 +29,7 @@ const NavConfig = () => {
     // If admin, we don't render this NavConfig. They get a full-screen admin experience.
     if (role === 'admin') return null;
     const { fermenters } = useFermenters();
-    const { sendCommand, otaProgress } = useBrew();
+    const { sendCommand, otaProgress, clearOtaProgress } = useBrew();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
 
     React.useEffect(() => {
@@ -341,23 +341,36 @@ const NavConfig = () => {
                 {isUpdating && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                         <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl shadow-2xl max-w-md w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
-                            <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-6">
-                                <SettingsIcon className="text-amber-500 animate-spin" size={32} />
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-2 text-center">Atualizando Firmware</h2>
-                            <p className="text-neutral-400 text-sm text-center mb-8">Por favor, não desligue a placa. O painel e o módulo WiFi serão reiniciados automaticamente ao concluir.</p>
+                            {maxProgress === 100 ? (
+                                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
+                                    <Check className="text-green-500" size={32} />
+                                </div>
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-6">
+                                    <SettingsIcon className="text-amber-500 animate-spin" size={32} />
+                                </div>
+                            )}
+                            
+                            <h2 className="text-2xl font-bold text-white mb-2 text-center">
+                                {maxProgress === 100 ? 'Atualização Concluída' : 'Atualizando Firmware'}
+                            </h2>
+                            <p className="text-neutral-400 text-sm text-center mb-8">
+                                {maxProgress === 100 
+                                    ? 'A placa está reiniciando e se reconectará em instantes. Você já pode fechar esta janela.' 
+                                    : 'Por favor, não desligue a placa. O painel e o módulo WiFi serão reiniciados automaticamente ao concluir.'}
+                            </p>
                             
                             <div className="w-full bg-neutral-950 rounded-full h-4 overflow-hidden border border-neutral-800 mb-2">
-                                <div className="bg-amber-500 h-4 rounded-full transition-all duration-300 relative overflow-hidden" style={{ width: `${maxProgress}%` }}>
-                                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                                <div className={`h-4 rounded-full transition-all duration-300 relative overflow-hidden ${maxProgress === 100 ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${maxProgress}%` }}>
+                                    {maxProgress < 100 && <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>}
                                 </div>
                             </div>
                             <div className="flex justify-between w-full text-xs font-bold mb-6">
-                                <span className="text-amber-500">{maxProgress}% Concluído</span>
+                                <span className={maxProgress === 100 ? 'text-green-500' : 'text-amber-500'}>{maxProgress}% Concluído</span>
                                 <span className="text-neutral-500">{devicesNeedingUpdate.length} equipamento(s)</span>
                             </div>
                             
-                            <div className="w-full text-left bg-black rounded-xl p-3 border border-neutral-800 max-h-32 overflow-y-auto font-mono text-[10px] text-neutral-500 space-y-1">
+                            <div className="w-full text-left bg-black rounded-xl p-3 border border-neutral-800 max-h-32 overflow-y-auto font-mono text-[10px] text-neutral-500 space-y-1 mb-6">
                                 <div className="text-neutral-400 mb-2 border-b border-neutral-800 pb-1">Debug MQTT:</div>
                                 {devicesNeedingUpdate.map(dev => (
                                     <div key={dev.id} className="flex justify-between py-1">
@@ -368,6 +381,15 @@ const NavConfig = () => {
                                     </div>
                                 ))}
                             </div>
+
+                            {maxProgress === 100 && (
+                                <button 
+                                    onClick={clearOtaProgress}
+                                    className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition-colors uppercase tracking-wider text-sm"
+                                >
+                                    Fechar e Concluir
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
