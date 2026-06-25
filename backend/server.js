@@ -108,7 +108,7 @@ let activeBatches = {};
 const activeBatchesUserId = {}; // Para saber quem notificar
 const alertState = {}; // Controle de alertas enviados
 
-const refreshActiveBatches = async () => {
+const loadActiveBatches = async () => {
     try {
         const [rows] = await pool.execute('SELECT b.id, b.user_id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 ORDER BY b.id ASC');
         const newMap = {};
