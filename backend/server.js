@@ -1007,13 +1007,13 @@ app.post('/api/voice/alexa', async (req, res) => {
             const gravFormatted = parseFloat(t.gravity).toFixed(3);
             const parts = gravFormatted.split('.');
             if (parts.length === 2) {
-                gravText = `e o ${s3} é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
+                gravText = `e a SG atual é de ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
             }
         }
 
         const s1 = batch.sensor1_name || 'Fermentador';
         const s2 = batch.sensor2_name || 'Geladeira';
-        const text = `A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
+        const text = `A temperatura do sensor ${s1} é de ${tempFerm} graus, do sensor ${s2} é ${tempAmb} graus, ${gravText}.`;
         
         res.json({
             version: "1.0",
