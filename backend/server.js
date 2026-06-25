@@ -110,18 +110,18 @@ const alertState = {}; // Controle de alertas enviados
 
 const loadActiveBatches = async () => {
     try {
-        const [rows] = await pool.execute('SELECT b.id, b.user_id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 ORDER BY b.id ASC');
+        const [rows] = await pool.execute('SELECT b.id, d.user_id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 ORDER BY b.id ASC');
         const newMap = {};
-        const newUserIdMap = {};
+        for (const key in activeBatchesUserId) delete activeBatchesUserId[key];
+        
         for (const row of rows) {
             if (row.serial_code) {
                 const serial = row.serial_code.trim().toUpperCase();
                 newMap[serial] = row.id;
-                newUserIdMap[serial] = row.user_id;
+                activeBatchesUserId[serial] = row.user_id;
             }
         }
         activeBatches = newMap;
-        for (const key in activeBatchesUserId) delete activeBatchesUserId[key];
         console.log('🍺 [System] Cache de Lotes:', activeBatches);
     } catch (e) { console.error('❌ Erro Cache:', e); }
 };
