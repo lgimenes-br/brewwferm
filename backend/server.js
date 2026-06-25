@@ -104,19 +104,24 @@ const initDb = async () => {
 };
 initDb();
 
-const activeBatches = {};
+let activeBatches = {};
 const activeBatchesUserId = {}; // Para saber quem notificar
 const alertState = {}; // Controle de alertas enviados
 
-const loadActiveBatches = async () => {
+const refreshActiveBatches = async () => {
     try {
-        const [rows] = await pool.execute(`SELECT b.id, b.user_id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
-        for (const key in activeBatches) delete activeBatches[key];
+        const [rows] = await pool.execute('SELECT b.id, b.user_id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 ORDER BY b.id ASC');
+        const newMap = {};
+        const newUserIdMap = {};
+        for (const row of rows) {
+            if (row.serial_code) {
+                const serial = row.serial_code.trim().toUpperCase();
+                newMap[serial] = row.id;
+                newUserIdMap[serial] = row.user_id;
+            }
+        }
+        activeBatches = newMap;
         for (const key in activeBatchesUserId) delete activeBatchesUserId[key];
-        rows.forEach(row => { 
-            activeBatches[row.serial_code.trim().toUpperCase()] = row.id; 
-            activeBatchesUserId[row.serial_code.trim().toUpperCase()] = row.user_id;
-        });
         console.log('🍺 [System] Cache de Lotes:', activeBatches);
     } catch (e) { console.error('❌ Erro Cache:', e); }
 };
@@ -297,7 +302,9 @@ mqttClient.on('message', async (topic, message) => {
                 await pool.execute(
                     `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
                     queryArgs
-                ).catch(() => { });
+                ).catch((err) => { 
+                    console.error("❌ Telemetry Insert Error:", err.message); 
+                });
                 lastLogTimes[serialCode] = now;
             }
 
@@ -1022,6 +1029,14 @@ app.post('/api/voice/alexa', async (req, res) => {
         console.error("Alexa Endpoint Error:", err);
         res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Ocorreu um erro interno ao consultar o servidor Breww." }, shouldEndSession: true } });
     }
+});
+
+app.get('/api/debug-alexa', async (req, res) => {
+    try {
+        const [batches] = await pool.execute(`SELECT b.id, b.name, b.is_active, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id`);
+        const [telemetry] = await pool.execute(`SELECT id, batch_id, temp_ferm, temp_amb, gravity, recorded_at FROM telemetry ORDER BY id DESC LIMIT 5`);
+        res.json({ batches, telemetry, activeBatchesCache: activeBatches, lastLogs: lastLogTimes });
+    } catch (e) { res.status(500).json({error: e.message}); }
 });
 
 // Get batch telemetry data
