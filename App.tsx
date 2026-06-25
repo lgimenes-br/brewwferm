@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
 import { FermenterDetailWrapper } from './components/FermenterDetailWrapper';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
 import { FermentationHistory } from './components/FermentationHistory';
@@ -27,7 +27,7 @@ const NavConfig = () => {
 
     // If admin, we don't render this NavConfig. They get a full-screen admin experience.
     if (role === 'admin') return null;
-    const { fermenters } = useFermenters();
+    const { fermenters, sendCommand } = useFermenters();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
 
     React.useEffect(() => {
@@ -76,6 +76,20 @@ const NavConfig = () => {
     // Check if any device needs an update
     const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && f.currentDevice?.version && f.currentDevice.version !== latestFirmware.version);
     const hasUpdate = devicesNeedingUpdate.length > 0;
+
+    const handleUpdateAll = () => {
+        if (!latestFirmware) return;
+        if (devicesNeedingUpdate.length === 0) return;
+        
+        if (confirm(`ATENÇÃO: Deseja iniciar a atualização para a versão ${latestFirmware.version} em ${devicesNeedingUpdate.length} equipamento(s)? Eles serão reiniciados.`)) {
+            const apiUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+            const finalUrl = latestFirmware.url || `${apiUrl}/firmware/update.bin`;
+            devicesNeedingUpdate.forEach(device => {
+                sendCommand(device.id, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
+            });
+            toast.success(`Atualização enviada para ${devicesNeedingUpdate.length} dispositivo(s)!`);
+        }
+    };
 
     return (
         <div className="no-print mb-6">
@@ -308,7 +322,7 @@ const NavConfig = () => {
                     </p>
                 </div>
                 <button 
-                    onClick={() => navigate('/settings')}
+                    onClick={handleUpdateAll}
                     className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 border border-amber-600/50 text-amber-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
                 >
                     Atualizar Agora
