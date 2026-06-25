@@ -86,7 +86,7 @@ const MarketingTab = () => {
                                         <td className="py-3 px-3 text-white text-sm">{d.user_name}</td>
                                         <td className="py-3 px-3 text-neutral-400 text-sm font-mono">{d.serial_code}</td>
                                         <td className="py-3 px-3 text-sm">
-                                            {d.rssi < -80 ? <span className="text-red-400 flex items-center gap-1"><WifiOff size={14}/> {d.rssi}dBm</span> : <span className="text-amber-400">{d.rssi}dBm</span>}
+                                            {d.rssi < -80 ? <span className="text-red-400 flex items-center gap-1"><WifiOff size={14}/> {d.rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (d.rssi + 100)))}%</span> : <span className="text-amber-400">{d.rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (d.rssi + 100)))}%</span>}
                                         </td>
                                         <td className="py-3 px-3 text-sm">
                                             {d.battery < 20 ? <span className="text-red-400 font-bold">{d.battery}%</span> : <span className="text-amber-400">{d.battery}%</span>}

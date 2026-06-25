@@ -226,7 +226,8 @@ export const Dashboard: React.FC = () => {
                         
                     const safeOG = parseFloat(String(f.og || 0));
                     const safeFG = f.fg ? parseFloat(String(f.fg)) : null;
-                    const safeRSSI = f.currentDevice?.rssi || 0;
+                    const rawRssi = f.currentDevice?.rssi || 0;
+                    const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 
 
                     return (
@@ -348,7 +349,7 @@ export const Dashboard: React.FC = () => {
                                 <div className="flex gap-4">
                                     <div className="flex items-center gap-1.5 text-neutral-600 group-hover:text-neutral-400 transition-colors" title="Sinal Wifi">
                                         <Wifi size={14} />
-                                        <span className="text-xs font-mono">{safeRSSI}</span>
+                                        <span className="text-xs font-mono">{rssiPercent}%</span>
                                         <span className="text-xs text-neutral-700">•</span>
                                         <span className="text-xs font-mono">{f.ipAddress || '--'}</span>
                                     </div>
