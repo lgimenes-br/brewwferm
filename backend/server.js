@@ -958,20 +958,35 @@ app.get('/api/voice/status', async (req, res) => {
 // Native Alexa Custom Skill Endpoint
 app.post('/api/voice/alexa', async (req, res) => {
     try {
+        // Handle SessionEndedRequest (Alexa requires an empty response or it fails)
+        if (req.body && req.body.request && req.body.request.type === 'SessionEndedRequest') {
+            return res.json({ version: "1.0", response: { shouldEndSession: true } });
+        }
+
         const token = req.query.token;
         const voiceToken = process.env.VOICE_TOKEN || 'breww123';
-        if (token !== voiceToken) return res.status(403).json({ error: 'Acesso negado. Token inválido.' });
+        
+        // Return 200 with Alexa format even for auth errors, so Alexa reads the error aloud
+        if (token !== voiceToken) {
+            return res.json({ 
+                version: "1.0", 
+                response: { 
+                    outputSpeech: { type: "PlainText", text: "Acesso negado. Verifique o token de segurança no aplicativo." }, 
+                    shouldEndSession: true 
+                } 
+            });
+        }
 
         const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
         if (batches.length === 0) {
-            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Não há nenhum lote ativo no momento." }, shouldEndSession: true } });
+            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Não há nenhum lote ativo no momento no seu painel Breww." }, shouldEndSession: true } });
         }
         
         const batch = batches[0];
         const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
         
         if (telemetry.length === 0) {
-            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: `O lote ${batch.name} está ativo, mas sem dados.` }, shouldEndSession: true } });
+            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: `O lote ${batch.name} está ativo, mas ainda não recebi dados de telemetria.` }, shouldEndSession: true } });
         }
         
         const t = telemetry[0];
@@ -1003,7 +1018,7 @@ app.post('/api/voice/alexa', async (req, res) => {
         });
     } catch (err) {
         console.error("Alexa Endpoint Error:", err);
-        res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Erro ao consultar o servidor Breww." }, shouldEndSession: true } });
+        res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Ocorreu um erro interno ao consultar o servidor Breww." }, shouldEndSession: true } });
     }
 });
 
