@@ -316,8 +316,10 @@ const NavConfig = () => {
         
         {/* Global Firmware Alert */}
         {hasUpdate && location.pathname !== '/settings' && (() => {
-            const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, otaProgress?.[dev.serial] || 0), 0);
+            const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, otaProgress?.[dev.id] || 0), 0);
+            const isUpdating = maxProgress > 0;
             return (
+                <>
                 <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
@@ -326,20 +328,50 @@ const NavConfig = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
-                        {maxProgress > 0 && (
-                            <div className="hidden md:block w-32 bg-amber-950 rounded-full h-2.5 overflow-hidden">
-                                <div className="bg-amber-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${maxProgress}%` }}></div>
-                            </div>
-                        )}
                         <button 
                             onClick={handleUpdateAll}
-                            disabled={maxProgress > 0}
+                            disabled={isUpdating}
                             className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 disabled:opacity-50 border border-amber-600/50 text-amber-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
                         >
-                            {maxProgress > 0 ? `${maxProgress}% - Instalando...` : 'Atualizar Agora'}
+                            {isUpdating ? 'Instalando...' : 'Atualizar Agora'}
                         </button>
                     </div>
                 </div>
+
+                {isUpdating && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                        <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl shadow-2xl max-w-md w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
+                            <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-6">
+                                <SettingsIcon className="text-amber-500 animate-spin" size={32} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2 text-center">Atualizando Firmware</h2>
+                            <p className="text-neutral-400 text-sm text-center mb-8">Por favor, não desligue a placa. O painel e o módulo WiFi serão reiniciados automaticamente ao concluir.</p>
+                            
+                            <div className="w-full bg-neutral-950 rounded-full h-4 overflow-hidden border border-neutral-800 mb-2">
+                                <div className="bg-amber-500 h-4 rounded-full transition-all duration-300 relative overflow-hidden" style={{ width: `${maxProgress}%` }}>
+                                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                                </div>
+                            </div>
+                            <div className="flex justify-between w-full text-xs font-bold mb-6">
+                                <span className="text-amber-500">{maxProgress}% Concluído</span>
+                                <span className="text-neutral-500">{devicesNeedingUpdate.length} equipamento(s)</span>
+                            </div>
+                            
+                            <div className="w-full text-left bg-black rounded-xl p-3 border border-neutral-800 max-h-32 overflow-y-auto font-mono text-[10px] text-neutral-500 space-y-1">
+                                <div className="text-neutral-400 mb-2 border-b border-neutral-800 pb-1">Debug MQTT:</div>
+                                {devicesNeedingUpdate.map(dev => (
+                                    <div key={dev.id} className="flex justify-between py-1">
+                                        <span>[{dev.id}] progresso OTA:</span>
+                                        <span className={otaProgress?.[dev.id] === 100 ? 'text-green-500 font-bold' : 'text-amber-500 font-bold'}>
+                                            {otaProgress?.[dev.id] || 0}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                </>
             );
         })()}
         </div>
