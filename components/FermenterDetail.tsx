@@ -138,8 +138,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     };
 
     const handleNextStep = () => {
-        if (fermenter.profile && fermenter.currentStepIndex < fermenter.profile.length - 1) {
-            const nextStep = fermenter.profile[fermenter.currentStepIndex + 1];
+        const currentIndex = fermenter.currentStepIndex || 0;
+        if (fermenter.profile && currentIndex < fermenter.profile.length - 1) {
+            const nextStep = fermenter.profile[currentIndex + 1];
             const newEvent: FermentationEvent = {
                 id: Math.random().toString(36).substr(2, 9),
                 type: EventType.SYSTEM_ACTION,
@@ -148,15 +149,16 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             };
             const updatedEvents = [...(fermenter.events || []), newEvent];
             onUpdate(fermenter.id, { 
-                currentStepIndex: fermenter.currentStepIndex + 1,
+                currentStepIndex: currentIndex + 1,
                 events: updatedEvents 
             });
         }
     };
 
     const handlePrevStep = () => {
-        if (fermenter.profile && fermenter.currentStepIndex > 0) {
-            const prevStep = fermenter.profile[fermenter.currentStepIndex - 1];
+        const currentIndex = fermenter.currentStepIndex || 0;
+        if (fermenter.profile && currentIndex > 0) {
+            const prevStep = fermenter.profile[currentIndex - 1];
             const newEvent: FermentationEvent = {
                 id: Math.random().toString(36).substr(2, 9),
                 type: EventType.SYSTEM_ACTION,
@@ -165,7 +167,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             };
             const updatedEvents = [...(fermenter.events || []), newEvent];
             onUpdate(fermenter.id, { 
-                currentStepIndex: fermenter.currentStepIndex - 1,
+                currentStepIndex: currentIndex - 1,
                 events: updatedEvents 
             });
         }
