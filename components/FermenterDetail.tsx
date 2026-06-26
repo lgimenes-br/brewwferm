@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig } from '../types';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType } from '../types';
 import { ThermometerSnowflake, Flame, PauseCircle, PlayCircle, Snowflake, Wifi, Clock, Percent, FlaskConical, Beer, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X } from 'lucide-react';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
