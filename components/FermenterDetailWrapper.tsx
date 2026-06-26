@@ -34,6 +34,7 @@ export const FermenterDetailWrapper: React.FC = () => {
         if (updates.isPaused !== undefined) {
             sendCommand(updateId, 'togglePause', {});
             toast.success(updates.isPaused ? 'Perfil Pausado!' : 'Perfil Retomado!');
+            shouldUpdateOptimistically = true;
         }
 
         if (updates.currentStepIndex !== undefined) {
@@ -60,6 +61,7 @@ export const FermenterDetailWrapper: React.FC = () => {
                     toast.success('Comando para retornar etapa enviado!');
                 }
             }
+            shouldUpdateOptimistically = true;
         }
 
         if (updates.targetTemp !== undefined) {
@@ -78,7 +80,9 @@ export const FermenterDetailWrapper: React.FC = () => {
                 d: step.duration
             }));
             sendCommand(updateId, 'setProfile', { steps: payloadSteps, currentStep: fermenter?.currentStepIndex || 0 });
+            await updateBatch({ serialCode: updateId, profile: updates.profile });
             toast.success('Perfil atualizado com sucesso!');
+            shouldUpdateOptimistically = true;
         }
 
         if (updates.mode !== undefined) {
