@@ -62,10 +62,11 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
         </h3>
         <button
           onClick={() => setIsAdding(true)}
-          className="flex items-center justify-center w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-full border border-neutral-700 transition-all shadow-sm"
+          className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-full border border-neutral-700 transition-all shadow-sm text-xs font-bold uppercase tracking-widest"
           title="Nova Nota"
         >
           <Plus size={14} />
+          <span>Adicionar</span>
         </button>
       </div>
 
