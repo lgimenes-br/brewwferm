@@ -285,7 +285,11 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             {/* Header Section */}
             <div className="flex justify-between items-start mb-8">
                 <div className="flex-1">
-
+                    {fermenter.batchId && (
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Lote #{fermenter.batchId}</span>
+                        </div>
+                    )}
 
                     {isEditingBatch ? (
                         <div className="space-y-4 mb-2">
