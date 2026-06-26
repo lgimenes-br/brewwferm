@@ -36,6 +36,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [localSteps, setLocalSteps] = useState<FermentationStep[]>(steps);
+    const [now, setNow] = useState(Date.now());
 
     // Keep local steps synced when not editing
     React.useEffect(() => {
@@ -43,6 +44,16 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             setLocalSteps(steps);
         }
     }, [steps, isEditing]);
+
+    // Tick the timer every second if fermentation is active
+    React.useEffect(() => {
+        if (!isPaused && startDate) {
+            const interval = setInterval(() => {
+                setNow(Date.now());
+            }, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [isPaused, startDate]);
 
     const getStepTimeRemaining = (stepIndex: number) => {
         if (!startDate || localSteps.length === 0) return null;
@@ -58,16 +69,19 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
         // Add current step duration to calculate target end time
         const currentDuration = localSteps[stepIndex]?.duration || 0;
         const targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
-        const now = Date.now();
         const diff = targetEndTime - now;
 
-        if (diff <= 0) return '0h';
+        if (diff <= 0) return '0s';
 
         const days = Math.floor(diff / (24 * 60 * 60 * 1000));
         const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+        const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+        const seconds = Math.floor((diff % (60 * 1000)) / 1000);
 
-        if (days > 0) return `${days}d ${hours}h`;
-        return `${hours}h`;
+        if (days > 0) return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+        if (minutes > 0) return `${minutes}m ${seconds}s`;
+        return `${seconds}s`;
     };
 
     const handleAddStep = () => {
