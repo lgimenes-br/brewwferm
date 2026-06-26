@@ -126,6 +126,18 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         localStorage.setItem(`device_mode_${serial}`, currentModeUpdate);
                     }
                 }
+                
+                let kegeratorConfigUpdate = undefined;
+                if (payload.c_n1 !== undefined || payload.c_n2 !== undefined) {
+                    kegeratorConfigUpdate = {
+                        line1: payload.c_n1 || '',
+                        line2: payload.c_n2 || '',
+                        style: payload.c_n3 || '',
+                        brewery: payload.c_n4 || '',
+                        ibu: parseFloat(payload.c_ibu) || 0,
+                        abv: parseFloat(payload.c_vol) || 0
+                    };
+                }
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // We don't have the previous f object explicitly here unless we fetch it, 
@@ -139,6 +151,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...(profileUpdate ? { profile: profileUpdate } : {}),
                     ...(currentStepIndexUpdate !== undefined ? { currentStepIndex: currentStepIndexUpdate } : {}),
                     ...(isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
+                    ...(kegeratorConfigUpdate ? { kegeratorConfig: kegeratorConfigUpdate } : {}),
                     currentDevice: {
                         temperature: parseFloat(payload.ferm),
                         gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
