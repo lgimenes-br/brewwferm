@@ -132,7 +132,7 @@ const NavConfig = () => {
                                     : 'border-red-500 text-red-500'
                             }`}>
                                 <div className={`w-2 h-2 rounded-full bg-current ${isOnline ? 'animate-pulse' : ''}`}></div>
-                                {isOnline ? 'ONLINE' : 'OFFLINE'}
+                                {activeDevice.name}
                             </div>
 
                             {/* StatOp Badge */}

@@ -285,10 +285,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             {/* Header Section */}
             <div className="flex justify-between items-start mb-8">
                 <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className={`w-2 h-2 rounded-full ${isDeviceOnline ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                        <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{fermenter.name}</span>
-                    </div>
+
 
                     {isEditingBatch ? (
                         <div className="space-y-4 mb-2">
