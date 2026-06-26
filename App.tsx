@@ -73,7 +73,7 @@ const NavConfig = () => {
     }
 
     // Icon Styles
-    const iconOnlyBase = "flex items-center justify-center w-10 h-10 rounded-md border transition-all shrink-0 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white";
+    const iconOnlyBase = "flex items-center justify-center w-9 h-9 rounded-md border transition-all shrink-0 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white";
 
     // Check if any device needs an update
     const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && f.currentDevice?.version && f.currentDevice.version !== latestFirmware.version);
@@ -126,7 +126,7 @@ const NavConfig = () => {
                     {activeDevice && (
                         <div className="hidden md:flex items-center gap-2 mr-3 animate-in fade-in slide-in-from-right-4 duration-500">
                             {/* Online/Offline Badge */}
-                            <div className={`flex items-center gap-2 px-3 h-10 rounded-md border font-mono text-[11px] font-semibold tracking-wider uppercase transition-all ${
+                            <div className={`flex items-center gap-2 px-3 h-9 rounded-md border font-mono text-[11px] font-semibold tracking-wider uppercase transition-all ${
                                 isOnline 
                                     ? 'border-emerald-500 text-emerald-500' 
                                     : 'border-red-500 text-red-500'
@@ -137,22 +137,22 @@ const NavConfig = () => {
 
                             {/* StatOp Badge */}
                             {statOp === 'AQUECENDO' && (
-                                <div className="flex items-center gap-2 px-3 h-10 rounded-md border border-red-500 text-red-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-red-500 text-red-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
                                     <Flame size={14} /> AQUECENDO
                                 </div>
                             )}
                             {statOp === 'RESFRIANDO' && (
-                                <div className="flex items-center gap-2 px-3 h-10 rounded-md border border-blue-500 text-blue-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-blue-500 text-blue-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
                                     <Snowflake size={14} /> RESFRIANDO
                                 </div>
                             )}
                             {statOp === 'DELAY' && (
-                                <div className="flex items-center gap-2 px-3 h-10 rounded-md border border-orange-500 text-orange-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-orange-500 text-orange-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
                                     <Timer size={14} /> DELAY
                                 </div>
                             )}
                             {(statOp !== 'AQUECENDO' && statOp !== 'RESFRIANDO' && statOp !== 'DELAY') && (
-                                <div className="flex items-center gap-2 px-3 h-10 rounded-md border border-zinc-500 text-zinc-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-zinc-500 text-zinc-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
                                     <Circle size={14} /> {statOp === 'INATIVO' ? 'PARADO' : statOp}
                                 </div>
                             )}
@@ -161,7 +161,7 @@ const NavConfig = () => {
                             <div className="relative ml-1">
                                 <button 
                                     onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 h-10 rounded-md border border-neutral-800 hover:border-neutral-600 bg-black text-neutral-300 hover:text-white transition-all"
+                                    className="flex items-center gap-2 px-3 h-9 rounded-md border border-neutral-800 hover:border-neutral-600 bg-black text-neutral-300 hover:text-white transition-all"
                                 >
                                     {activeDevice.mode === DeviceMode.FERMENTER && <FlaskConical size={14} />}
                                     {activeDevice.mode === DeviceMode.KEGERATOR && <Beer size={14} />}
