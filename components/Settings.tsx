@@ -633,7 +633,6 @@ export const Settings: React.FC = () => {
       {/* 7. Atualização de Firmware (OTA) */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
         <SectionHeader icon={Download} title="Atualização Remota (OTA)" />
-        <p className="text-neutral-500 text-xs mb-6 -mt-4">Envie um novo arquivo binário de firmware para o ESP32 através de uma URL pública. Opcionalmente, inclua o hash MD5 para validação de integridade.</p>
         
         {latestFirmware && activeDevice?.currentDevice?.version && latestFirmware.version !== activeDevice.currentDevice.version && (
             <div className="bg-emerald-950/20 border border-emerald-900/50 rounded-xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-500">
