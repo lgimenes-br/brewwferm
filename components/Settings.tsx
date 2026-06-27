@@ -210,10 +210,8 @@ export const Settings: React.FC = () => {
 
   const handleSaveSensorNames = async () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
-    sendCommand(selectedDeviceId, 'setNames', { field: 's1n', val: settings.sensor1Name });
-    setTimeout(() => { 
-        sendCommand(selectedDeviceId, 'setNames', { field: 's2n', val: settings.sensor2Name }); 
-    }, 200);
+    sendCommand(selectedDeviceId, 'setNames', { field: 'sgn', val: settings.sensorSgName });
+    
     
     if (token) {
         try {
