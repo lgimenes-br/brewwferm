@@ -177,3 +177,12 @@ export const saveEvent = async (batchId: number, type: string, description: stri
   if (!res.ok) throw new Error('Failed to save event');
   return true;
 };
+
+export const deleteEvent = async (eventId: string) => {
+  const res = await fetch(`${API_URL}/events/${eventId}`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to delete event');
+  return true;
+};

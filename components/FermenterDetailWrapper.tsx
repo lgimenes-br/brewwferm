@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 export const FermenterDetailWrapper: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { fermenters, updateBatch, isLoading, isFetching, updateFermenterLocal, saveEvent, refetch } = useFermenters();
+    const { fermenters, updateBatch, isLoading, isFetching, updateFermenterLocal, saveEvent, deleteEvent, refetch } = useFermenters();
     const { sendCommand } = useBrew();
     
     const fermenter = fermenters.find(f => f.id === id);
@@ -125,11 +125,27 @@ export const FermenterDetailWrapper: React.FC = () => {
                             date: newEvent.timestamp
                         });
                         toast.success('Evento salvo!');
-                        // Refetch to get the server-assigned ID
                         refetch();
                     } catch (err) {
                         console.error('Failed to save event:', err);
                         toast.error('Erro ao salvar evento.');
+                    }
+                }
+            } 
+            // Handle event deletion
+            else if (fermenter?.batchId && updates.events && updates.events.length < (fermenter.events?.length || 0)) {
+                const updatedEventIds = new Set(updates.events.map(e => e.id));
+                const deletedEvent = fermenter.events?.find(e => !updatedEventIds.has(e.id));
+                
+                if (deletedEvent && deletedEvent.id && !deletedEvent.id.startsWith('system-')) {
+                    try {
+                        await deleteEvent(deletedEvent.id);
+                        toast.success('Evento removido!');
+                        refetch();
+                    } catch (err) {
+                        console.error('Failed to delete event:', err);
+                        toast.error('Erro ao remover evento.');
+                        refetch(); // restore local state
                     }
                 }
             }

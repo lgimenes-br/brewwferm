@@ -265,7 +265,18 @@ export const useFermenters = () => {
     const saveEventMutation = useMutation({
         mutationFn: (data: { batchId: number, type: string, description: string, date: string }) => 
             api.saveEvent(data.batchId, data.type, data.description, data.date),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['events'] });
+            queryClient.invalidateQueries({ queryKey: ['fermenters'] });
+        }
+    });
+
+    const deleteEventMutation = useMutation({
+        mutationFn: (eventId: string) => api.deleteEvent(eventId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['events'] });
+            queryClient.invalidateQueries({ queryKey: ['fermenters'] });
+        }
     });
 
     // Local manual update for instant UI feedback (or when MQTT message arrives)
@@ -337,6 +348,7 @@ export const useFermenters = () => {
         startBatch: startBatchMutation.mutateAsync,
         finishBatch: finishBatchMutation.mutateAsync,
         updateBatch: updateBatchMutation.mutateAsync,
-        saveEvent: saveEventMutation.mutateAsync
+        saveEvent: saveEventMutation.mutateAsync,
+        deleteEvent: deleteEventMutation.mutateAsync
     };
 };
