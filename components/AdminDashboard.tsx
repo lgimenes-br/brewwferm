@@ -1438,11 +1438,6 @@ const FirmwareTab = () => {
     const [otaUrl, setOtaUrl] = useState('');
     const [otaMd5, setOtaMd5] = useState('');
     const [selectedDevice, setSelectedDevice] = useState('');
-    const [macAmbiente, setMacAmbiente] = useState('');
-    const [macCerveja, setMacCerveja] = useState('');
-    
-    // Lista de MACs do dispositivo selecionado
-    const deviceMacs = scanResponses[selectedDevice] || [];
     
     useEffect(() => {
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
@@ -1459,18 +1454,6 @@ const FirmwareTab = () => {
             setOtaUrl('');
             setOtaMd5('');
         }
-    };
-
-    const handleScanSensors = () => {
-        if (!selectedDevice) return toast.error('Selecione um dispositivo primeiro');
-        sendCommand(selectedDevice, 'scan_sensors');
-        toast.success('Comando de scan enviado! Aguardando resposta...');
-    };
-
-    const handleSaveMapping = () => {
-        if (!selectedDevice) return;
-        sendCommand(selectedDevice, 'set_sensors', { macAmbiente, macCerveja });
-        toast.success('Mapeamento de sensores enviado para a placa!');
     };
 
     return (
@@ -1507,70 +1490,6 @@ const FirmwareTab = () => {
                             <Download size={18} /> Disparar Atualização Forçada
                         </button>
                     </div>
-                    </div>
-                </div>
-            </div>
-
-            <h2 className="text-xl font-bold text-white mb-2 mt-8 flex items-center gap-2">
-                <Settings className="text-indigo-500" size={20} /> Mapeamento de Sensores (DS18B20)
-            </h2>
-            <p className="text-sm text-neutral-400 mb-6">Escaneie a porta 1-Wire e atribua o MAC específico de cada sensor (Autodetect).</p>
-            
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 max-w-2xl">
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Dispositivo Alvo</label>
-                        <div className="relative">
-                            <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none">
-                                <option value="">-- Selecione um Dispositivo --</option>
-                                {devices.map(d => (
-                                    <option key={d.serial_code} value={d.serial_code}>{d.serial_code} - {d.device_name || 'Sem Nome'} ({d.owner_name})</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
-                        </div>
-                    </div>
-                    
-                    <div className="pt-2">
-                        <button onClick={handleScanSensors} disabled={!selectedDevice} className="w-full px-4 py-3 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 hover:border-indigo-600 rounded-lg font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                            <Search size={18} /> Escanear Sensores Plugados
-                        </button>
-                    </div>
-
-                    {deviceMacs.length > 0 && (
-                        <div className="mt-6 space-y-4 border-t border-neutral-800 pt-6">
-                            <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Sensor Ambiente / Geladeira</label>
-                                <div className="relative">
-                                    <select value={macAmbiente} onChange={e => setMacAmbiente(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none">
-                                        <option value="">-- Automático / Vazio --</option>
-                                        {deviceMacs.map((mac: string) => (
-                                            <option key={mac} value={mac}>{mac}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Sensor do Mosto / Cerveja</label>
-                                <div className="relative">
-                                    <select value={macCerveja} onChange={e => setMacCerveja(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none">
-                                        <option value="">-- Automático / Vazio --</option>
-                                        {deviceMacs.map((mac: string) => (
-                                            <option key={mac} value={mac}>{mac}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
-                                </div>
-                            </div>
-                            
-                            <div className="pt-4">
-                                <button onClick={handleSaveMapping} className="w-full px-4 py-3 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 hover:border-emerald-600 rounded-lg font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-                                    <Save size={18} /> Salvar Mapeamento
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

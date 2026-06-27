@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell } from 'lucide-react';
+import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Settings as SettingsIcon } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
@@ -49,7 +49,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 
 export const Settings: React.FC = () => {
   const { fermenters } = useFermenters();
-  const { sendCommand, otaProgress } = useBrew();
+  const { sendCommand, otaProgress, scanResponses } = useBrew();
   const { token, isAdmin } = useAuth();
   
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -98,6 +98,22 @@ export const Settings: React.FC = () => {
   const [otaMd5, setOtaMd5] = useState<string>('');
   const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [macAmbiente, setMacAmbiente] = useState('');
+  const [macCerveja, setMacCerveja] = useState('');
+
+  const deviceMacs = scanResponses[selectedDeviceId] || [];
+
+  const handleScanSensors = () => {
+      if (!selectedDeviceId) return toast.error('Selecione um dispositivo primeiro');
+      sendCommand(selectedDeviceId, 'scan_sensors');
+      toast.success('Comando de scan enviado! Aguardando resposta...');
+  };
+
+  const handleSaveMapping = () => {
+      if (!selectedDeviceId) return;
+      sendCommand(selectedDeviceId, 'set_sensors', { macAmbiente, macCerveja });
+      toast.success('Mapeamento de sensores enviado para a placa!');
+  };
 
   useEffect(() => {
       const checkSubscription = async () => {
@@ -630,7 +646,56 @@ export const Settings: React.FC = () => {
         </div>
       </section>
 
-      {/* 7. Atualização de Firmware (OTA) */}
+      {/* 7. Mapeamento de Sensores (DS18B20) */}
+      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
+        <SectionHeader icon={SettingsIcon} title="Mapeamento de Sensores (Autodetect)" />
+        <p className="text-neutral-500 text-xs mb-6 -mt-4">Escaneie a porta 1-Wire e atribua o MAC específico de cada sensor.</p>
+        
+        <div className="space-y-4">
+            <div className="pt-2">
+                <button onClick={handleScanSensors} disabled={!selectedDeviceId} className="w-full px-4 py-3 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 hover:border-indigo-600 rounded-lg font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    <Search size={18} /> Escanear Sensores Plugados
+                </button>
+            </div>
+
+            {deviceMacs.length > 0 && (
+                <div className="mt-6 space-y-4 border-t border-neutral-800 pt-6">
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Sensor Ambiente / Geladeira</label>
+                        <div className="relative">
+                            <select value={macAmbiente} onChange={e => setMacAmbiente(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none text-sm">
+                                <option value="">-- Automático / Vazio --</option>
+                                {deviceMacs.map((mac: string) => (
+                                    <option key={mac} value={mac}>{mac}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Sensor do Mosto / Cerveja</label>
+                        <div className="relative">
+                            <select value={macCerveja} onChange={e => setMacCerveja(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none text-sm">
+                                <option value="">-- Automático / Vazio --</option>
+                                {deviceMacs.map((mac: string) => (
+                                    <option key={mac} value={mac}>{mac}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+                    
+                    <div className="pt-4">
+                        <button onClick={handleSaveMapping} className="w-full px-4 py-3 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 hover:border-emerald-600 rounded-lg font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                            <Save size={18} /> Salvar Mapeamento
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+      </section>
+
+      {/* 8. Atualização de Firmware (OTA) */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
         <SectionHeader icon={Download} title="Atualização Remota (OTA)" />
         
