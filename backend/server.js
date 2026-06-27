@@ -221,6 +221,7 @@ mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/data'); // NOVO: as novas placas enviam para data
     mqttClient.subscribe('brewbrother/+/comando'); // <-- Intercept manual overrides
     mqttClient.subscribe('brewbrother/global/ping');
+    mqttClient.subscribe('brewbrother/+/response'); // Para respostas de scan_sensors
 });
 
 mqttClient.on('message', async (topic, message) => {
@@ -228,6 +229,16 @@ mqttClient.on('message', async (topic, message) => {
         let payload;
         try { payload = JSON.parse(message.toString()); } catch (e) { return; }
         
+        // Intercept responses for Dashboard
+        if (topic.endsWith('/response')) {
+            wss.clients.forEach((client) => {
+                if (client.readyState === 1 && client.isAlive) {
+                    client.send(JSON.stringify({ type: 'device_response', data: payload }));
+                }
+            });
+            return;
+        }
+
         // Intercept Manual Overrides from frontend
         if (topic.endsWith('/comando')) {
             const serialCode = topic.split('/')[1];

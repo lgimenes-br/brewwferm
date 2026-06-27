@@ -10,6 +10,7 @@ interface BrewContextType {
     sendCommand: (serialCode: string, type: string, payload: any) => void;
     otaProgress: Record<string, number>;
     clearOtaProgress: () => void;
+    scanResponses: Record<string, string[]>;
 }
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
@@ -19,6 +20,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { updateFermenterLocal, refetch } = useFermenters();
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
     const [otaProgress, setOtaProgress] = useState<Record<string, number>>({});
+    const [scanResponses, setScanResponses] = useState<Record<string, string[]>>({});
     const clientRef = useRef<MqttClient | null>(null);
 
     // --- MQTT ---
@@ -46,6 +48,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             client.subscribe('brewbrother/+/data'); // Telemetry
             client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
+            client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)
         });
 
         client.on('message', (topic, message) => {
@@ -62,6 +65,16 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const serial = topic.split('/')[1];
                     if (payload.progress !== undefined) {
                         setOtaProgress(prev => ({ ...prev, [serial]: payload.progress }));
+                    }
+                } catch (e) {}
+                return;
+            }
+
+            if (topic === 'brewbrother/global/response') {
+                try {
+                    const payload = JSON.parse(msgStr);
+                    if (payload.type === 'scan_sensors_response') {
+                        setScanResponses(prev => ({ ...prev, [payload.id]: payload.macs || [] }));
                     }
                 } catch (e) {}
                 return;
@@ -205,7 +218,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress, clearOtaProgress }}>
+        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress, clearOtaProgress, scanResponses }}>
             {children}
         </BrewContext.Provider>
     );
