@@ -31,20 +31,51 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
     const chartPoints = parseInt(localStorage.getItem('breww_chartPoints') || '50', 10);
     
     const mapped = data.map(d => {
-      // Handle potential different naming conventions or string formats
-      // Providing fallbacks and ensuring numbers
+      // Map extra sensors
+      let extras: Record<string, number> = {};
+      if ((d as any).extra_sensors) {
+          let parsed = (d as any).extra_sensors;
+          if (typeof parsed === 'string') {
+              try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
+          }
+          if (Array.isArray(parsed)) {
+              parsed.forEach((ex: any) => {
+                  if (ex.n && ex.t !== undefined) {
+                      extras[`extra_${ex.n}`] = parseFloat(ex.t);
+                  }
+              });
+          }
+      }
+
       return {
         ...d,
-        timestamp: d.timestamp,
-        // Map 'temperature' to 'beerTemp' if beerTemp is missing, handling strings
-        beerTemp: parseFloat(String((d as any).beerTemp ?? 0)),
-        targetTemp: parseFloat(String((d as any).targetTemp ?? 0)),
-        fridgeTemp: parseFloat(String((d as any).fridgeTemp ?? (d as any).currentFridgeTemp ?? 0)),
+        timestamp: d.timestamp || (d as any).recorded_at,
+        beerTemp: parseFloat(String((d as any).beerTemp ?? (d as any).temp_ferm ?? 0)),
+        targetTemp: parseFloat(String((d as any).targetTemp ?? (d as any).target_temp ?? 0)),
+        fridgeTemp: parseFloat(String((d as any).fridgeTemp ?? (d as any).temp_amb ?? 0)),
+        ...extras
       };
     }).filter(d => !isNaN(d.beerTemp));
 
-    return chartPoints > 0 ? mapped.slice(-chartPoints) : mapped;
-  }, [data]);
+      return chartPoints > 0 ? mapped.slice(-chartPoints) : mapped;
+    }, [data]);
+
+    // Extract unique extra sensor keys to render dynamic lines
+    const extraKeys = React.useMemo(() => {
+        const keys = new Set<string>();
+        safeData.forEach(d => {
+            Object.keys(d).forEach(k => {
+                if (k.startsWith('extra_')) keys.add(k);
+            });
+        });
+        return Array.from(keys);
+    }, [safeData]);
+    
+    // Generate distinct colors for extra lines
+    const getExtraColor = (index: number) => {
+        const colors = ['#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f43f5e'];
+        return colors[index % colors.length];
+    };
 
   return (
     <div className="w-full h-full flex flex-col bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
@@ -98,7 +129,20 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               strokeDasharray="4 4"
               strokeWidth={1}
               dot={false}
+              activeDot={false}
             />
+            {extraKeys.map((key, i) => (
+                <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    name={key.replace('extra_', '')}
+                    stroke={getExtraColor(i)}
+                    strokeWidth={1.5}
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0, fill: getExtraColor(i) }}
+                />
+            ))}
             <Line
               type="monotone"
               dataKey="fridgeTemp"

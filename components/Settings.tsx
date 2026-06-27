@@ -98,8 +98,8 @@ export const Settings: React.FC = () => {
   const [otaMd5, setOtaMd5] = useState<string>('');
   const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [macAmbiente, setMacAmbiente] = useState('');
-  const [macCerveja, setMacCerveja] = useState('');
+  const [macSensorControle, setMacSensorControle] = useState('');
+  const [extraSensors, setExtraSensors] = useState<{mac: string, name: string}[]>([]);
 
   const deviceMacs = scanResponses[selectedDeviceId] || [];
 
@@ -111,7 +111,7 @@ export const Settings: React.FC = () => {
 
   const handleSaveMapping = () => {
       if (!selectedDeviceId) return;
-      sendCommand(selectedDeviceId, 'set_sensors', { macAmbiente, macCerveja });
+      sendCommand(selectedDeviceId, 'set_sensors', { macSensorControle, extraSensors });
       toast.success('Mapeamento de sensores enviado para a placa!');
   };
 
@@ -597,6 +597,84 @@ export const Settings: React.FC = () => {
             </button>
         </div>
         <p className="text-xs text-neutral-600 mt-4">* O modo AUTO retorna o controle para o algoritmo PID.</p>
+      </section>
+
+      {/* 5.5 Mapeamento de Sensores */}
+      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
+        <SectionHeader icon={Thermometer} title="Mapeamento de Sensores (1-Wire)" />
+        <div className="flex items-center gap-4 mb-6">
+            <button 
+                onClick={handleScanSensors}
+                disabled={!selectedDeviceId}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+            >
+                <Search size={14} className="inline mr-2" /> Escanear Sensores
+            </button>
+            <button 
+                onClick={handleSaveMapping}
+                disabled={!selectedDeviceId || deviceMacs.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+            >
+                <Save size={14} className="inline mr-2" /> Salvar Mapeamento
+            </button>
+        </div>
+        
+        {deviceMacs.length > 0 ? (
+            <div className="space-y-4">
+                {deviceMacs.map((mac) => {
+                    const isControl = macSensorControle === mac;
+                    const extraIndex = extraSensors.findIndex(e => e.mac === mac);
+                    const isExtra = extraIndex !== -1;
+                    const role = isControl ? 'control' : (isExtra ? 'extra' : '');
+                    
+                    return (
+                        <div key={mac} className="flex items-center gap-4 bg-neutral-800/50 p-4 rounded-xl border border-neutral-700/50">
+                            <span className="font-mono text-sm text-neutral-300 w-40">{mac}</span>
+                            <select 
+                                className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                                value={role}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'control') {
+                                        setMacSensorControle(mac);
+                                        setExtraSensors(prev => prev.filter(p => p.mac !== mac));
+                                    } else if (val === 'extra') {
+                                        if (macSensorControle === mac) setMacSensorControle('');
+                                        setExtraSensors(prev => [...prev, {mac, name: `Sensor ${extraSensors.length + 1}`}]);
+                                    } else {
+                                        if (macSensorControle === mac) setMacSensorControle('');
+                                        setExtraSensors(prev => prev.filter(p => p.mac !== mac));
+                                    }
+                                }}
+                            >
+                                <option value="">Não utilizado</option>
+                                <option value="control">Sensor de Controle (PID)</option>
+                                <option value="extra">Sensor Extra (Monitoramento)</option>
+                            </select>
+                            
+                            {isExtra && (
+                                <input 
+                                    type="text"
+                                    placeholder="Nome do Sensor Extra (ex: Motor)"
+                                    className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none flex-1"
+                                    value={extraSensors[extraIndex]?.name || ''}
+                                    onChange={(e) => {
+                                        const newName = e.target.value;
+                                        setExtraSensors(prev => {
+                                            const copy = [...prev];
+                                            copy[extraIndex].name = newName;
+                                            return copy;
+                                        });
+                                    }}
+                                />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        ) : (
+            <p className="text-neutral-500 text-sm italic">Nenhum sensor escaneado. Clique em "Escanear Sensores" para buscar na placa.</p>
+        )}
       </section>
 
       {/* 6. Sistema */}

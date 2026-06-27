@@ -42,6 +42,13 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
+pool.execute('ALTER TABLE telemetry ADD COLUMN extra_sensors JSON')
+    .then(() => console.log('Migration extra_sensors OK'))
+    .catch(e => {
+        if (e.code === 'ER_DUP_FIELDNAME') console.log('extra_sensors already exists');
+        else console.error('Migration failed:', e);
+    });
+
 const ingredientsPool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -302,7 +309,8 @@ mqttClient.on('message', async (topic, message) => {
                 }
 
                 let dateSQL = 'NOW()';
-                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat, payload.rssi || null];
+                let extraSensorsJSON = payload.ext_s ? JSON.stringify(payload.ext_s) : null;
+                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat, payload.rssi || null, extraSensorsJSON];
                 
                 // Apenas confia no timestamp do ESP32 se ele for maior que o ano 2020 (NTP Sincronizado)
                 if (payload.ts && payload.ts > 1600000000) {
@@ -311,7 +319,7 @@ mqttClient.on('message', async (topic, message) => {
                 }
 
                 await pool.execute(
-                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
+                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, extra_sensors, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
                     queryArgs
                 ).catch((err) => { 
                     console.error("❌ Telemetry Insert Error:", err.message); 
@@ -839,7 +847,7 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
         if (batches.length === 0) [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? ORDER BY b.id DESC LIMIT 1`, [req.params.serial]);
         let queryWhere = ''; let fileName = 'log_geral'; let currentBatch = null;
         if (batches.length > 0) { currentBatch = batches[0]; queryWhere = `AND t.batch_id = ${currentBatch.id}`; fileName = currentBatch.name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); } else { queryWhere = `AND t.recorded_at > NOW() - INTERVAL 30 DAY`; }
-        const [rows] = await pool.execute(`SELECT t.recorded_at, t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.battery, t.status_op, t.step_name, b.name as batch_name FROM telemetry t JOIN devices d ON t.device_id = d.id LEFT JOIN batches b ON t.batch_id = b.id WHERE d.serial_code = ? AND d.user_id = ? ${queryWhere} ORDER BY t.recorded_at ASC`, [req.params.serial, req.user.id]);
+        const [rows] = await pool.execute(`SELECT t.recorded_at, t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.battery, t.status_op, t.step_name, t.extra_sensors, b.name as batch_name FROM telemetry t JOIN devices d ON t.device_id = d.id LEFT JOIN batches b ON t.batch_id = b.id WHERE d.serial_code = ? AND d.user_id = ? ${queryWhere} ORDER BY t.recorded_at ASC`, [req.params.serial, req.user.id]);
         if (rows.length === 0) return res.status(404).send('Sem dados');
         if (rows.length > 1 && (rows[0].status_op || '').includes('CONCLU') && !(rows[1].status_op || '').includes('CONCLU')) rows.shift();
         if (currentBatch && !currentBatch.is_active && currentBatch.ended_at && rows.length > 0) { const last = rows[rows.length - 1]; rows.push({ recorded_at: currentBatch.ended_at, batch_name: last.batch_name, temp_ferm: last.temp_ferm, temp_amb: last.temp_amb, target_temp: last.target_temp, gravity: last.gravity, battery: last.battery, status_op: 'FINALIZADO', step_name: 'MANUAL' }); }
@@ -1055,7 +1063,7 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
     try {
         const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        const [rows] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, recorded_at, step_name FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`, [req.params.id]);
+        const [rows] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, recorded_at, step_name, extra_sensors FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`, [req.params.id]);
         
         let finalRows = rows;
         const targetPoints = 500;

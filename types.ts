@@ -57,6 +57,7 @@ export interface Reading {
   fridgeTemp: number;
   targetTemp: number;
   gravity: number;
+  extra_sensors?: Record<string, number>;
 }
 
 export interface FermentationStep {
