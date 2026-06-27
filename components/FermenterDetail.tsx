@@ -701,14 +701,14 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             </div>
                         )}
 
-                        <GeminiAdvisor fermenter={fermenter} className="flex-1 min-h-[200px]" />
-                        
                         <FermentationTimeline 
                             events={fermenter.events || []} 
                             startDate={fermenter.startDate}
                             onAddEvent={handleAddEvent} 
                             onRemoveEvent={handleRemoveEvent} 
                         />
+
+                        <GeminiAdvisor fermenter={fermenter} className="flex-1 min-h-[200px]" />
                     </div>
                 </div>
             )}
