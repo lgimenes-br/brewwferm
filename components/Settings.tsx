@@ -665,8 +665,10 @@ export const Settings: React.FC = () => {
                         <div className="relative">
                             <select value={macAmbiente} onChange={e => setMacAmbiente(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none text-sm">
                                 <option value="">-- Automático / Vazio --</option>
-                                {deviceMacs.map((mac: string) => (
-                                    <option key={mac} value={mac}>{mac}</option>
+                                {deviceMacs.map((mac: string, idx: number) => (
+                                    <option key={mac} value={mac}>
+                                        Sensor {idx + 1} ({mac.substring(0, 4)}...{mac.substring(mac.length - 4)})
+                                    </option>
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
@@ -677,8 +679,10 @@ export const Settings: React.FC = () => {
                         <div className="relative">
                             <select value={macCerveja} onChange={e => setMacCerveja(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none text-sm">
                                 <option value="">-- Automático / Vazio --</option>
-                                {deviceMacs.map((mac: string) => (
-                                    <option key={mac} value={mac}>{mac}</option>
+                                {deviceMacs.map((mac: string, idx: number) => (
+                                    <option key={mac} value={mac}>
+                                        Sensor {idx + 1} ({mac.substring(0, 4)}...{mac.substring(mac.length - 4)})
+                                    </option>
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
