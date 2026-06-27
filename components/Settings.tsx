@@ -99,6 +99,7 @@ export const Settings: React.FC = () => {
   const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [macSensorControle, setMacSensorControle] = useState('');
+  const [nameSensorControle, setNameSensorControle] = useState('');
   const [extraSensors, setExtraSensors] = useState<{mac: string, name: string}[]>([]);
   const [initialMappingLoaded, setInitialMappingLoaded] = useState(false);
 
@@ -111,6 +112,7 @@ export const Settings: React.FC = () => {
           const { macCtrl, extSens } = activeDevice.currentDevice as any;
           if (macCtrl !== undefined) {
               setMacSensorControle(macCtrl);
+              setNameSensorControle(activeDevice.sensor1_name || 'Fermentador');
               if (extSens) {
                   try { setExtraSensors(JSON.parse(extSens)); } catch (e) { setExtraSensors([]); }
               } else {
@@ -129,10 +131,23 @@ export const Settings: React.FC = () => {
       toast.success('Comando de scan enviado! Aguardando resposta...');
   };
 
-  const handleSaveMapping = () => {
+  const handleSaveMapping = async () => {
       if (!selectedDeviceId) return;
-      sendCommand(selectedDeviceId, 'set_sensors', { macSensorControle, extraSensors });
-      toast.success('Mapeamento de sensores enviado para a placa!');
+      sendCommand(selectedDeviceId, 'set_sensors', { macSensorControle, nameSensorControle, extraSensors });
+      
+      // Update the database with the new names
+      try {
+          const sensor2Name = extraSensors.length > 0 ? extraSensors[0].name : 'Geladeira';
+          await fetch(`${API_URL}/devices/${selectedDeviceId}/sensors`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ sensor1Name: nameSensorControle, sensor2Name: sensor2Name, sensorSgName: settings.sensorSgName })
+          });
+      } catch (e) {
+          console.error('Failed to save sensor names to db', e);
+      }
+      
+      toast.success('Mapeamento e nomes enviados!');
   };
 
   useEffect(() => {
@@ -468,22 +483,12 @@ export const Settings: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Personalizar Sensores */}
+      {/* 2. Configurações SG */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
-        <SectionHeader icon={Thermometer} title="Personalizar Sensores" />
+        <SectionHeader icon={Thermometer} title="Configurações de Densidade / Gravidade" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InputField 
-            label="Nome Sensor 1 (Fermentador)" 
-            value={settings.sensor1Name} 
-            onChange={(v: string) => handleChange('sensor1Name', v)} 
-          />
-          <InputField 
-            label="Nome Sensor 2 (Ambiente)" 
-            value={settings.sensor2Name} 
-            onChange={(v: string) => handleChange('sensor2Name', v)} 
-          />
-          <InputField 
-            label="Nome Sensor SG (Gravidade)" 
+            label="Nome Sensor SG" 
             value={settings.sensorSgName} 
             onChange={(v: string) => handleChange('sensorSgName', v)} 
           />
@@ -494,7 +499,7 @@ export const Settings: React.FC = () => {
             disabled={!selectedDeviceId}
             className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700'}`}
           >
-            <Save size={14} /> Salvar Nomes
+            <Save size={14} /> Salvar Nome SG
           </button>
         </div>
       </section>
@@ -672,10 +677,20 @@ export const Settings: React.FC = () => {
                                 <option value="extra">Sensor Extra (Monitoramento)</option>
                             </select>
                             
+                            {isControl && (
+                                <input 
+                                    type="text"
+                                    placeholder="Nome (ex: Mosto)"
+                                    className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none flex-1"
+                                    value={nameSensorControle}
+                                    onChange={(e) => setNameSensorControle(e.target.value)}
+                                />
+                            )}
+                            
                             {isExtra && (
                                 <input 
                                     type="text"
-                                    placeholder="Nome do Sensor Extra (ex: Motor)"
+                                    placeholder="Nome do Sensor Extra (ex: Geladeira)"
                                     className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none flex-1"
                                     value={extraSensors[extraIndex]?.name || ''}
                                     onChange={(e) => {
