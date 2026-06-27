@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useBrew } from '../context/BrewContext';
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 
 // ==========================================
@@ -151,7 +152,7 @@ const MarketingTab = () => {
 export const AdminDashboard = () => {
     const { token, logout, user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'ingredients' | 'terminal' | 'marketing'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'firmware' | 'ingredients' | 'terminal' | 'marketing'>('overview');
 
     const handleLogout = () => {
         logout();
@@ -191,6 +192,9 @@ export const AdminDashboard = () => {
                             <button onClick={() => setActiveTab('security')} title="Segurança e Avisos" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'security' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Shield size={18} />
                             </button>
+                            <button onClick={() => setActiveTab('firmware')} title="Firmware (OTA)" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'firmware' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Download size={18} />
+                            </button>
                             <button onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <TestTube size={18} />
                             </button>
@@ -225,6 +229,7 @@ export const AdminDashboard = () => {
                 {activeTab === 'telemetry' && <TelemetryTab />}
                 {activeTab === 'users' && <UsersTab />}
                 {activeTab === 'security' && <SecurityTab />}
+                {activeTab === 'firmware' && <FirmwareTab />}
                 {activeTab === 'ingredients' && <IngredientsTab />}
                 {activeTab === 'terminal' && <TerminalTab />}
                 {activeTab === 'marketing' && <MarketingTab />}
@@ -1417,6 +1422,74 @@ const TerminalTab = () => {
                 <div className="p-4 h-[500px] overflow-y-auto font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
                     {logs || "Carregando logs..."}
                     <div ref={logsEndRef} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ==========================================
+// FIRMWARE & OTA TAB
+// ==========================================
+const FirmwareTab = () => {
+    const { token } = useAuth();
+    const { sendCommand } = useBrew();
+    const [devices, setDevices] = useState<any[]>([]);
+    const [otaUrl, setOtaUrl] = useState('');
+    const [otaMd5, setOtaMd5] = useState('');
+    const [selectedDevice, setSelectedDevice] = useState('');
+    
+    useEffect(() => {
+        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => setDevices(data))
+        .catch(() => {});
+    }, [token]);
+
+    const handleTriggerOTA = () => {
+        if (!otaUrl || !selectedDevice) return toast.error('Selecione um dispositivo e informe a URL');
+        if (confirm('Atenção: Você está prestes a forçar uma atualização remota. O dispositivo será reiniciado.')) {
+            sendCommand(selectedDevice, 'update_firmware', { url: otaUrl, md5: otaMd5 || '' });
+            toast.success('Comando OTA disparado com sucesso!');
+            setOtaUrl('');
+            setOtaMd5('');
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <Download className="text-indigo-500" size={20} /> Atualização Remota Forçada (OTA)
+            </h2>
+            <p className="text-sm text-neutral-400 mb-6">Envie um arquivo de firmware personalizado para qualquer dispositivo conectado.</p>
+            
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 max-w-2xl">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Dispositivo Alvo</label>
+                        <div className="relative">
+                            <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 appearance-none">
+                                <option value="">-- Selecione um Dispositivo --</option>
+                                {devices.map(d => (
+                                    <option key={d.serial_code} value={d.serial_code}>{d.serial_code} - {d.device_name || 'Sem Nome'} ({d.owner_name})</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">URL do Arquivo .bin</label>
+                        <input type="text" value={otaUrl} onChange={e => setOtaUrl(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500" placeholder="http://seu-servidor.com/firmware.bin" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Hash MD5 (Opcional)</label>
+                        <input type="text" value={otaMd5} onChange={e => setOtaMd5(e.target.value)} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: 5d41402abc..." />
+                    </div>
+                    <div className="pt-4">
+                        <button onClick={handleTriggerOTA} disabled={!selectedDevice || !otaUrl} className="w-full px-4 py-3 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white border border-red-500/30 hover:border-red-600 rounded-lg font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            <Download size={18} /> Disparar Atualização Forçada
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

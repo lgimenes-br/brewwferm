@@ -669,34 +669,6 @@ export const Settings: React.FC = () => {
             </div>
         )}
 
-        {isAdmin && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <InputField 
-                label="URL do Arquivo .bin" 
-                value={otaUrl} 
-                onChange={(v: string) => setOtaUrl(v)} 
-                placeholder="http://seu-servidor.com/firmware.bin"
-              />
-              <InputField 
-                label="Hash MD5 (Opcional)" 
-                value={otaMd5} 
-                onChange={(v: string) => setOtaMd5(v)} 
-                placeholder="Ex: 5d41402abc4b2a76b9719d911017c592"
-              />
-            </div>
-            
-            <div className="flex justify-end">
-              <button 
-                onClick={handleTriggerOTA}
-                disabled={!selectedDeviceId}
-                className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-transparent border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white shadow-[0_0_15px_rgba(220,38,38,0.1)]'}`}
-              >
-                <Download size={14} /> Disparar Atualização OTA
-              </button>
-            </div>
-          </>
-        )}
       </section>
 
     </div>
