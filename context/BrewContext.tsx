@@ -174,7 +174,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         statOp: statusStr || 'INATIVO',
                         logInterval: payload.wi ? payload.wi / 1000 : undefined,
                         compressorDelay: payload.cds,
-                        version: payload.ver // Firmware version
+                        version: payload.ver, // Firmware version
+                        macCtrl: payload.macCtrl,
+                        extSens: payload.extSens
                     } as any, // Use as any to rely on prior state spread inside updateFermenterLocal
                     newReading: {
                         timestamp: new Date().toISOString(),

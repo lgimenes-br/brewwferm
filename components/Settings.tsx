@@ -100,6 +100,26 @@ export const Settings: React.FC = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [macSensorControle, setMacSensorControle] = useState('');
   const [extraSensors, setExtraSensors] = useState<{mac: string, name: string}[]>([]);
+  const [initialMappingLoaded, setInitialMappingLoaded] = useState(false);
+
+  useEffect(() => {
+      setInitialMappingLoaded(false);
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+      if (!initialMappingLoaded && activeDevice?.currentDevice) {
+          const { macCtrl, extSens } = activeDevice.currentDevice as any;
+          if (macCtrl !== undefined) {
+              setMacSensorControle(macCtrl);
+              if (extSens) {
+                  try { setExtraSensors(JSON.parse(extSens)); } catch (e) { setExtraSensors([]); }
+              } else {
+                  setExtraSensors([]);
+              }
+              setInitialMappingLoaded(true);
+          }
+      }
+  }, [activeDevice?.currentDevice, initialMappingLoaded]);
 
   const deviceMacs = scanResponses[selectedDeviceId] || [];
 
