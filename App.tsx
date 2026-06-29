@@ -151,7 +151,12 @@ const NavConfig = () => {
                                     <Timer size={14} /> {statOp}
                                 </div>
                             )}
-                            {(statOp !== 'AQUECENDO' && statOp !== 'RESFRIANDO' && !statOp.startsWith('DELAY')) && (
+                            {statOp === 'AGUARDANDO' && (
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-yellow-500 text-yellow-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                    <Circle size={14} /> AGUARDANDO
+                                </div>
+                            )}
+                            {(statOp !== 'AQUECENDO' && statOp !== 'RESFRIANDO' && statOp !== 'AGUARDANDO' && !statOp.startsWith('DELAY')) && (
                                 <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-zinc-500 text-zinc-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
                                     <Circle size={14} /> {statOp === 'INATIVO' ? 'PARADO' : statOp}
                                 </div>
