@@ -69,25 +69,42 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
         const currentDuration = localSteps[stepIndex]?.duration || 0;
 
         if (stepIndex === currentStepIndex) {
-            // Se temos o stepTime vindo do ESP32 (em horas) e o lastUpdate, calculamos um targetEndTime absoluto!
-            if (stepTime !== undefined && lastUpdate) {
+            if (stepStartDate) {
+                const dbStart = new Date(stepStartDate).getTime();
+                let useDbStart = true;
+                
+                // Se o ESP32 enviou o stepTime (decorrido), usamos para calcular o início absoluto sob a ótica dele
+                if (stepTime !== undefined && lastUpdate) {
+                    const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+                    const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                    
+                    // Se a diferença entre a ótica do banco e a ótica do ESP32 for MAIOR que 1 hora,
+                    // Significa que o usuário pausou o ESP32 (o tempo parou de contar lá), mas o banco não sabe.
+                    // Nesses casos, abrimos mão da precisão do banco e confiamos na matemática (meio imprecisa) do ESP32.
+                    if (Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
+                        useDbStart = false;
+                        if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
+                            stabilizedStepStartRef.current = absoluteStepStartTime;
+                        }
+                    }
+                }
+                
+                // Se a diferença for menor que 1h, usamos o dbStart, que tem precisão de milissegundos absoluta (sem jitter)
+                const finalStart = useDbStart ? dbStart : (stabilizedStepStartRef.current || dbStart);
+                targetEndTime = finalStart + (currentDuration * 24 * 60 * 60 * 1000);
+            } 
+            // Senão (lotes antigos ou recém iniciados que o DB ainda não pegou), cai pro cálculo normal do ESP32
+            else if (stepTime !== undefined && lastUpdate) {
                 const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
                 const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
                 
-                // Estabiliza o horário para não pular os segundos a cada nova telemetria (devido à baixa precisão do stepTime)
-                // Só atualiza se a diferença for maior que 10 minutos (ex: pular etapa ou grande drift)
                 if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
                     stabilizedStepStartRef.current = absoluteStepStartTime;
                 }
 
                 const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
                 targetEndTime = stabilizedStepStartRef.current + totalDurationMs;
-            } 
-            // Senão, tenta usar a data real de início da etapa salva no banco
-            else if (stepStartDate) {
-                targetEndTime = new Date(stepStartDate).getTime() + (currentDuration * 24 * 60 * 60 * 1000);
             }
-            // Se não tiver nenhum dos dois, cai no fallback abaixo
         } 
         
         if (targetEndTime === 0) {
