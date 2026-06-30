@@ -676,6 +676,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                         isPaused={fermenter.isPaused || false}
                                         startDate={fermenter.startDate}
                                         stepStartDate={fermenter.stepStartDate}
+                                        stepTime={fermenter.currentDevice?.stepTime}
                                         style={fermenter.style}
                                         volume={fermenter.volume}
                                         og={safeOG}

@@ -49,6 +49,7 @@ export interface ISpindelData {
   logInterval?: number; // webinterval (ms)
   compressorDelay?: number; // cds
   version?: string; // Firmware version (e.g. V1.0.017 SAFE-BOOT STABLE)
+  stepTime?: number; // Elapsed time in current step (in hours, from ESP32)
 }
 
 export interface Reading {

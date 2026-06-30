@@ -9,6 +9,7 @@ interface FermentationProfileProps {
     isPaused: boolean;
     startDate?: string;
     stepStartDate?: string;
+    stepTime?: number;
     style?: string;
     volume?: number;
     og?: number;
@@ -26,6 +27,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     isPaused,
     startDate,
     stepStartDate,
+    stepTime,
     style,
     volume,
     og,
@@ -63,11 +65,22 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
         let targetEndTime = 0;
         const currentDuration = localSteps[stepIndex]?.duration || 0;
 
-        if (stepStartDate && stepIndex === currentStepIndex) {
-            // For the active step, use the actual step_started_at from backend
-            targetEndTime = new Date(stepStartDate).getTime() + (currentDuration * 24 * 60 * 60 * 1000);
-        } else {
-            // Fallback for past/future steps (or if stepStartDate is missing)
+        if (stepIndex === currentStepIndex) {
+            // Se temos o stepTime vindo do ESP32 (em horas), é a fonte mais confiável!
+            if (stepTime !== undefined) {
+                const elapsedMs = stepTime * 60 * 60 * 1000;
+                const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
+                targetEndTime = now + (totalDurationMs - elapsedMs);
+            } 
+            // Senão, tenta usar a data real de início da etapa salva no banco
+            else if (stepStartDate) {
+                targetEndTime = new Date(stepStartDate).getTime() + (currentDuration * 24 * 60 * 60 * 1000);
+            }
+            // Se não tiver nenhum dos dois, cai no fallback abaixo
+        } 
+        
+        if (targetEndTime === 0) {
+            // Fallback for past/future steps (ou lotes antigos sem stepStartDate)
             const start = new Date(startDate).getTime();
             let daysPrior = 0;
             for (let i = 0; i < stepIndex; i++) {
