@@ -85,7 +85,32 @@ export const NewBatchModal: React.FC<NewBatchModalProps> = ({ isOpen, onClose, o
                             setStyle(matchedStyle);
                         }
                         
-                        // XML profiles are harder, so we stick to the basic for XML unless requested.
+                        // Extrair Etapas de Fermentação do BeerXML
+                        const newProfile: FermentationStep[] = [];
+                        let stepIndex = 0;
+
+                        const addStage = (name: string, ageTag: string, tempTag: string) => {
+                            const age = recipe.getElementsByTagName(ageTag)[0]?.textContent;
+                            const temp = recipe.getElementsByTagName(tempTag)[0]?.textContent;
+                            if (age && temp && Number(age) > 0) {
+                                newProfile.push({
+                                    id: Date.now().toString() + stepIndex,
+                                    name: name,
+                                    temperature: Number(temp),
+                                    duration: Number(age)
+                                });
+                                stepIndex++;
+                            }
+                        };
+
+                        addStage('Fermentação Primária', 'PRIMARY_AGE', 'PRIMARY_TEMP');
+                        addStage('Fermentação Secundária', 'SECONDARY_AGE', 'SECONDARY_TEMP');
+                        addStage('Terciária (Diacetil)', 'TERTIARY_AGE', 'TERTIARY_TEMP');
+                        addStage('Maturação / Cold Crash', 'AGE', 'AGE_TEMP');
+
+                        if (newProfile.length > 0) {
+                            setProfile(newProfile);
+                        }
                     }
                 }
             } catch (err) {

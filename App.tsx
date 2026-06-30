@@ -215,7 +215,7 @@ const NavConfig = () => {
 
                     {/* Navigation Icons (Desktop only) */}
                     <div className="hidden md:flex items-center gap-2">
-                        <button title="Grid" onClick={() => navigate('/')} className={iconOnlyBase} >
+                        <button title="Visão Geral" onClick={() => navigate('/')} className={iconOnlyBase} >
                             <LayoutGrid size={18} />
                         </button>
                         <button title="Logs" onClick={() => navigate('/history')} className={iconOnlyBase} >
@@ -275,7 +275,7 @@ const NavConfig = () => {
                     <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
                         <button onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><LayoutGrid size={24} /></div>
-                            <span className="text-lg font-bold tracking-tight">Dashboard</span>
+                            <span className="text-lg font-bold tracking-tight">Visão Geral</span>
                         </button>
                         <button onClick={() => { setIsMobileMenuOpen(false); navigate('/history'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><History size={24} /></div>

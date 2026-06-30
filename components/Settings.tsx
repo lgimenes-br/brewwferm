@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Settings as SettingsIcon } from 'lucide-react';
+import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Settings as SettingsIcon, Smartphone } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
@@ -270,6 +270,7 @@ export const Settings: React.FC = () => {
     sendCommand(selectedDeviceId, 'autotune', { mode });
     toast.success(`Auto-Tune de ${mode === 'heat' ? 'aquecimento' : 'refrigeração'} iniciado!`);
   };
+
 
   const handleTestRelay = (mode: number, autoState: 'AUTO' | 'HEAT' | 'COOL') => { 
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
@@ -593,7 +594,35 @@ export const Settings: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. Teste de Relés */}
+      {/* 5. Notificações Push (PWA) */}
+      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
+        <SectionHeader icon={Smartphone} title="Notificações Push" />
+        <p className="text-neutral-500 text-xs mb-6 -mt-4">
+            Receba alertas sobre finalização de rampas, alvo atingido, estabilização de gravidade (FG) e erros.
+            Para iOS, adicione o dashboard à Tela de Início primeiro.
+        </p>
+        <div className="flex items-center justify-between bg-neutral-800/30 p-4 rounded-xl border border-neutral-700/50">
+            <div>
+                <h4 className="text-white font-bold tracking-tight">Status do Dispositivo</h4>
+                <p className="text-neutral-400 text-xs mt-1">
+                    {isSubscribed ? 'Este dispositivo está inscrito e receberá os alertas.' : 'Este dispositivo não está recebendo alertas.'}
+                </p>
+            </div>
+            <button
+                onClick={handleSubscribePush}
+                disabled={isSubscribed}
+                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
+                    isSubscribed 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'
+                }`}
+            >
+                {isSubscribed ? 'Ativado' : 'Ativar Alertas'}
+            </button>
+        </div>
+      </section>
+
+      {/* 6. Teste de Relés */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
         <SectionHeader icon={Zap} title="Teste de Relés" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
