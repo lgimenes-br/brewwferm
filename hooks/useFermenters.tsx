@@ -57,6 +57,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                 return BeerStyle.LAGER;
             })(),
             startDate: d.active_batch_start || d.start_date || '',
+            stepStartDate: d.active_batch_step_start || '',
             batchId: d.active_batch_id || undefined,
             og: d.active_batch_og || 0,
             fg: d.active_batch_fg || 1.010,

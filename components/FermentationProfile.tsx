@@ -8,6 +8,7 @@ interface FermentationProfileProps {
     currentStepIndex: number;
     isPaused: boolean;
     startDate?: string;
+    stepStartDate?: string;
     style?: string;
     volume?: number;
     og?: number;
@@ -24,6 +25,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     currentStepIndex,
     isPaused,
     startDate,
+    stepStartDate,
     style,
     volume,
     og,
@@ -58,17 +60,22 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     const getStepTimeRemaining = (stepIndex: number) => {
         if (!startDate || localSteps.length === 0) return null;
 
-        const start = new Date(startDate).getTime();
-        let daysPrior = 0;
+        let targetEndTime = 0;
+        const currentDuration = localSteps[stepIndex]?.duration || 0;
 
-        // Sum previous steps
-        for (let i = 0; i < stepIndex; i++) {
-            daysPrior += localSteps[i].duration;
+        if (stepStartDate && stepIndex === currentStepIndex) {
+            // For the active step, use the actual step_started_at from backend
+            targetEndTime = new Date(stepStartDate).getTime() + (currentDuration * 24 * 60 * 60 * 1000);
+        } else {
+            // Fallback for past/future steps (or if stepStartDate is missing)
+            const start = new Date(startDate).getTime();
+            let daysPrior = 0;
+            for (let i = 0; i < stepIndex; i++) {
+                daysPrior += localSteps[i].duration;
+            }
+            targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         }
 
-        // Add current step duration to calculate target end time
-        const currentDuration = localSteps[stepIndex]?.duration || 0;
-        const targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         const diff = targetEndTime - now;
 
         if (diff <= 0) return '0s';

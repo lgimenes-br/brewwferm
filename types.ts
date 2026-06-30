@@ -103,6 +103,7 @@ export interface Fermenter {
   currentStepIndex: number; // Índice da rampa ativa
   isPaused: boolean; // Controle de pausa do perfil
   events?: FermentationEvent[]; // New field for logged events
+  stepStartDate?: string;
   kegeratorConfig?: KegeratorConfig; // Configurações específicas da choppeira
 }
 
