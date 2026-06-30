@@ -43,6 +43,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     const [isEditing, setIsEditing] = useState(false);
     const [localSteps, setLocalSteps] = useState<FermentationStep[]>(steps);
     const [now, setNow] = useState(Date.now());
+    const stabilizedStepStartRef = React.useRef<number | null>(null);
 
     // Keep local steps synced when not editing
     React.useEffect(() => {
@@ -72,8 +73,15 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             if (stepTime !== undefined && lastUpdate) {
                 const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
                 const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                
+                // Estabiliza o horário para não pular os segundos a cada nova telemetria (devido à baixa precisão do stepTime)
+                // Só atualiza se a diferença for maior que 10 minutos (ex: pular etapa ou grande drift)
+                if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
+                    stabilizedStepStartRef.current = absoluteStepStartTime;
+                }
+
                 const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
-                targetEndTime = absoluteStepStartTime + totalDurationMs;
+                targetEndTime = stabilizedStepStartRef.current + totalDurationMs;
             } 
             // Senão, tenta usar a data real de início da etapa salva no banco
             else if (stepStartDate) {
