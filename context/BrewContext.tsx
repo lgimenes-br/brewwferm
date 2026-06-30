@@ -152,6 +152,11 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     };
                 }
 
+                if (payload.stepTime !== undefined) {
+                    localStorage.setItem(`device_stepTime_${serial}`, payload.stepTime.toString());
+                    localStorage.setItem(`device_lastUpdate_${serial}`, new Date().toISOString());
+                }
+
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // We don't have the previous f object explicitly here unless we fetch it, 
                 // but localUpdate will do a spread on the old data.

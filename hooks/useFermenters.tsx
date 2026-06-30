@@ -16,16 +16,20 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
         if (d.active_batch_id) status = FermenterStatus.ACTIVE;
 
         const safeReadings = Array.isArray(prevDev?.readings) ? prevDev!.readings : [];
+        const savedStepTime = localStorage.getItem(`device_stepTime_${d.serial_code}`);
+        const savedLastUpdate = localStorage.getItem(`device_lastUpdate_${d.serial_code}`);
+
         const safeCurrentDevice = prevDev ? prevDev.currentDevice : {
             gravity: 0,
             temperature: 0,
             battery: 0,
             angle: 0,
             rssi: 0,
-            lastUpdate: d.last_seen || new Date().toISOString(),
+            lastUpdate: savedLastUpdate || d.last_seen || new Date().toISOString(),
             statOp: d.status_op || d.stat_op || 'INATIVO',
             logInterval: d.wi ? d.wi / 1000 : 30, // Default 30s
-            compressorDelay: d.cds || 310
+            compressorDelay: d.cds || 310,
+            stepTime: savedStepTime ? parseFloat(savedStepTime) : undefined
         };
 
         return {
