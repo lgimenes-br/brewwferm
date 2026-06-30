@@ -295,6 +295,26 @@ mqttClient.on('message', async (topic, message) => {
                 }
                 const currentBatchId = activeBatches[serialCode] || null;
 
+                // Sync ESP32 step with Database
+                if (currentBatchId && payload.currStep !== undefined && payload.opm === 0 && payload.fermRun) {
+                    try {
+                        const [bRows] = await pool.execute('SELECT current_step_index FROM batches WHERE id = ?', [currentBatchId]);
+                        if (bRows.length > 0) {
+                            const dbStep = bRows[0].current_step_index || 0;
+                            if (payload.currStep > dbStep) {
+                                await pool.execute('UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?', [payload.currStep, currentBatchId]);
+                                console.log(`🔄 [Sync] Lote ${currentBatchId} sincronizado com ESP32 para etapa ${payload.currStep}`);
+                                
+                                const desc = `Sincronizado com o equipamento para a etapa: ${payload.profStat}`;
+                                await pool.execute(
+                                    'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
+                                    [currentBatchId, 'SYSTEM_ACTION', desc]
+                                );
+                            }
+                        }
+                    } catch (e) { console.error('Sync error:', e); }
+                }
+
                 let finalGravity = sanitizeNum(payload.is_sg, 3);
                 // O ESP32 envia 0 quando não tem leitura do iSpindel. Tratamos como nulo.
                 if ((finalGravity === null || parseFloat(finalGravity) === 0) && currentBatchId) {
@@ -591,7 +611,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
+        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
