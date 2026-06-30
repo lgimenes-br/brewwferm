@@ -10,6 +10,7 @@ interface FermentationProfileProps {
     startDate?: string;
     stepStartDate?: string;
     stepTime?: number;
+    lastUpdate?: string;
     style?: string;
     volume?: number;
     og?: number;
@@ -28,6 +29,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     startDate,
     stepStartDate,
     stepTime,
+    lastUpdate,
     style,
     volume,
     og,
@@ -66,11 +68,12 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
         const currentDuration = localSteps[stepIndex]?.duration || 0;
 
         if (stepIndex === currentStepIndex) {
-            // Se temos o stepTime vindo do ESP32 (em horas), é a fonte mais confiável!
-            if (stepTime !== undefined) {
-                const elapsedMs = stepTime * 60 * 60 * 1000;
+            // Se temos o stepTime vindo do ESP32 (em horas) e o lastUpdate, calculamos um targetEndTime absoluto!
+            if (stepTime !== undefined && lastUpdate) {
+                const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+                const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
                 const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
-                targetEndTime = now + (totalDurationMs - elapsedMs);
+                targetEndTime = absoluteStepStartTime + totalDurationMs;
             } 
             // Senão, tenta usar a data real de início da etapa salva no banco
             else if (stepStartDate) {
