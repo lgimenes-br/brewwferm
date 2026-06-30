@@ -358,6 +358,21 @@ mqttClient.on('message', async (topic, message) => {
                 if (payload.opm === 0 && payload.profStat) {
                     if (alertState[serialCode].lastStep && alertState[serialCode].lastStep !== payload.profStat) {
                         sendPushToUser(pool, userId, 'Mudança de Passo', `O fermentador iniciou o passo: ${payload.profStat}`);
+                        
+                        // Sincroniza a mudança de passo com o Diário de Bordo (batch_events)
+                        if (currentBatchId) {
+                            pool.execute(
+                                'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
+                                [currentBatchId, 'SYSTEM_ACTION', `Avanço de Etapa: ${payload.profStat}`]
+                            ).catch(e => console.error("Error inserting step event:", e));
+                            
+                            if (payload.currStep !== undefined) {
+                                pool.execute(
+                                    'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
+                                    [payload.currStep, currentBatchId]
+                                ).catch(e => console.error("Error updating batch step:", e));
+                            }
+                        }
                     }
                     alertState[serialCode].lastStep = payload.profStat;
                 }
