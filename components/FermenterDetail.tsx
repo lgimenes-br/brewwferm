@@ -178,6 +178,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
         try {
             await finishBatch({ serialCode: fermenter.id, deviceId: fermenter.id });
+            onUpdate(fermenter.id, { profile: [] });
             toast.success('Lote finalizado com sucesso!');
             navigate('/');
         } catch (err) {
