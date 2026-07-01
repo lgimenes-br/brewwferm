@@ -234,7 +234,10 @@ export const useFermenters = () => {
     const startBatchMutation = useMutation({
         mutationFn: (data: { serialCode: string, name: string, style: string, og: number, fg: number, profile?: any[] }) => 
             api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
+        onSuccess: (_, variables) => {
+            localStorage.removeItem(`events_${variables.serialCode}`);
+            queryClient.invalidateQueries({ queryKey: ['fermenters'] });
+        }
     });
 
     const finishBatchMutation = useMutation({
@@ -252,10 +255,11 @@ export const useFermenters = () => {
                     fg: 0,
                     profile: [],
                     startDate: '',
-                    currentStepIndex: 0,
-                    isPaused: false
+                    isPaused: false,
+                    events: []
                 } : f);
             });
+            localStorage.removeItem(`events_${variables.deviceId}`);
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
             queryClient.invalidateQueries({ queryKey: ['history'] });
         }
