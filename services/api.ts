@@ -107,11 +107,11 @@ export const deleteDevice = async (serialCode: string) => {
 };
 
 // --- Batches ---
-export const startBatch = async (serialCode: string, name: string, style: string, og: number, fg: number) => {
+export const startBatch = async (serialCode: string, name: string, style: string, og: number, fg: number, profile?: any[]) => {
   const res = await fetch(`${API_URL}/batch/start`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ serialCode, name, style, og, fg })
+    body: JSON.stringify({ serialCode, name, style, og, fg, profile })
   });
   if (!res.ok) throw new Error('Failed to start batch');
   return true;
@@ -136,7 +136,7 @@ export const finishBatch = async (batchId: number) => {
   return true;
 };
 
-export const updateBatch = async (serialCode: string, updates: { og?: number, fg?: number, name?: string }) => {
+export const updateBatch = async (serialCode: string, updates: { og?: number, fg?: number, name?: string, profile?: any[] }) => {
   const body: any = { serialCode, ...updates };
   const res = await fetch(`${API_URL}/batch/update`, {
     method: 'PUT',

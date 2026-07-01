@@ -199,8 +199,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 name: data.name,
                 style: data.style,
                 og: data.og,
-                fg: data.fg
+                fg: data.fg,
+                profile: data.profile
             });
+            onUpdate(fermenter.id, { profile: data.profile });
             setShowNewBatchModal(false);
             toast.success('Novo lote iniciado com sucesso!');
         } catch (err) {
