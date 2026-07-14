@@ -636,7 +636,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                         <Battery size={16} className="text-neutral-600 mx-auto mb-2" />
                                         <span className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Bateria</span>
                                         <span className={`block text-sm font-mono ${getBatteryColor(safeBattery)}`}>
-                                            {safeBattery > 0 ? `${safeBattery}V` : '--'}
+                                            {safeBattery > 0 ? `${safeBattery.toFixed(2)}V` : '--'}
                                         </span>
                                     </div>
                                     <div className="text-center">

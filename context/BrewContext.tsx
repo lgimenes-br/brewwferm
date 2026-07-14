@@ -172,7 +172,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     currentDevice: {
                         temperature: parseFloat(payload.ferm),
                         gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
-                        battery: parseFloat(payload.is_bat),
+                        battery: payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
                         rssi: parseFloat(payload.rssi),
                         lastUpdate: payload.stepTime !== undefined ? new Date().toISOString() : (localStorage.getItem(`device_lastUpdate_${serial}`) || new Date().toISOString()),
                         statOp: statusStr || 'INATIVO',
