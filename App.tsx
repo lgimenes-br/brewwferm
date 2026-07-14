@@ -10,7 +10,7 @@ import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrappe
 import { Settings } from './components/Settings';
 import { BrewingCalculators } from './components/BrewingCalculators';
 import { CompareBatches } from './components/CompareBatches';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare, Shield } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare, Shield, Plus, Trash2, Edit2, RotateCcw, Power, Moon, Sun, AlertCircle, WifiOff } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
@@ -28,6 +28,10 @@ const NavConfig = () => {
 
     // If admin, we don't render this NavConfig. They get a full-screen admin experience.
     if (role === 'admin') return null;
+
+    // Hide navigation bar on public or landing pages
+    const publicRoutes = ['/login', '/register'];
+    if (publicRoutes.includes(location.pathname)) return null;
     const { fermenters } = useFermenters();
     const { sendCommand, otaProgress, clearOtaProgress } = useBrew();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
@@ -408,7 +412,7 @@ const NavConfig = () => {
 const AppRoutes = () => {
     const { role } = useAuth();
     return (
-        <div className="min-h-screen bg-black pb-10">
+        <div className="min-h-screen bg-black">
             <Toaster 
                 position="top-right"
                 toastOptions={{
