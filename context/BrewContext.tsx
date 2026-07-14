@@ -36,8 +36,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: 'esp32',
             keepalive: 60,
             reconnectPeriod: 5000,
-            clean: true,
-            wsOptions: { binaryType: 'arraybuffer' }
+            clean: true
         });
 
         clientRef.current = client;
@@ -175,14 +174,14 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
                         battery: parseFloat(payload.is_bat),
                         rssi: parseFloat(payload.rssi),
-                        lastUpdate: payload.stepTime !== undefined ? new Date().toISOString() : f.currentDevice?.lastUpdate || new Date().toISOString(),
+                        lastUpdate: payload.stepTime !== undefined ? new Date().toISOString() : (localStorage.getItem(`device_lastUpdate_${serial}`) || new Date().toISOString()),
                         statOp: statusStr || 'INATIVO',
                         logInterval: payload.wi ? payload.wi / 1000 : undefined,
                         compressorDelay: payload.cds,
                         version: payload.ver, // Firmware version
                         macCtrl: payload.macCtrl,
                         extSens: payload.extSens,
-                        stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : f.currentDevice?.stepTime
+                        stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0')
                     } as any, // Use as any to rely on prior state spread inside updateFermenterLocal
                     newReading: {
                         timestamp: new Date().toISOString(),

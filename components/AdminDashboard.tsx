@@ -208,9 +208,9 @@ export const AdminDashboard = () => {
 
                         <div className="hidden md:flex items-center gap-3 border-l border-neutral-800 pl-4 mr-2">
                             <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-neutral-300">
-                                {user?.name?.charAt(0).toUpperCase()}
+                                {user?.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm font-medium text-neutral-300">{user?.name}</span>
+                            <span className="text-sm font-medium text-neutral-300">{user}</span>
                         </div>
                         
                         <button 

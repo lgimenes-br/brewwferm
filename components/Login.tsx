@@ -25,8 +25,7 @@ export const Login: React.FC = () => {
     },
     onError: () => {
       toast.error('Erro de comunicação com o Google');
-    },
-    ux_mode: 'redirect'
+    }
   });
 
   useEffect(() => {

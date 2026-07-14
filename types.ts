@@ -75,9 +75,6 @@ export interface KegeratorConfig {
   brewery: string;
   ibu: number;
   abv: number;
-    login: (email: string, pass: string) => Promise<boolean>;
-    loginWithGoogle: (idToken: string) => Promise<boolean>;
-    logout: () => void;
 }
 
 export interface Fermenter {
@@ -120,7 +117,7 @@ export interface FinishedBrew {
   abv: number;
   efficiency: number; // attenuation
   rating?: number; // 1-5 stars
-  isActive: boolean;
+  isActive?: boolean;
   notes: string;
   readings: Reading[]; // Adicionado para gráficos históricos
   ingredients?: any; // Receita (Maltes, Lúpulos, Levedura)

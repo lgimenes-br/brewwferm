@@ -50,7 +50,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 export const Settings: React.FC = () => {
   const { fermenters } = useFermenters();
   const { sendCommand, otaProgress, scanResponses } = useBrew();
-  const { token, isAdmin } = useAuth();
+  const { token } = useAuth();
   
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   
@@ -69,6 +69,7 @@ export const Settings: React.FC = () => {
     chartPoints: parseInt(localStorage.getItem('breww_chartPoints') || '50', 10),
     sensor1Name: 'Fermentador',
     sensor2Name: 'Geladeira',
+    sensorSgName: 'iSpindel',
     offsetS1: 0,
     offsetS2: 0,
     offsetSG: 0,
@@ -127,7 +128,7 @@ export const Settings: React.FC = () => {
 
   const handleScanSensors = () => {
       if (!selectedDeviceId) return toast.error('Selecione um dispositivo primeiro');
-      sendCommand(selectedDeviceId, 'scan_sensors');
+      sendCommand(selectedDeviceId, 'scan_sensors', {});
       toast.success('Comando de scan enviado! Aguardando resposta...');
   };
 
