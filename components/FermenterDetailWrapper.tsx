@@ -37,7 +37,7 @@ export const FermenterDetailWrapper: React.FC = () => {
             shouldUpdateOptimistically = true;
         }
 
-        if (updates.currentStepIndex !== undefined) {
+        if (updates.currentStepIndex !== undefined && updates.profile === undefined) {
             const currentIndex = fermenter?.currentStepIndex || 0;
             if (updates.currentStepIndex > currentIndex) {
                 // Moving forward usually means skipping step in this interface
@@ -79,7 +79,7 @@ export const FermenterDetailWrapper: React.FC = () => {
                 t: step.temperature,
                 d: step.duration * 24 // ESP32 expects hours, DB stores days
             }));
-            sendCommand(updateId, 'setProfile', { steps: payloadSteps, currentStep: fermenter?.currentStepIndex || 0 });
+            sendCommand(updateId, 'setProfile', { steps: payloadSteps, currentStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0) });
             await updateBatch({ serialCode: updateId, profile: updates.profile });
             toast.success('Perfil atualizado com sucesso!');
             shouldUpdateOptimistically = true;

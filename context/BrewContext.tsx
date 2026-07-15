@@ -122,7 +122,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             id: `step_${index}`,
                             name: step.n || `Etapa ${index + 1}`,
                             temperature: parseFloat(step.t) || 18,
-                            duration: parseInt(step.d) || 1
+                            duration: step.d !== undefined ? (parseFloat(step.d) / 24) : 1
                         }));
                     currentStepIndexUpdate = parseInt(payload.currStep) || 0;
                     isPausedUpdate = payload.isPaused !== undefined ? payload.isPaused : (payload.fermRun === false || payload.fermRun === 0);

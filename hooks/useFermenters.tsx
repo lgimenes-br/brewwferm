@@ -83,7 +83,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                         id: step.id || `step_${index}`,
                         name: step.name || step.n || `Etapa ${index + 1}`,
                         temperature: parseFloat(step.temperature || step.t) || 18,
-                        duration: parseInt(step.duration || step.d) || 1
+                        duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
                     }));
 
                     // Deep compare to avoid breaking reference
@@ -152,7 +152,7 @@ export const useFermenters = () => {
                                             id: step.id || `step_${index}`,
                                             name: step.n || step.name || `Etapa ${index + 1}`,
                                             temperature: parseFloat(step.t || step.temperature) || 18,
-                                            duration: parseInt(step.d || step.duration) || 1
+                                            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
                                         }))
                                         : batchData.profile
                                 ) : f.profile
