@@ -82,6 +82,7 @@ export const FermenterDetailWrapper: React.FC = () => {
             sendCommand(updateId, 'setProfile', { 
                 steps: payloadSteps, 
                 currentStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0),
+                currStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0),
                 stepTime: 0
             });
             await updateBatch({ serialCode: updateId, profile: updates.profile });

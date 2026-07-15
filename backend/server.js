@@ -192,6 +192,7 @@ setInterval(async () => {
                             type: 'setProfile',
                             steps: payloadSteps,
                             currentStep: newIndex,
+                            currStep: newIndex,
                             stepTime: 0
                         });
 
