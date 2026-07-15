@@ -124,7 +124,13 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             temperature: parseFloat(step.t) || 18,
                             duration: step.d !== undefined ? (parseFloat(step.d) / 24) : 1
                         }));
+                }
+                
+                if (payload.currStep !== undefined) {
                     currentStepIndexUpdate = parseInt(payload.currStep) || 0;
+                }
+                
+                if (payload.isPaused !== undefined || payload.fermRun !== undefined) {
                     isPausedUpdate = payload.isPaused !== undefined ? payload.isPaused : (payload.fermRun === false || payload.fermRun === 0);
                 }
 
@@ -216,7 +222,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const sendCommand = (serialCode: string, type: string, payload: any) => {
         if (clientRef.current && serialCode) {
-            clientRef.current.publish(`brewbrother/${serialCode}/comando`, JSON.stringify({ type, ...payload }));
+            const msg = JSON.stringify({ type, cmd: type, ...payload });
+            clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
+            clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
         }
     };
 

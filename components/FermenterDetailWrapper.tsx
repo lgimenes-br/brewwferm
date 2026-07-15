@@ -79,7 +79,11 @@ export const FermenterDetailWrapper: React.FC = () => {
                 t: step.temperature,
                 d: step.duration * 24 // ESP32 expects hours, DB stores days
             }));
-            sendCommand(updateId, 'setProfile', { steps: payloadSteps, currentStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0) });
+            sendCommand(updateId, 'setProfile', { 
+                steps: payloadSteps, 
+                currentStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0),
+                stepTime: 0
+            });
             await updateBatch({ serialCode: updateId, profile: updates.profile });
             toast.success('Perfil atualizado com sucesso!');
             shouldUpdateOptimistically = true;

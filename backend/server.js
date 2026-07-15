@@ -179,13 +179,24 @@ setInterval(async () => {
                         [newIndex, batch.id]
                     );
 
-                    // Send MQTT
+                    // Publish to ESP32!
                     if (batch.serial_code) {
-                        mqttClient.publish(`brewbrother/${batch.serial_code}/command`, JSON.stringify({
-                            cmd: 'setProfile',
-                            steps: profile,
-                            currentStep: newIndex
+                        const payloadSteps = profile.map(step => ({
+                            n: step.name,
+                            t: step.temperature,
+                            d: step.duration * 24 // ESP32 expects hours
                         }));
+
+                        const msg = JSON.stringify({
+                            cmd: 'setProfile',
+                            type: 'setProfile',
+                            steps: payloadSteps,
+                            currentStep: newIndex,
+                            stepTime: 0
+                        });
+
+                        mqttClient.publish(`brewbrother/${batch.serial_code}/command`, msg);
+                        mqttClient.publish(`brewbrother/${batch.serial_code}/comando`, msg);
                     }
 
                     // Log Event
