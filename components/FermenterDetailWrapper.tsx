@@ -52,7 +52,7 @@ export const FermenterDetailWrapper: React.FC = () => {
                     const payloadSteps = (fermenter?.profile || []).map((step) => ({
                         n: step.name,
                         t: step.temperature,
-                        d: step.duration
+                        d: step.duration * 24 // ESP32 expects hours, DB stores days
                     }));
                     sendCommand(updateId, 'setProfile', { 
                         steps: payloadSteps, 
@@ -77,7 +77,7 @@ export const FermenterDetailWrapper: React.FC = () => {
             const payloadSteps = updates.profile.map((step) => ({
                 n: step.name,
                 t: step.temperature,
-                d: step.duration
+                d: step.duration * 24 // ESP32 expects hours, DB stores days
             }));
             sendCommand(updateId, 'setProfile', { steps: payloadSteps, currentStep: fermenter?.currentStepIndex || 0 });
             await updateBatch({ serialCode: updateId, profile: updates.profile });
