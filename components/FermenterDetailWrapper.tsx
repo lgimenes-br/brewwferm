@@ -96,6 +96,7 @@ export const FermenterDetailWrapper: React.FC = () => {
                             updates.mode === DeviceMode.KEGERATOR ? 2 : 0;
             sendCommand(updateId, 'setMode', { value: modeVal });
             toast.success(`Modo alterado para ${updates.mode}`);
+            shouldUpdateOptimistically = true;
         }
 
         if (updates.kegeratorConfig !== undefined) {
@@ -112,6 +113,7 @@ export const FermenterDetailWrapper: React.FC = () => {
                 sendCommand(updateId, 'setChopp', item); 
             });
             toast.success('Informações do display atualizadas!');
+            shouldUpdateOptimistically = true;
         }
 
         if (updates.events !== undefined) {
