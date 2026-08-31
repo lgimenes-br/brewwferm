@@ -213,7 +213,9 @@ export const Dashboard: React.FC = () => {
                     }
 
                     // Safe Parsing of Numbers to avoid toFixed errors on Strings
-                    const safeTemp = parseFloat(String(f.currentDevice?.temperature || 0));
+                    const safeTemp = (f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE)
+                        ? parseFloat(String(f.currentFridgeTemp || 0))
+                        : parseFloat(String(f.currentDevice?.temperature || 0));
                     const safeTarget = parseFloat(String(f.targetTemp || 0));
                     const safeFridge = parseFloat(String(f.currentFridgeTemp || 0));
                     

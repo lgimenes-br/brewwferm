@@ -55,7 +55,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // SAFE PARSING OF NUMBERS (Fix for string data from API)
     const safeTargetTemp = parseFloat(String(fermenter.targetTemp || 0));
-    const safeCurrentTemp = parseFloat(String(fermenter.currentDevice?.temperature || 0));
+    const safeCurrentTemp = (fermenter.mode === DeviceMode.KEGERATOR || fermenter.mode === DeviceMode.FRIDGE) 
+        ? parseFloat(String(fermenter.currentFridgeTemp || 0)) 
+        : parseFloat(String(fermenter.currentDevice?.temperature || 0));
     const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
         ? fermenter.readings[fermenter.readings.length - 1].gravity 
         : 0;
