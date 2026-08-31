@@ -93,7 +93,7 @@ export const Dashboard: React.FC = () => {
             const API_BASE = ENV.API_URL;
 
             // Try to fetch real devices first
-            const res = await fetch(`${API_BASE}/api/discovery`, {
+            const res = await fetch(`${API_BASE}/discovery`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
