@@ -308,10 +308,14 @@ export const Dashboard: React.FC = () => {
                                             </div>
                                             <span className="text-xs text-neutral-500 font-mono">Alvo: {safeTarget.toFixed(1)}°</span>
                                         </div>
-                                        {/* Sub-metric: Fridge */}
+                                        {/* Sub-metric: Secondary Sensor */}
                                         <div className="flex items-center gap-1.5">
                                             <Thermometer size={12} className="text-neutral-600" />
-                                            <span className="text-xs text-neutral-500">{f.sensor2_name || 'Geladeira'}: {safeFridge.toFixed(1)}°</span>
+                                            <span className="text-xs text-neutral-500">
+                                                {(f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE) 
+                                                    ? `${f.sensor1_name || 'Mosto'}: ${parseFloat(String(f.currentDevice?.temperature || 0)).toFixed(1)}°`
+                                                    : `${f.sensor2_name || 'Geladeira'}: ${safeFridge.toFixed(1)}°`}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
