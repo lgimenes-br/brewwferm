@@ -67,9 +67,10 @@ export const FermenterDetailWrapper: React.FC = () => {
         if (updates.targetTemp !== undefined) {
             // Depending on mode, it might be fsm or csp. The device takes setpoint_manual mostly, 
             // but we use the old logic's "setpoint_manual" or "chopp_setpoint".
-            const field = fermenter?.mode === DeviceMode.KEGERATOR ? 'chopp_setpoint' : 'setpoint_manual';
+            const field = (fermenter?.mode === DeviceMode.KEGERATOR || fermenter?.mode === DeviceMode.FRIDGE) ? 'chopp_setpoint' : 'setpoint_manual';
             sendCommand(updateId, 'setManual', { field, val: updates.targetTemp });
             toast.success(`Temperatura atualizada para ${updates.targetTemp}°C`);
+            shouldUpdateOptimistically = true; // Update UI immediately, don't wait for telemetry
         }
 
         if (updates.profile !== undefined) {

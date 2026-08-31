@@ -104,8 +104,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 else if (statusStr.includes('IDLE')) newStatus = FermenterStatus.IDLE;
                 else if (payload.fermRun) newStatus = FermenterStatus.ACTIVE; 
 
-                if (payload.opm === 2) target = payload.csp;
-                else if (payload.opm === 0 && payload.steps && payload.steps[payload.currStep]) {
+                if (payload.csp !== undefined) {
+                    target = payload.csp; // Always use ESP32's currentSetpoint (csp) as source of truth
+                } else if (payload.opm === 0 && payload.steps && payload.steps[payload.currStep]) {
                     target = payload.steps[payload.currStep]?.t || 20;
                 } else if (payload.fsm) {
                     target = payload.fsm;
