@@ -109,7 +109,7 @@ export const FermenterDetailWrapper: React.FC = () => {
             ];
             
             queue.forEach((item, index) => { 
-                setTimeout(() => sendCommand(updateId, 'setChopp', item), index * 150); 
+                sendCommand(updateId, 'setChopp', item); 
             });
             toast.success('Informações do display atualizadas!');
         }
