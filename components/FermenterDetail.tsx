@@ -603,7 +603,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 {/* Big Numbers */}
                                 <div className="flex items-baseline justify-between">
                                     <div className="flex flex-col">
-                                        <span className="text-neutral-600 text-sm mb-1">Temperatura ({fermenter.sensor1_name || 'Mosto'})</span>
+                                        <span className="text-neutral-600 text-sm mb-1">
+                                            Temperatura ({(displayMode === DeviceMode.KEGERATOR || displayMode === DeviceMode.FRIDGE) ? (fermenter.sensor2_name || 'Geladeira') : (fermenter.sensor1_name || 'Mosto')})
+                                        </span>
                                         <div className="flex items-center gap-1">
                                             <span className="text-4xl font-bold text-white font-mono">
                                                 {safeCurrentTemp.toFixed(1)}
