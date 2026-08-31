@@ -22,6 +22,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [otaProgress, setOtaProgress] = useState<Record<string, number>>({});
     const [scanResponses, setScanResponses] = useState<Record<string, string[]>>({});
     const clientRef = useRef<MqttClient | null>(null);
+    const commandCooldownRef = useRef<Record<string, number>>({});
 
     // --- MQTT ---
     useEffect(() => {
@@ -163,15 +164,19 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     localStorage.setItem(`device_lastUpdate_${serial}`, new Date().toISOString());
                 }
 
+                // Cooldown: se um comando foi enviado ha menos de 2s, nao sobrescreve targetTemp e mode
+                // para evitar que telemetria velha (em transito) desfaca o update otimista
+                const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 2000;
+
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // We don't have the previous f object explicitly here unless we fetch it, 
                 // but localUpdate will do a spread on the old data.
                 updateFermenterLocal(serial, {
                     ...(newStatus ? { status: newStatus } : {}),
-                    ...(currentModeUpdate ? { mode: currentModeUpdate } : {}),
+                    ...(!isInCooldown && currentModeUpdate ? { mode: currentModeUpdate } : {}),
                     ...(payload.ip ? { ipAddress: payload.ip } : {}),
                     ...(payload.amb !== undefined ? { currentFridgeTemp: parseFloat(payload.amb) } : {}),
-                    targetTemp: parseFloat(target as any),
+                    ...(!isInCooldown ? { targetTemp: parseFloat(target as any) } : {}),
                     ...(profileUpdate ? { profile: profileUpdate } : {}),
                     ...(currentStepIndexUpdate !== undefined ? { currentStepIndex: currentStepIndexUpdate } : {}),
                     ...(isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
@@ -226,6 +231,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const msg = JSON.stringify({ type, cmd: type, ...payload });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
             clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
+            // Cooldown: bloqueia telemetria de sobrescrever updates otimistas por 2s
+            commandCooldownRef.current[serialCode] = Date.now();
         }
     };
 
