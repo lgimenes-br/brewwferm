@@ -164,9 +164,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     localStorage.setItem(`device_lastUpdate_${serial}`, new Date().toISOString());
                 }
 
-                // Cooldown: se um comando foi enviado ha menos de 2s, nao sobrescreve targetTemp e mode
+                // Cooldown: se um comando foi enviado ha menos de 10s, nao sobrescreve targetTemp e mode
                 // para evitar que telemetria velha (em transito) desfaca o update otimista
-                const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 2000;
+                const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 10000;
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // We don't have the previous f object explicitly here unless we fetch it, 
