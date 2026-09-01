@@ -11,6 +11,7 @@ interface BrewContextType {
     otaProgress: Record<string, number>;
     clearOtaProgress: () => void;
     scanResponses: Record<string, string[]>;
+    blockTelemetry: (serialCode: string) => void;
 }
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
@@ -230,8 +231,12 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setOtaProgress({});
     };
 
+    const blockTelemetry = (serialCode: string) => {
+        commandCooldownRef.current[serialCode] = Date.now();
+    };
+
     return (
-        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress, clearOtaProgress, scanResponses }}>
+        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress, clearOtaProgress, scanResponses, blockTelemetry }}>
             {children}
         </BrewContext.Provider>
     );

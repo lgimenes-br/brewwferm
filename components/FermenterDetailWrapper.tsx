@@ -11,7 +11,7 @@ export const FermenterDetailWrapper: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { fermenters, updateBatch, isLoading, isFetching, updateFermenterLocal, saveEvent, deleteEvent, refetch } = useFermenters();
-    const { sendCommand } = useBrew();
+    const { sendCommand, blockTelemetry } = useBrew();
     
     const fermenter = fermenters.find(f => f.id === id);
     const setpointDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -23,7 +23,8 @@ export const FermenterDetailWrapper: React.FC = () => {
         let shouldUpdateOptimistically = false;
 
         if (updates.og !== undefined || updates.fg !== undefined || updates.beerName !== undefined) {
-             await updateBatch({
+             blockTelemetry(updateId);
+             updateBatch({
                  serialCode: updateId, 
                  og: updates.og, 
                  fg: updates.fg, 
@@ -71,6 +72,7 @@ export const FermenterDetailWrapper: React.FC = () => {
             const field = (fermenter?.mode === DeviceMode.KEGERATOR || fermenter?.mode === DeviceMode.FRIDGE) ? 'chopp_setpoint' : 'setpoint_manual';
             
             if (setpointDebounceRef.current) clearTimeout(setpointDebounceRef.current);
+            blockTelemetry(updateId); // Block immediately so telemetry doesn't overwrite UI during the 500ms debounce
             setpointDebounceRef.current = setTimeout(() => {
                 sendCommand(updateId, 'setManual', { field, val: updates.targetTemp });
                 toast.success(`Temperatura atualizada para ${updates.targetTemp}°C`);
@@ -92,7 +94,8 @@ export const FermenterDetailWrapper: React.FC = () => {
                 currStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0),
                 stepTime: 0
             });
-            await updateBatch({ serialCode: updateId, profile: updates.profile });
+            blockTelemetry(updateId);
+            updateBatch({ serialCode: updateId, profile: updates.profile });
             toast.success('Perfil atualizado com sucesso!');
             shouldUpdateOptimistically = true;
         }
