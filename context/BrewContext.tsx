@@ -31,8 +31,14 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (clientRef.current) clientRef.current.end();
 
         console.log("Connecting MQTT to", MQTT_BROKER);
+        let storedClientId = localStorage.getItem('mqtt_client_id');
+        if (!storedClientId) {
+            storedClientId = 'brew_' + Math.random().toString(16).substr(2, 8);
+            localStorage.setItem('mqtt_client_id', storedClientId);
+        }
+        
         const client = mqtt.connect(MQTT_BROKER, {
-            clientId: 'brew_' + Math.random().toString(16).substr(2, 8),
+            clientId: storedClientId,
             protocol: 'wss',
             username: 'esp32user',
             password: 'esp32',
