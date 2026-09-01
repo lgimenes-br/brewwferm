@@ -281,7 +281,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         if (volts > 3.5) return 'text-yellow-500';
         return 'text-red-500';
     };
-    const isIdleFermenter = fermenter.mode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
+    const isIdleFermenter = displayMode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
 
     if (isIdleFermenter) {
         return <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />;
@@ -700,14 +700,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 ) : (
                                     <div className="bg-neutral-900/30 rounded-3xl p-6 border border-neutral-800 backdrop-blur-sm flex flex-col items-center justify-center text-center min-h-[200px]">
                                         <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-6">Perfil de Fermentação</h3>
-                                        <p className="text-neutral-500 text-sm mb-4">Nenhuma produção ativa</p>
-                                        <button
-                                            onClick={() => setShowNewBatchModal(true)}
-                                            className="px-6 py-3 bg-white hover:bg-neutral-200 text-black rounded-xl font-medium text-sm transition-colors inline-flex items-center gap-2"
-                                        >
-                                            <Plus size={18} />
-                                            Iniciar Nova Produção
-                                        </button>
+                                            <p className="text-neutral-500 text-sm mb-4">Acesse a aba Fermentador para iniciar uma nova produção.</p>
                                     </div>
                                 )}
                             </div>
