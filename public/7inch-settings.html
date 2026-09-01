@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  .set-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px; padding: 24px; display: flex; flex-direction: column; }
+  .set-title { font-size: 12px; font-weight: 700; color: var(--text-primary); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
+  .set-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; margin-top: -12px; }
+  .input-row { display: flex; gap: 16px; margin-bottom: 24px; }
+  .input-group { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .input-label { font-size: 10px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+  .input-box { background: #050505; border: 1px solid #262626; color: #FFF; font-size: 16px; font-weight: 600; padding: 12px 16px; border-radius: 8px; width: 100%; outline: none; font-family: inherit; }
+  .btn-set { background: #161616; border: 1px solid #333; color: #FFF; padding: 12px 24px; border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; white-space: nowrap; text-transform: uppercase; }
+  .btn-set:active { opacity: 0.8; }
+  .btn-set.primary { background: #FFF; color: #000; border-color: #FFF; }
+  .btn-set.danger { color: #f43f5e; border-color: #4c1d28; background: #261318; }
+  .btn-set.success { background: #059669; border-color: #047857; color: #FFF; }
+  .btn-set.purple { background: #7c3aed; border-color: #6d28d9; color: #FFF; }
+  .btn-set.warning-outline { color: #d97706; border-color: #78350f; background: transparent; }
+  .btn-set.blue-outline { color: #3b82f6; border-color: #1e3a8a; background: transparent; }
+  
+  .sub-section { font-size: 11px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;}
+</style>
+</head>
+<body>
+          <!-- M5: CONFIGURAÇÕES -->
+          <div class="view">
+            <div class="page-top"><div><div class="page-title" style="margin: 0;">Configurações Avançadas</div></div></div>
+            
+            <div style="padding-bottom: 80px;">
+              
+              <!-- DENSIDADE -->
+              <div class="set-card">
+                <div class="set-title">CONFIGURAÇÕES DE DENSIDADE / GRAVIDADE</div>
+                <div class="input-row" style="margin-bottom: 0; align-items: flex-end;">
+                  <div class="input-group"><div class="input-label">NOME SENSOR SG</div><div class="input-box">iSpindel</div></div>
+                  <div class="btn-set">SALVAR NOME SG</div>
+                </div>
+              </div>
+
+              <!-- CALIBRAÇÃO -->
+              <div class="set-card">
+                <div class="set-title">CALIBRAÇÃO (OFFSET)</div>
+                <div class="set-desc">Ajuste fino adicionado à leitura bruta dos sensores. Use valores positivos ou negativos (ex: -0.5).</div>
+                <div class="input-row" style="margin-bottom: 0; align-items: flex-end;">
+                  <div class="input-group"><div class="input-label">OFFSET S1 (°C)</div><div class="input-box">0</div></div>
+                  <div class="input-group"><div class="input-label">OFFSET S2 (°C)</div><div class="input-box">0</div></div>
+                  <div class="input-group"><div class="input-label">OFFSET SG</div><div class="input-box">0</div></div>
+                  <div class="btn-set primary">SALVAR CALIBRAÇÃO</div>
+                </div>
+              </div>
+
+              <!-- PID -->
+              <div class="set-card">
+                <div class="set-title">PARÂMETROS PID</div>
+                
+                <div class="sub-section"><div>AQUECIMENTO (RESISTÊNCIA)</div><div class="btn-set warning-outline" style="padding: 6px 12px; font-size: 10px;">Iniciar Auto-Tune</div></div>
+                <div class="input-row">
+                  <div class="input-group"><div class="input-label">KP</div><div class="input-box">20000</div></div>
+                  <div class="input-group"><div class="input-label">KI</div><div class="input-box">100</div></div>
+                  <div class="input-group"><div class="input-label">KD</div><div class="input-box">0</div></div>
+                  <div class="input-group"><div class="input-label">JANELA PWM (MS)</div><div class="input-box">2000</div></div>
+                </div>
+
+                <div class="sub-section"><div>REFRIGERAÇÃO (COMPRESSOR)</div><div class="btn-set blue-outline" style="padding: 6px 12px; font-size: 10px;">Iniciar Auto-Tune</div></div>
+                <div class="input-row" style="margin-bottom: 24px;">
+                  <div class="input-group"><div class="input-label">KP</div><div class="input-box">40000</div></div>
+                  <div class="input-group"><div class="input-label">KI</div><div class="input-box">200</div></div>
+                  <div class="input-group"><div class="input-label">KD</div><div class="input-box">0</div></div>
+                  <div class="input-group"></div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end;"><div class="btn-set primary">ATUALIZAR PID</div></div>
+              </div>
+
+              <!-- RELÉS -->
+              <div class="set-card">
+                <div class="set-title">TESTE DE RELÉS</div>
+                <div class="input-row" style="margin-bottom: 12px;">
+                  <div class="btn-set" style="flex: 1;">AQUECER</div>
+                  <div class="btn-set" style="flex: 1;">REFRIGERAR</div>
+                  <div class="btn-set primary" style="flex: 1;">AUTO</div>
+                </div>
+                <div class="set-desc" style="margin-bottom: 0;">* O modo AUTO retorna o controle para o algoritmo PID.</div>
+              </div>
+              
+              <!-- 1-WIRE -->
+              <div class="set-card">
+                <div class="set-title">MAPEAMENTO DE SENSORES (1-WIRE)</div>
+                <div class="input-row" style="margin-bottom: 16px;">
+                  <div class="btn-set purple">ESCANEAR SENSORES</div>
+                  <div class="btn-set success">SALVAR MAPEAMENTO</div>
+                </div>
+                <div class="set-desc" style="margin-bottom: 0;">Nenhum sensor escaneado. Clique em "Escanear Sensores" para buscar na placa.</div>
+              </div>
+
+              <!-- SISTEMA -->
+              <div class="set-card">
+                <div class="set-title">SISTEMA</div>
+                <div class="input-row" style="margin-bottom: 16px;">
+                  <div class="btn-set" style="flex: 1;">REINICIAR</div>
+                  <div class="btn-set primary" style="flex: 1;">BAIXAR LOGS</div>
+                </div>
+                <div class="input-row" style="margin-bottom: 0;">
+                  <div class="btn-set" style="flex: 1;">LIMPAR LOGS</div>
+                  <div class="btn-set danger" style="flex: 1;">RESET FÁBRICA</div>
+                </div>
+              </div>
+
+              <!-- OTA -->
+              <div class="set-card">
+                <div class="set-title">ATUALIZAÇÃO REMOTA (OTA)</div>
+                <div style="background: #022c22; border: 1px solid #064e3b; padding: 24px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="color: #34d399; font-weight: 700; font-size: 14px; margin-bottom: 4px;">Nova Versão Oficial Disponível: v2.0.47</div>
+                    <div style="color: #059669; font-size: 12px;">Seu equipamento está na versão V2.0.07 BETA STABLE. Atualize para obter as últimas melhorias.</div>
+                  </div>
+                  <div class="btn-set success">INSTALAR AUTOMÁTICO</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+</body>
+</html>

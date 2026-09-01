@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Breww - HMI Completo (1024x600)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+  
+  :root {
+    --bg-base: #050505;
+    --card-bg: #111111;
+    --border-color: #262626;
+    --text-primary: #FFFFFF;
+    --text-secondary: #666666;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background-color: #000; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Inter', sans-serif; user-select: none; -webkit-font-smoothing: antialiased; }
+  .screen { width: 1024px; height: 600px; background-color: var(--bg-base); display: flex; flex-direction: column; color: var(--text-primary); overflow: hidden; position: relative; border: 1px solid var(--border-color); }
+
+  /* =========================================
+     APP CONTAINERS
+     ========================================= */
+  #wizard-ui { display: flex; flex-direction: column; height: 100%; width: 100%; }
+  #main-ui { display: none; flex-direction: column; height: 100%; width: 100%; animation: fadeIn 1s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* =========================================
+     LOGO
+     ========================================= */
+  .logo-container { display: flex; align-items: baseline; user-select: none; }
+  .logo-text { font-weight: 900; color: #FFF; letter-spacing: -2px; }
+  .logo-w-container { position: relative; }
+  .logo-w-accent { position: absolute; top: 0; background-color: #FFF; border-top-right-radius: 2px; }
+  
+  /* Wizard Logo */
+  .wiz-logo .logo-text { font-size: 110px; letter-spacing: -8px; }
+  .wiz-logo .logo-w-accent { right: -20px; width: 32px; height: 18px; border-top-right-radius: 6px; }
+  
+  .l-type { opacity: 0; transform: translateY(16px); animation: typeLetter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; display: inline-block; }
+  @keyframes typeLetter { to { opacity: 1; transform: translateY(0); } }
+  /* Header Logo */
+  .hdr-logo .logo-text { font-size: 28px; }
+  .hdr-logo .logo-w-accent { right: -6px; width: 10px; height: 6px; }
+
+  /* =========================================
+     SWIPE TRACKS (Wizard & Main)
+     ========================================= */
+  .views-wrapper { flex: 1; position: relative; overflow: hidden; width: 100%; }
+  .views-track { display: flex; height: 100%; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  .view { height: 100%; flex-shrink: 0; display: flex; flex-direction: column; position: relative; }
+  
+  /* Wizard specific */
+  #wizard-track { width: 500%; }
+  #wizard-track .view { width: 20%; justify-content: center; align-items: center; padding: 40px; }
+  
+  /* Main UI specific */
+  #main-track { width: 500%; }
+  #main-track .view { width: 20%; padding: 24px; padding-bottom: 60px; overflow-y: auto; }
+
+  /* =========================================
+     WIZARD STYLES
+     ========================================= */
+  .wizard-title { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin-bottom: 16px; text-align: center; }
+  .wizard-desc { font-size: 18px; color: var(--text-secondary); text-align: center; max-width: 600px; margin-bottom: 48px; line-height: 1.5; }
+  .btn-primary { background: var(--text-primary); color: var(--bg-base); border: none; padding: 20px 60px; border-radius: 12px; font-size: 18px; font-weight: 700; letter-spacing: 2px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.2s; text-transform: uppercase; }
+  .btn-primary:active { opacity: 0.8; transform: scale(0.98); }
+  
+  .spinner { width: 40px; height: 40px; border: 4px solid #1A1A1A; border-top: 4px solid #FFF; border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+
+  .wifi-list { width: 600px; max-height: 300px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; }
+  .wifi-item { display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; }
+  .wifi-item:last-child { border-bottom: none; }
+  .wifi-item:active { background: #1A1A1A; }
+  .wifi-name { font-size: 20px; font-weight: 600; }
+  .wifi-icon { color: var(--text-secondary); display: flex; align-items: center; gap: 12px; }
+
+  .pin-display { font-size: 80px; font-weight: 900; letter-spacing: 16px; margin: 40px 0; background: var(--card-bg); border: 1px solid var(--border-color); padding: 24px 64px; border-radius: 24px; }
+
+  /* Keyboard Modal */
+  .modal { position: absolute; top: 100%; left: 0; right: 0; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 32px; transition: top 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  .modal.active { top: 0; }
+  .pwd-display { width: 600px; background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px 24px; border-radius: 12px; font-size: 32px; text-align: center; letter-spacing: 8px; margin-bottom: 24px; min-height: 72px; }
+  .keyboard { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; width: 900px; }
+  .key { background: #1A1A1A; border: 1px solid var(--border-color); color: #FFF; font-size: 24px; font-weight: 600; padding: 16px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.1s;}
+  .key:active { background: #FFF; color: #000; }
+  .key-wide { grid-column: span 2; background: #262626; }
+  .key-enter { grid-column: span 2; background: var(--text-primary); color: var(--bg-base); }
+
+  /* =========================================
+     MAIN UI HEADER
+     ========================================= */
+  .header { height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 32px; flex-shrink: 0; z-index: 10; }
+  .header-right { display: flex; align-items: center; gap: 24px; }
+  .status-pill { border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; background: var(--card-bg); }
+  .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e; }
+  .header-icons { display: flex; gap: 16px; color: var(--text-secondary); }
+  .header-icons svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; cursor: pointer;}
+
+  /* =========================================
+     MAIN UI COMPONENTS
+     ========================================= */
+  .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; position: relative; display: flex; flex-direction: column; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .card-title { font-size: 10px; font-weight: 700; color: var(--text-secondary); letter-spacing: 2px; text-transform: uppercase; }
+  .page-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; padding-left: 8px;}
+  .page-title { font-size: 28px; font-weight: 600; letter-spacing: -1px; }
+  .page-subtitle { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--text-secondary); text-transform: uppercase; margin-top: 6px; }
+  .btn-header { background: var(--text-primary); color: var(--bg-base); border: none; padding: 20px 40px; border-radius: 12px; font-size: 18px; font-weight: 700; letter-spacing: 2px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
+
+  /* Dashboard View */
+  .dash-grid { display: grid; grid-template-columns: 420px 1fr; grid-template-rows: 280px 160px; gap: 16px; }
+  .arc-container { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; }
+  .gauge-svg { position: absolute; top: 0px; left: 50%; transform: translateX(-50%) rotate(-90deg); height: 105%; }
+  .gauge-bg { fill: none; stroke: #1A1A1A; stroke-width: 12; }
+  .gauge-value { fill: none; stroke: var(--text-primary); stroke-width: 12; stroke-linecap: butt; stroke-dasharray: 600; stroke-dashoffset: 150; transition: stroke-dashoffset 1s; }
+  .arc-center { display: flex; flex-direction: column; align-items: center; z-index: 1; margin-top: 10px;}
+  .arc-val { font-size: 72px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
+  .arc-unit { font-size: 16px; font-weight: 700; color: var(--text-secondary); letter-spacing: 2px; margin-top: 4px; }
+  .arc-limits { display: flex; justify-content: space-between; position: absolute; bottom: -10px; left: 0; right: 0; }
+  .limit-box { display: flex; flex-direction: column; }
+  .limit-lbl { font-size: 10px; font-weight: 700; color: var(--text-secondary); }
+  .limit-val { font-size: 16px; font-weight: 500; }
+
+  .chart-wrapper { flex: 1; position: relative; }
+  .chart-legend { display: flex; gap: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: var(--text-primary); letter-spacing: 1px; }
+  .legend-dash { width: 12px; height: 3px; background: var(--text-primary); }
+  .trend-svg { width: 100%; height: 100%; overflow: visible; position: absolute; top:0; left:0;}
+  .trend-line { fill: none; stroke: var(--text-primary); stroke-width: 3; stroke-linejoin: round; }
+  .trend-line-sg { fill: none; stroke: #555; stroke-width: 3; stroke-linejoin: round; }
+  .grid-line { stroke: #1A1A1A; stroke-width: 1; }
+
+  .dash-bot-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; grid-column: span 2; }
+  .bot-card-content { display: flex; align-items: center; gap: 20px; flex: 1; }
+  .icon-circle { width: 56px; height: 56px; border-radius: 50%; background: #161a23; display: flex; align-items: center; justify-content: center; color: #60a5fa; }
+  .icon-circle svg { width: 28px; height: 28px; stroke: currentColor; stroke-width: 2; fill: none; }
+  .bot-val-box { display: flex; align-items: baseline; gap: 8px; }
+  .bot-val { font-size: 40px; font-weight: 700; letter-spacing: -1px; }
+  .bot-unit { font-size: 18px; font-weight: 500; color: var(--text-secondary); }
+
+  /* Ramps View */
+  .ramps-grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; flex: 1; }
+  .timeline { flex: 1; position: relative; margin-top: 16px; margin-left: 8px;}
+  .tl-line { position: absolute; top: 16px; bottom: 32px; left: 11px; width: 2px; background: #262626; z-index: 0; }
+  .tl-item { display: flex; gap: 24px; margin-bottom: 24px; position: relative; z-index: 1; opacity: 0.5; }
+  .tl-item.active { opacity: 1; }
+  .tl-item.pending { opacity: 0.4; }
+  .tl-dot { width: 24px; height: 24px; border-radius: 50%; background: var(--bg-base); border: 2px solid #555; display: flex; align-items: center; justify-content: center; }
+  .tl-item.completed .tl-dot { border-color: #555; }
+  .tl-item.completed .tl-dot::after { content: ''; width: 10px; height: 10px; background: #555; border-radius: 50%; }
+  .tl-item.active .tl-dot { border-color: var(--text-primary); background: var(--text-primary); box-shadow: 0 0 12px rgba(255,255,255,0.4); }
+  .tl-content { display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
+  .tl-name { font-size: 18px; font-weight: 600; }
+  .tl-desc { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px;}
+  
+  .steps-list { display: flex; flex-direction: column; gap: 16px; }
+  .step-card { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px 32px; display: flex; align-items: center; gap: 24px; opacity: 0.5;}
+  .step-card.active { background: #0A0A0A; border: 2px solid var(--text-primary); opacity: 1; }
+  .step-num { width: 48px; height: 48px; background: #161616; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #555;}
+  .step-card.active .step-num { background: var(--text-primary); color: var(--bg-base); }
+  .step-info { flex: 1; }
+  .step-title { font-size: 22px; font-weight: 600; margin-bottom: 4px;}
+  .step-card.active .step-title { color: var(--text-primary); }
+  .step-status { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;}
+  .step-card.active .step-status { color: var(--text-primary); }
+  .status-led { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; }
+  .step-metrics { display: flex; gap: 48px; }
+  .step-metric { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .metric-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); text-transform: uppercase;}
+  .metric-val { font-size: 24px; font-weight: 600; }
+  .metric-unit { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
+  .step-card.active .metric-val { color: var(--text-primary); }
+
+  /* History View */
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table th { text-align: left; padding: 20px 24px; color: var(--text-secondary); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+  .history-table td { padding: 24px; border-bottom: 1px solid #1A1A1A; font-size: 18px; font-weight: 500; }
+
+  /* Settings View */
+  .settings-item { display: flex; align-items: center; border-bottom: 1px solid var(--border-color); padding: 20px 24px; position: relative;}
+  .settings-item:last-child { border-bottom: none; }
+
+  /* Pagination */
+  .pagination { position: absolute; bottom: 20px; left: 0; right: 0; display: flex; justify-content: center; gap: 12px; z-index: 20; pointer-events: none; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background-color: #333; transition: 0.3s; }
+  .dot.active { background-color: var(--text-primary); }
+  /* M5 Settings specific */
+  .set-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 32px; padding: 32px; display: flex; flex-direction: column; }
+  .set-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 32px; display: flex; align-items: center; gap: 8px; }
+  .set-desc { font-size: 14px; color: var(--text-secondary); margin-bottom: 32px; line-height: 1.5; margin-top: -16px; }
+  .input-row { display: flex; gap: 24px; margin-bottom: 32px; }
+  .input-group { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .input-label { font-size: 14px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+  .input-box { background: #050505; border: 1px solid #262626; color: #FFF; font-size: 24px; font-weight: 600; padding: 16px 24px; border-radius: 8px; width: 100%; outline: none; font-family: inherit; }
+  .btn-set { background: #161616; border: 1px solid #333; color: #FFF; padding: 20px 40px; border-radius: 12px; font-size: 18px; font-weight: 700; letter-spacing: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; white-space: nowrap; text-transform: uppercase; }
+  .btn-set:active { opacity: 0.8; }
+  .btn-set.primary { background: #FFF; color: #000; border-color: #FFF; }
+  .btn-set.danger { color: #f43f5e; border-color: #4c1d28; background: #261318; }
+  .btn-set.success { background: #059669; border-color: #047857; color: #FFF; }
+  .btn-set.purple { background: #7c3aed; border-color: #6d28d9; color: #FFF; }
+  .btn-set.warning-outline { color: #d97706; border-color: #78350f; background: transparent; }
+  .btn-set.blue-outline { color: #3b82f6; border-color: #1e3a8a; background: transparent; }
+  .sub-section { font-size: 14px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;}
+</style>
+</head>
+<body>
+
+  <div class="screen">
+    
+    <!-- =========================================
+         WIZARD UI
+         ========================================= -->
+    <div id="wizard-ui">
+      <div class="views-wrapper" id="wizard-container">
+        <div class="views-track" id="wizard-track">
+          <!-- W1: BOOT -->
+          <div class="view">
+            <div class="logo-container wiz-logo">
+              <div class="logo-text">
+                <span class="l-type" style="animation-delay: 0.2s">B</span><span class="l-type" style="animation-delay: 0.35s">R</span><span class="l-type" style="animation-delay: 0.5s">E</span><span class="l-type" style="animation-delay: 0.65s">W</span>
+              </div>
+              <div class="logo-w-container l-type" style="animation-delay: 0.8s">
+                <div class="logo-text">W</div>
+                <div class="logo-w-accent l-type" style="animation-delay: 1.1s"></div>
+              </div>
+            </div>
+            <div style="position: absolute; bottom: 32px; font-size: 12px; color: #333; font-weight: 700; letter-spacing: 2px;">V2.4.0-STABLE</div>
+          </div>
+          <!-- W2: WELCOME -->
+          <div class="view">
+            <div class="wizard-title">Bem-vindo ao Breww</div>
+            <div class="wizard-desc">Seu equipamento de automação cervejeira de alta performance. Vamos fazer uma configuração rápida para você começar a brassar.</div>
+            <button class="btn-primary" onclick="setWizView(2)">COMEÇAR <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:3;"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+          </div>
+          <!-- W3: WIFI -->
+          <div class="view">
+            <div class="wizard-title">Conecte-se ao Wi-Fi</div>
+            <div class="wizard-desc">Selecione sua rede para que o Breww possa sincronizar com seu painel.</div>
+            <div class="wifi-list" id="wifi-list-ui">
+              <div class="wifi-item" onclick="openKeyboard('Breww_5G')"><div class="wifi-name">Breww_5G</div><div class="wifi-icon"><svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="20" r="1"></circle></svg></div></div>
+              <div class="wifi-item" onclick="openKeyboard('Casa_Visitante')"><div class="wifi-name">Casa_Visitante</div><div class="wifi-icon"><svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="20" r="1"></circle></svg></div></div>
+              <div class="wifi-item" onclick="openKeyboard('Cervejaria_IoT')"><div class="wifi-name">Cervejaria_IoT</div><div class="wifi-icon"><svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="20" r="1"></circle></svg></div></div>
+            </div>
+            <div id="connecting-ui" style="display: none; flex-direction: column; align-items: center;">
+              <div class="spinner" style="margin-top: 0; margin-bottom: 24px;"></div>
+              <div class="wizard-desc" id="connecting-text" style="margin-bottom: 0;">Conectando a Breww_5G...</div>
+            </div>
+          </div>
+          <!-- W4: PAIRING -->
+          <div class="view">
+            <div class="wizard-title">Vincule seu Equipamento</div>
+            <div class="wizard-desc">Abra o site <b>breww.live</b>, vá em "Novo Equipamento" e digite o código de pareamento abaixo.</div>
+            <div class="pin-display">B74-9X2</div>
+            <div class="wizard-desc" style="font-size: 14px; margin-bottom: 32px;"><div class="spinner" style="width: 20px; height: 20px; border-width: 2px; margin: 0 auto 12px auto;"></div>Aguardando aprovação no site...</div>
+            <button class="btn-primary" style="background: #1A1A1A; color: var(--text-secondary);" onclick="setWizView(4)">PULAR POR ENQUANTO</button>
+          </div>
+          <!-- W5: DONE -->
+          <div class="view">
+            <svg viewBox="0 0 24 24" style="width:80px;height:80px;stroke:#22c55e;fill:none;stroke-width:2; margin-bottom: 24px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <div class="wizard-title">Tudo Pronto!</div>
+            <div class="wizard-desc">Seu Breww está configurado e online.</div>
+            <button class="btn-primary" onclick="finishWizard()">IR PARA O DASHBOARD</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- WIZARD KEYBOARD MODAL -->
+      <div class="modal" id="keyboard-modal">
+        <div style="width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <div style="font-size: 32px; font-weight: 700; letter-spacing: -1px;">Senha para <span id="pwd-network" style="color: var(--text-secondary);">Breww_5G</span></div>
+          <div style="font-size: 16px; font-weight: 700; color: #555; cursor: pointer; padding: 12px 24px; border: 1px solid #333; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px;" onclick="closeKeyboard()">CANCELAR</div>
+        </div>
+        <div class="pwd-display" id="pwd-input"></div>
+        <div class="keyboard">
+          <div class="key" onclick="typeKey('1')">1</div><div class="key" onclick="typeKey('2')">2</div><div class="key" onclick="typeKey('3')">3</div><div class="key" onclick="typeKey('4')">4</div><div class="key" onclick="typeKey('5')">5</div><div class="key" onclick="typeKey('6')">6</div><div class="key" onclick="typeKey('7')">7</div><div class="key" onclick="typeKey('8')">8</div><div class="key" onclick="typeKey('9')">9</div><div class="key" onclick="typeKey('0')">0</div>
+          <div class="key" onclick="typeKey('Q')">Q</div><div class="key" onclick="typeKey('W')">W</div><div class="key" onclick="typeKey('E')">E</div><div class="key" onclick="typeKey('R')">R</div><div class="key" onclick="typeKey('T')">T</div><div class="key" onclick="typeKey('Y')">Y</div><div class="key" onclick="typeKey('U')">U</div><div class="key" onclick="typeKey('I')">I</div><div class="key" onclick="typeKey('O')">O</div><div class="key" onclick="typeKey('P')">P</div>
+          <div class="key" style="grid-column: 2;" onclick="typeKey('A')">A</div><div class="key" onclick="typeKey('S')">S</div><div class="key" onclick="typeKey('D')">D</div><div class="key" onclick="typeKey('F')">F</div><div class="key" onclick="typeKey('G')">G</div><div class="key" onclick="typeKey('H')">H</div><div class="key" onclick="typeKey('J')">J</div><div class="key" onclick="typeKey('K')">K</div><div class="key" onclick="typeKey('L')">L</div>
+          <div class="key key-wide" onclick="delKey()">DEL</div><div class="key" onclick="typeKey('Z')">Z</div><div class="key" onclick="typeKey('X')">X</div><div class="key" onclick="typeKey('C')">C</div><div class="key" onclick="typeKey('V')">V</div><div class="key" onclick="typeKey('B')">B</div><div class="key" onclick="typeKey('N')">N</div><div class="key" onclick="typeKey('M')">M</div>
+          <div class="key" style="grid-column: span 2;" onclick="typeKey('@')">@#$</div><div class="key" style="grid-column: span 6;" onclick="typeKey(' ')">SPACE</div><div class="key key-enter" onclick="submitWifi()">CONECTAR</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- =========================================
+         MAIN HMI UI
+         ========================================= -->
+    <div id="main-ui">
+      <!-- HEADER -->
+      <div class="header">
+        <div class="logo-container hdr-logo">
+          <div class="logo-text">BREW</div>
+          <div class="logo-w-container"><div class="logo-text">W</div><div class="logo-w-accent"></div></div>
+        </div>
+        <div class="header-right">
+          <div class="status-pill"><div class="status-dot"></div> ETAPA ATIVA: DRY HOP 1</div>
+          <div class="header-icons">
+            <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="20" r="1"></circle></svg>
+            <svg viewBox="0 0 24 24" onclick="setMainView(3)"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN VIEWS SWIPE -->
+      <div class="views-wrapper" id="main-container">
+        <div class="views-track" id="main-track">
+          <!-- M1: DASHBOARD -->
+          <div class="view">
+            <div class="dash-grid">
+              <div class="card">
+                <div class="card-header"><div class="card-title">CONTROLE DE TEMPERATURA</div></div>
+                <div class="arc-container">
+                  <svg class="gauge-svg" viewBox="0 0 200 200"><circle class="gauge-bg" cx="100" cy="100" r="90"></circle><circle class="gauge-value" cx="100" cy="100" r="90"></circle></svg>
+                  <div class="arc-center"><div class="arc-val" id="main-temp">18.5</div><div class="arc-unit">°C</div></div>
+                  <div class="arc-limits"><div class="limit-box"><div class="limit-lbl">MIN</div><div class="limit-val">-5.0</div></div><div class="limit-box" style="text-align: right;"><div class="limit-lbl">MAX</div><div class="limit-val">30.0</div></div></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">ANÁLISE DE TENDÊNCIA 12H</div>
+                  <div class="chart-legend"><div class="legend-item"><div class="legend-dash"></div> TEMP</div><div class="legend-item"><div class="legend-dash" style="background: #555;"></div> SG</div></div>
+                </div>
+                <div class="chart-wrapper">
+                  <svg class="trend-svg" viewBox="0 0 500 160" preserveAspectRatio="none">
+                    <line x1="0" y1="40" x2="500" y2="40" class="grid-line" /><line x1="0" y1="80" x2="500" y2="80" class="grid-line" /><line x1="0" y1="120" x2="500" y2="120" class="grid-line" />
+                    <path id="trend-sg" class="trend-line-sg" d="" /><path id="trend-temp" class="trend-line" d="" />
+                  </svg>
+                </div>
+              </div>
+              <div class="dash-bot-row">
+                <div class="card"><div class="card-title" style="margin-bottom: 12px;">DENSIDADE ATUAL</div><div class="bot-card-content"><div class="icon-circle" style="color: #c084fc; background: #1b1424;"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div><div class="bot-val-box"><div class="bot-val" id="main-sg">1.024</div><div class="bot-unit">SG</div></div></div></div>
+                <div class="card"><div class="card-title" style="margin-bottom: 12px;">SETPOINT ALVO</div><div class="bot-card-content"><div class="icon-circle"><svg viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg></div><div class="bot-val-box"><div class="bot-val">18.0</div><div class="bot-unit">°C</div></div></div></div>
+                <div class="card"><div class="card-title" style="margin-bottom: 12px;">TEMPO RESTANTE</div><div class="bot-card-content"><div class="icon-circle" style="color: #f43f5e; background: #261318;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><div class="bot-val-box"><div class="bot-val">4</div><div class="bot-unit">Dias</div></div></div></div>
+              </div>
+            </div>
+          </div>
+          <!-- M2: TELEMETRIA -->
+          <div class="view">
+            <div class="card" style="flex: 1; padding: 24px 32px;">
+              <div class="card-header" style="margin-bottom: 16px;">
+                <div class="card-title" style="font-size: 14px;">TELEMETRIA EM TEMPO REAL</div>
+                <div class="status-led"></div>
+              </div>
+              
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 24px; border-bottom: 1px solid var(--border-color); margin-bottom: 32px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 16px; font-weight: 600; color: var(--text-secondary);">Temperatura (Cerveja)</div>
+                  <div style="font-size: 64px; font-weight: 700; letter-spacing: -2px; display: flex; align-items: baseline; gap: 8px;"><span id="telemetria-temp">22.0</span> <span style="font-size: 24px; color: var(--text-secondary);">°C</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+                  <div style="font-size: 16px; font-weight: 600; color: var(--text-secondary);">iSpindel</div>
+                  <div style="font-size: 64px; font-weight: 700; letter-spacing: -2px; color: #c084fc;" id="telemetria-sg">72.247</div>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; row-gap: 32px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">SET-POINT</div>
+                  <div style="font-size: 24px; font-weight: 600;">2.0°</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><path d="M12 2v20"></path><path d="M4.93 4.93l14.14 14.14"></path><path d="M2 12h20"></path><path d="M4.93 19.07L19.07 4.93"></path></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">GELADEIRA</div>
+                  <div style="font-size: 24px; font-weight: 600; color: #60a5fa;">22.3°</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">BATERIA</div>
+                  <div style="font-size: 24px; font-weight: 600; color: #f43f5e;">--</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">FIM RAMPA</div>
+                  <div style="font-size: 24px; font-weight: 600;">0h</div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">OG</div>
+                  <div style="font-size: 24px; font-weight: 600;">1.050</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">META FG</div>
+                  <div style="font-size: 24px; font-weight: 600;">1.010</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">ATENUAÇÃO</div>
+                  <div style="font-size: 24px; font-weight: 600;">58%</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text-secondary);fill:none;stroke-width:2;"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.52 16h12.96"></path></svg>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;">ABV EST.</div>
+                  <div style="font-size: 24px; font-weight: 600;">5.2%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- M3: RAMPAS -->
+          <div class="view">
+            <div class="page-top">
+              <div><div class="page-title" style="margin: 0;">Rampas de Fermentação</div><div class="page-subtitle">LOTE ATUAL - NEIPA TROPICAL</div></div>
+              <button class="btn-header"><svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:3;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>NOVA ETAPA</button>
+            </div>
+            <div class="ramps-grid">
+              <div class="card" style="padding-right: 16px;">
+                <div class="card-title" style="margin-bottom: 24px;">PERFIL ATIVO</div>
+                <div class="timeline">
+                  <div class="tl-line"></div>
+                  <div class="tl-item completed"><div class="tl-dot"></div><div class="tl-content"><div class="tl-name">Fermentação Primária</div><div class="tl-desc">19.0°C &nbsp; 4 Dias</div></div></div>
+                  <div class="tl-item active"><div class="tl-dot"></div><div class="tl-content"><div class="tl-name" style="color: var(--text-primary);">Dry Hop 1</div><div class="tl-desc" style="color: var(--text-primary);">19.0°C &nbsp; 3 Dias (Dia 2)</div></div></div>
+                  <div class="tl-item pending" style="margin-bottom: 0;"><div class="tl-dot"></div><div class="tl-content"><div class="tl-name">Descanso Diacetil</div><div class="tl-desc">22.0°C &nbsp; 2 Dias</div></div></div>
+                </div>
+              </div>
+              <div class="steps-list">
+                <div class="step-card completed"><div class="step-num">1</div><div class="step-info"><div class="step-title">Fermentação Primária</div><div class="step-status">CONCLUÍDA</div></div><div class="step-metrics"><div class="step-metric"><div class="metric-lbl">ALVO</div><div class="metric-val">19.0<span class="metric-unit">°C</span></div></div><div class="step-metric"><div class="metric-lbl">DURAÇÃO</div><div class="metric-val">4<span class="metric-unit">d</span></div></div></div></div>
+                <div class="step-card active"><div class="step-num">2</div><div class="step-info"><div class="step-title">Dry Hop 1</div><div class="step-status"><div class="status-led"></div> ATIVA - DIA 2/3</div></div><div class="step-metrics"><div class="step-metric"><div class="metric-lbl">ALVO</div><div class="metric-val">19.0<span class="metric-unit">°C</span></div></div><div class="step-metric"><div class="metric-lbl">DURAÇÃO</div><div class="metric-val">3<span class="metric-unit">d</span></div></div></div></div>
+                <div class="step-card pending"><div class="step-num">3</div><div class="step-info"><div class="step-title">Descanso Diacetil</div><div class="step-status">PENDENTE</div></div><div class="step-metrics"><div class="step-metric"><div class="metric-lbl">ALVO</div><div class="metric-val">22.0<span class="metric-unit">°C</span></div></div><div class="step-metric"><div class="metric-lbl">DURAÇÃO</div><div class="metric-val">2<span class="metric-unit">d</span></div></div></div></div>
+              </div>
+            </div>
+          </div>
+          <!-- M3: HISTÓRICO -->
+          <div class="view">
+            <div class="page-top"><div><div class="page-title" style="margin: 0;">Lotes Finalizados</div></div></div>
+            <div class="card" style="padding: 0; overflow: hidden;">
+              <table class="history-table">
+                <tr><th>Data</th><th>Receita</th><th>OG</th><th>FG</th><th>Duração</th></tr>
+                <tr><td>12/08/2026</td><td>Pilsen Tcheca</td><td>1.048</td><td>1.011</td><td>32 Dias</td></tr>
+                <tr><td>05/07/2026</td><td>APA Citra</td><td>1.054</td><td>1.012</td><td>14 Dias</td></tr>
+                <tr><td>18/06/2026</td><td>Oatmeal Stout</td><td>1.060</td><td>1.018</td><td>21 Dias</td></tr>
+                <tr><td>02/05/2026</td><td>Witbier</td><td>1.045</td><td>1.010</td><td>12 Dias</td></tr>
+              </table>
+            </div>
+          </div>
+          <!-- M5: CONFIGURAÇÕES -->
+          <div class="view">
+            <div class="page-top"><div><div class="page-title" style="margin: 0;">Configurações Avançadas</div></div></div>
+            
+            <div style="padding-bottom: 160px;">
+              
+              <!-- DENSIDADE -->
+              <div class="set-card">
+                <div class="set-title">CONFIGURAÇÕES DE DENSIDADE / GRAVIDADE</div>
+                <div class="input-row" style="margin-bottom: 0; align-items: flex-end;">
+                  <div class="input-group"><div class="input-label">NOME SENSOR SG</div><div class="input-box">iSpindel</div></div>
+                  <div class="btn-set">SALVAR NOME SG</div>
+                </div>
+              </div>
+
+              <!-- CALIBRAÇÃO -->
+              <div class="set-card">
+                <div class="set-title">CALIBRAÇÃO (OFFSET)</div>
+                <div class="set-desc">Ajuste fino adicionado à leitura bruta dos sensores. Use valores positivos ou negativos (ex: -0.5).</div>
+                <div class="input-row" style="margin-bottom: 0; align-items: flex-end;">
+                  <div class="input-group"><div class="input-label">OFFSET S1 (°C)</div><div class="input-box">0</div></div>
+                  <div class="input-group"><div class="input-label">OFFSET S2 (°C)</div><div class="input-box">0</div></div>
+                  <div class="input-group"><div class="input-label">OFFSET SG</div><div class="input-box">0</div></div>
+                  <div class="btn-set primary">SALVAR CALIBRAÇÃO</div>
+                </div>
+              </div>
+
+              <!-- PID -->
+              <div class="set-card">
+                <div class="set-title">PARÂMETROS PID</div>
+                
+                <div class="sub-section"><div>AQUECIMENTO (RESISTÊNCIA)</div><div class="btn-set warning-outline" style="padding: 6px 12px; font-size: 10px;">Iniciar Auto-Tune</div></div>
+                <div class="input-row">
+                  <div class="input-group"><div class="input-label">KP</div><div class="input-box">20000</div></div>
+                  <div class="input-group"><div class="input-label">KI</div><div class="input-box">100</div></div>
+                  <div class="input-group"><div class="input-label">KD</div><div class="input-box">0</div></div>
+                  <div class="input-group"><div class="input-label">JANELA PWM (MS)</div><div class="input-box">2000</div></div>
+                </div>
+
+                <div class="sub-section"><div>REFRIGERAÇÃO (COMPRESSOR)</div><div class="btn-set blue-outline" style="padding: 6px 12px; font-size: 10px;">Iniciar Auto-Tune</div></div>
+                <div class="input-row" style="margin-bottom: 24px;">
+                  <div class="input-group"><div class="input-label">KP</div><div class="input-box">40000</div></div>
+                  <div class="input-group"><div class="input-label">KI</div><div class="input-box">200</div></div>
+                  <div class="input-group"><div class="input-label">KD</div><div class="input-box">0</div></div>
+                  <div class="input-group"></div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end;"><div class="btn-set primary">ATUALIZAR PID</div></div>
+              </div>
+
+              <!-- PUSH -->
+              <div class="set-card">
+                <div class="set-title">NOTIFICAÇÕES PUSH</div>
+                <div class="set-desc">Receba alertas sobre finalização de rampas, alvo atingido, estabilização de gravidade (FG) e erros.</div>
+                <div style="background: #111; border: 1px solid #222; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #FFF;">Status do Dispositivo</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Este dispositivo está inscrito e receberá os alertas.</div>
+                  </div>
+                  <div class="btn-set success">ATIVADO</div>
+                </div>
+              </div>
+
+              <!-- RELÉS -->
+              <div class="set-card">
+                <div class="set-title">TESTE DE RELÉS</div>
+                <div class="input-row" style="margin-bottom: 12px;">
+                  <div class="btn-set" style="flex: 1;">AQUECER</div>
+                  <div class="btn-set" style="flex: 1;">REFRIGERAR</div>
+                  <div class="btn-set primary" style="flex: 1;">AUTO</div>
+                </div>
+                <div class="set-desc" style="margin-bottom: 0;">* O modo AUTO retorna o controle para o algoritmo PID.</div>
+              </div>
+              
+              <!-- 1-WIRE -->
+              <div class="set-card">
+                <div class="set-title">MAPEAMENTO DE SENSORES (1-WIRE)</div>
+                <div class="input-row" style="margin-bottom: 16px;">
+                  <div class="btn-set purple">ESCANEAR SENSORES</div>
+                  <div class="btn-set success">SALVAR MAPEAMENTO</div>
+                </div>
+                <div class="set-desc" style="margin-bottom: 0;">Nenhum sensor escaneado. Clique em "Escanear Sensores" para buscar na placa.</div>
+              </div>
+
+              <!-- SISTEMA -->
+              <div class="set-card">
+                <div class="set-title">SISTEMA</div>
+                <div class="input-row" style="margin-bottom: 16px;">
+                  <div class="btn-set" style="flex: 1;">REINICIAR</div>
+                  <div class="btn-set primary" style="flex: 1;">BAIXAR LOGS</div>
+                </div>
+                <div class="input-row" style="margin-bottom: 0;">
+                  <div class="btn-set" style="flex: 1;">LIMPAR LOGS</div>
+                  <div class="btn-set danger" style="flex: 1;">RESET FÁBRICA</div>
+                </div>
+              </div>
+
+              <!-- OTA -->
+              <div class="set-card">
+                <div class="set-title">ATUALIZAÇÃO REMOTA (OTA)</div>
+                <div style="background: #022c22; border: 1px solid #064e3b; padding: 24px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="color: #34d399; font-weight: 700; font-size: 14px; margin-bottom: 4px;">Nova Versão Oficial Disponível: v2.0.47</div>
+                    <div style="color: #059669; font-size: 12px;">Seu equipamento está na versão V2.0.07 BETA STABLE. Atualize para obter as últimas melhorias.</div>
+                  </div>
+                  <div class="btn-set success">INSTALAR AUTOMÁTICO</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+            <!-- Spacer to force scroll past pagination dots -->
+            <div style="height: 100px; width: 100%; flex-shrink: 0;"></div>
+          </div>
+        </div>
+        
+        <!-- PAGINATION DOTS -->
+        <div class="pagination">
+          <div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================
+    // WIZARD LOGIC
+    // =========================================
+    const wizTrack = document.getElementById('wizard-track');
+    let wizIndex = 0;
+    
+    function setWizView(index) {
+      wizIndex = index;
+      wizTrack.style.transform = `translateX(-${wizIndex * 20}%)`;
+    }
+    
+    // Auto start from Boot Splash
+    setTimeout(() => { setWizView(1); }, 5000);
+
+    // Keyboard Logic
+    const modal = document.getElementById('keyboard-modal');
+    const pwdInput = document.getElementById('pwd-input');
+    const netLabel = document.getElementById('pwd-network');
+    let currentPwd = ""; let selectedNet = "";
+
+    function openKeyboard(networkName) {
+      selectedNet = networkName;
+      netLabel.innerText = networkName;
+      currentPwd = ""; pwdInput.innerText = "";
+      modal.classList.add('active');
+    }
+    function closeKeyboard() { modal.classList.remove('active'); }
+    function typeKey(char) { currentPwd += char; pwdInput.innerText = "•".repeat(currentPwd.length); }
+    function delKey() { currentPwd = currentPwd.slice(0, -1); pwdInput.innerText = "•".repeat(currentPwd.length); }
+
+    function submitWifi() {
+      closeKeyboard();
+      document.getElementById('wifi-list-ui').style.display = 'none';
+      document.getElementById('connecting-ui').style.display = 'flex';
+      document.getElementById('connecting-text').innerText = `Autenticando na rede ${selectedNet}...`;
+      
+      setTimeout(() => {
+        document.getElementById('connecting-text').innerText = "Obtendo endereço IP...";
+        setTimeout(() => {
+          document.getElementById('connecting-text').innerText = "Conectado!";
+          document.getElementById('connecting-text').style.color = "#22c55e";
+          document.querySelector('#connecting-ui .spinner').style.display = 'none';
+          setTimeout(() => { setWizView(3); }, 1000);
+        }, 1500);
+      }, 1500);
+    }
+
+    function finishWizard() {
+      document.getElementById('wizard-ui').style.display = 'none';
+      document.getElementById('main-ui').style.display = 'flex';
+      initMainDashboard();
+    }
+
+    // =========================================
+    // MAIN HMI LOGIC
+    // =========================================
+    const mainTrack = document.getElementById('main-track');
+    const mainContainer = document.getElementById('main-container');
+    const dots = document.querySelectorAll('.dot');
+    const totalMainViews = 5; let mainIndex = 0;
+    let startX = 0; let currentX = 0; let isDragging = false;
+
+    function setMainView(index) {
+      if (index < 0) index = 0;
+      if (index >= totalMainViews) index = totalMainViews - 1;
+      mainIndex = index;
+      mainTrack.style.transform = `translateX(-${mainIndex * 20}%)`;
+      dots.forEach((dot, i) => dot.classList.toggle('active', i === mainIndex));
+    }
+
+    mainContainer.addEventListener('mousedown', (e) => { startX = e.clientX; isDragging = true; });
+    window.addEventListener('mouseup', (e) => {
+      if(!isDragging) return; isDragging = false; currentX = e.clientX;
+      if (startX - currentX > 100) setMainView(mainIndex + 1); else if (currentX - startX > 100) setMainView(mainIndex - 1); 
+    });
+    mainContainer.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; isDragging = true; }, {passive: true});
+    window.addEventListener('touchend', (e) => {
+      if(!isDragging) return; isDragging = false; currentX = e.changedTouches[0].clientX;
+      if (startX - currentX > 100) setMainView(mainIndex + 1); else if (currentX - startX > 100) setMainView(mainIndex - 1);
+    });
+
+    function initMainDashboard() {
+      let currentTarget = 18.0; let actualTemp = 18.5; let currentSG = 1.024;
+      let tempAngle = 0; let sgAngle = 0;
+      const fullPointsCount = 100;  
+      let beerData = new Array(fullPointsCount).fill(actualTemp); 
+      let sgData = new Array(fullPointsCount).fill(currentSG);
+
+      const beerLine = document.getElementById('trend-temp');
+      const sgLine = document.getElementById('trend-sg');
+      const gaugeValue = document.querySelector('.gauge-value');
+
+      function drawChart() {
+        const yMinT = 14.0; const yMaxT = 22.0;
+        const fullWidth = 500; const fullHeight = 160;
+        const fullStepX = fullWidth / (fullPointsCount - 1);
+        
+        let dBeer = "";
+        for(let i = 0; i < fullPointsCount; i++) {
+          let x = i * fullStepX;
+          let yB = fullHeight - ((beerData[i] - yMinT) / (yMaxT - yMinT)) * fullHeight;
+          if(i === 0) dBeer += `M ${x},${yB} `; else dBeer += `L ${x},${yB} `;
+        }
+        beerLine.setAttribute('d', dBeer); 
+
+        const sgMin = 1.010; const sgMax = 1.050;
+        let dSg = "";
+        for(let i = 0; i < fullPointsCount; i++) {
+          let x = i * fullStepX;
+          let yS = fullHeight - ((sgData[i] - sgMin) / (sgMax - sgMin)) * fullHeight;
+          if(i === 0) dSg += `M ${x},${yS} `; else dSg += `L ${x},${yS} `;
+        }
+        sgLine.setAttribute('d', dSg);
+
+        let percent = (actualTemp - (-5)) / (30 - (-5));
+        let offset = 565 - (565 * percent);
+        gaugeValue.style.strokeDashoffset = offset;
+      }
+
+      setInterval(() => {
+        tempAngle += 0.05; sgAngle += 0.03;
+        actualTemp += Math.sin(tempAngle) * 0.05;
+        currentSG += Math.sin(sgAngle) * 0.0005;
+
+        beerData.shift(); beerData.push(actualTemp);
+        sgData.shift(); sgData.push(currentSG);
+        drawChart();
+
+        document.getElementById('main-temp').innerText = actualTemp.toFixed(1);
+        document.getElementById('main-sg').innerText = currentSG.toFixed(3);
+        document.getElementById('telemetria-temp').innerText = actualTemp.toFixed(1);
+        document.getElementById('telemetria-sg').innerText = currentSG.toFixed(3);
+      }, 50);
+    }
+  </script>
+</body>
+</html>

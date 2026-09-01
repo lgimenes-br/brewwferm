@@ -12,7 +12,7 @@ import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
 import { FermentationProfile } from './FermentationProfile';
 import { useFermenters } from '../hooks/useFermenters';
-import { NewBatchModal } from './NewBatchModal';
+import { FermentationWizard } from './FermentationWizard';
 import { ErrorBoundary } from './ErrorBoundary';
 
 interface FermenterDetailProps {
@@ -23,8 +23,6 @@ interface FermenterDetailProps {
 export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onUpdate }) => {
     const navigate = useNavigate();
     const { startBatch, finishBatch } = useFermenters();
-    const [showNewBatchModal, setShowNewBatchModal] = useState(false);
-
     // Local state for Kegerator Config to handle inputs before saving
     const [kegeratorForm, setKegeratorForm] = useState<KegeratorConfig>({
         line1: '',
@@ -206,7 +204,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 profile: data.profile
             });
             onUpdate(fermenter.id, { profile: data.profile, currentStepIndex: 0 });
-            setShowNewBatchModal(false);
             toast.success('Novo lote iniciado com sucesso!');
         } catch (err) {
             console.error('Error starting batch:', err);
@@ -284,6 +281,11 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         if (volts > 3.5) return 'text-yellow-500';
         return 'text-red-500';
     };
+    const isIdleFermenter = fermenter.mode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
+
+    if (isIdleFermenter) {
+        return <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />;
+    }
 
     return (
         <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
@@ -737,12 +739,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     </div>
                 </div>
             </div>
-
-            <NewBatchModal
-                isOpen={showNewBatchModal}
-                onClose={() => setShowNewBatchModal(false)}
-                onSubmit={handleNewBatch}
-            />
         </div>
     );
 };

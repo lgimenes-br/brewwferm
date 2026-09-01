@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Breww - HMI Completo (1024x600)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&display=swap');
+  
+  :root {
+    --bg-base: #000000;
+    --bg-panel: #0A0A0A;
+    --bg-sidebar: #050505;
+    --border-color: #262626;
+    --text-primary: #FFFFFF;
+    --text-secondary: #888888;
+    --accent: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: #050505; display: flex; justify-content: center;
+    align-items: center; height: 100vh; font-family: 'Space Grotesk', sans-serif;
+    user-select: none; -webkit-font-smoothing: antialiased;
+  }
+
+  .screen {
+    width: 1024px; height: 600px; background-color: var(--bg-base);
+    display: flex; color: var(--text-primary); position: relative;
+    border: 1px solid var(--border-color); overflow: hidden;
+  }
+
+  /* =========================================
+     SIDEBAR
+     ========================================= */
+  .sidebar {
+    width: 240px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color);
+    display: flex; flex-direction: column; padding: 32px 0; z-index: 10;
+  }
+  .logo { font-weight: 700; font-size: 28px; letter-spacing: 6px; color: var(--text-primary); text-align: center; margin-bottom: 40px; }
+  
+  .nav-menu { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; flex: 1; }
+  .nav-item {
+    padding: 16px 20px; border-radius: 8px; font-size: 16px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--text-secondary); cursor: pointer; transition: 0.2s;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .nav-item svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .nav-item.active { background: var(--text-primary); color: var(--bg-base); }
+  
+  .sys-clock { text-align: center; font-size: 24px; font-weight: 500; letter-spacing: 2px; color: var(--text-secondary); }
+
+  /* =========================================
+     MAIN CONTENT AREA
+     ========================================= */
+  .content { flex: 1; position: relative; background: var(--bg-base); }
+  .view { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: none; padding: 32px; overflow-y: auto; }
+  .view.active { display: flex; flex-direction: column; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .page-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }
+  .page-title { font-size: 32px; font-weight: 500; letter-spacing: -1px; }
+
+  /* =========================================
+     VIEW 1: DASHBOARD
+     ========================================= */
+  .dash-grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; flex: 1; }
+  
+  .dash-left { display: flex; flex-direction: column; gap: 24px; }
+  .dash-card { border: 1px solid var(--border-color); background: var(--bg-panel); border-radius: 8px; padding: 24px; }
+  .dash-card-title { font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 16px; }
+  
+  /* Arc Gauges */
+  .gauge-container { position: relative; width: 100%; height: 240px; display: flex; justify-content: center; align-items: center; }
+  .gauge-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .gauge-bg { fill: none; stroke: #1A1A1A; stroke-width: 16; }
+  .gauge-value { fill: none; stroke: var(--text-primary); stroke-width: 16; stroke-linecap: butt; stroke-dasharray: 630; stroke-dashoffset: 200; transition: stroke-dashoffset 1s ease; }
+  .gauge-text { display: flex; flex-direction: column; align-items: center; z-index: 1; }
+  .gauge-val { font-size: 56px; font-weight: 300; letter-spacing: -2px; color: var(--text-primary); }
+  .gauge-unit { font-size: 20px; font-weight: 700; color: var(--text-secondary); }
+  .gauge-target { margin-top: 8px; font-size: 14px; font-weight: 700; color: var(--text-secondary); background: #1A1A1A; padding: 4px 12px; border-radius: 20px; }
+
+  .ispindel-mini { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px; }
+  
+  .dash-right { display: flex; flex-direction: column; gap: 24px; }
+  .stage-banner { background: var(--text-primary); color: var(--bg-base); padding: 24px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .stage-name { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+  .stage-time { font-size: 24px; font-weight: 500; }
+  
+  .mini-chart { flex: 1; border: 1px solid var(--border-color); background: var(--bg-panel); border-radius: 8px; position: relative; overflow: hidden; padding: 16px; display: flex; flex-direction: column; }
+  .mini-chart-grid { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: linear-gradient(var(--border-color) 1px, transparent 1px), linear-gradient(90deg, var(--border-color) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.2; }
+  .mini-chart-svg { flex: 1; width: 100%; z-index: 1; overflow: visible; }
+  .mini-line-temp { fill: none; stroke: var(--text-primary); stroke-width: 4; stroke-linejoin: round; }
+  .mini-line-sg { fill: none; stroke: #555; stroke-width: 3; stroke-dasharray: 6 6; stroke-linejoin: round; }
+
+  .action-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; height: 80px; }
+  .btn-action { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--text-primary); cursor: pointer; }
+  .btn-action:active { background: #1A1A1A; }
+
+  /* =========================================
+     VIEW 2: RECEITAS
+     ========================================= */
+  .recipes-layout { display: flex; gap: 32px; flex: 1; height: 100%; }
+  .recipe-list { width: 300px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; border-right: 1px solid var(--border-color); padding-right: 24px; }
+  .recipe-item { padding: 20px; border: 1px solid var(--border-color); background: var(--bg-panel); border-radius: 8px; cursor: pointer; }
+  .recipe-item.active { border-color: var(--text-primary); background: #1A1A1A; }
+  .recipe-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .recipe-meta { font-size: 14px; color: var(--text-secondary); font-weight: 700; letter-spacing: 1px; }
+
+  .recipe-detail { flex: 1; display: flex; flex-direction: column; }
+  .rd-title { font-size: 40px; font-weight: 500; margin-bottom: 24px; }
+  .rd-stages { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; }
+  .rd-stage { display: flex; align-items: center; background: var(--bg-panel); border: 1px solid var(--border-color); padding: 16px 24px; border-radius: 8px; }
+  .rd-idx { font-size: 24px; font-weight: 700; color: var(--text-secondary); width: 40px; }
+  .rd-name { flex: 1; font-size: 20px; font-weight: 500; }
+  .rd-temp { font-size: 24px; font-weight: 700; width: 100px; text-align: right; }
+  .rd-time { font-size: 20px; color: var(--text-secondary); width: 100px; text-align: right; }
+  
+  .btn-start-batch { margin-top: 24px; background: var(--text-primary); color: var(--bg-base); height: 80px; border: none; border-radius: 8px; font-size: 20px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
+  .btn-start-batch:active { opacity: 0.8; }
+
+  /* =========================================
+     VIEW 3: HISTÓRICO
+     ========================================= */
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table th { text-align: left; padding: 16px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+  .history-table td { padding: 24px 16px; border-bottom: 1px solid #1A1A1A; font-size: 18px; font-weight: 500; }
+  .history-table tr { cursor: pointer; }
+  .history-table tr:active { background: var(--bg-panel); }
+
+  /* =========================================
+     VIEW 4: CALIBRAÇÃO (PID & SENSORS)
+     ========================================= */
+  .tuning-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .tuning-card { border: 1px solid var(--border-color); background: var(--bg-panel); padding: 32px; border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; height: 160px; }
+  .tuning-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .tuning-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .tuning-desc { font-size: 12px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+  .stepper { display: flex; align-items: center; gap: 24px; align-self: flex-start; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; background: var(--bg-base); }
+  .btn-step { width: 48px; height: 40px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-primary); font-size: 24px; cursor: pointer; }
+  .btn-step:active { background: var(--text-primary); color: var(--bg-base); }
+  .step-val { font-size: 24px; font-weight: 700; width: 80px; text-align: center; }
+
+  /* =========================================
+     VIEW 5: SISTEMA E REDE
+     ========================================= */
+  .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .sys-box { border: 1px solid var(--border-color); background: var(--bg-panel); padding: 32px; border-radius: 8px; display: flex; flex-direction: column; }
+  .sys-title { font-size: 16px; color: var(--text-secondary); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 24px; }
+  .sys-row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #1A1A1A; }
+  .sys-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .sys-label { font-size: 18px; font-weight: 500; }
+  .sys-val { font-size: 18px; font-weight: 700; color: var(--text-secondary); }
+  .sys-val.ok { color: var(--text-primary); }
+
+  /* MODAL KEYBOARD */
+  .modal { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; padding: 40px 80px; transform: translateY(100%); transition: transform 0.3s; z-index: 30; }
+  .modal.open { transform: translateY(0); }
+  .modal-display { font-size: 72px; font-weight: 300; letter-spacing: -2px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 16px; margin-bottom: 32px; text-align: right;}
+  .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; flex: 1; }
+  .btn-num { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 36px; font-family: 'Space Grotesk'; cursor: pointer; transition: 0.1s; }
+  .btn-num:active { background: var(--text-primary); color: var(--bg-base); }
+  .btn-enter { background: var(--text-primary); color: var(--bg-base); font-weight: 700; font-size: 24px; border: none; letter-spacing: 2px; cursor: pointer; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+  <div class="screen">
+    
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="logo">BREWW</div>
+      <div class="nav-menu">
+        <div class="nav-item active" onclick="switchView('view-dash', this)">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" onclick="switchView('view-recipes', this)">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Receitas
+        </div>
+        <div class="nav-item" onclick="switchView('view-history', this)">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Histórico
+        </div>
+        <div class="nav-item" onclick="switchView('view-tuning', this)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Calibração
+        </div>
+        <div class="nav-item" onclick="switchView('view-sys', this)">
+          <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          Sistema
+        </div>
+      </div>
+      <div class="sys-clock" id="sys-clock">14:30</div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="content">
+
+      <!-- VIEW 1: DASHBOARD -->
+      <div class="view active" id="view-dash">
+        <div class="dash-grid">
+          
+          <div class="dash-left">
+            <div class="dash-card" style="display: flex; flex-direction: column; align-items: center;">
+              <div class="gauge-container" onclick="openKeyboard()">
+                <svg class="gauge-svg" viewBox="0 0 220 220">
+                  <circle class="gauge-bg" cx="110" cy="110" r="100"></circle>
+                  <circle class="gauge-value" cx="110" cy="110" r="100"></circle>
+                </svg>
+                <div class="gauge-text">
+                  <div class="gauge-val" id="main-temp">18.5</div>
+                  <div class="gauge-unit">°C</div>
+                  <div class="gauge-target">ALVO: 18.0</div>
+                </div>
+              </div>
+              <div class="ispindel-mini" style="width: 100%;">
+                <div style="font-size: 14px; color: var(--text-secondary); font-weight: 700; letter-spacing: 1px;">iSPINDEL</div>
+                <div style="font-size: 20px; font-weight: 700;" id="main-sg">1.024</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-right">
+            <div class="stage-banner">
+              <div>
+                <div style="font-size: 14px; font-weight: 700; letter-spacing: 2px; opacity: 0.8; margin-bottom: 4px;">ETAPA ATIVA: NEIPA 20L</div>
+                <div class="stage-name">Dry Hop 1</div>
+              </div>
+              <div class="stage-time">2d 14h 00m</div>
+            </div>
+
+            <div class="mini-chart">
+              <div class="dash-card-title" style="margin-bottom: 8px;">TENDÊNCIA 12H (TEMP & SG)</div>
+              <div class="mini-chart-grid"></div>
+              <svg class="mini-chart-svg" viewBox="0 0 400 120" preserveAspectRatio="none">
+                <path id="spark-temp" class="mini-line-temp" d="" />
+                <path id="spark-sg" class="mini-line-sg" d="" />
+              </svg>
+            </div>
+
+            <div class="action-bar">
+              <div class="btn-action">PAUSAR</div>
+              <div class="btn-action">VOLTAR</div>
+              <div class="btn-action" style="background: var(--text-primary); color: var(--bg-base);">AVANÇAR</div>
+              <div class="btn-action">FINALIZAR</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- VIEW 2: RECEITAS -->
+      <div class="view" id="view-recipes">
+        <div class="page-header"><div class="page-title">Biblioteca de Receitas</div></div>
+        <div class="recipes-layout">
+          <div class="recipe-list">
+            <div class="recipe-item active">
+              <div class="recipe-name">NEIPA Tropical</div>
+              <div class="recipe-meta">14 DIAS • 4 ETAPAS</div>
+            </div>
+            <div class="recipe-item">
+              <div class="recipe-name">Pilsen Tradicional</div>
+              <div class="recipe-meta">30 DIAS • 3 ETAPAS</div>
+            </div>
+            <div class="recipe-item">
+              <div class="recipe-name">Dry Stout</div>
+              <div class="recipe-meta">18 DIAS • 3 ETAPAS</div>
+            </div>
+            <div class="recipe-item">
+              <div class="recipe-name">Sour Morango</div>
+              <div class="recipe-meta">22 DIAS • 5 ETAPAS</div>
+            </div>
+          </div>
+          <div class="recipe-detail">
+            <div class="rd-title">NEIPA Tropical</div>
+            <div class="rd-stages">
+              <div class="rd-stage"><div class="rd-idx">1</div><div class="rd-name">Fermentação Primária</div><div class="rd-temp">19.0°C</div><div class="rd-time">4 Dias</div></div>
+              <div class="rd-stage"><div class="rd-idx">2</div><div class="rd-name">Dry Hop 1</div><div class="rd-temp">19.0°C</div><div class="rd-time">3 Dias</div></div>
+              <div class="rd-stage"><div class="rd-idx">3</div><div class="rd-name">Descanso Diacetil</div><div class="rd-temp">22.0°C</div><div class="rd-time">2 Dias</div></div>
+              <div class="rd-stage"><div class="rd-idx">4</div><div class="rd-name">Cold Crash</div><div class="rd-temp">2.0°C</div><div class="rd-time">5 Dias</div></div>
+            </div>
+            <button class="btn-start-batch">INICIAR LOTE</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: HISTÓRICO -->
+      <div class="view" id="view-history">
+        <div class="page-header"><div class="page-title">Lotes Finalizados</div></div>
+        <div style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+          <table class="history-table">
+            <tr><th>Data</th><th>Receita</th><th>OG</th><th>FG</th><th>Duração</th></tr>
+            <tr><td>12/08/2026</td><td>Pilsen Tcheca</td><td>1.048</td><td>1.011</td><td>32 Dias</td></tr>
+            <tr><td>05/07/2026</td><td>APA Citra</td><td>1.054</td><td>1.012</td><td>14 Dias</td></tr>
+            <tr><td>18/06/2026</td><td>Oatmeal Stout</td><td>1.060</td><td>1.018</td><td>21 Dias</td></tr>
+            <tr><td>02/05/2026</td><td>Witbier</td><td>1.045</td><td>1.010</td><td>12 Dias</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW 4: CALIBRAÇÃO -->
+      <div class="view" id="view-tuning">
+        <div class="page-header"><div class="page-title">Calibração de Hardware</div></div>
+        <div class="tuning-grid">
+          <div class="tuning-card">
+            <div class="tuning-header">
+              <div><div class="tuning-title">Offset DS18B20</div><div class="tuning-desc">Ajuste fino do termômetro</div></div>
+            </div>
+            <div class="stepper"><button class="btn-step">-</button><div class="step-val">0.0°</div><button class="btn-step">+</button></div>
+          </div>
+          <div class="tuning-card">
+            <div class="tuning-header">
+              <div><div class="tuning-title">Atraso do Compressor</div><div class="tuning-desc">Proteção de ciclo curto (min)</div></div>
+            </div>
+            <div class="stepper"><button class="btn-step">-</button><div class="step-val">5</div><button class="btn-step">+</button></div>
+          </div>
+          <div class="tuning-card">
+            <div class="tuning-header">
+              <div><div class="tuning-title">Histerese (Tolerância)</div><div class="tuning-desc">Margem de acionamento</div></div>
+            </div>
+            <div class="stepper"><button class="btn-step">-</button><div class="step-val">0.3°</div><button class="btn-step">+</button></div>
+          </div>
+          <div class="tuning-card">
+            <div class="tuning-header">
+              <div><div class="tuning-title">PID - Constante Kp</div><div class="tuning-desc">Ajuste de ganho proporcional</div></div>
+            </div>
+            <div class="stepper"><button class="btn-step">-</button><div class="step-val">12.5</div><button class="btn-step">+</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 5: SISTEMA -->
+      <div class="view" id="view-sys">
+        <div class="page-header"><div class="page-title">Diagnóstico do Sistema</div></div>
+        <div class="sys-grid">
+          <div class="sys-box">
+            <div class="sys-title">Conectividade</div>
+            <div class="sys-row"><div class="sys-label">Interface Ativa</div><div class="sys-val ok">Ethernet (Cabo)</div></div>
+            <div class="sys-row"><div class="sys-label">Endereço IP Local</div><div class="sys-val">192.168.1.104</div></div>
+            <div class="sys-row"><div class="sys-label">Servidor MQTT Nuvem</div><div class="sys-val ok">Online (12ms)</div></div>
+          </div>
+          <div class="sys-box">
+            <div class="sys-title">Hardware</div>
+            <div class="sys-row"><div class="sys-label">Uso de Memória (PSRAM)</div><div class="sys-val">12% / 32MB</div></div>
+            <div class="sys-row"><div class="sys-label">Bateria RTC</div><div class="sys-val ok">3.2V (OK)</div></div>
+            <div class="sys-row"><div class="sys-label">Integração iSpindel</div><div class="sys-val">Ativo (ID: ispindel_2)</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MODAL NUMPAD -->
+    <div class="modal" id="numpad-modal">
+      <div class="modal-display" id="display-value">18.0</div>
+      <div class="numpad">
+        <button class="btn-num">1</button> <button class="btn-num">2</button> <button class="btn-num">3</button> <button class="btn-num" id="btn-del">DEL</button>
+        <button class="btn-num">4</button> <button class="btn-num">5</button> <button class="btn-num">6</button> <button class="btn-enter" id="btn-enter" style="grid-row: span 2;">OK</button>
+        <button class="btn-num">7</button> <button class="btn-num">8</button> <button class="btn-num">9</button>
+        <button class="btn-num" style="grid-column: span 2;" onclick="closeKeyboard()">CANCELAR</button> <button class="btn-num">0</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // System Clock
+    setInterval(() => {
+      const d = new Date();
+      document.getElementById('sys-clock').innerText = 
+        String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }, 1000);
+
+    // Sidebar Navigation Logic
+    function switchView(viewId, el) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+    }
+
+    // Chart & Gauge Logic (Mini Sparklines)
+    let currentTarget = 18.0; 
+    let actualTemp = 18.5;    
+    let currentSG = 1.024;
+
+    const fullPointsCount = 200;  
+    let beerData = new Array(fullPointsCount).fill(actualTemp); 
+    let sgData = new Array(fullPointsCount).fill(currentSG);
+
+    const beerLine = document.getElementById('spark-temp');
+    const sgLine = document.getElementById('spark-sg');
+    const gaugeValue = document.querySelector('.gauge-value');
+
+    function drawChart() {
+      const yMin = 14.0; const yMax = 22.0;
+      const fullWidth = 400; const fullHeight = 120;
+      const fullStepX = fullWidth / (fullPointsCount - 1);
+      
+      let dBeer = "";
+      for(let i = 0; i < fullPointsCount; i++) {
+        let x = i * fullStepX;
+        let yB = fullHeight - ((beerData[i] - yMin) / (yMax - yMin)) * fullHeight;
+        yB = Math.max(0, Math.min(fullHeight, yB)); 
+        if(i === 0) { dBeer += `M ${x},${yB} `; } else { dBeer += `L ${x},${yB} `; }
+      }
+      beerLine.setAttribute('d', dBeer); 
+
+      const sgMin = 1.010; const sgMax = 1.050;
+      let dSg = "";
+      for(let i = 0; i < fullPointsCount; i++) {
+        let x = i * fullStepX;
+        let yS = fullHeight - ((sgData[i] - sgMin) / (sgMax - sgMin)) * fullHeight;
+        if(i === 0) dSg += `M ${x},${yS} `; else dSg += `L ${x},${yS} `;
+      }
+      sgLine.setAttribute('d', dSg);
+
+      // Update Gauge
+      let tempDiff = Math.abs(currentTarget - actualTemp);
+      let arcPercent = Math.max(0, 100 - (tempDiff * 20)); 
+      let offset = 630 - (630 * arcPercent / 100);
+      gaugeValue.style.strokeDashoffset = offset;
+    }
+
+    setInterval(() => {
+      let delta = (currentTarget - actualTemp) * 0.005; 
+      actualTemp += delta + (Math.random() - 0.5) * 0.04;
+      currentSG -= 0.00005;
+
+      beerData.shift(); beerData.push(actualTemp);
+      sgData.shift(); sgData.push(currentSG);
+      drawChart();
+
+      document.getElementById('main-temp').innerText = actualTemp.toFixed(1);
+      document.getElementById('main-sg').innerText = currentSG.toFixed(3);
+    }, 50);
+
+    // Keyboard Modal Logic
+    const modal = document.getElementById('numpad-modal');
+    function openKeyboard() { modal.classList.add('open'); }
+    function closeKeyboard() { modal.classList.remove('open'); }
+    document.getElementById('btn-enter').addEventListener('click', closeKeyboard);
+
+  </script>
+</body>
+</html>
