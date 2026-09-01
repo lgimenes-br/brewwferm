@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
