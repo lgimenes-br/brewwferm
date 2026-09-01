@@ -289,7 +289,7 @@ export const useFermenters = () => {
     });
 
     // Local manual update for instant UI feedback (or when MQTT message arrives)
-    const updateFermenterLocal = useCallback((serialCode: string, updates: Partial<Fermenter> & { newReading?: any }) => {
+    const updateFermenterLocal = useCallback((serialCode: string, updates: Partial<Fermenter> ) => {
         if (updates.events !== undefined) {
             try {
                 localStorage.setItem(`events_${serialCode}`, JSON.stringify(updates.events));
@@ -300,7 +300,7 @@ export const useFermenters = () => {
             if (!old) return [];
             return old.map(f => {
                 if (f.id === serialCode) {
-                    const { newReading, ...rest } = updates;
+                    const rest = updates;
 
                     // If the device has no active batch, do NOT allow MQTT to override
                     // status/profile/steps — only allow sensor telemetry through
@@ -311,17 +311,6 @@ export const useFermenters = () => {
                     }
 
                     let updatedReadings = f.readings;
-                    if (newReading) {
-                        // Se for uma leitura sem SG, tenta manter o último SG recebido neste lote (caso exista e seja > 0)
-                        if (f.batchId && (!newReading.gravity || newReading.gravity === 0)) {
-                            // Pega o SG da leitura anterior, se existir
-                            const lastReading = f.readings && f.readings.length > 0 ? f.readings[f.readings.length - 1] : null;
-                            if (lastReading && lastReading.gravity > 0) {
-                                newReading.gravity = lastReading.gravity;
-                            }
-                        }
-                        updatedReadings = [...(f.readings || []), newReading];
-                    }
 
                     // Mesclar currentDevice com segurança para manter dados do iSpindel (como gravity) que demoram a chegar
                     let updatedCurrentDevice = filteredRest.currentDevice as any;

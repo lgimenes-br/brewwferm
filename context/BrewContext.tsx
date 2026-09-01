@@ -190,16 +190,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         macCtrl: payload.macCtrl,
                         extSens: payload.extSens,
                         stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0')
-                    } as any, // Use as any to rely on prior state spread inside updateFermenterLocal
-                    newReading: {
-                        timestamp: new Date().toISOString(),
-                        beerTemp: parseFloat(payload.ferm) || 0,
-                        fridgeTemp: parseFloat(payload.amb) || 0,
-                        targetTemp: parseFloat(target as any) || 20,
-                        gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined
-                    }
-                    // Note: Ideally readings should be updated here, doing it in local hook might be tricky without previous state
-                    // We can augment updateFermenterLocal to receive a callback to access old state.
+                    } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });
 
                 // Workaround for readings array
