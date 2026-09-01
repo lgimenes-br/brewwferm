@@ -14,6 +14,7 @@ export const FermenterDetailWrapper: React.FC = () => {
     const { sendCommand } = useBrew();
     
     const fermenter = fermenters.find(f => f.id === id);
+    const setpointDebounceRef = useRef<NodeJS.Timeout | null>(null);
     
     const handleUpdate = useCallback(async (updateId: string, updates: Partial<Fermenter>) => {
         // App.tsx legacy code mapped these updates. 
@@ -68,8 +69,13 @@ export const FermenterDetailWrapper: React.FC = () => {
             // Depending on mode, it might be fsm or csp. The device takes setpoint_manual mostly, 
             // but we use the old logic's "setpoint_manual" or "chopp_setpoint".
             const field = (fermenter?.mode === DeviceMode.KEGERATOR || fermenter?.mode === DeviceMode.FRIDGE) ? 'chopp_setpoint' : 'setpoint_manual';
-            sendCommand(updateId, 'setManual', { field, val: updates.targetTemp });
-            toast.success(`Temperatura atualizada para ${updates.targetTemp}°C`);
+            
+            if (setpointDebounceRef.current) clearTimeout(setpointDebounceRef.current);
+            setpointDebounceRef.current = setTimeout(() => {
+                sendCommand(updateId, 'setManual', { field, val: updates.targetTemp });
+                toast.success(`Temperatura atualizada para ${updates.targetTemp}°C`);
+            }, 500);
+
             shouldUpdateOptimistically = true; // Update UI immediately, don't wait for telemetry
         }
 

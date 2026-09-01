@@ -221,7 +221,6 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (clientRef.current && serialCode) {
             const msg = JSON.stringify({ type, cmd: type, ...payload });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
-            clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
             // Cooldown: bloqueia telemetria de sobrescrever updates otimistas por 2s
             commandCooldownRef.current[serialCode] = Date.now();
         }
