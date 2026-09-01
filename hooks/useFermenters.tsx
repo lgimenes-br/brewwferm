@@ -325,6 +325,18 @@ export const useFermenters = () => {
                             }
                         }
                         filteredRest.currentDevice = updatedCurrentDevice;
+
+                        // Adicionar nova leitura ao grafico local (em tempo real)
+                        if (filteredRest.currentDevice.temperature !== undefined) {
+                            const newReading: any = {
+                                timestamp: new Date().toISOString(),
+                                beerTemp: filteredRest.currentDevice.temperature,
+                                targetTemp: f.profile && f.profile.length > 0 && f.currentStepIndex !== undefined ? (f.profile[f.currentStepIndex]?.temperature || 0) : 0,
+                                gravity: filteredRest.currentDevice.gravity,
+                                extra_sensors: filteredRest.currentDevice.extSens
+                            };
+                            updatedReadings = [...(updatedReadings || []), newReading].slice(-100);
+                        }
                     }
 
                     return { ...f, ...filteredRest, readings: updatedReadings } as Fermenter;
