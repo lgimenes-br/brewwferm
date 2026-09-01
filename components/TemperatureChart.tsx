@@ -80,6 +80,16 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
   return (
     <div className="w-full h-full flex flex-col bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
       <h3 className="text-neutral-500 font-bold mb-6 text-xs uppercase tracking-widest pl-2">Histórico de Temperatura</h3>
+      
+      {safeData.length === 0 ? (
+        <div className="w-full flex-1 min-h-[350px] flex flex-col items-center justify-center text-center">
+            <div className="w-16 h-16 rounded-full bg-neutral-800/50 flex items-center justify-center mb-4 border border-neutral-700/50">
+                <div className="w-8 h-8 rounded-full border-2 border-neutral-600 border-t-neutral-400 animate-spin" />
+            </div>
+            <h4 className="text-white font-medium mb-1">Aguardando dados...</h4>
+            <p className="text-neutral-500 text-sm max-w-[250px]">O equipamento já foi instruído. A telemetria aparecerá aqui em alguns segundos.</p>
+        </div>
+      ) : (
       {/* Fixed height container for Recharts */}
       <div className="w-full flex-1 min-h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -190,6 +200,7 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
           </LineChart>
         </ResponsiveContainer>
       </div>
+      )}
     </div>
   );
 });
