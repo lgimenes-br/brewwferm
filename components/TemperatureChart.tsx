@@ -90,7 +90,6 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
             <p className="text-neutral-500 text-sm max-w-[250px]">O equipamento já foi instruído. A telemetria aparecerá aqui em alguns segundos.</p>
         </div>
       ) : (
-      {/* Fixed height container for Recharts */}
       <div className="w-full flex-1 min-h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={safeData}>
