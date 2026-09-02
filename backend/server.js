@@ -241,6 +241,7 @@ mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/comando'); // <-- Intercept manual overrides
     mqttClient.subscribe('brewbrother/global/ping');
     mqttClient.subscribe('brewbrother/+/response'); // Para respostas de scan_sensors
+    mqttClient.subscribe('brewbrother/+/device_action'); // Ações originadas pelo hardware (ex: iniciar lote)
 });
 
 mqttClient.on('message', async (topic, message) => {
@@ -255,6 +256,42 @@ mqttClient.on('message', async (topic, message) => {
                     client.send(JSON.stringify({ type: 'device_response', data: payload }));
                 }
             });
+            return;
+        }
+
+        // Intercept actions originated FROM the ESP32 (e.g. physical screen Wizard)
+        if (topic.endsWith('/device_action')) {
+            const serialCode = topic.split('/')[1];
+            if (payload.action === 'start_batch') {
+                try {
+                    const [devs] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ?', [serialCode]);
+                    if (devs.length > 0) {
+                        const deviceId = devs[0].id;
+                        const userId = devs[0].user_id;
+                        
+                        // Terminar qualquer lote ativo
+                        await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [deviceId]);
+                        
+                        // Criar novo lote
+                        const profileJson = payload.profile ? JSON.stringify(payload.profile) : null;
+                        const name = payload.name || `Lote Físico #${Math.floor(Math.random() * 1000)}`;
+                        const style = payload.style || '';
+                        
+                        const [result] = await pool.execute(
+                            'INSERT INTO batches (device_id, name, style, og, fg, profile, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
+                            [deviceId, name, style, null, null, profileJson]
+                        );
+                        
+                        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [userId, 'START_BATCH_LOCAL', `Batch: ${name} (Device: ${serialCode})`, 'ESP32']);
+                        
+                        activeBatches[serialCode.trim().toUpperCase()] = result.insertId;
+                        notifyUpdate();
+                        console.log(`🍺 [Device Action] Novo lote ${result.insertId} criado fisicamente na placa ${serialCode}`);
+                    }
+                } catch (e) {
+                    console.error('Failed to create batch from device action:', e);
+                }
+            }
             return;
         }
 
