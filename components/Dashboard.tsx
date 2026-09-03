@@ -7,10 +7,13 @@ import { MOCK_SCANNED_DEVICES } from '../services/mockData';
 
 import { useNavigate } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
+import { useBrew } from '../context/BrewContext';
 import { ENV } from '../config/envs';
 
 export const Dashboard: React.FC = () => {
     const { fermenters, addDevice, deleteDevice } = useFermenters();
+    const { connectionStatus } = useBrew();
+    const isLoadingMQTT = connectionStatus !== 'connected';
     const navigate = useNavigate();
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -240,8 +243,14 @@ export const Dashboard: React.FC = () => {
 
 
                     return (
+                        <div key={f.id} className="relative">
+                            {isLoadingMQTT && (
+                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl border border-neutral-800">
+                                    <Loader2 className="animate-spin text-neutral-400 mb-2" size={24} />
+                                    <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">Conectando...</span>
+                                </div>
+                            )}
                         <div
-                            key={f.id}
                             onClick={() => isOnline && navigate(`/fermenter/${f.id}`)}
                             className={`group relative rounded-3xl p-8 transition-all duration-300 overflow-hidden border ${
                                 isOnline 
@@ -389,6 +398,7 @@ export const Dashboard: React.FC = () => {
 
                             {/* Background Decor */}
                             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-neutral-800/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                        </div>
                         </div>
                     );
                 })}
