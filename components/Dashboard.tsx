@@ -235,8 +235,12 @@ export const Dashboard: React.FC = () => {
                     return (
                         <div
                             key={f.id}
-                            onClick={() => navigate(`/fermenter/${f.id}`)}
-                            className="group relative bg-neutral-900/40 hover:bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 rounded-3xl p-8 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-black/50 overflow-hidden"
+                            onClick={() => isOnline && navigate(`/fermenter/${f.id}`)}
+                            className={`group relative rounded-3xl p-8 transition-all duration-300 overflow-hidden border ${
+                                isOnline 
+                                ? 'bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 cursor-pointer hover:shadow-2xl hover:shadow-black/50' 
+                                : 'bg-neutral-900/20 border-neutral-800/50 cursor-default opacity-50'
+                            }`}
                         >
                             {/* Header Section: Name & ID & Actions */}
                             <div className="flex justify-between items-start mb-6">
