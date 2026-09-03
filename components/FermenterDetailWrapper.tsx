@@ -5,6 +5,8 @@ import { useFermenters } from '../hooks/useFermenters';
 import { FermenterDetail } from './FermenterDetail';
 import { Fermenter, DeviceMode } from '../types';
 import { useBrew } from '../context/BrewContext';
+import { updateChoppName } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
 export const FermenterDetailWrapper: React.FC = () => {
@@ -12,6 +14,7 @@ export const FermenterDetailWrapper: React.FC = () => {
     const navigate = useNavigate();
     const { fermenters, updateBatch, isLoading, isFetching, updateFermenterLocal, saveEvent, deleteEvent, refetch } = useFermenters();
     const { sendCommand, blockTelemetry } = useBrew();
+    const { token } = useAuth();
     
     const fermenter = fermenters.find(f => f.id === id);
     const setpointDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -122,6 +125,9 @@ export const FermenterDetailWrapper: React.FC = () => {
             queue.forEach((item, index) => { 
                 sendCommand(updateId, 'setChopp', item); 
             });
+            if (token) {
+                updateChoppName(token, updateId, updates.kegeratorConfig.line1).catch(err => console.error(err));
+            }
             toast.success('Informações do display atualizadas!');
             shouldUpdateOptimistically = true;
         }

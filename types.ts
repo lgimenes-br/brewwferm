@@ -85,6 +85,7 @@ export interface Fermenter {
   sensor1_name?: string;
   sensor2_name?: string;
   sensor_sg_name?: string;
+  chopp_name?: string;
   status: FermenterStatus;
   beerName: string;
   style: BeerStyle;
@@ -124,6 +125,7 @@ export interface FinishedBrew {
   sensor1_name?: string;
   sensor2_name?: string;
   sensor_sg_name?: string;
+  chopp_name?: string;
 }
 
 export interface ScannedDevice {

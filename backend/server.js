@@ -95,6 +95,7 @@ const initDb = async () => {
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+        try { await pool.execute(`ALTER TABLE devices ADD COLUMN chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         
         // Smart Scheduling columns
         try { await pool.execute(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
@@ -675,7 +676,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute(`SELECT d.*, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
+        const [rows] = await pool.execute(`SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -707,6 +708,16 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
     } catch (err) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
+    try {
+        const { choppName } = req.body;
+        await pool.execute('UPDATE devices SET chopp_name = ? WHERE serial_code = ? AND user_id = ?', 
+            [choppName, req.params.id, req.user.id]);
+        notifyUpdate();
+        res.json({ message: 'Chopp name atualizado' });
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {

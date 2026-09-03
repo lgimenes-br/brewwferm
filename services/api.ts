@@ -57,6 +57,19 @@ export const fetchDevices = async (token?: string | null) => {
   return res.json();
 };
 
+export const updateChoppName = async (token: string, deviceId: string, choppName: string) => {
+    const res = await fetch(`${API_URL}/devices/${deviceId}/chopp_name`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ choppName })
+    });
+    if (!res.ok) throw new Error('Falha ao atualizar chopp');
+    return res.json();
+};
+
 export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string, sensorSgName: string) => {
     const res = await fetch(`${API_URL}/devices/${deviceId}/sensors`, {
         method: 'PUT',

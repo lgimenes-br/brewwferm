@@ -47,6 +47,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             })(),
             status: status,
             beerName: d.active_batch_name || '',
+            chopp_name: d.chopp_name,
             style: (() => {
                 const backendStyle = d.active_batch_style || d.style;
                 if (typeof backendStyle === 'string') {
