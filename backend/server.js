@@ -291,6 +291,21 @@ mqttClient.on('message', async (topic, message) => {
                 } catch (e) {
                     console.error('Failed to create batch from device action:', e);
                 }
+            } else if (payload.action === 'stop_batch') {
+                try {
+                    const [devs] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ?', [serialCode]);
+                    if (devs.length > 0) {
+                        const deviceId = devs[0].id;
+                        await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [deviceId]);
+                        
+                        delete activeBatches[serialCode.trim().toUpperCase()];
+                        notifyUpdate();
+                        console.log(`🍺 [Device Action] Lote fisicamente encerrado na placa ${serialCode}`);
+                    }
+                } catch (err) {
+                    console.error('Error handling stop_batch action:', err);
+                }
+
             }
             return;
         }
