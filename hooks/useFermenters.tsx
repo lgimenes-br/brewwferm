@@ -141,16 +141,15 @@ export const useFermenters = () => {
         queryFn: async () => {
             if (!token) return [];
             const apiData = await api.fetchDevices(token);
-            
-            // Get current cache to preserve local state like readings/mqtt updates
-            const prevFermenters = queryClient.getQueryData<Fermenter[]>(['fermenters']) || [];
-            
-            // Map the data
-            let mapped = mapDevices(apiData, prevFermenters);
+
+            // CRITICAL: Get current cache right before mapping to prevent race conditions with MQTT
+            const latestFermenters = queryClient.getQueryData<Fermenter[]>(['fermenters']) || [];
+            let mapped = mapDevices(apiData, latestFermenters);
 
             // Fetch batches to supplement metadata
             try {
                 const batchesRes = await api.fetchBatches(token);
+                
                 mapped = mapped.map(f => {
                     if (f.batchId) {
                         const batchData = batchesRes.find((b: any) => b.id === f.batchId);
