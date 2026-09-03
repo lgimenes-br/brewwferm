@@ -173,7 +173,7 @@ export const Dashboard: React.FC = () => {
                     // Check connectivity
                     const lastUpdate = f.currentDevice?.lastUpdate ? new Date(f.currentDevice.lastUpdate).getTime() : 0;
                     const now = new Date().getTime();
-                    const isOnline = !isNaN(lastUpdate) && (now - lastUpdate) < 30 * 60 * 1000;
+                    const isOnline = !isNaN(lastUpdate) && (now - lastUpdate) < 2 * 60 * 1000; // 2 minutes
 
                     // Lógica dinâmica de Status/Modo/Badge
                     let statusLabel = 'Inativo';
