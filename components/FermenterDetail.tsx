@@ -618,12 +618,26 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-neutral-600 text-sm mb-1">{fermenter.sensor_sg_name || 'Gravidade (SG)'}</span>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-4xl font-bold text-purple-400 font-mono">
-                                                {safeCurrentGravity.toFixed(3)}
-                                            </span>
-                                        </div>
+                                        {displayMode === DeviceMode.FERMENTER ? (
+                                            <>
+                                                <span className="text-neutral-600 text-sm mb-1">{fermenter.sensor_sg_name || 'Gravidade (SG)'}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-4xl font-bold text-purple-400 font-mono">
+                                                        {safeCurrentGravity.toFixed(3)}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-neutral-600 text-sm mb-1">Umidade</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-4xl font-bold text-white font-mono">
+                                                        {safeHumidity !== undefined ? parseFloat(safeHumidity).toFixed(0) : '--'}
+                                                    </span>
+                                                    <span className="text-lg text-neutral-500">%</span>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

@@ -353,11 +353,11 @@ export const Dashboard: React.FC = () => {
                                             </div>
                                         </>
                                     )}
-                                    {(f.mode === DeviceMode.FRIDGE || f.mode === DeviceMode.KEGERATOR) && safeHumidity !== undefined && (
+                                    {(f.mode === DeviceMode.FRIDGE || f.mode === DeviceMode.KEGERATOR) && (
                                         <>
                                             <div className="flex items-start justify-end gap-1">
                                                 <span className="text-5xl font-bold tracking-tighter text-white">
-                                                    {parseFloat(safeHumidity).toFixed(0)}
+                                                    {safeHumidity !== undefined ? parseFloat(safeHumidity).toFixed(0) : '--'}
                                                 </span>
                                                 <span className="text-lg text-neutral-500 font-light mt-1">%</span>
                                             </div>
