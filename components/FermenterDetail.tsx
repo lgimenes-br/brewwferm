@@ -59,6 +59,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
         ? fermenter.readings[fermenter.readings.length - 1].gravity 
         : 0;
+    const safeHumidity = fermenter.currentDevice?.extSens?.hum;
     const safeCurrentGravity = fermenter.currentDevice?.gravity > 0 
         ? parseFloat(String(fermenter.currentDevice.gravity))
         : (parseFloat(String(lastChartGravity)) || 0);
