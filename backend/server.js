@@ -676,8 +676,16 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute(`SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
-        res.json(rows);
+        const [devices] = await pool.execute(`SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
+        
+        for (let d of devices) {
+            const [tRows] = await pool.execute(`SELECT temp_ferm as last_temp, temp_amb as last_temp2, target_temp as last_target, status_op as last_status, battery as last_battery, rssi as last_rssi, gravity as last_gravity, extra_sensors as last_extra_sensors FROM telemetry WHERE device_id = ? ORDER BY id DESC LIMIT 1`, [d.id]);
+            if (tRows.length > 0) {
+                Object.assign(d, tRows[0]);
+            }
+        }
+        
+        res.json(devices);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
