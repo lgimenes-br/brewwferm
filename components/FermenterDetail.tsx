@@ -290,6 +290,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     return (
         <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
             {/* Header Section */}
+            {displayMode === DeviceMode.FERMENTER && (
             <div className="flex justify-between items-start mb-8">
                 <div className="flex-1">
                     {fermenter.batchId && (
@@ -367,6 +368,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 <div className="flex flex-col items-end gap-2 shrink-0">
                 </div>
             </div>
+            )}
 
             {/* ATIVAR MODO Banner */}
             {hasPendingChange && (
