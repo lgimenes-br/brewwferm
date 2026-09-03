@@ -332,7 +332,7 @@ export const Dashboard: React.FC = () => {
 
                                 {/* Gravity Column: Mostrar apenas se for fermentador */}
                                 <div className="text-right">
-                                    {f.mode === DeviceMode.FERMENTER ? (
+                                    {f.mode === DeviceMode.FERMENTER && (
                                         <>
                                             <div className="flex items-start justify-end gap-1">
                                                 <span className="text-4xl font-bold tracking-tighter text-purple-400 font-mono">
