@@ -56,6 +56,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
             client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)
+            
+            // Force all ESP32 devices to broadcast their current state immediately
+            client.publish('brewbrother/all/command', JSON.stringify({ cmd: "request_status" }));
         });
 
         client.on('message', (topic, message) => {
