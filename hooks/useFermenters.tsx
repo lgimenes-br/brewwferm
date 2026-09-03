@@ -19,6 +19,16 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
         const savedStepTime = localStorage.getItem(`device_stepTime_${d.serial_code}`);
         const savedLastUpdate = localStorage.getItem(`device_lastUpdate_${d.serial_code}`);
 
+        const parsedExtraSensors = (() => {
+            try {
+                if (d.last_extra_sensors) {
+                    if (typeof d.last_extra_sensors === 'string') return JSON.parse(d.last_extra_sensors);
+                    return d.last_extra_sensors;
+                }
+            } catch (e) {}
+            return undefined;
+        })();
+
         const safeCurrentDevice = prevDev ? prevDev.currentDevice : {
             gravity: 0,
             temperature: 0,
@@ -29,7 +39,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             statOp: d.status_op || d.stat_op || 'INATIVO',
             logInterval: d.wi ? d.wi / 1000 : 30, // Default 30s
             compressorDelay: d.cds || 310,
-            stepTime: savedStepTime ? parseFloat(savedStepTime) : undefined
+            stepTime: savedStepTime ? parseFloat(savedStepTime) : undefined,
+            extSens: parsedExtraSensors
         };
 
         return {

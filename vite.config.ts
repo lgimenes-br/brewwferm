@@ -33,7 +33,8 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         workbox: {
-          importScripts: ['/push-sw.js']
+          importScripts: ['/push-sw.js'],
+          maximumFileSizeToCacheInBytes: 3000000
         },
         includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'mask-icon.svg'],
         manifest: {

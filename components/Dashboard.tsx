@@ -228,6 +228,7 @@ export const Dashboard: React.FC = () => {
                     const lastChartGravity = f.readings && f.readings.length > 0 
                         ? f.readings[f.readings.length - 1].gravity 
                         : 0;
+                    const safeHumidity = f.currentDevice?.extSens?.hum;
                     const safeGravity = f.currentDevice?.gravity > 0 
                         ? parseFloat(String(f.currentDevice.gravity))
                         : (parseFloat(String(lastChartGravity)) || 0);
@@ -330,7 +331,7 @@ export const Dashboard: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Gravity Column: Mostrar apenas se for fermentador */}
+                                {/* Right Column */}
                                 <div className="text-right">
                                     {f.mode === DeviceMode.FERMENTER && (
                                         <>
@@ -349,6 +350,21 @@ export const Dashboard: React.FC = () => {
                                                         FG: {safeFG.toFixed(3)}
                                                     </span>
                                                 )}
+                                            </div>
+                                        </>
+                                    )}
+                                    {(f.mode === DeviceMode.FRIDGE || f.mode === DeviceMode.KEGERATOR) && safeHumidity !== undefined && (
+                                        <>
+                                            <div className="flex items-start justify-end gap-1">
+                                                <span className="text-5xl font-bold tracking-tighter text-white">
+                                                    {parseFloat(safeHumidity).toFixed(0)}
+                                                </span>
+                                                <span className="text-lg text-neutral-500 font-light mt-1">%</span>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-0.5 mt-2">
+                                                <span className="text-xs text-neutral-500 uppercase tracking-wider block">
+                                                    UMIDADE
+                                                </span>
                                             </div>
                                         </>
                                     )}

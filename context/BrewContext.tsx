@@ -199,7 +199,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         compressorDelay: payload.cds,
                         version: payload.ver, // Firmware version
                         macCtrl: payload.macCtrl,
-                        extSens: payload.extSens,
+                        extSens: payload.ext_s || payload.extSens,
                         stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0')
                     } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });

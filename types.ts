@@ -47,6 +47,7 @@ export interface ISpindelData {
   lastUpdate: string; // ISO timestamp
   statOp?: string; // Operation Status (e.g. AQUECENDO, RESFRIANDO)
   logInterval?: number; // webinterval (ms)
+  extSens?: any; // Extra sensors like humidity
   compressorDelay?: number; // cds
   version?: string; // Firmware version (e.g. V1.0.017 SAFE-BOOT STABLE)
   stepTime?: number; // Elapsed time in current step (in hours, from ESP32)
