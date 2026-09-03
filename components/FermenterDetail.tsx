@@ -403,39 +403,56 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 // === KEGERATOR & FRIDGE MODE LAYOUT ===
                 <div className="animate-in fade-in duration-300 min-h-[600px]">
 
-                    {/* Big Temperature Display */}
-                    <div className="flex flex-col items-center justify-center py-12 mb-10 bg-neutral-900/20 border border-neutral-800 rounded-3xl relative overflow-hidden">
-                        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-neutral-700 to-transparent opacity-50"></div>
+                    {/* Main Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                        {/* Big Temperature Display */}
+                        <div className="flex flex-col items-center justify-center py-12 bg-neutral-900/20 border border-neutral-800 rounded-3xl relative overflow-hidden">
+                            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-neutral-700 to-transparent opacity-50"></div>
 
-                        <h2 className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-sm mb-4">Temperatura Atual</h2>
+                            <h2 className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-sm mb-4">Temperatura Atual</h2>
+                            <div className="flex items-start gap-2 mb-8">
+                                <span className="text-8xl md:text-8xl xl:text-9xl font-black text-white tracking-tighter tabular-nums">
+                                    {safeCurrentTemp.toFixed(1)}
+                                </span>
+                                <span className="text-4xl text-neutral-600 font-light mt-4">°C</span>
+                            </div>
 
-                        <div className="flex items-start gap-2 mb-8">
-                            <span className="text-8xl md:text-9xl font-black text-white tracking-tighter tabular-nums">
-                                {safeCurrentTemp.toFixed(1)}
-                            </span>
-                            <span className="text-4xl text-neutral-600 font-light mt-4">°C</span>
+                            {/* Set Point Controls */}
+                            <div className="flex items-center gap-6 bg-black/40 p-2 pr-6 rounded-2xl border border-neutral-800">
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => handleSetPointChange(-0.5)}
+                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-colors border border-neutral-700 active:scale-95"
+                                    >
+                                        <Minus size={20} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleSetPointChange(0.5)}
+                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-colors border border-neutral-700 active:scale-95"
+                                    >
+                                        <Plus size={20} />
+                                    </button>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Set-Point</span>
+                                    <span className="text-2xl font-mono text-green-500">{safeTargetTemp.toFixed(1)}°C</span>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Set Point Controls */}
-                        <div className="flex items-center gap-6 bg-black/40 p-2 pr-6 rounded-2xl border border-neutral-800">
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => handleSetPointChange(-0.5)}
-                                    className="w-12 h-12 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-colors border border-neutral-700 active:scale-95"
-                                >
-                                    <Minus size={20} />
-                                </button>
-                                <button
-                                    onClick={() => handleSetPointChange(0.5)}
-                                    className="w-12 h-12 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-colors border border-neutral-700 active:scale-95"
-                                >
-                                    <Plus size={20} />
-                                </button>
+                        {/* Humidity Display */}
+                        <div className="flex flex-col items-center justify-center py-12 bg-neutral-900/20 border border-neutral-800 rounded-3xl relative overflow-hidden">
+                            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-neutral-700 to-transparent opacity-50"></div>
+
+                            <h2 className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-sm mb-4">Umidade Relativa</h2>
+                            <div className="flex items-start gap-2 mb-8">
+                                <span className="text-8xl md:text-8xl xl:text-9xl font-black text-white tracking-tighter tabular-nums">
+                                    {safeHumidity !== undefined ? parseFloat(safeHumidity).toFixed(0) : '--'}
+                                </span>
+                                <span className="text-4xl text-neutral-600 font-light mt-4">%</span>
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Set-Point</span>
-                                <span className="text-2xl font-mono text-green-500">{safeTargetTemp.toFixed(1)}°C</span>
-                            </div>
+                            
+                            <div className="h-[66px]"></div> {/* Spacer */}
                         </div>
                     </div>
 
