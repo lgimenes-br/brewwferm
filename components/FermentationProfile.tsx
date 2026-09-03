@@ -305,14 +305,15 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             </div>
 
             {/* Control Bar Footer */}
-            {!isEditing && localSteps.length > 0 && (
+            {!isEditing && (
                 <div className="grid grid-cols-4 gap-2 mt-auto pt-4 border-t border-neutral-800">
                     <button
                         onClick={onTogglePause}
+                        disabled={localSteps.length === 0}
                         className={`flex flex-col items-center justify-center py-3 rounded-xl transition-all border ${isPaused
                             ? 'bg-neutral-800 text-neutral-400 border-neutral-700'
                             : 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700'
-                            }`}
+                            } disabled:opacity-30`}
                         title={isPaused ? "Retomar Fermentação" : "Pausar Rampa Atual"}
                     >
                         {isPaused ? <Play size={20} className="mb-1" /> : <Pause size={20} className="mb-1" />}
@@ -321,7 +322,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
                     <button
                         onClick={onPrevStep}
-                        disabled={currentStepIndex === 0}
+                        disabled={currentStepIndex === 0 || localSteps.length === 0}
                         className="flex flex-col items-center justify-center py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-neutral-800 text-white border border-neutral-700 transition-all"
                         title="Voltar para etapa anterior"
                     >
@@ -331,7 +332,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
                     <button
                         onClick={onNextStep}
-                        disabled={isLastStep}
+                        disabled={isLastStep || localSteps.length === 0}
                         className="flex flex-col items-center justify-center py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-neutral-800 text-white border border-neutral-700 transition-all"
                         title="Avançar para próxima rampa"
                     >
