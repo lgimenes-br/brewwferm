@@ -351,11 +351,6 @@ export const Dashboard: React.FC = () => {
                                                 )}
                                             </div>
                                         </>
-                                    ) : (
-                                        <div className="flex flex-col items-end justify-center h-full opacity-30">
-                                            <div className="text-2xl font-light text-neutral-600 uppercase tracking-tighter">N/A</div>
-                                            <span className="text-[10px] text-neutral-700 font-bold uppercase tracking-widest">GRAVIDADE</span>
-                                        </div>
                                     )}
                                 </div>
                             </div>
