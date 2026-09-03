@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice } from '../types';
 import { Wifi, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
@@ -30,6 +30,12 @@ export const Dashboard: React.FC = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [scannedDevices, setScannedDevices] = useState<ScannedDevice[]>([]);
     const [deviceToAddFromScan, setDeviceToAddFromScan] = useState<ScannedDevice | null>(null);
+
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 15000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Edit Handlers (Update needs to be handled via API now, but dashboard only updates Name/IP)
     // To keep it simple, we'll wait for the FermenterDetail refactor or create a specific update hook
@@ -172,7 +178,7 @@ export const Dashboard: React.FC = () => {
                 {fermenters.map((f) => {
                     // Check connectivity
                     const lastUpdate = f.currentDevice?.lastUpdate ? new Date(f.currentDevice.lastUpdate).getTime() : 0;
-                    const now = new Date().getTime();
+                    // const now is from state to re-render automatically
                     const isOnline = !isNaN(lastUpdate) && (now - lastUpdate) < 2 * 60 * 1000; // 2 minutes
 
                     // Lógica dinâmica de Status/Modo/Badge
