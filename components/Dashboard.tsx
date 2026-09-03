@@ -11,9 +11,10 @@ import { useBrew } from '../context/BrewContext';
 import { ENV } from '../config/envs';
 
 export const Dashboard: React.FC = () => {
-    const { fermenters, addDevice, deleteDevice } = useFermenters();
+    const { fermenters, addDevice, deleteDevice, isFetching } = useFermenters();
     const { connectionStatus } = useBrew();
     const isLoadingMQTT = connectionStatus !== 'connected';
+    const isInitialLoading = isFetching && fermenters.some(f => f.currentDevice?.temperature === 0 && !f.currentDevice?.extSens?.hum);
     const navigate = useNavigate();
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -244,10 +245,10 @@ export const Dashboard: React.FC = () => {
 
                     return (
                         <div key={f.id} className="relative">
-                            {isLoadingMQTT && (
+                            {(isLoadingMQTT || isFetching) && (
                                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl border border-neutral-800">
                                     <Loader2 className="animate-spin text-neutral-400 mb-2" size={24} />
-                                    <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">Conectando...</span>
+                                    <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">{isLoadingMQTT ? 'Conectando...' : 'Sincronizando...'}</span>
                                 </div>
                             )}
                         <div
