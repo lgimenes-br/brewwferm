@@ -58,7 +58,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)
             
             // Force all ESP32 devices to broadcast their current state immediately
-            client.publish('brewbrother/all/command', JSON.stringify({ cmd: "request_status" }));
+            // Add a small delay to ensure our subscriptions are fully active on the broker
+            setTimeout(() => {
+                client.publish('brewbrother/all/command', JSON.stringify({ cmd: "request_status" }));
+            }, 500);
         });
 
         client.on('message', (topic, message) => {

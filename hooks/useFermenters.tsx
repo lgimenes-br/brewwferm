@@ -29,7 +29,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             return undefined;
         })();
 
-        const safeCurrentDevice = prevDev ? prevDev.currentDevice : {
+        const safeCurrentDevice = prevDev && prevDev.currentDevice.temperature !== 0 ? prevDev.currentDevice : {
             gravity: d.last_gravity ? parseFloat(d.last_gravity) : 0,
             temperature: d.last_temp ? parseFloat(d.last_temp) : 0,
             battery: d.last_battery ? parseFloat(d.last_battery) : 0,
@@ -78,10 +78,10 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             og: d.active_batch_og || 0,
             fg: d.active_batch_fg || 1.010,
             volume: prevDev ? prevDev.volume : 20,
-            targetTemp: prevDev ? prevDev.targetTemp : (d.last_target ? parseFloat(d.last_target) : 20),
+            targetTemp: (prevDev && prevDev.targetTemp !== 20) ? prevDev.targetTemp : (d.last_target ? parseFloat(d.last_target) : 20),
             readings: safeReadings,
             currentDevice: safeCurrentDevice,
-            currentFridgeTemp: prevDev?.currentFridgeTemp || (d.last_temp2 ? parseFloat(d.last_temp2) : 20),
+            currentFridgeTemp: (prevDev && prevDev.currentFridgeTemp && prevDev.currentFridgeTemp !== 20) ? prevDev.currentFridgeTemp : (d.last_temp2 ? parseFloat(d.last_temp2) : 20),
             profile: (() => {
                 // If backend profile is a string, parse it
                 let backendProfile = d.active_batch_profile || d.profile;
