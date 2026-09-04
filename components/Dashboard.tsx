@@ -321,7 +321,7 @@ export const Dashboard: React.FC = () => {
                             <div className="mb-8">
                                 {/* Beer Name */}
                                 <h2 className={`text-2xl font-bold transition-colors truncate mb-3 tracking-tight ${f.mode === DeviceMode.FRIDGE ? 'invisible' : 'text-white group-hover:text-white'}`}>
-                                    {f.mode === DeviceMode.FRIDGE ? 'GELADEIRA' : f.mode === DeviceMode.KEGERATOR ? (f.chopp_name || 'Barril de Chopp') : (f.beerName || 'Vazio')}
+                                    {f.mode === DeviceMode.FRIDGE ? 'GELADEIRA' : f.mode === DeviceMode.KEGERATOR ? (f.kegeratorConfig?.line1 || f.chopp_name || f.beerName || 'Barril de Chopp') : (f.beerName || 'Vazio')}
                                 </h2>
 
                                 {/* Smart Status Badge: Reflete o modo e a rampa atual */}

@@ -25,7 +25,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const { startBatch, finishBatch } = useFermenters();
     // Local state for Kegerator Config to handle inputs before saving
     const [kegeratorForm, setKegeratorForm] = useState<KegeratorConfig>({
-        line1: fermenter.chopp_name || '',
+        line1: fermenter.kegeratorConfig?.line1 || fermenter.chopp_name || fermenter.beerName || '',
         line2: '',
         style: '',
         brewery: '',
