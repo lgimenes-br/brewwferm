@@ -12,7 +12,26 @@ import { ENV } from '../config/envs';
 
 export const Dashboard: React.FC = () => {
     const { fermenters, addDevice, deleteDevice, isFetching } = useFermenters();
-    const { connectionStatus } = useBrew();
+    const { connectionStatus, sendCommand } = useBrew();
+    
+    // Keep track of which devices we've already asked for status in this component lifecycle
+    const askedDevices = React.useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (connectionStatus === 'connected' && fermenters.length > 0) {
+            fermenters.forEach(f => {
+                const isCorrupted = f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0);
+                
+                // Ask for status if it's the first time we see this device, OR if it's corrupted and we haven't asked recently
+                if (!askedDevices.current.has(f.id) || (isCorrupted && !askedDevices.current.has(`corrupted_${f.id}`))) {
+                    askedDevices.current.add(f.id);
+                    if (isCorrupted) askedDevices.current.add(`corrupted_${f.id}`);
+                    
+                    sendCommand(f.id, "request_status", {});
+                }
+            });
+        }
+    }, [connectionStatus, fermenters]);
     const isLoadingMQTT = connectionStatus !== 'connected';
     const isInitialLoading = isFetching && fermenters.some(f => f.currentDevice?.temperature === 0 && !f.currentDevice?.extSens?.hum);
     const navigate = useNavigate();
@@ -243,9 +262,11 @@ export const Dashboard: React.FC = () => {
                     const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 
 
+                    const isCorrupted = isOnline && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
+
                     return (
                         <div key={f.id} className="relative">
-                            {(isLoadingMQTT || isFetching) && (
+                            {(isLoadingMQTT || isFetching || isCorrupted) && (
                                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl border border-neutral-800">
                                     <Loader2 className="animate-spin text-neutral-400 mb-2" size={24} />
                                     <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">{isLoadingMQTT ? 'Conectando...' : 'Sincronizando...'}</span>

@@ -30,9 +30,9 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
         })();
 
         const safeCurrentDevice = prevDev && prevDev.currentDevice.temperature !== 0 ? prevDev.currentDevice : {
-            gravity: d.last_gravity ? parseFloat(d.last_gravity) : 0,
-            temperature: d.last_temp ? parseFloat(d.last_temp) : 0,
-            battery: d.last_battery ? parseFloat(d.last_battery) : 0,
+            gravity: d.last_gravity !== null && d.last_gravity !== undefined ? parseFloat(d.last_gravity) : 0,
+            temperature: d.last_temp !== null && d.last_temp !== undefined ? parseFloat(d.last_temp) : 0,
+            battery: d.last_battery !== null && d.last_battery !== undefined ? parseFloat(d.last_battery) : 0,
             angle: 0,
             rssi: d.last_rssi ? parseInt(d.last_rssi) : 0,
             lastUpdate: savedLastUpdate || d.last_seen || new Date().toISOString(),
@@ -78,10 +78,10 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             og: d.active_batch_og || 0,
             fg: d.active_batch_fg || 1.010,
             volume: prevDev ? prevDev.volume : 20,
-            targetTemp: (prevDev && prevDev.targetTemp !== 20) ? prevDev.targetTemp : (d.last_target ? parseFloat(d.last_target) : 20),
+            targetTemp: (prevDev && prevDev.targetTemp !== undefined && prevDev.targetTemp !== 20) ? prevDev.targetTemp : (d.last_target !== null && d.last_target !== undefined ? parseFloat(d.last_target) : 20),
             readings: safeReadings,
             currentDevice: safeCurrentDevice,
-            currentFridgeTemp: (prevDev && prevDev.currentFridgeTemp && prevDev.currentFridgeTemp !== 20) ? prevDev.currentFridgeTemp : (d.last_temp2 ? parseFloat(d.last_temp2) : 20),
+            currentFridgeTemp: (prevDev && prevDev.currentFridgeTemp !== undefined && prevDev.currentFridgeTemp !== 20) ? prevDev.currentFridgeTemp : (d.last_temp2 !== null && d.last_temp2 !== undefined ? parseFloat(d.last_temp2) : 20),
             profile: (() => {
                 // If backend profile is a string, parse it
                 let backendProfile = d.active_batch_profile || d.profile;
