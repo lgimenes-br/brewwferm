@@ -890,7 +890,7 @@ function updateClock() {
       setTimeout(() => {
         document.getElementById('connecting-text').innerText = "Obtendo endereço IP...";
         setTimeout(() => {
-          document.getElementById('connecting-text').innerText = "Conectado!";
+          document.getElementById('connecting-text').innerText = "Conectado a rede:";
           document.getElementById('connecting-text').style.color = "#FFFFFF";
           document.querySelector('#connecting-ui .spinner').style.display = 'none';
           setTimeout(() => { setWizView(3); }, 1000);
