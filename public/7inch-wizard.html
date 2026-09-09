@@ -204,13 +204,14 @@
       closeKeyboard();
       document.getElementById('wifi-list-ui').style.display = 'none';
       document.getElementById('connecting-ui').style.display = 'flex';
-      document.getElementById('connecting-text').innerText = `Autenticando na rede ${selectedNet}...`;
+      document.getElementById('connecting-text').innerText = "Conectando ao Wi-Fi";
+      document.getElementById('connecting-ssid').innerText = selectedNet;
       
       setTimeout(() => {
         document.getElementById('connecting-text').innerText = "Obtendo endereço IP...";
         setTimeout(() => {
           document.getElementById('connecting-text').innerText = "Conectado!";
-          document.getElementById('connecting-text').style.color = "#22c55e";
+          document.getElementById('connecting-text').style.color = "#10B981";
           document.querySelector('#connecting-ui .spinner').style.display = 'none';
           
           setTimeout(() => { nextView(); }, 1000);

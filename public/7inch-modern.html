@@ -243,9 +243,10 @@
               <div class="wifi-item" onclick="openKeyboard('Casa_Visitante')"><div class="wifi-name">Casa_Visitante</div><div class="wifi-icon"><svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="20" r="1"></circle></svg></div></div>
               <div class="wifi-item" onclick="openKeyboard('Cervejaria_IoT')"><div class="wifi-name">Cervejaria_IoT</div><div class="wifi-icon"><svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="20" r="1"></circle></svg></div></div>
             </div>
-            <div id="connecting-ui" style="display: none; flex-direction: column; align-items: center;">
+            <div id="connecting-ui" style="display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
               <div class="spinner" style="margin-top: 0; margin-bottom: 24px;"></div>
-              <div class="wizard-desc" id="connecting-text" style="margin-bottom: 0;">Conectando a Breww_5G...</div>
+              <div class="title" id="connecting-text" style="font-size: 32px; font-weight: 700; color: #FFF; margin-bottom: 8px;">Conectando ao Wi-Fi</div>
+              <div class="subtitle" id="connecting-ssid" style="font-size: 18px; color: #666; font-weight: 400;"></div>
             </div>
           </div>
           <!-- W4: PAIRING -->
@@ -595,13 +596,14 @@
       closeKeyboard();
       document.getElementById('wifi-list-ui').style.display = 'none';
       document.getElementById('connecting-ui').style.display = 'flex';
-      document.getElementById('connecting-text').innerText = `Autenticando na rede ${selectedNet}...`;
+      document.getElementById('connecting-text').innerText = "Conectando ao Wi-Fi";
+      document.getElementById('connecting-ssid').innerText = selectedNet;
       
       setTimeout(() => {
         document.getElementById('connecting-text').innerText = "Obtendo endereço IP...";
         setTimeout(() => {
           document.getElementById('connecting-text').innerText = "Conectado!";
-          document.getElementById('connecting-text').style.color = "#22c55e";
+          document.getElementById('connecting-text').style.color = "#10B981";
           document.querySelector('#connecting-ui .spinner').style.display = 'none';
           setTimeout(() => { setWizView(3); }, 1000);
         }, 1500);
