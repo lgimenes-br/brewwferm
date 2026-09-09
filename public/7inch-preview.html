@@ -161,6 +161,55 @@
   .btn-num { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 36px; font-family: 'Space Grotesk'; cursor: pointer; transition: 0.1s; }
   .btn-num:active { background: var(--text-primary); color: var(--bg-base); }
   .btn-enter { background: var(--text-primary); color: var(--bg-base); font-weight: 700; font-size: 24px; border: none; letter-spacing: 2px; cursor: pointer; border-radius: 8px; }
+
+  /* OTA UI */
+  #ota-ui {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    background-color: var(--bg-base);
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+  }
+  #ota-ui .title { font-size: 32px; color: var(--text-primary); font-weight: 700; margin-bottom: 16px; letter-spacing: -0.5px; }
+  #ota-ui .subtitle { font-size: 18px; color: var(--text-secondary); font-weight: 400; margin-bottom: 60px; max-width: 60%; text-align: center; line-height: 1.4; }
+  
+  .circular-progress {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: conic-gradient(var(--text-primary) 0%, #222 0%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .circular-progress::before {
+    content: "";
+    position: absolute;
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background-color: var(--bg-base);
+  }
+  .progress-value {
+    position: relative;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  #ota-ui .progress-text-bottom { font-size: 16px; color: var(--text-secondary); font-weight: 400; }
+  
+  #ota-success { display: none; text-align: center; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; }
+  #ota-success .msg { font-size: 32px; color: var(--text-primary); font-weight: 700; margin-bottom: 16px; }
+
 </style>
 </head>
 <body>
@@ -363,9 +412,61 @@
       </div>
     </div>
 
+
+    <!-- OTA UI -->
+    <div id="ota-ui">
+      <div id="ota-progress-view" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
+        <div class="title">Atualizando Sistema</div>
+        <div class="subtitle">Não desligue o equipamento. O Breww está instalando a nova versão.</div>
+        
+        <div class="circular-progress" id="ota-circle">
+          <div class="progress-value" id="ota-label">0%</div>
+        </div>
+        
+        <div class="progress-text-bottom">Baixando arquivos...</div>
+      </div>
+      <div id="ota-success">
+        <div class="title" style="margin-bottom: 16px;">Atualizado com Sucesso</div>
+        <div class="subtitle" style="margin-bottom: 0;">Reiniciando o painel para aplicar as alterações.</div>
+      </div>
+    </div>
+
   </div>
 
   <script>
+
+    function simulateOTA() {
+      const otaUi = document.getElementById('ota-ui');
+      const progressView = document.getElementById('ota-progress-view');
+      const successView = document.getElementById('ota-success');
+      const circle = document.getElementById('ota-circle');
+      const label = document.getElementById('ota-label');
+      
+      otaUi.style.display = 'flex';
+      progressView.style.display = 'flex';
+      successView.style.display = 'none';
+      if (circle) circle.style.background = `conic-gradient(var(--text-primary) 0%, #222 0%)`;
+      if (label) label.innerText = '0%';
+      
+      let p = 0;
+      const interval = setInterval(() => {
+        p += Math.floor(Math.random() * 5) + 1;
+        if (p >= 100) {
+          p = 100;
+          clearInterval(interval);
+          setTimeout(() => {
+            progressView.style.display = 'none';
+            successView.style.display = 'flex';
+            setTimeout(() => {
+              otaUi.style.display = 'none';
+            }, 3000);
+          }, 500);
+        }
+        if (circle) circle.style.background = `conic-gradient(var(--text-primary) ${p}%, #222 ${p}%)`;
+        if (label) label.innerText = p + '%';
+      }, 100);
+    }
+
     // System Clock
     setInterval(() => {
       const d = new Date();
@@ -444,5 +545,8 @@
     document.getElementById('btn-enter').addEventListener('click', closeKeyboard);
 
   </script>
+
+<button onclick="simulateOTA()" style="position:fixed; top:20px; right:20px; z-index:99999; padding:15px 30px; background:#10b981; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; font-family:Inter; box-shadow: 0 4px 12px rgba(16,185,129,0.4);">TESTAR TELA DE OTA</button>
+
 </body>
 </html>
