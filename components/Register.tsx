@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { Lock, Mail, ArrowRight, Loader2, User, CheckCircle } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -17,7 +18,7 @@ export const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert('As senhas não conferem');
+      toast.error('As senhas não conferem');
       return;
     }
     setLoading(true);

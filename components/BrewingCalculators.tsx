@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { 
     Percent, 
     FlaskConical, 
@@ -101,7 +102,7 @@ export const BrewingCalculators: React.FC = () => {
                                     if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation'].includes(calc.id)) {
                                         setActiveCalculator(isActive ? null : calc.id);
                                     } else {
-                                        alert(`A calculadora "${calc.title}" será implementada em breve!`);
+                                        toast(`A calculadora "${calc.title}" será implementada em breve!`);
                                     }
                                 }}
                             >
