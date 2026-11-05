@@ -32,7 +32,7 @@ export const sendPushToUser = async (pool, userId, title, body, url = '/') => {
       try {
         await webpush.sendNotification(pushSubscription, payload);
       } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
+        if (err?.statusCode === 410 || err?.statusCode === 404) {
           // Inscrição não é mais válida, vamos deletar do banco
           await pool.execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
         } else {
