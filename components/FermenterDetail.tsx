@@ -12,6 +12,7 @@ import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
 import { FermentationProfile } from './FermentationProfile';
 import { useFermenters } from '../hooks/useFermenters';
+import { useBrew } from '../context/BrewContext';
 import { FermentationWizard } from './FermentationWizard';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -23,6 +24,7 @@ interface FermenterDetailProps {
 export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onUpdate }) => {
     const navigate = useNavigate();
     const { startBatch, finishBatch } = useFermenters();
+    const { blockTelemetry } = useBrew();
     // Local state for Kegerator Config to handle inputs before saving
     const [kegeratorForm, setKegeratorForm] = useState<KegeratorConfig>({
         line1: fermenter.kegeratorConfig?.line1 || fermenter.chopp_name || fermenter.beerName || '',
@@ -165,8 +167,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         if (!confirm('Deseja realmente finalizar este lote?')) return;
 
         try {
+            blockTelemetry(fermenter.id);
             await finishBatch({ serialCode: fermenter.id, deviceId: fermenter.id });
-            onUpdate(fermenter.id, { profile: [] });
+            onUpdate(fermenter.id, { profile: [], status: FermenterStatus.IDLE, currentStepIndex: 0, isPaused: false });
             toast.success('Lote finalizado com sucesso!');
             navigate('/');
         } catch (err) {
@@ -183,6 +186,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         profile: any[];
     }) => {
         try {
+            blockTelemetry(fermenter.id);
             await startBatch({
                 serialCode: fermenter.id,
                 name: data.name,
@@ -328,7 +332,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <input
                                         type="number"
                                         step="0.001"
-                                        value={editOG}
+                                        value={isNaN(editOG) ? '' : editOG}
                                         onChange={(e) => setEditOG(parseFloat(e.target.value))}
                                         className="w-full bg-neutral-900 border border-neutral-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-neutral-500"
                                     />
@@ -338,7 +342,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <input
                                         type="number"
                                         step="0.001"
-                                        value={editFG}
+                                        value={isNaN(editFG) ? '' : editFG}
                                         onChange={(e) => setEditFG(parseFloat(e.target.value))}
                                         className="w-full bg-neutral-900 border border-neutral-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-neutral-500"
                                     />
@@ -461,7 +465,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <h2 className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-sm mb-4">Umidade Relativa</h2>
                             <div className="flex items-start gap-2">
                                 <span className="text-8xl md:text-8xl xl:text-9xl font-black text-white tracking-tighter tabular-nums">
-                                    {safeHumidity !== undefined ? parseFloat(safeHumidity).toFixed(0) : '--'}
+                                    {safeHumidity !== undefined && safeHumidity !== null && !isNaN(parseFloat(String(safeHumidity))) ? parseFloat(String(safeHumidity)).toFixed(0) : '--'}
                                 </span>
                                 <span className="text-4xl text-neutral-600 font-light mt-4">%</span>
                             </div>
@@ -542,8 +546,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">IBU</label>
                                     <input
                                         type="number"
-                                        value={kegeratorForm.ibu}
-                                        onChange={(e) => handleKegeratorChange('ibu', parseFloat(e.target.value))}
+                                        value={isNaN(kegeratorForm.ibu) ? '' : kegeratorForm.ibu}
+                                        onChange={(e) => handleKegeratorChange('ibu', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                                         className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-4 focus:outline-none focus:border-neutral-500 transition-colors text-lg font-mono placeholder-neutral-800"
                                         placeholder="0"
                                     />
@@ -555,8 +559,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <input
                                         type="number"
                                         step="0.1"
-                                        value={kegeratorForm.abv}
-                                        onChange={(e) => handleKegeratorChange('abv', parseFloat(e.target.value))}
+                                        value={isNaN(kegeratorForm.abv) ? '' : kegeratorForm.abv}
+                                        onChange={(e) => handleKegeratorChange('abv', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                                         className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-4 focus:outline-none focus:border-neutral-500 transition-colors text-lg font-mono placeholder-neutral-800"
                                         placeholder="0.0"
                                     />

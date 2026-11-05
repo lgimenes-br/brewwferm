@@ -39,7 +39,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
     <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
     <input 
       type={type}
-      value={value}
+      value={type === 'number' && isNaN(value) ? '' : value}
       onChange={(e) => onChange(type === 'number' ? parseFloat(e.target.value) : e.target.value)}
       placeholder={placeholder}
       className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors font-mono text-sm"
@@ -48,7 +48,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 );
 
 export const Settings: React.FC = () => {
-  const { fermenters } = useFermenters();
+  const { fermenters, updateFermenterLocal } = useFermenters();
   const { sendCommand, otaProgress, scanResponses } = useBrew();
   const { token } = useAuth();
   
@@ -142,6 +142,18 @@ export const Settings: React.FC = () => {
       // Update the database with the new names
       try {
           const sensor2Name = extraSensors.length > 0 ? extraSensors[0].name : 'Geladeira';
+          try {
+              localStorage.setItem(`sensors_${selectedDeviceId}`, JSON.stringify({
+                  s1: nameSensorControle,
+                  s2: sensor2Name,
+                  sg: settings.sensorSgName
+              }));
+          } catch (e) {}
+          updateFermenterLocal(selectedDeviceId, {
+              sensor1_name: nameSensorControle,
+              sensor2_name: sensor2Name,
+              sensor_sg_name: settings.sensorSgName
+          });
           await fetch(`${API_URL}/devices/${selectedDeviceId}/sensors`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -199,15 +211,18 @@ export const Settings: React.FC = () => {
 
   const handleSaveGeneral = () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
+    const safeLogInterval = isNaN(settings.logInterval) || settings.logInterval <= 0 ? 30 : settings.logInterval;
+    const safeCompDelay = isNaN(settings.compressorDelay) || settings.compressorDelay < 0 ? 310 : settings.compressorDelay;
+    const safeChartPoints = isNaN(settings.chartPoints) || settings.chartPoints <= 0 ? 50 : settings.chartPoints;
     
     // Send MQTT configs
-    sendCommand(selectedDeviceId, 'setConfig', { field: 'webinterval', val: parseFloat(String(settings.logInterval)) });
+    sendCommand(selectedDeviceId, 'setConfig', { field: 'webinterval', val: parseFloat(String(safeLogInterval)) });
     setTimeout(() => {
-        sendCommand(selectedDeviceId, 'setConfig', { field: 'compressordelay', val: parseFloat(String(settings.compressorDelay)) });
+        sendCommand(selectedDeviceId, 'setConfig', { field: 'compressordelay', val: parseFloat(String(safeCompDelay)) });
     }, 200);
 
     // Save chart limit locally
-    localStorage.setItem('breww_chartPoints', String(settings.chartPoints));
+    localStorage.setItem('breww_chartPoints', String(safeChartPoints));
     
     toast.success('Configurações Gerais enviadas!');
   };
@@ -215,7 +230,18 @@ export const Settings: React.FC = () => {
   const handleSaveSensorNames = async () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
     sendCommand(selectedDeviceId, 'setNames', { field: 'sgn', val: settings.sensorSgName });
-    
+    try {
+        localStorage.setItem(`sensors_${selectedDeviceId}`, JSON.stringify({
+            s1: settings.sensor1Name,
+            s2: settings.sensor2Name,
+            sg: settings.sensorSgName
+        }));
+    } catch (e) {}
+    updateFermenterLocal(selectedDeviceId, {
+        sensor1_name: settings.sensor1Name,
+        sensor2_name: settings.sensor2Name,
+        sensor_sg_name: settings.sensorSgName
+    });
     
     if (token) {
         try {
@@ -235,9 +261,9 @@ export const Settings: React.FC = () => {
   const handleSaveCalibration = () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
     sendCommand(selectedDeviceId, 'setCalibration', { 
-        off_t1: parseFloat(String(settings.offsetS1)), 
-        off_t2: parseFloat(String(settings.offsetS2)), 
-        off_sg: parseFloat(String(settings.offsetSG)) 
+        off_t1: isNaN(settings.offsetS1) ? 0 : parseFloat(String(settings.offsetS1)), 
+        off_t2: isNaN(settings.offsetS2) ? 0 : parseFloat(String(settings.offsetS2)), 
+        off_sg: isNaN(settings.offsetSG) ? 0 : parseFloat(String(settings.offsetSG)) 
     });
     toast.success('Calibração enviada ao equipamento!');
   };
@@ -245,13 +271,13 @@ export const Settings: React.FC = () => {
   const handleUpdatePID = () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
     const commands = [
-        { type: 'Kp_h', val: parseFloat(String(settings.pidHeating.kp)) }, 
-        { type: 'Ki_h', val: parseFloat(String(settings.pidHeating.ki)) }, 
-        { type: 'Kd_h', val: parseFloat(String(settings.pidHeating.kd)) },
-        { type: 'Kp_c', val: parseFloat(String(settings.pidCooling.kp)) }, 
-        { type: 'Ki_c', val: parseFloat(String(settings.pidCooling.ki)) }, 
-        { type: 'Kd_c', val: parseFloat(String(settings.pidCooling.kd)) },
-        { type: 'pwmWindowHeat', val: parseFloat(String(settings.pwmWindowHeat)) }
+        { type: 'Kp_h', val: isNaN(settings.pidHeating.kp) ? 0 : parseFloat(String(settings.pidHeating.kp)) }, 
+        { type: 'Ki_h', val: isNaN(settings.pidHeating.ki) ? 0 : parseFloat(String(settings.pidHeating.ki)) }, 
+        { type: 'Kd_h', val: isNaN(settings.pidHeating.kd) ? 0 : parseFloat(String(settings.pidHeating.kd)) },
+        { type: 'Kp_c', val: isNaN(settings.pidCooling.kp) ? 0 : parseFloat(String(settings.pidCooling.kp)) }, 
+        { type: 'Ki_c', val: isNaN(settings.pidCooling.ki) ? 0 : parseFloat(String(settings.pidCooling.ki)) }, 
+        { type: 'Kd_c', val: isNaN(settings.pidCooling.kd) ? 0 : parseFloat(String(settings.pidCooling.kd)) },
+        { type: 'pwmWindowHeat', val: isNaN(settings.pwmWindowHeat) ? 2000 : parseFloat(String(settings.pwmWindowHeat)) }
     ];
     
     const promise = new Promise<void>((resolve) => {

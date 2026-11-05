@@ -55,12 +55,19 @@ export const FermenterDetailWrapper: React.FC = () => {
             if (updates.currentStepIndex > currentIndex) {
                 // Moving forward usually means skipping step in this interface
                 if (!confirm('Avançar para a próxima etapa?')) return;
+                try {
+                    localStorage.setItem(`device_stepTime_${updateId}`, '0');
+                } catch (e) {}
                 sendCommand(updateId, 'skipStep', {});
+                updates.currentDevice = { ...(updates.currentDevice as any), stepTime: 0 };
                 toast.success('Comando para pular etapa enviado!');
                 shouldUpdateOptimistically = true;
             } else if (updates.currentStepIndex < currentIndex) {
                 // Moving backward
                 if (!confirm('Voltar para a etapa anterior?')) return;
+                try {
+                    localStorage.setItem(`device_stepTime_${updateId}`, '0');
+                } catch (e) {}
                 // We re-send the profile with the new current step index
                 const payloadSteps = (fermenter?.profile || []).map((step) => ({
                     n: step.name,
@@ -69,8 +76,11 @@ export const FermenterDetailWrapper: React.FC = () => {
                 }));
                 sendCommand(updateId, 'setProfile', { 
                     steps: payloadSteps, 
-                    currentStep: updates.currentStepIndex 
+                    currentStep: updates.currentStepIndex,
+                    currStep: updates.currentStepIndex,
+                    stepTime: 0
                 });
+                updates.currentDevice = { ...(updates.currentDevice as any), stepTime: 0 };
                 toast.success('Comando para retornar etapa enviado!');
                 shouldUpdateOptimistically = true;
             }
@@ -98,15 +108,24 @@ export const FermenterDetailWrapper: React.FC = () => {
                 t: step.temperature,
                 d: step.duration * 24 // ESP32 expects hours, DB stores days
             }));
+            const nextStepIdx = updates.profile.length === 0
+                ? 0
+                : (updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0));
+            try {
+                localStorage.setItem(`device_stepTime_${updateId}`, '0');
+            } catch (e) {}
             sendCommand(updateId, 'setProfile', { 
                 steps: payloadSteps, 
-                currentStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0),
-                currStep: updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0),
+                currentStep: nextStepIdx,
+                currStep: nextStepIdx,
                 stepTime: 0
             });
             blockTelemetry(updateId);
-            updateBatch({ serialCode: updateId, profile: updates.profile });
-            toast.success('Perfil atualizado com sucesso!');
+            if (updates.profile.length > 0) {
+                updateBatch({ serialCode: updateId, profile: updates.profile });
+                toast.success('Perfil atualizado com sucesso!');
+            }
+            updates.currentDevice = { ...(updates.currentDevice as any), stepTime: 0 };
             shouldUpdateOptimistically = true;
         }
 
@@ -114,6 +133,10 @@ export const FermenterDetailWrapper: React.FC = () => {
             const modeVal = updates.mode === DeviceMode.FERMENTER ? 0 : 
                             updates.mode === DeviceMode.FRIDGE ? 1 : 
                             updates.mode === DeviceMode.KEGERATOR ? 2 : 0;
+            try {
+                localStorage.setItem(`device_mode_${updateId}`, updates.mode);
+            } catch (e) {}
+            blockTelemetry(updateId);
             sendCommand(updateId, 'setMode', { value: modeVal });
             toast.success(`Modo alterado para ${updates.mode}`);
             shouldUpdateOptimistically = true;

@@ -193,6 +193,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         });
                 }
                 
+                // Cooldown: se um comando foi enviado ha menos de 10s, nao sobrescreve estado otimista
+                // para evitar que telemetria velha (em transito) desfaca o update otimista
+                const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 10000;
+
                 if (payload.currStep !== undefined) {
                     currentStepIndexUpdate = parseInt(payload.currStep) || 0;
                 }
@@ -207,13 +211,13 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     else if (payload.opm === 1) currentModeUpdate = DeviceMode.FRIDGE;
                     else if (payload.opm === 2) currentModeUpdate = DeviceMode.KEGERATOR;
                     
-                    if (currentModeUpdate) {
+                    if (!isInCooldown && currentModeUpdate) {
                         localStorage.setItem(`device_mode_${serial}`, currentModeUpdate);
                     }
                 }
                 
                 let kegeratorConfigUpdate = undefined;
-                if (payload.c_n1 !== undefined || payload.c_n2 !== undefined) {
+                if (!isInCooldown && (payload.c_n1 !== undefined || payload.c_n2 !== undefined)) {
                     kegeratorConfigUpdate = {
                         line1: payload.c_n1 || '',
                         line2: payload.c_n2 || '',
@@ -227,13 +231,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     } catch (e) {}
                 }
 
-                if (!isRetained && payload.stepTime !== undefined) {
+                if (!isRetained && !isInCooldown && payload.stepTime !== undefined) {
                     localStorage.setItem(`device_stepTime_${serial}`, payload.stepTime.toString());
                 }
-
-                // Cooldown: se um comando foi enviado ha menos de 10s, nao sobrescreve targetTemp e mode
-                // para evitar que telemetria velha (em transito) desfaca o update otimista
-                const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 10000;
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // Only live (non-retained) MQTT packets update lastUpdate so powered-off devices are never marked online
@@ -241,19 +241,19 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const parsedTarget = parseFloat(target as any);
                 const parsedFerm = payload.ferm !== undefined ? parseFloat(payload.ferm) : NaN;
                 const parsedRssi = payload.rssi !== undefined ? parseFloat(payload.rssi) : NaN;
-                const parsedStepTime = payload.stepTime !== undefined
+                const parsedStepTime = (!isInCooldown && payload.stepTime !== undefined)
                     ? parseFloat(payload.stepTime)
                     : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0');
 
                 updateFermenterLocal(serial, {
-                    ...(newStatus ? { status: newStatus } : {}),
+                    ...(!isInCooldown && newStatus ? { status: newStatus } : {}),
                     ...(!isInCooldown && currentModeUpdate ? { mode: currentModeUpdate } : {}),
                     ...(payload.ip ? { ipAddress: payload.ip } : {}),
                     ...(!isNaN(parsedAmb) ? { currentFridgeTemp: parsedAmb } : {}),
                     ...(!isInCooldown && !isNaN(parsedTarget) ? { targetTemp: parsedTarget } : {}),
-                    ...(profileUpdate ? { profile: profileUpdate } : {}),
-                    ...(currentStepIndexUpdate !== undefined ? { currentStepIndex: currentStepIndexUpdate } : {}),
-                    ...(isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
+                    ...(!isInCooldown && profileUpdate ? { profile: profileUpdate } : {}),
+                    ...(!isInCooldown && currentStepIndexUpdate !== undefined ? { currentStepIndex: currentStepIndexUpdate } : {}),
+                    ...(!isInCooldown && isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
                     ...(kegeratorConfigUpdate ? { kegeratorConfig: kegeratorConfigUpdate } : {}),
                     currentDevice: {
                         temperature: !isNaN(parsedFerm) ? parsedFerm : undefined,

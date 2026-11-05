@@ -107,15 +107,17 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             }
         } 
         
-        if (targetEndTime === 0) {
+        if (targetEndTime === 0 && startDate) {
             // Fallback for past/future steps (ou lotes antigos sem stepStartDate)
             const start = new Date(startDate).getTime();
             let daysPrior = 0;
             for (let i = 0; i < stepIndex; i++) {
-                daysPrior += localSteps[i].duration;
+                daysPrior += localSteps[i]?.duration || 0;
             }
             targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         }
+
+        if (targetEndTime === 0 || isNaN(targetEndTime)) return null;
 
         const diff = targetEndTime - now;
 
@@ -252,7 +254,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="number"
-                                                value={step.temperature}
+                                                value={isNaN(step.temperature) ? '' : step.temperature}
                                                 onChange={(e) => handleChangeStep(step.id, 'temperature', parseFloat(e.target.value))}
                                                 className="bg-transparent text-xs font-mono text-neutral-300 w-10 border-b border-neutral-700 outline-none"
                                             />
@@ -265,7 +267,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="number"
-                                                value={step.duration}
+                                                value={isNaN(step.duration) ? '' : step.duration}
                                                 onChange={(e) => handleChangeStep(step.id, 'duration', parseFloat(e.target.value))}
                                                 className="bg-transparent text-xs font-mono text-neutral-300 w-8 border-b border-neutral-700 outline-none"
                                             />

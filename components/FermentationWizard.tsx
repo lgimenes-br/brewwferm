@@ -69,12 +69,18 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
     };
 
     const handleStart = () => {
+        const sanitizedProfile = profile.map((s, idx) => ({
+            ...s,
+            name: (s.name || '').trim() || `Etapa ${idx + 1}`,
+            temperature: isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
+            duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
+        }));
         onStart({
-            name,
+            name: name.trim() || 'Sem Nome',
             style,
             og: parseFloat(og) || 1.050,
             fg: parseFloat(fg) || 1.010,
-            profile
+            profile: sanitizedProfile
         });
     };
 
@@ -220,7 +226,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             <div className="text-[10px] text-neutral-500 uppercase font-bold ml-1 mb-1">Temp (°C)</div>
                                             <input 
                                                 type="number" 
-                                                value={p.temperature}
+                                                value={isNaN(p.temperature) ? '' : p.temperature}
                                                 onChange={(e) => handleUpdateStep(p.id, 'temperature', parseFloat(e.target.value))}
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-neutral-600"
                                             />
@@ -229,8 +235,8 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             <div className="text-[10px] text-neutral-500 uppercase font-bold ml-1 mb-1">Tempo (Dias)</div>
                                             <input 
                                                 type="number" 
-                                                value={p.duration}
-                                                onChange={(e) => handleUpdateStep(p.id, 'duration', parseInt(e.target.value))}
+                                                value={isNaN(p.duration) ? '' : p.duration}
+                                                onChange={(e) => handleUpdateStep(p.id, 'duration', parseFloat(e.target.value))}
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-neutral-600"
                                             />
                                         </div>
@@ -254,7 +260,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         </div>
                         <h2 className="text-3xl font-bold text-white mb-2">Tudo Pronto!</h2>
                         <p className="text-neutral-400 mb-8 max-w-sm mx-auto">
-                            A sua receita <strong>{name || 'Sem Nome'} ({style})</strong> está configurada para durar um total de {profile.reduce((acc, curr) => acc + curr.duration, 0)} dias em {profile.length} rampas de temperatura.
+                            A sua receita <strong>{name || 'Sem Nome'} ({style})</strong> está configurada para durar um total de {profile.reduce((acc, curr) => acc + (isNaN(curr.duration) ? 0 : curr.duration), 0)} dias em {profile.length} rampas de temperatura.
                         </p>
                         <p className="text-neutral-500 text-sm mb-8">
                             A placa será configurada imediatamente e a contagem regressiva da primeira etapa será iniciada.

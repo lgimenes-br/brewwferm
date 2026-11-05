@@ -115,10 +115,12 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             sensor2_name: d.sensor2_name,
             sensor_sg_name: d.sensor_sg_name,
             mode: (() => {
+                if (prevDev?.mode) return prevDev.mode;
                 const saved = localStorage.getItem(`device_mode_${d.serial_code}`);
                 if (saved === DeviceMode.FRIDGE) return DeviceMode.FRIDGE;
                 if (saved === DeviceMode.KEGERATOR) return DeviceMode.KEGERATOR;
-                return prevDev?.mode || DeviceMode.FERMENTER;
+                if (saved === DeviceMode.FERMENTER) return DeviceMode.FERMENTER;
+                return DeviceMode.FERMENTER;
             })(),
             status: status,
             beerName: d.active_batch_name || '',
@@ -338,6 +340,11 @@ export const useFermenters = () => {
         mutationFn: (serialCode: string) => api.deleteDevice(serialCode),
         onSuccess: (_, serialCode) => {
             liveDeviceState.delete(serialCode);
+            localStorage.removeItem(`device_mode_${serialCode}`);
+            localStorage.removeItem(`device_stepTime_${serialCode}`);
+            localStorage.removeItem(`kegerator_${serialCode}`);
+            localStorage.removeItem(`events_${serialCode}`);
+            localStorage.removeItem(`sensors_${serialCode}`);
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
         }
     });
@@ -347,6 +354,7 @@ export const useFermenters = () => {
             api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile),
         onSuccess: (res, variables) => {
             localStorage.removeItem(`events_${variables.serialCode}`);
+            localStorage.setItem(`device_stepTime_${variables.serialCode}`, '0');
             const cachedLive = liveDeviceState.get(variables.serialCode);
             if (cachedLive) {
                 liveDeviceState.set(variables.serialCode, {
@@ -354,7 +362,8 @@ export const useFermenters = () => {
                     status: FermenterStatus.ACTIVE,
                     profile: variables.profile || [],
                     currentStepIndex: 0,
-                    isPaused: false
+                    isPaused: false,
+                    ...(cachedLive.currentDevice ? { currentDevice: { ...cachedLive.currentDevice, stepTime: 0 } } : {})
                 });
             }
             queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
@@ -370,7 +379,8 @@ export const useFermenters = () => {
                     currentStepIndex: 0,
                     isPaused: false,
                     startDate: new Date().toISOString(),
-                    events: []
+                    events: [],
+                    currentDevice: f.currentDevice ? { ...f.currentDevice, stepTime: 0 } : f.currentDevice
                 } : f);
             });
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
@@ -402,6 +412,7 @@ export const useFermenters = () => {
                 } : f);
             });
             localStorage.removeItem(`events_${variables.deviceId}`);
+            localStorage.removeItem(`device_stepTime_${variables.deviceId}`);
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
             queryClient.invalidateQueries({ queryKey: ['history'] });
         }
