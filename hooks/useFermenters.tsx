@@ -40,6 +40,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             statOp: d.last_status || d.status_op || d.stat_op || 'INATIVO',
             logInterval: d.wi ? d.wi / 1000 : 30, // Default 30s
             compressorDelay: d.cds || 310,
+            version: d.firmware_version || undefined,
             stepTime: savedStepTime ? parseFloat(savedStepTime) : undefined,
             extSens: parsedExtraSensors
         };

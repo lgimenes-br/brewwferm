@@ -353,7 +353,7 @@ mqttClient.on('message', async (topic, message) => {
 
             if (now - lastLog >= logInterval) {
                 let target = payload.fsm;
-                if (payload.opm === 2) target = payload.csp;
+                if (payload.csp !== undefined) target = payload.csp;
                 else if (payload.opm === 0 && payload.fermRun && payload.steps && payload.steps[payload.currStep]) {
                     target = payload.steps[payload.currStep].t;
                 }

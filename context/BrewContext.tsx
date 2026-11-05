@@ -203,7 +203,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         statOp: statusStr || 'INATIVO',
                         logInterval: payload.wi ? payload.wi / 1000 : undefined,
                         compressorDelay: payload.cds,
-                        version: payload.ver, // Firmware version
+                        version: payload.ver || payload.fw, // Firmware version
                         macCtrl: payload.macCtrl,
                         extSens: payload.ext_s || payload.extSens,
                         stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0')
@@ -234,8 +234,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (clientRef.current && serialCode) {
             const msg = JSON.stringify({ type, cmd: type, ...payload });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
-            // Cooldown: bloqueia telemetria de sobrescrever updates otimistas por 2s
-            commandCooldownRef.current[serialCode] = Date.now();
+            // Cooldown: bloqueia telemetria de sobrescrever updates otimistas (exceto comandos de leitura)
+            if (type !== 'request_status' && type !== 'scan_sensors') {
+                commandCooldownRef.current[serialCode] = Date.now();
+            }
         }
     };
 

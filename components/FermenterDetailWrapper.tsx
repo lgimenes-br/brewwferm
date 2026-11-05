@@ -13,11 +13,19 @@ export const FermenterDetailWrapper: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { fermenters, updateBatch, isLoading, isFetching, updateFermenterLocal, saveEvent, deleteEvent, refetch } = useFermenters();
-    const { sendCommand, blockTelemetry } = useBrew();
+    const { connectionStatus, sendCommand, blockTelemetry } = useBrew();
     const { token } = useAuth();
     
     const fermenter = fermenters.find(f => f.id === id);
     const setpointDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const requestedStatusRef = useRef<string | null>(null);
+
+    React.useEffect(() => {
+        if (connectionStatus === 'connected' && id && requestedStatusRef.current !== id) {
+            requestedStatusRef.current = id;
+            sendCommand(id, 'request_status', {});
+        }
+    }, [connectionStatus, id, sendCommand]);
     
     const handleUpdate = useCallback(async (updateId: string, updates: Partial<Fermenter>) => {
         // App.tsx legacy code mapped these updates. 
