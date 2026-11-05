@@ -465,7 +465,7 @@ const OverviewTab = () => {
                                     <span className="text-neutral-400">{fw.count} disp.</span>
                                 </div>
                                 <div className="w-full bg-neutral-800 rounded-full h-2">
-                                    <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.min((fw.count / stats.total_devices) * 100, 100)}%` }}></div>
+                                    <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${stats.total_devices > 0 ? Math.min((fw.count / stats.total_devices) * 100, 100) : 0}%` }}></div>
                                 </div>
                             </div>
                         )) : (
@@ -491,7 +491,7 @@ const TelemetryTab = () => {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => res.json())
-        .then(data => { setDevices(data); setLoading(false); })
+        .then(data => { setDevices(Array.isArray(data) ? data : []); setLoading(false); })
         .catch(() => setLoading(false));
     }, [token]);
 
@@ -587,10 +587,10 @@ const SecurityTab = () => {
 
     const loadData = () => {
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/audit`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(res => res.json()).then(setLogs).catch(() => {});
+            .then(res => res.json()).then(data => setLogs(Array.isArray(data) ? data : [])).catch(() => {});
             
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(res => res.json()).then(setBroadcasts).catch(() => {});
+            .then(res => res.json()).then(data => setBroadcasts(Array.isArray(data) ? data : [])).catch(() => {});
     };
 
     useEffect(() => { loadData(); }, [token]);
@@ -968,9 +968,10 @@ const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId:
         })
         .then(res => res.json())
         .then(data => { 
-            setDevices(data.filter((d: any) => d.user_id === userId)); 
+            setDevices(Array.isArray(data) ? data.filter((d: any) => d.user_id === userId) : []); 
             setLoading(false);
-        });
+        })
+        .catch(() => setLoading(false));
     }, [token, userId, refreshTrigger]);
 
     return loading ? (
@@ -1159,7 +1160,7 @@ const IngredientsTab = () => {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => res.json())
-        .then(data => { setIngredients(data); setLoading(false); })
+        .then(data => { setIngredients(Array.isArray(data) ? data : []); setLoading(false); })
         .catch(() => { toast.error('Erro ao carregar'); setLoading(false); });
     };
 
@@ -1451,7 +1452,7 @@ const FirmwareTab = () => {
     useEffect(() => {
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
         .then(res => res.json())
-        .then(data => setDevices(data))
+        .then(data => setDevices(Array.isArray(data) ? data : []))
         .catch(() => {});
     }, [token]);
 

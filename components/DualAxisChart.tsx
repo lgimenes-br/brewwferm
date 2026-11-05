@@ -30,14 +30,14 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
     
     const mapped = data.map(d => {
       const rawGravity = parseFloat(String(d.gravity));
-      const rawTemp = parseFloat(String((d as any).beerTemp ?? 0));
+      const rawTemp = parseFloat(String((d as any).beerTemp ?? (d as any).temp_ferm ?? 0));
       const hasValidGravity = !isNaN(rawGravity) && rawGravity > 0;
       return {
         ...d,
         originalGravity: hasValidGravity ? rawGravity : undefined,
         gravity: hasValidGravity ? Math.min(rawGravity, 1.200) : null,
         beerTemp: isNaN(rawTemp) ? NaN : rawTemp,
-        timestamp: d.timestamp
+        timestamp: d.timestamp || (d as any).recorded_at
       };
     }).filter(d => !isNaN(d.beerTemp));
 

@@ -106,7 +106,10 @@ export const addDevice = async (serialCode: string, name: string) => {
     headers: getHeaders(),
     body: JSON.stringify({ serialCode, name })
   });
-  if (!res.ok) throw new Error('Failed to add device');
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to add device');
+  }
   return true;
 };
 

@@ -10,7 +10,7 @@ export const SystemBanner = () => {
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/broadcasts/active`)
             .then(res => res.json())
             .then(data => {
-                if (data) {
+                if (data && data.id && data.message) {
                     // Check if user already closed this specific broadcast
                     const closedId = localStorage.getItem('closed_broadcast');
                     if (closedId !== String(data.id)) {

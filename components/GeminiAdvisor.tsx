@@ -59,7 +59,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Analise_BrewwAI_${fermenter.beerName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`Analise_BrewwAI_${(fermenter.beerName || 'Lote').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
     }

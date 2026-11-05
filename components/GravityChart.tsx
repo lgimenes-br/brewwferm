@@ -33,7 +33,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
         ...d,
         originalGravity: rawVal, // Keep original for tooltip
         gravity: isNaN(rawVal) ? NaN : Math.min(rawVal, 1.200), // Clamp visual value to max 1.200 to preserve scale
-        timestamp: d.timestamp
+        timestamp: d.timestamp || (d as any).recorded_at
       };
     }).filter(d => !isNaN(d.gravity) && d.gravity > 0);
 

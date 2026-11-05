@@ -87,8 +87,8 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
           </div>
           
           <div className="flex justify-between mt-2 px-1 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">
-            <span>OG: {Number(og).toFixed(3)}</span>
-            <span>FG Alvo: {Number(fg).toFixed(3)}</span>
+            <span>OG: {(Number(og) || 0).toFixed(3)}</span>
+            <span>FG Alvo: {fg ? Number(fg).toFixed(3) : '-'}</span>
           </div>
         </div>
 

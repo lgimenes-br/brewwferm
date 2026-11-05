@@ -244,6 +244,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             {(() => {
               const start = new Date(brew.startDate).getTime();
               const end = brew.endDate ? new Date(brew.endDate).getTime() : Date.now();
+              if (isNaN(start) || isNaN(end)) return '0d 0h';
               const diff = Math.max(0, end - start);
               const days = Math.floor(diff / (1000 * 60 * 60 * 24));
               const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -280,9 +281,10 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Máx Temp</span>
           <span className="text-xl font-mono text-red-500 font-medium">
-            {readings.length > 0
-              ? Math.max(...readings.map(r => r.beerTemp)).toFixed(1)
-              : '0.0'}°C
+            {(() => {
+              const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
+              return validTemps.length > 0 ? Math.max(...validTemps).toFixed(1) : '0.0';
+            })()}°C
           </span>
         </div>
 
@@ -420,7 +422,11 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       )}
 
       <div className="mt-16 pt-8 border-t border-neutral-900 flex justify-center text-xs text-neutral-600 font-mono uppercase tracking-widest">
-        Tempo Total de Fermentação: {Math.max(0, Math.ceil(((brew.endDate ? new Date(brew.endDate).getTime() : Date.now()) - new Date(brew.startDate).getTime()) / (1000 * 3600 * 24)))} dias
+        Tempo Total de Fermentação: {(() => {
+          const s = new Date(brew.startDate).getTime();
+          const e = brew.endDate ? new Date(brew.endDate).getTime() : Date.now();
+          return (isNaN(s) || isNaN(e)) ? 0 : Math.max(0, Math.ceil((e - s) / (1000 * 3600 * 24)));
+        })()} dias
       </div>
     </div>
   );
