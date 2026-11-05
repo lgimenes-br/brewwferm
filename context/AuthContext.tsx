@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import * as api from '../services/api';
 import { clearLiveDeviceState } from '../hooks/useFermenters';
@@ -16,6 +17,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const queryClient = useQueryClient();
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [user, setUser] = useState<string | null>(localStorage.getItem('user'));
     const [role, setRole] = useState<string | null>(localStorage.getItem('role'));
@@ -67,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = () => {
         clearLiveDeviceState();
+        queryClient.clear();
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('role');

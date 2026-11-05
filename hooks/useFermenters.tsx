@@ -11,7 +11,7 @@ export const clearLiveDeviceState = () => {
     liveDeviceState.clear();
 };
 
-const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>): Fermenter => {
+const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appendReading = true): Fermenter => {
     const rest = { ...updates };
 
     // If the device has no active batch, do NOT allow MQTT to override
@@ -46,7 +46,7 @@ const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>): Ferm
         filteredRest.currentDevice = updatedCurrentDevice;
 
         // Adicionar nova leitura ao grafico local apenas em pacotes ao vivo (não retidos)
-        if (isLivePacket && filteredRest.currentDevice && filteredRest.currentDevice.temperature !== undefined && !isNaN(filteredRest.currentDevice.temperature)) {
+        if (appendReading && isLivePacket && filteredRest.currentDevice && filteredRest.currentDevice.temperature !== undefined && !isNaN(filteredRest.currentDevice.temperature)) {
             const activeStepTemp = f.profile && f.profile.length > 0 && f.currentStepIndex !== undefined
                 ? f.profile[f.currentStepIndex]?.temperature
                 : undefined;
@@ -305,7 +305,7 @@ export const useFermenters = () => {
             mapped = mapped.map(f => {
                 const pendingLive = liveDeviceState.get(f.id);
                 if (pendingLive) {
-                    return applyUpdateToFermenter(f, pendingLive);
+                    return applyUpdateToFermenter(f, pendingLive, false);
                 }
                 return f;
             });
@@ -331,7 +331,10 @@ export const useFermenters = () => {
 
     const deleteDeviceMutation = useMutation({
         mutationFn: (serialCode: string) => api.deleteDevice(serialCode),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
+        onSuccess: (_, serialCode) => {
+            liveDeviceState.delete(serialCode);
+            queryClient.invalidateQueries({ queryKey: ['fermenters'] });
+        }
     });
 
     const startBatchMutation = useMutation({
@@ -339,6 +342,16 @@ export const useFermenters = () => {
             api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile),
         onSuccess: (res, variables) => {
             localStorage.removeItem(`events_${variables.serialCode}`);
+            const cachedLive = liveDeviceState.get(variables.serialCode);
+            if (cachedLive) {
+                liveDeviceState.set(variables.serialCode, {
+                    ...cachedLive,
+                    status: FermenterStatus.ACTIVE,
+                    profile: variables.profile || [],
+                    currentStepIndex: 0,
+                    isPaused: false
+                });
+            }
             queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
                 if (!old) return [];
                 return old.map(f => f.id === variables.serialCode ? {
@@ -392,7 +405,15 @@ export const useFermenters = () => {
     const updateBatchMutation = useMutation({
         mutationFn: (data: { serialCode: string, og?: number, fg?: number, name?: string, profile?: any[] }) =>
             api.updateBatch(data.serialCode, { og: data.og, fg: data.fg, name: data.name, profile: data.profile }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
+        onSuccess: (_, variables) => {
+            if (variables.profile !== undefined) {
+                const cachedLive = liveDeviceState.get(variables.serialCode);
+                if (cachedLive) {
+                    liveDeviceState.set(variables.serialCode, { ...cachedLive, profile: variables.profile });
+                }
+            }
+            queryClient.invalidateQueries({ queryKey: ['fermenters'] });
+        }
     });
 
     const saveEventMutation = useMutation({
