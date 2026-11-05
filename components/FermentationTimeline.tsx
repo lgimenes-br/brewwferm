@@ -54,7 +54,7 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
   };
 
   return (
-    <div className="bg-neutral-900/40 border border-neutral-800 rounded-3xl p-6 h-full flex flex-col min-h-[400px] max-h-[600px]">
+    <div className="relative bg-neutral-900/40 border border-neutral-800 rounded-3xl p-6 h-full flex flex-col min-h-[400px] max-h-[600px]">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-neutral-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
           <MessageSquareText size={14} />

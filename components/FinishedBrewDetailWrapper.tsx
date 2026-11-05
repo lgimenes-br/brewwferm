@@ -30,8 +30,10 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                     const hData = await historyRes.json();
                     const hb = hData.find((x: any) => String(x.id) === id);
                     if(hb) {
-                        const hbOg = parseFloat(hb.og) || 0;
-                        const hbFg = parseFloat(hb.fg) || 0;
+                        let hbOg = parseFloat(hb.og) || 0;
+                        let hbFg = parseFloat(hb.fg) || parseFloat(hb.last_gravity) || 0;
+                        if (hbOg > 500) hbOg = hbOg / 1000;
+                        if (hbFg > 500) hbFg = hbFg / 1000;
                         return {
                             id: String(hb.id),
                             batchNumber: String(hb.id),
@@ -56,7 +58,9 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
             }
 
             let og = parseFloat(b.og) || 0;
-            let fg = parseFloat(b.fg) || 0;
+            let fg = parseFloat(b.fg) || parseFloat(b.last_gravity) || 0;
+            if (og > 500) og = og / 1000;
+            if (fg > 500) fg = fg / 1000;
 
             return {
                 id: String(b.id),

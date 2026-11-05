@@ -26,6 +26,7 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
     if (!data || !Array.isArray(data)) return [];
     
     const chartPoints = parseInt(localStorage.getItem('breww_chartPoints') || '50', 10);
+    const safeChartPoints = !isNaN(chartPoints) && chartPoints > 0 ? chartPoints : 50;
     
     const mapped = data.map(d => {
       // Map extra sensors
@@ -37,8 +38,9 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
           }
           if (Array.isArray(parsed)) {
               parsed.forEach((ex: any) => {
-                  if (ex.n && ex.t !== undefined) {
-                      extras[`extra_${ex.n}`] = parseFloat(ex.t);
+                  if (ex && ex.n && ex.t !== undefined) {
+                      const val = parseFloat(ex.t);
+                      if (!isNaN(val)) extras[`extra_${ex.n}`] = val;
                   }
               });
           }
@@ -54,7 +56,7 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
       };
     }).filter(d => !isNaN(d.beerTemp));
 
-      return chartPoints > 0 ? mapped.slice(-chartPoints) : mapped;
+      return mapped.slice(-safeChartPoints);
     }, [data]);
 
     // Extract unique extra sensor keys to render dynamic lines

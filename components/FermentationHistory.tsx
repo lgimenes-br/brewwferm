@@ -68,7 +68,9 @@ export const FermentationHistory: React.FC = () => {
                 const mapped: FinishedBrew[] = await Promise.all(
                     allBatches.map(async (b: any) => {
                         let og = parseFloat(b.og) || 0;
-                        let fg = parseFloat(b.fg) || 0;
+                        let fg = parseFloat(b.fg) || parseFloat(b.last_gravity) || 0;
+                        if (og > 500) og = og / 1000;
+                        if (fg > 500) fg = fg / 1000;
 
                         return {
                             id: String(b.id),
