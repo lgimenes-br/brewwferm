@@ -110,6 +110,16 @@ export const addDevice = async (serialCode: string, name: string) => {
   return true;
 };
 
+export const updateDevice = async (serialCode: string, name: string) => {
+  const res = await fetch(`${API_URL}/devices/${serialCode}`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify({ name })
+  });
+  if (!res.ok) throw new Error('Failed to update device');
+  return res.json();
+};
+
 export const deleteDevice = async (serialCode: string) => {
   const res = await fetch(`${API_URL}/devices/${serialCode}`, {
     method: 'DELETE',

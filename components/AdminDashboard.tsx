@@ -90,7 +90,11 @@ const MarketingTab = () => {
                                             {d.rssi < -80 ? <span className="text-red-400 flex items-center gap-1"><WifiOff size={14}/> {d.rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (d.rssi + 100)))}%</span> : <span className="text-amber-400">{d.rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (d.rssi + 100)))}%</span>}
                                         </td>
                                         <td className="py-3 px-3 text-sm">
-                                            {d.battery < 20 ? <span className="text-red-400 font-bold">{d.battery}%</span> : <span className="text-amber-400">{d.battery}%</span>}
+                                            {d.battery !== null && d.battery !== undefined && Number(d.battery) > 0 ? (
+                                                Number(d.battery) < 3.4
+                                                    ? <span className="text-red-400 font-bold">{Number(d.battery).toFixed(2)}V</span>
+                                                    : <span className={Number(d.battery) < 3.7 ? "text-amber-400" : "text-emerald-400"}>{Number(d.battery).toFixed(2)}V</span>
+                                            ) : '--'}
                                         </td>
                                     </tr>
                                 )) : <tr><td colSpan={4} className="py-4 text-center text-neutral-500 text-sm">Nenhum dispositivo em estado crítico.</td></tr>}
@@ -531,12 +535,15 @@ const TelemetryTab = () => {
                                         </span>
                                     </td>
                                     <td className="py-3 px-4 text-center">
-                                        {dev.last_battery !== null ? (
+                                        {dev.last_battery !== null && Number(dev.last_battery) > 0 ? (
                                             <div className="flex items-center justify-center gap-1">
                                                 <div className="w-6 h-3 border border-neutral-600 rounded-sm relative overflow-hidden">
-                                                    <div className="h-full bg-emerald-500" style={{ width: `${dev.last_battery}%` }}></div>
+                                                    <div
+                                                        className={`h-full ${Number(dev.last_battery) < 3.4 ? 'bg-red-500' : Number(dev.last_battery) < 3.7 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                        style={{ width: `${Math.min(100, Math.max(0, ((Number(dev.last_battery) - 3.0) / 1.2) * 100))}%` }}
+                                                    ></div>
                                                 </div>
-                                                <span className="text-xs text-neutral-400">{dev.last_battery}%</span>
+                                                <span className="text-xs font-mono text-neutral-400">{Number(dev.last_battery).toFixed(2)}V</span>
                                             </div>
                                         ) : '--'}
                                     </td>

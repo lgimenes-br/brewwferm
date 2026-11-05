@@ -3,15 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice } from '../types';
 import { Wifi, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
-import { MOCK_SCANNED_DEVICES } from '../services/mockData';
 
 import { useNavigate } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
-import { ENV } from '../config/envs';
+import { API_URL } from '../config';
 
 export const Dashboard: React.FC = () => {
-    const { fermenters, addDevice, deleteDevice, isFetching } = useFermenters();
+    const { fermenters, addDevice, updateDevice, deleteDevice, isFetching } = useFermenters();
     const { connectionStatus, sendCommand } = useBrew();
     
     // Keep track of which devices we've already asked for status in this component lifecycle
@@ -87,10 +86,14 @@ export const Dashboard: React.FC = () => {
     };
 
     const handleSaveEdit = async () => {
-        if (editingId) {
-            // Note: In real app we need updateDevice method in API. 
-            // For now just close the modal. We'll add updateDevice later if needed.
-            setEditingId(null);
+        if (editingId && editName.trim()) {
+            try {
+                await updateDevice({ serialCode: editingId, name: editName.trim() });
+                toast.success('Dispositivo atualizado com sucesso!');
+                setEditingId(null);
+            } catch (err) {
+                toast.error('Erro ao atualizar dispositivo.');
+            }
         }
     };
 
@@ -119,10 +122,9 @@ export const Dashboard: React.FC = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const API_BASE = ENV.API_URL;
 
             // Try to fetch real devices first
-            const res = await fetch(`${API_BASE}/discovery`, {
+            const res = await fetch(`${API_URL}/discovery`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

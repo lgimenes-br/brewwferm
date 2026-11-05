@@ -12,18 +12,15 @@ import {
   ReferenceLine
 } from 'recharts';
 import { Reading, FermentationEvent } from '../types';
-import { EventLog } from './EventLog';
 
 interface TemperatureChartProps {
   data: Reading[];
   events?: FermentationEvent[];
   sensor1Name?: string;
   sensor2Name?: string;
-  onAddEvent?: (event: Omit<FermentationEvent, 'id'>) => void;
-  onRemoveEvent?: (id: string) => void;
 }
 
-export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ data, events = [], sensor1Name = 'Cerveja', sensor2Name = 'Geladeira', onAddEvent, onRemoveEvent }) => {
+export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ data, events = [], sensor1Name = 'Cerveja', sensor2Name = 'Geladeira' }) => {
   // Safe parsing of data points
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];

@@ -29,7 +29,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             return undefined;
         })();
 
-        const safeCurrentDevice = prevDev && prevDev.currentDevice.temperature !== 0 ? prevDev.currentDevice : {
+        const hasLiveDeviceData = Boolean(prevDev && (prevDev.currentDevice.temperature !== 0 || prevDev.currentDevice.rssi !== 0 || prevDev.currentDevice.extSens));
+        const safeCurrentDevice = hasLiveDeviceData ? prevDev!.currentDevice : {
             gravity: d.last_gravity !== null && d.last_gravity !== undefined ? parseFloat(d.last_gravity) : 0,
             temperature: d.last_temp !== null && d.last_temp !== undefined ? parseFloat(d.last_temp) : 0,
             battery: d.last_battery !== null && d.last_battery !== undefined ? parseFloat(d.last_battery) : 0,
@@ -78,10 +79,10 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             og: d.active_batch_og || 0,
             fg: d.active_batch_fg || 1.010,
             volume: prevDev ? prevDev.volume : 20,
-            targetTemp: (prevDev && prevDev.targetTemp !== undefined && prevDev.targetTemp !== 20) ? prevDev.targetTemp : (d.last_target !== null && d.last_target !== undefined ? parseFloat(d.last_target) : 20),
+            targetTemp: (hasLiveDeviceData && prevDev?.targetTemp !== undefined) ? prevDev.targetTemp : (d.last_target !== null && d.last_target !== undefined ? parseFloat(d.last_target) : 20),
             readings: safeReadings,
             currentDevice: safeCurrentDevice,
-            currentFridgeTemp: (prevDev && prevDev.currentFridgeTemp !== undefined && prevDev.currentFridgeTemp !== 20) ? prevDev.currentFridgeTemp : (d.last_temp2 !== null && d.last_temp2 !== undefined ? parseFloat(d.last_temp2) : 20),
+            currentFridgeTemp: (hasLiveDeviceData && prevDev?.currentFridgeTemp !== undefined) ? prevDev.currentFridgeTemp : (d.last_temp2 !== null && d.last_temp2 !== undefined ? parseFloat(d.last_temp2) : 20),
             profile: (() => {
                 // If backend profile is a string, parse it
                 let backendProfile = d.active_batch_profile || d.profile;
@@ -237,6 +238,11 @@ export const useFermenters = () => {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
     });
 
+    const updateDeviceMutation = useMutation({
+        mutationFn: (data: { serialCode: string, name: string }) => api.updateDevice(data.serialCode, data.name),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
+    });
+
     const deleteDeviceMutation = useMutation({
         mutationFn: (serialCode: string) => api.deleteDevice(serialCode),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
@@ -365,6 +371,7 @@ export const useFermenters = () => {
         refetch,
         updateFermenterLocal,
         addDevice: addDeviceMutation.mutateAsync,
+        updateDevice: updateDeviceMutation.mutateAsync,
         deleteDevice: deleteDeviceMutation.mutateAsync,
         startBatch: startBatchMutation.mutateAsync,
         finishBatch: finishBatchMutation.mutateAsync,

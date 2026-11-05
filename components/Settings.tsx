@@ -95,8 +95,6 @@ export const Settings: React.FC = () => {
 
   const [relayState, setRelayState] = useState<'AUTO' | 'HEAT' | 'COOL'>('AUTO');
   
-  const [otaUrl, setOtaUrl] = useState<string>('http://breww.live/firmware/update.bin');
-  const [otaMd5, setOtaMd5] = useState<string>('');
   const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [macSensorControle, setMacSensorControle] = useState('');
@@ -280,16 +278,6 @@ export const Settings: React.FC = () => {
     if(mode === 0) toast.success('Modo Automático ativado');
     if(mode === 1) toast.success('Aquecimento forçado LIGADO');
     if(mode === 2) toast.success('Refrigeração forçada LIGADA');
-  };
-
-  const handleTriggerOTA = () => {
-    if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
-    if (!otaUrl || otaUrl.length < 10) return toast.error('Insira uma URL válida para o firmware.');
-    
-    if (confirm('ATENÇÃO: O ESP32 será reiniciado e iniciará o download do novo firmware. Certifique-se que o arquivo existe na URL especificada. Continuar?')) {
-        sendCommand(selectedDeviceId, 'update_firmware', { url: otaUrl, md5: otaMd5 });
-        toast.success('Comando de Atualização OTA enviado! O painel da placa exibirá o progresso.');
-    }
   };
 
   const handleClearLogs = async () => {
@@ -595,34 +583,6 @@ export const Settings: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. Notificações Push (PWA) */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
-        <SectionHeader icon={Smartphone} title="Notificações Push" />
-        <p className="text-neutral-500 text-xs mb-6 -mt-4">
-            Receba alertas sobre finalização de rampas, alvo atingido, estabilização de gravidade (FG) e erros.
-            Para iOS, adicione o dashboard à Tela de Início primeiro.
-        </p>
-        <div className="flex items-center justify-between bg-neutral-800/30 p-4 rounded-xl border border-neutral-700/50">
-            <div>
-                <h4 className="text-white font-bold tracking-tight">Status do Dispositivo</h4>
-                <p className="text-neutral-400 text-xs mt-1">
-                    {isSubscribed ? 'Este dispositivo está inscrito e receberá os alertas.' : 'Este dispositivo não está recebendo alertas.'}
-                </p>
-            </div>
-            <button
-                onClick={handleSubscribePush}
-                disabled={isSubscribed}
-                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                    isSubscribed 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'
-                }`}
-            >
-                {isSubscribed ? 'Ativado' : 'Ativar Alertas'}
-            </button>
-        </div>
-      </section>
-
       {/* 6. Teste de Relés */}
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
         <SectionHeader icon={Zap} title="Teste de Relés" />
@@ -808,17 +768,11 @@ export const Settings: React.FC = () => {
                 </div>
                 <button 
                     onClick={() => {
-                        const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
-                        const finalUrl = latestFirmware.url || `${baseUrl}/firmware/update.bin`;
-                        setOtaUrl(finalUrl);
-                        if(latestFirmware.md5) setOtaMd5(latestFirmware.md5);
-                        
-                        setTimeout(() => {
-                            if (confirm(`Deseja instalar a versão ${latestFirmware.version} agora? O ESP32 será reiniciado.`)) {
-                                sendCommand(selectedDeviceId, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
-                                toast.success('Comando de Atualização OTA enviado! O painel da placa exibirá o progresso.');
-                            }
-                        }, 100);
+                        const finalUrl = latestFirmware.url || `${window.location.origin}/firmware/update.bin`;
+                        if (confirm(`Deseja instalar a versão ${latestFirmware.version} agora? O ESP32 será reiniciado.`)) {
+                            sendCommand(selectedDeviceId, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
+                            toast.success('Comando de Atualização OTA enviado! O painel da placa exibirá o progresso.');
+                        }
                     }}
                     className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0 shadow-[0_0_15px_rgba(5,150,105,0.3)]"
                 >

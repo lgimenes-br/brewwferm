@@ -252,17 +252,13 @@ mqttClient.on('message', async (topic, message) => {
         
         // Intercept responses for Dashboard
         if (topic.endsWith('/response')) {
-            wss.clients.forEach((client) => {
-                if (client.readyState === 1 && client.isAlive) {
-                    client.send(JSON.stringify({ type: 'device_response', data: payload }));
-                }
-            });
             return;
         }
 
         // Intercept actions originated FROM the ESP32 (e.g. physical screen Wizard)
         if (topic.endsWith('/device_action')) {
             const serialCode = topic.split('/')[1];
+            const normalizedSerial = serialCode.trim().toUpperCase();
             if (payload.action === 'start_batch') {
                 try {
                     const [devs] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ?', [serialCode]);
@@ -285,7 +281,8 @@ mqttClient.on('message', async (topic, message) => {
                         
                         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [userId, 'START_BATCH_LOCAL', `Batch: ${name} (Device: ${serialCode})`, 'ESP32']);
                         
-                        activeBatches[serialCode.trim().toUpperCase()] = result.insertId;
+                        activeBatches[normalizedSerial] = result.insertId;
+                        activeBatchesUserId[normalizedSerial] = userId;
                         notifyUpdate();
                         console.log(`🍺 [Device Action] Novo lote ${result.insertId} criado fisicamente na placa ${serialCode}`);
                     }
@@ -299,7 +296,8 @@ mqttClient.on('message', async (topic, message) => {
                         const deviceId = devs[0].id;
                         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [deviceId]);
                         
-                        delete activeBatches[serialCode.trim().toUpperCase()];
+                        delete activeBatches[normalizedSerial];
+                        delete activeBatchesUserId[normalizedSerial];
                         notifyUpdate();
                         console.log(`🍺 [Device Action] Lote fisicamente encerrado na placa ${serialCode}`);
                     }
@@ -344,8 +342,9 @@ mqttClient.on('message', async (topic, message) => {
         if (deviceId) {
             delete discoveredUnknowns[serialCode];
             await pool.execute('UPDATE devices SET last_seen = NOW() WHERE id = ?', [deviceId]).catch(() => { });
-            if (payload.fw) {
-                await pool.execute('UPDATE devices SET firmware_version = ? WHERE id = ?', [payload.fw, deviceId]).catch(() => { });
+            const fwVersion = payload.fw || payload.ver;
+            if (fwVersion) {
+                await pool.execute('UPDATE devices SET firmware_version = ? WHERE id = ?', [fwVersion, deviceId]).catch(() => { });
             }
 
             const now = Date.now();
@@ -600,7 +599,7 @@ app.post('/api/auth/google', async (req, res) => {
 
         if (users.length === 0) {
             // Cria usuário novo
-            const [result] = await pool.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', [name, email, 'google_sso_' + googleId]);
+            const [result] = await pool.execute('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)', [name, email, 'google_sso_' + googleId]);
             userId = result.insertId;
         } else {
             userId = users[0].id;
@@ -689,7 +688,7 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/discovery', async (req, res) => {
+app.get('/api/discovery', authenticateToken, async (req, res) => {
     try {
         const now = Date.now();
         console.log(`🔎 [API] /api/discovery solicitado. Cache atual: ${Object.keys(discoveredUnknowns).length} itens`);
@@ -711,11 +710,21 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'Limite de equipamentos atingido. Atualize seu plano.' });
         }
 
-        await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [req.body.serialCode, req.user.id, req.body.name]);
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${req.body.serialCode}`, req.ip]);
+        const serialCode = (req.body.serialCode || '').trim().toUpperCase();
+        await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body.name]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip]);
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
     } catch (err) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
+    try {
+        const { name } = req.body;
+        await pool.execute('UPDATE devices SET device_name = ? WHERE serial_code = ? AND user_id = ?', [name, req.params.serial, req.user.id]);
+        notifyUpdate();
+        res.json({ message: 'Dispositivo atualizado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
@@ -742,9 +751,12 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
 
 app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
+        const normalizedSerial = req.params.serial.trim().toUpperCase();
         await pool.execute('DELETE FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip]);
-        delete activeBatches[req.params.serial.trim().toUpperCase()];
+        delete activeBatches[normalizedSerial];
+        delete activeBatchesUserId[normalizedSerial];
+        delete alertState[normalizedSerial];
         notifyUpdate();
         res.json({ message: 'Excluído' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -767,7 +779,9 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'START_BATCH', `Batch: ${name} (Device: ${serialCode})`, req.ip]);
 
-        activeBatches[serialCode.trim().toUpperCase()] = result.insertId;
+        const normalizedSerial = serialCode.trim().toUpperCase();
+        activeBatches[normalizedSerial] = result.insertId;
+        activeBatchesUserId[normalizedSerial] = req.user.id;
         notifyUpdate();
         res.json({ message: 'Iniciado!', batchId: result.insertId });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -775,8 +789,8 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
 app.put('/api/batch/update', authenticateToken, async (req, res) => {
     try {
-        const { serialCode, og, fg, name } = req.body;
-        console.log(`📝 [API] /api/batch/update - Recebido:`, { serialCode, og, fg, name });
+        const { serialCode, og, fg, name, profile } = req.body;
+        console.log(`📝 [API] /api/batch/update - Recebido:`, { serialCode, og, fg, name, hasProfile: profile !== undefined });
 
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [serialCode, req.user.id]);
         if (devs.length === 0) {
@@ -784,21 +798,18 @@ app.put('/api/batch/update', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Device não encontrado' });
         }
 
-        console.log(`✅ [API] Device encontrado, ID: ${devs[0].id}`);
-
         // Build dynamic update query
         const updates = [];
         const params = [];
         if (og !== undefined) { updates.push('og = ?'); params.push(og); }
         if (fg !== undefined) { updates.push('fg = ?'); params.push(fg); }
         if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+        if (profile !== undefined) { updates.push('profile = ?'); params.push(profile ? JSON.stringify(profile) : null); }
 
         if (updates.length > 0) {
             params.push(devs[0].id);
             const query = `UPDATE batches SET ${updates.join(', ')} WHERE device_id = ? AND is_active = 1`;
-            console.log(`🔄 [API] Executando query:`, query, params);
-            const [result] = await pool.execute(query, params);
-            console.log(`✅ [API] Query executada. Linhas afetadas:`, result.affectedRows);
+            await pool.execute(query, params);
         }
 
         notifyUpdate();
@@ -815,7 +826,9 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
         if (devs.length === 0) return res.status(404).json({ error: 'Device não encontrado' });
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [devs[0].id]);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'STOP_BATCH', `Device: ${req.body.serialCode}`, req.ip]);
-        delete activeBatches[req.body.serialCode.trim().toUpperCase()];
+        const normalizedSerial = req.body.serialCode.trim().toUpperCase();
+        delete activeBatches[normalizedSerial];
+        delete activeBatchesUserId[normalizedSerial];
         notifyUpdate();
         res.json({ message: 'Finalizado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -825,11 +838,17 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
 app.post('/api/batch/:id/finish', authenticateToken, async (req, res) => {
     try {
         // Verify ownership
-        const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
+        const [check] = await pool.execute(`SELECT b.id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
 
         // Mark batch as inactive and set end date
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE id = ?', [req.params.id]);
+
+        const normalizedSerial = (check[0].serial_code || '').trim().toUpperCase();
+        if (normalizedSerial && String(activeBatches[normalizedSerial]) === String(req.params.id)) {
+            delete activeBatches[normalizedSerial];
+            delete activeBatchesUserId[normalizedSerial];
+        }
 
         // Notify MQTT clients
         notifyUpdate();
@@ -932,15 +951,25 @@ app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/history/:serial', async (req, res) => {
+app.get('/api/history/batches', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? AND b.is_active = 0 ORDER BY b.started_at DESC`,
+            [req.user.id]
+        );
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/history/:serial', authenticateToken, async (req, res) => {
     try {
         const { batch } = req.query;
         const limit = parseInt(req.query.limit) || 25;
         const safeLimit = limit > 5000 ? 5000 : limit;
-        let query = `SELECT t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.recorded_at FROM telemetry t JOIN devices d ON t.device_id = d.id WHERE d.serial_code = ? `;
-        const params = [req.params.serial.trim().toUpperCase()];
+        let query = `SELECT t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.recorded_at FROM telemetry t JOIN devices d ON t.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? `;
+        const params = [req.params.serial.trim().toUpperCase(), req.user.id];
         if (batch === 'active') {
-            const [active] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND b.is_active = 1 LIMIT 1`, [params[0]]);
+            const [active] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? AND b.is_active = 1 LIMIT 1`, [params[0], req.user.id]);
             if (active.length > 0) { query += ` AND t.batch_id = ? `; params.push(active[0].id); } else return res.json([]);
         } else query += ` AND t.recorded_at > NOW() - INTERVAL 30 DAY `;
         query += ` ORDER BY t.recorded_at DESC LIMIT ?`;
@@ -964,8 +993,16 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
         let [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND b.is_active = 1 LIMIT 1`, [req.params.serial]);
         if (batches.length === 0) [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? ORDER BY b.id DESC LIMIT 1`, [req.params.serial]);
         let queryWhere = ''; let fileName = 'log_geral'; let currentBatch = null;
-        if (batches.length > 0) { currentBatch = batches[0]; queryWhere = `AND t.batch_id = ${currentBatch.id}`; fileName = currentBatch.name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); } else { queryWhere = `AND t.recorded_at > NOW() - INTERVAL 30 DAY`; }
-        const [rows] = await pool.execute(`SELECT t.recorded_at, t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.battery, t.status_op, t.step_name, t.extra_sensors, b.name as batch_name FROM telemetry t JOIN devices d ON t.device_id = d.id LEFT JOIN batches b ON t.batch_id = b.id WHERE d.serial_code = ? AND d.user_id = ? ${queryWhere} ORDER BY t.recorded_at ASC`, [req.params.serial, req.user.id]);
+        const queryParams = [req.params.serial, req.user.id];
+        if (batches.length > 0) {
+            currentBatch = batches[0];
+            queryWhere = `AND t.batch_id = ?`;
+            queryParams.push(currentBatch.id);
+            fileName = currentBatch.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        } else {
+            queryWhere = `AND t.recorded_at > NOW() - INTERVAL 30 DAY`;
+        }
+        const [rows] = await pool.execute(`SELECT t.recorded_at, t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.battery, t.status_op, t.step_name, t.extra_sensors, b.name as batch_name FROM telemetry t JOIN devices d ON t.device_id = d.id LEFT JOIN batches b ON t.batch_id = b.id WHERE d.serial_code = ? AND d.user_id = ? ${queryWhere} ORDER BY t.recorded_at ASC`, queryParams);
         if (rows.length === 0) return res.status(404).send('Sem dados');
         if (rows.length > 1 && (rows[0].status_op || '').includes('CONCLU') && !(rows[1].status_op || '').includes('CONCLU')) rows.shift();
         if (currentBatch && !currentBatch.is_active && currentBatch.ended_at && rows.length > 0) { const last = rows[rows.length - 1]; rows.push({ recorded_at: currentBatch.ended_at, batch_name: last.batch_name, temp_ferm: last.temp_ferm, temp_amb: last.temp_amb, target_temp: last.target_temp, gravity: last.gravity, battery: last.battery, status_op: 'FINALIZADO', step_name: 'MANUAL' }); }
@@ -1168,7 +1205,7 @@ app.post('/api/voice/alexa', async (req, res) => {
     }
 });
 
-app.get('/api/debug-alexa', async (req, res) => {
+app.get('/api/debug-alexa', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const [batches] = await pool.execute(`SELECT b.id, b.name, b.is_active, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id`);
         const [latestTelemetries] = await pool.execute('SELECT batch_id, temp_ferm, temp_amb, gravity, status_op, step_name, rssi FROM telemetry WHERE id IN (SELECT MAX(id) FROM telemetry GROUP BY batch_id)');
@@ -1341,7 +1378,7 @@ app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res)
     try {
         const { serial_code, device_name, user_id } = req.body;
         if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
-        await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code, device_name || null, user_id]);
+        await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name || null, user_id]);
         res.status(201).json({ message: 'Device created' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1350,7 +1387,7 @@ app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, r
     try {
         const { id } = req.params;
         const { serial_code, device_name, user_id } = req.body;
-        await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code, device_name || null, user_id, id]);
+        await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code.trim().toUpperCase(), device_name || null, user_id, id]);
         res.json({ message: 'Device updated' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1358,7 +1395,12 @@ app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, r
 app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        await pool.execute('DELETE FROM readings WHERE device_id = ?', [id]);
+        await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [id]);
+        const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [id]);
+        for (const b of batches) {
+            await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
+        }
+        await pool.execute('DELETE FROM batches WHERE device_id = ?', [id]);
         await pool.execute('DELETE FROM devices WHERE id = ?', [id]);
         res.json({ message: 'Device deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1452,83 +1494,6 @@ app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res
             ORDER BY d.last_seen DESC
         `);
         res.json(devices);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [users] = await pool.execute(`
-            SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(d.id) as device_count 
-            FROM users u LEFT JOIN devices d ON u.id = d.user_id GROUP BY u.id ORDER BY u.id DESC
-        `);
-        res.json(users);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body;
-        const hash = await bcrypt.hash(password, 10);
-        await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hash, role]);
-        res.status(201).json({ message: 'Criado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body;
-        if (password) {
-            const hash = await bcrypt.hash(password, 10);
-            await pool.execute('UPDATE users SET name = ?, email = ?, password_hash = ?, role = ? WHERE id = ?', [name, email, hash, role, req.params.id]);
-        } else {
-            await pool.execute('UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?', [name, email, role, req.params.id]);
-        }
-        res.json({ message: 'Atualizado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        // Cascade delete telemetry from this user's devices
-        const [devices] = await pool.execute('SELECT id FROM devices WHERE user_id = ?', [req.params.id]);
-        if (devices.length > 0) {
-            const deviceIds = devices.map(d => d.id).join(',');
-            await pool.execute(`DELETE FROM telemetry WHERE device_id IN (${deviceIds})`);
-        }
-        // DB constraints will cascade delete devices, batches, events
-        await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Deletado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [devices] = await pool.execute('SELECT * FROM devices');
-        res.json(devices);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { serial_code, device_name, user_id } = req.body;
-        await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name, user_id]);
-        res.status(201).json({ message: 'Criado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { serial_code, device_name, user_id } = req.body;
-        await pool.execute('UPDATE devices SET serial_code = ?, device_name = ?, user_id = ? WHERE id = ?', [serial_code.trim().toUpperCase(), device_name, user_id, req.params.id]);
-        res.json({ message: 'Atualizado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [req.params.id]);
-        await pool.execute('DELETE FROM devices WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Removido' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1716,7 +1681,7 @@ app.get(/(.*)/, (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.h
 const MAGIC_PREDICTION_INTERVAL = 60 * 60 * 1000; // Roda a cada 1 hora
 setInterval(async () => {
     try {
-        const [batches] = await pool.execute(`SELECT b.id, b.name, b.user_id, b.fg FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
+        const [batches] = await pool.execute(`SELECT b.id, b.name, d.user_id, b.fg FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
         
         for (const batch of batches) {
             if (!batch.fg) continue; // Sem FG esperado
@@ -1749,7 +1714,7 @@ setInterval(async () => {
                 // Se faltar 24h ou menos, avisa o usuário
                 if (hoursRemaining > 0 && hoursRemaining <= 24) {
                     alertState[`magic_${batch.id}`] = true;
-                    await sendPushToUser(batch.user_id, 'Previsão Mágica 🔮', `Atenção! Sua ${batch.name} deve atingir o FG esperado (${batch.fg}) nas próximas ${Math.round(hoursRemaining)} horas!`);
+                    await sendPushToUser(pool, batch.user_id, 'Previsão Mágica 🔮', `Atenção! Sua ${batch.name} deve atingir o FG esperado (${batch.fg}) nas próximas ${Math.round(hoursRemaining)} horas!`);
                     console.log(`[Magic Prediction] Alerta enviado para lote ${batch.id} (${batch.name}) - ETA: ${hoursRemaining}h`);
                 }
             }

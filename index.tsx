@@ -10,12 +10,8 @@ import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 
 if ('serviceWorker' in navigator) {
-  // Register Vite PWA
+  // Register Vite PWA (which includes push-sw.js via importScripts)
   registerSW({ immediate: true });
-  // Registra Service Worker customizado para Web Push (Notificações)
-  navigator.serviceWorker.register('/sw.js')
-    .then(reg => console.log('Custom Push SW registered!', reg))
-    .catch(err => console.error('Error registering Push SW', err));
 }
 
 const queryClient = new QueryClient();

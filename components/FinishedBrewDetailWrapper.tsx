@@ -5,7 +5,7 @@ import { FinishedBrewDetail } from './FinishedBrewDetail';
 import * as api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FinishedBrew } from '../types';
-import { ENV } from '../config/envs';
+import { API_URL } from '../config';
 
 export const FinishedBrewDetailWrapper: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -23,7 +23,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
             
             if(!b) {
                 // Try history dedicated endpoint
-                const historyRes = await fetch(`${ENV.API_URL}/history/batches`, {
+                const historyRes = await fetch(`${API_URL}/history/batches`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if(historyRes.ok) {

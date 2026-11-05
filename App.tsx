@@ -25,21 +25,15 @@ const NavConfig = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout, role } = useAuth();
-
-    // If admin, we don't render this NavConfig. They get a full-screen admin experience.
-    if (role === 'admin') return null;
-
-    // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/login', '/register'];
-    if (publicRoutes.includes(location.pathname)) return null;
     const { fermenters } = useFermenters();
     const { sendCommand, otaProgress, clearOtaProgress } = useBrew();
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
+    const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     React.useEffect(() => {
         const fetchFirmwareVersion = async () => {
             try {
-                // We use ENV.API_URL from config or hardcode for now if ENV not imported.
                 const baseUrl = window.location.origin;
                 const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
                 if (res.ok) {
@@ -53,13 +47,17 @@ const NavConfig = () => {
         fetchFirmwareVersion();
     }, []);
 
+    // If admin, we don't render this NavConfig. They get a full-screen admin experience.
+    if (role === 'admin') return null;
+
+    // Hide navigation bar on public or landing pages
+    const publicRoutes = ['/login', '/register'];
+    if (publicRoutes.includes(location.pathname)) return null;
+
     // Check if we are inside a device page
     const match = location.pathname.match(/\/fermenter\/(.+)/);
     const deviceId = match ? match[1] : null;
     const activeDevice = deviceId ? fermenters.find(f => f.id === deviceId) : null;
-
-    const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleModeDropdownSelect = (mode: DeviceMode) => {
         setIsModeDropdownOpen(false);
@@ -234,12 +232,6 @@ const NavConfig = () => {
                         <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
                             <SettingsIcon size={18} />
                         </button>
-                        
-                        {role === 'admin' && (
-                            <button title="Admin Panel" onClick={() => navigate('/admin')} className="flex items-center justify-center w-10 h-10 rounded-md border transition-all shrink-0 border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/20 hover:text-white">
-                                <Shield size={18} />
-                            </button>
-                        )}
 
                         {/* Voltar Button - moved to the right corner */}
                         {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
@@ -297,13 +289,6 @@ const NavConfig = () => {
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><SettingsIcon size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Configurações</span>
                         </button>
-
-                        {role === 'admin' && (
-                            <button onClick={() => { setIsMobileMenuOpen(false); navigate('/admin'); }} className="flex items-center gap-4 p-4 text-indigo-400 bg-indigo-900/20 hover:bg-indigo-900/40 rounded-xl transition-colors text-left border border-indigo-500/20">
-                                <div className="flex items-center justify-center w-12 h-12 bg-indigo-500/20 rounded-lg text-indigo-400"><Shield size={24} /></div>
-                                <span className="text-lg font-bold tracking-tight">Admin Panel</span>
-                            </button>
-                        )}
                         
                         {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname.startsWith('/admin')) && (
                             <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800 mt-auto">

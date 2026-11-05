@@ -1,9 +1,11 @@
+import { API_URL, MQTT_BROKER } from '../config';
+
 export const ENV = {
     // API and Backend Services
-    API_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+    API_URL,
     
-    // MQTT configuration (if different from VITE_MQTT_BROKER)
-    MQTT_BROKER: import.meta.env.VITE_MQTT_BROKER || 'ws://192.168.68.109:9001',
+    // MQTT configuration
+    MQTT_BROKER,
     
     // Feature Flags / System configs
     IS_PRODUCTION: import.meta.env.PROD || false,
