@@ -1041,7 +1041,7 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
             currentBatch = batches[0];
             queryWhere = `AND t.batch_id = ?`;
             queryParams.push(currentBatch.id);
-            fileName = currentBatch.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            fileName = (currentBatch.name || 'lote').replace(/[^a-z0-9]/gi, '_').toLowerCase();
         } else {
             queryWhere = `AND t.recorded_at > NOW() - INTERVAL 30 DAY`;
         }
@@ -1264,24 +1264,24 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         const [rows] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, recorded_at, step_name, extra_sensors FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`, [req.params.id]);
         
-        let finalRows = rows;
-        const targetPoints = 500;
-        if (rows.length > targetPoints) {
-            const step = Math.ceil(rows.length / targetPoints);
-            finalRows = rows.filter((_, index) => index % step === 0);
-        }
-
-        // Fill in missing/zero gravities with the previous valid value so the chart doesn't drop
+        // Fill in missing/zero gravities with the previous valid value before downsampling so no valid reading is skipped
         let lastValidGravity = null;
-        finalRows = finalRows.map(row => {
+        const filledRows = rows.map(row => {
             const currentGravity = row.gravity !== null ? parseFloat(row.gravity) : null;
-            if (currentGravity !== null && currentGravity > 0) {
+            if (currentGravity !== null && !isNaN(currentGravity) && currentGravity > 0) {
                 lastValidGravity = currentGravity;
             } else if (lastValidGravity !== null) {
                 row.gravity = lastValidGravity;
             }
             return row;
         });
+
+        let finalRows = filledRows;
+        const targetPoints = 500;
+        if (filledRows.length > targetPoints) {
+            const step = Math.ceil(filledRows.length / targetPoints);
+            finalRows = filledRows.filter((_, index) => index % step === 0 || index === filledRows.length - 1);
+        }
         
         res.json(finalRows);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1432,6 +1432,7 @@ app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, r
     try {
         const { id } = req.params;
         const { serial_code, device_name, user_id } = req.body;
+        if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
         await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code.trim().toUpperCase(), device_name || null, user_id, id]);
         await loadActiveBatches();
         res.json({ message: 'Device updated' });
@@ -1732,8 +1733,9 @@ setInterval(async () => {
         
         for (const batch of batches) {
             if (!batch.fg) continue; // Sem FG esperado
-            const targetFg = parseFloat(batch.fg);
-            if (isNaN(targetFg)) continue;
+            let targetFg = parseFloat(batch.fg);
+            if (isNaN(targetFg) || targetFg <= 0) continue;
+            if (targetFg > 500) targetFg = targetFg / 1000;
             
             // Já alertou?
             if (alertState[`magic_${batch.id}`]) continue;
@@ -1749,11 +1751,17 @@ setInterval(async () => {
             const hoursDiff = (new Date(last.recorded_at).getTime() - new Date(first.recorded_at).getTime()) / (1000 * 60 * 60);
             if (hoursDiff < 6) continue; // Precisa de pelo menos 6 horas de dados
             
-            const sgDrop = first.gravity - last.gravity;
+            let firstGrav = parseFloat(first.gravity);
+            let lastGrav = parseFloat(last.gravity);
+            if (isNaN(firstGrav) || isNaN(lastGrav)) continue;
+            if (firstGrav > 500) firstGrav = firstGrav / 1000;
+            if (lastGrav > 500) lastGrav = lastGrav / 1000;
+
+            const sgDrop = firstGrav - lastGrav;
             if (sgDrop <= 0.001) continue; // Queda insignificante
             
             const dropRatePerHour = sgDrop / hoursDiff;
-            const remainingDrop = last.gravity - targetFg;
+            const remainingDrop = lastGrav - targetFg;
             
             if (remainingDrop > 0 && dropRatePerHour > 0) {
                 const hoursRemaining = remainingDrop / dropRatePerHour;

@@ -17,11 +17,12 @@ export const RefractometerCalculator: React.FC = () => {
     };
 
     useEffect(() => {
-        const ogSg = parseFloat(ogSgInput.replace(',', '.'));
+        let ogSg = parseFloat(ogSgInput.replace(',', '.'));
+        if (ogSg > 200) ogSg = ogSg / 1000;
         const brixWri = parseFloat(brixWriInput.replace(',', '.'));
         const wcf = parseFloat(wcfInput.replace(',', '.'));
 
-        if (isNaN(brixWri) || isNaN(wcf) || wcf <= 0) return;
+        if (isNaN(brixWri) || isNaN(wcf) || wcf <= 0 || brixWri < 0) return;
 
         let currentSg = 1.000;
         let abv = 0;
@@ -30,10 +31,12 @@ export const RefractometerCalculator: React.FC = () => {
         if (!isFermented) {
             // Unfermented wort
             const brix = brixWri / wcf;
-            currentSg = 1 + (brix / (258.6 - ((brix / 258.2) * 227.1)));
+            const denom = 258.6 - ((brix / 258.2) * 227.1);
+            if (denom <= 0) return;
+            currentSg = 1 + (brix / denom);
         } else {
             // Fermented wort
-            if (isNaN(ogSg) || ogSg < 1) return;
+            if (isNaN(ogSg) || ogSg < 1 || ogSg >= 1.775) return;
 
             const ogBrix = sgToBrix(ogSg) / wcf;
             const fgBrix = brixWri / wcf;
@@ -44,7 +47,7 @@ export const RefractometerCalculator: React.FC = () => {
                       - 0.00000728 * Math.pow(ogBrix, 3) + 0.000063293 * Math.pow(fgBrix, 3);
 
             // ABV Calculation
-            if (ogSg > currentSg) {
+            if (ogSg > currentSg && currentSg > 0) {
                 // Advanced ABV
                 abv = (76.08 * (ogSg - currentSg) / (1.775 - ogSg)) * (currentSg / 0.794);
                 // ABW

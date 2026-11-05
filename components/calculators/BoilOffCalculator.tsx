@@ -30,7 +30,7 @@ export const BoilOffCalculator: React.FC = () => {
         const cVol = parseFloat(currentVolInput.replace(',', '.'));
         const boilRate = parseFloat(boilOffRateInput.replace(',', '.'));
 
-        if (isNaN(cGrav) || isNaN(tGrav) || isNaN(cVol) || cVol <= 0 || cGrav < 1 || tGrav < 1) return;
+        if (isNaN(cGrav) || isNaN(tGrav) || isNaN(cVol) || cVol <= 0 || cGrav <= 1 || tGrav <= 1) return;
 
         const currentPoints = (cGrav - 1) * 1000;
         const targetPoints = (tGrav - 1) * 1000;

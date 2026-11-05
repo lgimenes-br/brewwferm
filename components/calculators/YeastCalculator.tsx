@@ -33,6 +33,7 @@ export const YeastCalculator: React.FC = () => {
     const [viability, setViability] = useState<string>('87');
 
     const [starterPacks, setStarterPacks] = useState<string>('1');
+    const [propagationModel, setPropagationModel] = useState<'stirred' | 'non-stirred'>('stirred');
     const [stages, setStages] = useState<StarterStage[]>([
         { id: 'stage-1', sg: '1.036', vol: '0.8', auto: true }
     ]);
@@ -86,19 +87,20 @@ export const YeastCalculator: React.FC = () => {
         const viab = parseFloat(viability.replace(',', '.')) / 100;
         const sPacks = parseFloat(starterPacks.replace(',', '.'));
         
-        if (isNaN(og) || isNaN(volL) || isNaN(cpp) || isNaN(viab) || isNaN(sPacks)) return;
+        if (isNaN(og) || isNaN(volL) || isNaN(cpp) || isNaN(viab) || isNaN(sPacks) || volL <= 0 || og <= 1) return;
 
-        const plato = sgToPlato(og);
+        const plato = Math.max(0, sgToPlato(og));
         const targetCells = pr * (volL * 1000) * plato / 1000;
         
-        const viableCellsPerPack = cpp * viab;
-        const totalPacksNeededDecimal = targetCells / viableCellsPerPack;
+        const viableCellsPerPack = Math.max(0, cpp * viab);
+        const totalPacksNeededDecimal = viableCellsPerPack > 0 ? targetCells / viableCellsPerPack : 0;
         const totalPacksNeeded = Math.ceil(totalPacksNeededDecimal);
         const cellsAvailable = totalPacksNeeded * viableCellsPerPack;
         const diff = cellsAvailable - targetCells;
         const pitchRateMml = (cellsAvailable * 1000) / (volL * 1000);
 
         const initialStarterCells = sPacks * viableCellsPerPack;
+        const maxYieldFactor = propagationModel === 'stirred' ? 1.4 : 0.4;
         
         let currentCells = initialStarterCells;
         const newStageResults: StageResult[] = [];
@@ -106,14 +108,15 @@ export const YeastCalculator: React.FC = () => {
         for (let i = 0; i < stages.length; i++) {
             const stage = stages[i];
             const sSg = parseFloat(stage.sg.replace(',', '.'));
-            if (isNaN(sSg)) continue;
+            if (isNaN(sSg) || sSg <= 1) continue;
 
             const dmeGramsPerL = (sgToPlato(sSg) * sSg * 10);
+            if (dmeGramsPerL <= 0) continue;
             let sVol = parseFloat(stage.vol.replace(',', '.'));
             
             if (stage.auto && targetCells > currentCells) {
                 const neededGrowth = targetCells - currentCells;
-                const requiredDme = neededGrowth / 1.4;
+                const requiredDme = neededGrowth / maxYieldFactor;
                 sVol = requiredDme / dmeGramsPerL;
                 sVol = Math.ceil(sVol * 10) / 10;
             } else if (stage.auto) {
@@ -126,9 +129,14 @@ export const YeastCalculator: React.FC = () => {
             const inoculationRate = sDme > 0 ? currentCells / sDme : 0;
             let yieldPerGram = 0;
             if (sDme > 0) {
-                if (inoculationRate < 1.4) yieldPerGram = 1.4;
-                else if (inoculationRate <= 3.5) yieldPerGram = 2.33 - 0.67 * inoculationRate;
-                else yieldPerGram = 0;
+                if (propagationModel === 'stirred') {
+                    if (inoculationRate < 1.4) yieldPerGram = 1.4;
+                    else if (inoculationRate <= 3.5) yieldPerGram = 2.33 - 0.67 * inoculationRate;
+                    else yieldPerGram = 0;
+                } else {
+                    if (inoculationRate < 3.5) yieldPerGram = Math.max(0, 0.4 - 0.1 * Math.max(0, inoculationRate - 1.4));
+                    else yieldPerGram = 0;
+                }
             }
 
             const newCells = currentCells + (yieldPerGram * sDme);
@@ -164,7 +172,7 @@ export const YeastCalculator: React.FC = () => {
             stageResults: newStageResults
         });
 
-    }, [ogSgInput, volumeInput, pitchRateSlider, cellsPerPack, viability, starterPacks, stages]);
+    }, [ogSgInput, volumeInput, pitchRateSlider, cellsPerPack, viability, starterPacks, propagationModel, stages]);
 
     const addStage = () => {
         setStages([
@@ -331,9 +339,13 @@ export const YeastCalculator: React.FC = () => {
                             </div>
                             <div>
                                 <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Modelo de Propagação</span>
-                                <select className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 appearance-none cursor-pointer">
-                                    <option className="bg-neutral-900">Com Agitação (Braukaiser)</option>
-                                    <option className="bg-neutral-900">Sem Agitação</option>
+                                <select
+                                    value={propagationModel}
+                                    onChange={(e) => setPropagationModel(e.target.value as 'stirred' | 'non-stirred')}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 appearance-none cursor-pointer"
+                                >
+                                    <option value="stirred" className="bg-neutral-900">Com Agitação (Braukaiser)</option>
+                                    <option value="non-stirred" className="bg-neutral-900">Sem Agitação</option>
                                 </select>
                             </div>
                         </div>

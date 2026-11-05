@@ -1,5 +1,12 @@
 self.addEventListener('push', function(event) {
-  const data = event.data ? event.data.json() : { title: 'Breww', body: 'Nova notificação do sistema.' };
+  let data = { title: 'Breww', body: 'Nova notificação do sistema.' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'Breww', body: event.data.text() || 'Nova notificação do sistema.' };
+    }
+  }
   
   event.waitUntil(
     self.registration.showNotification(data.title, {

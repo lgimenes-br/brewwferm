@@ -62,8 +62,8 @@ const NavConfig = () => {
 
     // Check if we are inside a device page
     const match = location.pathname.match(/\/fermenter\/(.+)/);
-    const deviceId = match ? match[1] : null;
-    const activeDevice = deviceId ? fermenters.find(f => f.id === deviceId) : null;
+    const deviceId = match ? decodeURIComponent(match[1]) : null;
+    const activeDevice = deviceId ? fermenters.find(f => f.id.toUpperCase() === deviceId.toUpperCase()) : null;
 
     const handleModeDropdownSelect = (mode: DeviceMode) => {
         setIsModeDropdownOpen(false);
@@ -76,7 +76,7 @@ const NavConfig = () => {
     if (activeDevice?.currentDevice) {
         const lastUpdate = activeDevice.currentDevice.lastUpdate ? new Date(activeDevice.currentDevice.lastUpdate).getTime() : 0;
         isOnline = !isNaN(lastUpdate) && lastUpdate > 0 && (now - lastUpdate) < 30 * 1000;
-        statOp = (activeDevice.currentDevice.statOp || 'INATIVO').toUpperCase();
+        statOp = isOnline ? (activeDevice.currentDevice.statOp || 'INATIVO').toUpperCase() : 'OFFLINE';
     }
 
     // Icon Styles

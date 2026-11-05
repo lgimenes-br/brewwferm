@@ -48,26 +48,28 @@ export const AbvCalculator: React.FC = () => {
             oe = sgToPlato(ogSg);
             ae = sgToPlato(fgSg);
 
-            // Real Extract (Balling's formula)
-            re = (0.1808 * oe) + (0.8192 * ae);
+            if (oe > 0 && (2.0665 - 0.010665 * oe) > 0) {
+                // Real Extract (Balling's formula)
+                re = (0.1808 * oe) + (0.8192 * ae);
 
-            // ABV Standard
-            abv = (ogSg - fgSg) * 131.25;
+                // ABV Standard
+                abv = (ogSg - fgSg) * 131.25;
 
-            // ABW
-            abw = (oe - re) / (2.0665 - 0.010665 * oe);
+                // ABW
+                abw = (oe - re) / (2.0665 - 0.010665 * oe);
 
-            // Attenuation (using Plato for more accuracy like Brewfather)
-            appAttenuation = ((oe - ae) / oe) * 100;
-            realAttenuation = ((oe - re) / oe) * 100;
+                // Attenuation (using Plato for more accuracy like Brewfather)
+                appAttenuation = ((oe - ae) / oe) * 100;
+                realAttenuation = ((oe - re) / oe) * 100;
 
-            // Calories (per 100ml)
-            const kcalPer100g = (6.9 * abw) + 4.0 * (re - 0.1);
-            kcalPer100ml = kcalPer100g * fgSg;
-            kjPer100ml = kcalPer100ml * 4.184;
+                // Calories (per 100ml)
+                const kcalPer100g = (6.9 * abw) + 4.0 * (re - 0.1);
+                kcalPer100ml = kcalPer100g * fgSg;
+                kjPer100ml = kcalPer100ml * 4.184;
 
-            // Carbohydrates (g per 100ml)
-            carbsPer100ml = Math.max(0, (re - 0.1) * fgSg);
+                // Carbohydrates (g per 100ml)
+                carbsPer100ml = Math.max(0, (re - 0.1) * fgSg);
+            }
         }
 
         setResults({
