@@ -23,9 +23,9 @@ interface FermentationProfileProps {
 }
 
 export const FermentationProfile: React.FC<FermentationProfileProps> = ({
-    steps,
-    currentStepIndex,
-    isPaused,
+    steps = [],
+    currentStepIndex = 0,
+    isPaused = false,
     startDate,
     stepStartDate,
     stepTime,
@@ -41,7 +41,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     onFinishProfile
 }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [localSteps, setLocalSteps] = useState<FermentationStep[]>(steps);
+    const [localSteps, setLocalSteps] = useState<FermentationStep[]>(() => Array.isArray(steps) ? steps : []);
     const [now, setNow] = useState(Date.now());
     const stabilizedStepStartRef = React.useRef<number | null>(null);
 
@@ -53,7 +53,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     // Keep local steps synced when not editing
     React.useEffect(() => {
         if (!isEditing) {
-            setLocalSteps(steps);
+            setLocalSteps(Array.isArray(steps) ? steps : []);
         }
     }, [steps, isEditing]);
 
@@ -207,13 +207,13 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                 {Number(og) > 0 && (
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">OG</span>
-                        <span className="text-white">{Number(og).toFixed(3)}</span>
+                        <span className="text-white">{(Number(og) > 500 ? Number(og) / 1000 : Number(og)).toFixed(3)}</span>
                     </div>
                 )}
                 {Number(fg) > 0 && (
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">FG</span>
-                        <span className="text-white">{Number(fg).toFixed(3)}</span>
+                        <span className="text-white">{(Number(fg) > 500 ? Number(fg) / 1000 : Number(fg)).toFixed(3)}</span>
                     </div>
                 )}
             </div>

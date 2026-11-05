@@ -61,15 +61,15 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   }, [brew.id, brew.ingredients, brew.notes]);
 
   useEffect(() => {
-    // Prevent infinite loop - only run once
-    if (!token) {
+    // If brew already has readings (e.g. from public share wrapper), use them immediately
+    if (brew.readings && brew.readings.length > 0) {
+      setReadings(brew.readings);
       setLoading(false);
       return;
     }
 
-    // If brew already has readings, use them and don't fetch again
-    if (brew.readings && brew.readings.length > 0) {
-      setReadings(brew.readings);
+    // Prevent infinite loop - only fetch if authenticated
+    if (!token) {
       setLoading(false);
       return;
     }
@@ -183,10 +183,27 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     }
   };
 
+  const normOg = (() => {
+    const raw = Number(brew.og) || 0;
+    return raw > 200 ? raw / 1000 : raw;
+  })();
+  const normFg = (() => {
+    const raw = Number(brew.fg) || 0;
+    return raw > 200 ? raw / 1000 : raw;
+  })();
+  const displayAbv = (() => {
+    const rawAbv = Number(brew.abv) || 0;
+    if (rawAbv > 0) return rawAbv;
+    if (normOg > 1.0 && normFg > 0.9 && normOg > normFg) {
+      return (normOg - normFg) * 131.25;
+    }
+    return 0;
+  })();
+
   const handleShare = async () => {
     const shareData = {
       title: `Lote ${brew.batchNumber} - ${brew.beerName}`,
-      text: `Confira minha ${brew.beerName} (${brew.style}). ABV: ${(Number(brew.abv) || 0).toFixed(1)}%, FG: ${(Number(brew.fg) || 0).toFixed(3)}. Analisado no BREWW Dashboard!`,
+      text: `Confira minha ${brew.beerName} (${brew.style}). ABV: ${displayAbv.toFixed(1)}%, FG: ${normFg.toFixed(3)}. Analisado no BREWW Dashboard!`,
       url: window.location.href
     };
 
@@ -281,7 +298,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">ABV Est.</span>
           <span className="text-xl font-mono text-green-500 font-medium">
-            {brew.abv.toFixed(1)}%
+            {displayAbv.toFixed(1)}%
           </span>
         </div>
 
@@ -289,7 +306,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">OG Inicial</span>
           <span className="text-xl font-mono text-white font-medium">
-            {brew.og.toFixed(3)}
+            {normOg.toFixed(3)}
           </span>
         </div>
 
@@ -297,7 +314,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">FG Final</span>
           <span className="text-xl font-mono text-white font-medium">
-            {brew.fg.toFixed(3)}
+            {normFg.toFixed(3)}
           </span>
         </div>
 

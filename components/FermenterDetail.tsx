@@ -78,12 +78,15 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         ? fermenter.readings[fermenter.readings.length - 1].gravity 
         : 0;
     const safeHumidity = fermenter.currentDevice?.extSens?.hum;
-    const safeCurrentGravity = fermenter.currentDevice?.gravity > 0 
+    const rawCurrentGravity = fermenter.currentDevice?.gravity > 0 
         ? parseFloat(String(fermenter.currentDevice.gravity))
         : (parseFloat(String(lastChartGravity)) || 0);
+    const safeCurrentGravity = rawCurrentGravity > 500 ? rawCurrentGravity / 1000 : rawCurrentGravity;
     const safeCurrentFridgeTemp = parseFloat(String(fermenter.currentFridgeTemp || 0));
-    const safeOG = parseFloat(String(fermenter.og || 0));
-    const safeFG = fermenter.fg ? parseFloat(String(fermenter.fg)) : null;
+    const rawOG = parseFloat(String(fermenter.og || 0));
+    const safeOG = rawOG > 500 ? rawOG / 1000 : rawOG;
+    const rawFG = fermenter.fg ? parseFloat(String(fermenter.fg)) : null;
+    const safeFG = rawFG !== null ? (rawFG > 500 ? rawFG / 1000 : rawFG) : null;
     const safeBattery = parseFloat(String(fermenter.currentDevice?.battery || 0));
 
     useEffect(() => {
