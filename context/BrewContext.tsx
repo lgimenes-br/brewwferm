@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
 import { MQTT_BROKER } from '../config';
 import { useAuth } from './AuthContext';
@@ -27,13 +27,15 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const clientRef = useRef<MqttClient | null>(null);
     const commandCooldownRef = useRef<Record<string, number>>({});
     const fermentersRef = useRef(fermenters);
+    const initialPingedDevicesRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         fermentersRef.current = fermenters;
         if (clientRef.current?.connected && fermenters.length > 0) {
             const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
             fermenters.forEach(f => {
-                if (f.id) {
+                if (f.id && !initialPingedDevicesRef.current.has(f.id)) {
+                    initialPingedDevicesRef.current.add(f.id);
                     clientRef.current?.publish(`brewbrother/${f.id}/comando`, statusMsg);
                     clientRef.current?.publish(`brewbrother/${f.id}/command`, statusMsg);
                 }
@@ -43,6 +45,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // --- MQTT ---
     useEffect(() => {
+        initialPingedDevicesRef.current.clear();
         if (!token) {
             setConnectionStatus('disconnected');
             setIsInitialSyncing(false);
@@ -279,7 +282,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [token, refetch, updateFermenterLocal]);
 
 
-    const sendCommand = (serialCode: string, type: string, payload: any) => {
+    const sendCommand = useCallback((serialCode: string, type: string, payload: any) => {
         if (clientRef.current && serialCode) {
             const msg = JSON.stringify({ type, cmd: type, ...payload });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
@@ -291,15 +294,15 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 commandCooldownRef.current[serialCode] = Date.now();
             }
         }
-    };
+    }, []);
 
-    const clearOtaProgress = () => {
+    const clearOtaProgress = useCallback(() => {
         setOtaProgress({});
-    };
+    }, []);
 
-    const blockTelemetry = (serialCode: string) => {
+    const blockTelemetry = useCallback((serialCode: string) => {
         commandCooldownRef.current[serialCode] = Date.now();
-    };
+    }, []);
 
     return (
         <BrewContext.Provider value={{ connectionStatus, isInitialSyncing, sendCommand, otaProgress, clearOtaProgress, scanResponses, blockTelemetry }}>
