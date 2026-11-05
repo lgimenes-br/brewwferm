@@ -228,12 +228,12 @@ export const useFermenters = () => {
                     if (f.batchId) {
                         const batchData = batchesRes.find((b: any) => b.id === f.batchId);
                         if (batchData) {
-                            return {
-                                ...f,
-                                startDate: batchData.start_date || batchData.started_at || f.startDate,
-                                profile: batchData.profile ? (
-                                    typeof batchData.profile === 'string'
-                                        ? JSON.parse(batchData.profile).map((step: any, index: number) => {
+                            let parsedBatchProfile = f.profile;
+                            if ((!parsedBatchProfile || parsedBatchProfile.length === 0) && batchData.profile) {
+                                try {
+                                    const rawProf = typeof batchData.profile === 'string' ? JSON.parse(batchData.profile) : batchData.profile;
+                                    if (Array.isArray(rawProf)) {
+                                        parsedBatchProfile = rawProf.map((step: any, index: number) => {
                                             const parsedTemp = parseFloat(step.t ?? step.temperature);
                                             return {
                                                 id: step.id || `step_${index}`,
@@ -241,9 +241,14 @@ export const useFermenters = () => {
                                                 temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
                                                 duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
                                             };
-                                        })
-                                        : batchData.profile
-                                ) : f.profile
+                                        });
+                                    }
+                                } catch (e) {}
+                            }
+                            return {
+                                ...f,
+                                startDate: batchData.start_date || batchData.started_at || f.startDate,
+                                profile: parsedBatchProfile
                             };
                         }
                     }

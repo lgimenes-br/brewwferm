@@ -237,21 +237,29 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // Only live (non-retained) MQTT packets update lastUpdate so powered-off devices are never marked online
+                const parsedAmb = payload.amb !== undefined ? parseFloat(payload.amb) : NaN;
+                const parsedTarget = parseFloat(target as any);
+                const parsedFerm = payload.ferm !== undefined ? parseFloat(payload.ferm) : NaN;
+                const parsedRssi = payload.rssi !== undefined ? parseFloat(payload.rssi) : NaN;
+                const parsedStepTime = payload.stepTime !== undefined
+                    ? parseFloat(payload.stepTime)
+                    : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0');
+
                 updateFermenterLocal(serial, {
                     ...(newStatus ? { status: newStatus } : {}),
                     ...(!isInCooldown && currentModeUpdate ? { mode: currentModeUpdate } : {}),
                     ...(payload.ip ? { ipAddress: payload.ip } : {}),
-                    ...(payload.amb !== undefined ? { currentFridgeTemp: parseFloat(payload.amb) } : {}),
-                    ...(!isInCooldown ? { targetTemp: parseFloat(target as any) } : {}),
+                    ...(!isNaN(parsedAmb) ? { currentFridgeTemp: parsedAmb } : {}),
+                    ...(!isInCooldown && !isNaN(parsedTarget) ? { targetTemp: parsedTarget } : {}),
                     ...(profileUpdate ? { profile: profileUpdate } : {}),
                     ...(currentStepIndexUpdate !== undefined ? { currentStepIndex: currentStepIndexUpdate } : {}),
                     ...(isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
                     ...(kegeratorConfigUpdate ? { kegeratorConfig: kegeratorConfigUpdate } : {}),
                     currentDevice: {
-                        temperature: parseFloat(payload.ferm),
+                        temperature: !isNaN(parsedFerm) ? parsedFerm : undefined,
                         gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
                         battery: payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
-                        rssi: parseFloat(payload.rssi),
+                        rssi: !isNaN(parsedRssi) ? parsedRssi : undefined,
                         ...(isRetained ? {} : { lastUpdate: new Date().toISOString() }),
                         statOp: statusStr || 'INATIVO',
                         logInterval: payload.wi ? payload.wi / 1000 : undefined,
@@ -259,7 +267,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         version: payload.ver || payload.fw, // Firmware version
                         macCtrl: payload.macCtrl,
                         extSens: payload.ext_s || payload.extSens,
-                        stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0')
+                        stepTime: !isNaN(parsedStepTime) ? parsedStepTime : 0
                     } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });
             } catch (e) {

@@ -131,9 +131,8 @@ export const Dashboard: React.FC = () => {
                 setScannedDevices(devs);
             } else {
                 console.error("Discovery failed:", res.status, res.statusText);
-                // If 401, maybe redirect to login? For now just alert or empty.
                 if (res.status === 401) {
-                    alert("Você precisa estar logado para buscar dispositivos.");
+                    toast.error("Você precisa estar logado para buscar dispositivos.");
                 }
             }
         } catch (e) {
@@ -246,11 +245,14 @@ export const Dashboard: React.FC = () => {
                     }
 
                     // Safe Parsing of Numbers to avoid toFixed errors on Strings
-                    const safeTemp = (f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE)
-                        ? parseFloat(String(f.currentFridgeTemp || 0))
-                        : parseFloat(String(f.currentDevice?.temperature || 0));
-                    const safeTarget = parseFloat(String(f.targetTemp || 0));
-                    const safeFridge = parseFloat(String(f.currentFridgeTemp || 0));
+                    const rawTemp = (f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE)
+                        ? parseFloat(String(f.currentFridgeTemp ?? 0))
+                        : parseFloat(String(f.currentDevice?.temperature ?? 0));
+                    const safeTemp = !isNaN(rawTemp) ? rawTemp : 0;
+                    const rawTarget = parseFloat(String(f.targetTemp ?? 0));
+                    const safeTarget = !isNaN(rawTarget) ? rawTarget : 0;
+                    const rawFridge = parseFloat(String(f.currentFridgeTemp ?? 0));
+                    const safeFridge = !isNaN(rawFridge) ? rawFridge : 0;
                     
                     const lastChartGravity = f.readings && f.readings.length > 0 
                         ? f.readings[f.readings.length - 1].gravity 
