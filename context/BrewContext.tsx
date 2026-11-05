@@ -7,6 +7,7 @@ import { FermenterStatus, DeviceMode } from '../types';
 
 interface BrewContextType {
     connectionStatus: 'connected' | 'disconnected';
+    isInitialSyncing: boolean;
     sendCommand: (serialCode: string, type: string, payload: any) => void;
     otaProgress: Record<string, number>;
     clearOtaProgress: () => void;
@@ -18,17 +19,28 @@ const BrewContext = createContext<BrewContextType | undefined>(undefined);
 
 export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { token } = useAuth();
-    const { updateFermenterLocal, refetch } = useFermenters();
+    const { fermenters, updateFermenterLocal, refetch } = useFermenters();
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
+    const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(true);
     const [otaProgress, setOtaProgress] = useState<Record<string, number>>({});
     const [scanResponses, setScanResponses] = useState<Record<string, string[]>>({});
     const clientRef = useRef<MqttClient | null>(null);
     const commandCooldownRef = useRef<Record<string, number>>({});
+    const fermentersRef = useRef(fermenters);
+
+    useEffect(() => {
+        fermentersRef.current = fermenters;
+    }, [fermenters]);
 
     // --- MQTT ---
     useEffect(() => {
-        if (!token) return;
+        if (!token) {
+            setConnectionStatus('disconnected');
+            setIsInitialSyncing(false);
+            return;
+        }
         if (clientRef.current) clientRef.current.end();
+        setIsInitialSyncing(true);
 
         console.log("Connecting MQTT to", MQTT_BROKER);
         let storedClientId = localStorage.getItem('mqtt_client_id');
@@ -48,31 +60,53 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         clientRef.current = client;
+        let syncTimer: ReturnType<typeof setTimeout> | null = null;
+        let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+        const broadcastRequestStatus = () => {
+            if (!client.connected) return;
+            const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
+            client.publish('brewbrother/all/command', statusMsg);
+            client.publish('brewbrother/all/comando', statusMsg);
+            fermentersRef.current.forEach(f => {
+                if (f.id) {
+                    client.publish(`brewbrother/${f.id}/comando`, statusMsg);
+                    client.publish(`brewbrother/${f.id}/command`, statusMsg);
+                }
+            });
+        };
 
         client.on('connect', () => {
             setConnectionStatus('connected');
+            setIsInitialSyncing(true);
             console.log("MQTT Connected");
-            client.subscribe('brewbrother/+/data'); // Telemetry
             client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
             client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)
-            
-            // Force all ESP32 devices to broadcast their current state immediately
-            // Add a small delay to ensure our subscriptions are fully active on the broker
-            setTimeout(() => {
-                client.publish('brewbrother/all/command', JSON.stringify({ cmd: "request_status" }));
-            }, 500);
+            client.subscribe('brewbrother/+/data', () => {
+                // Immediately request live status from all connected ESP32 devices once subscription is active
+                broadcastRequestStatus();
+                if (syncTimer) clearTimeout(syncTimer);
+                syncTimer = setTimeout(() => {
+                    setIsInitialSyncing(false);
+                }, 800);
+            });
+
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(broadcastRequestStatus, 10000);
         });
 
-        client.on('message', (topic, message) => {
+        client.on('message', (topic, message, packet) => {
             const msgStr = message.toString();
+            const isRetained = Boolean(packet?.retain);
 
             if (topic === 'brewbrother/global/update') {
-                refetch();
+                if (!isRetained) refetch();
                 return;
             }
 
             if (topic.endsWith('/ota')) {
+                if (isRetained) return;
                 try {
                     const payload = JSON.parse(msgStr);
                     const serial = topic.split('/')[1];
@@ -84,6 +118,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (topic === 'brewbrother/global/response') {
+                if (isRetained) return;
                 try {
                     const payload = JSON.parse(msgStr);
                     if (payload.type === 'scan_sensors_response') {
@@ -97,15 +132,17 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const payload = JSON.parse(msgStr);
                 const serial = topic.split('/')[1]; // brewbrother/SERIAL/data
 
-                // Se recebeu telemetria, significa que reiniciou e já está vivo. Remove o progresso OTA.
-                setOtaProgress(prev => {
-                    if (prev[serial] !== undefined) {
-                        const next = { ...prev };
-                        delete next[serial];
-                        return next;
-                    }
-                    return prev;
-                });
+                // Se recebeu telemetria ao vivo (não retida), significa que reiniciou e já está vivo. Remove o progresso OTA.
+                if (!isRetained) {
+                    setOtaProgress(prev => {
+                        if (prev[serial] !== undefined) {
+                            const next = { ...prev };
+                            delete next[serial];
+                            return next;
+                        }
+                        return prev;
+                    });
+                }
 
                 // Logic isolated directly referencing payload values
                 let newStatus = undefined;
@@ -179,9 +216,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     } catch (e) {}
                 }
 
-                if (payload.stepTime !== undefined) {
+                if (!isRetained && payload.stepTime !== undefined) {
                     localStorage.setItem(`device_stepTime_${serial}`, payload.stepTime.toString());
-                    localStorage.setItem(`device_lastUpdate_${serial}`, new Date().toISOString());
                 }
 
                 // Cooldown: se um comando foi enviado ha menos de 10s, nao sobrescreve targetTemp e mode
@@ -189,8 +225,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 10000;
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
-                // We don't have the previous f object explicitly here unless we fetch it, 
-                // but localUpdate will do a spread on the old data.
+                // Only live (non-retained) MQTT packets update lastUpdate so powered-off devices are never marked online
                 updateFermenterLocal(serial, {
                     ...(newStatus ? { status: newStatus } : {}),
                     ...(!isInCooldown && currentModeUpdate ? { mode: currentModeUpdate } : {}),
@@ -206,7 +241,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
                         battery: payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
                         rssi: parseFloat(payload.rssi),
-                        lastUpdate: payload.stepTime !== undefined ? new Date().toISOString() : (localStorage.getItem(`device_lastUpdate_${serial}`) || new Date().toISOString()),
+                        ...(isRetained ? {} : { lastUpdate: new Date().toISOString() }),
                         statOp: statusStr || 'INATIVO',
                         logInterval: payload.wi ? payload.wi / 1000 : undefined,
                         compressorDelay: payload.cds,
@@ -216,10 +251,6 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         stepTime: payload.stepTime !== undefined ? parseFloat(payload.stepTime) : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0')
                     } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });
-
-                // Workaround for readings array
-                // The queryClient.setQueryData handles the update
-                // We'll trust the hook's implementation to just overwrite simple fields
             } catch (e) {
                 console.error("MQTT Parse Error", e);
             }
@@ -232,6 +263,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => {
+            if (syncTimer) clearTimeout(syncTimer);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (clientRef.current) clientRef.current.end();
         };
     }, [token, refetch, updateFermenterLocal]);
@@ -241,6 +274,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (clientRef.current && serialCode) {
             const msg = JSON.stringify({ type, cmd: type, ...payload });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
+            if (type === 'request_status') {
+                clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
+            }
             // Cooldown: bloqueia telemetria de sobrescrever updates otimistas (exceto comandos de leitura)
             if (type !== 'request_status' && type !== 'scan_sensors') {
                 commandCooldownRef.current[serialCode] = Date.now();
@@ -257,7 +293,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <BrewContext.Provider value={{ connectionStatus, sendCommand, otaProgress, clearOtaProgress, scanResponses, blockTelemetry }}>
+        <BrewContext.Provider value={{ connectionStatus, isInitialSyncing, sendCommand, otaProgress, clearOtaProgress, scanResponses, blockTelemetry }}>
             {children}
         </BrewContext.Provider>
     );

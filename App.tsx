@@ -30,6 +30,12 @@ const NavConfig = () => {
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
     const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [now, setNow] = useState(Date.now());
+
+    React.useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     React.useEffect(() => {
         const fetchFirmwareVersion = async () => {
@@ -68,9 +74,8 @@ const NavConfig = () => {
     let statOp = 'INATIVO';
     
     if (activeDevice?.currentDevice) {
-        const lastUpdate = new Date(activeDevice.currentDevice.lastUpdate).getTime();
-        const now = new Date().getTime();
-        isOnline = !isNaN(lastUpdate) && (now - lastUpdate) < 30 * 60 * 1000;
+        const lastUpdate = activeDevice.currentDevice.lastUpdate ? new Date(activeDevice.currentDevice.lastUpdate).getTime() : 0;
+        isOnline = !isNaN(lastUpdate) && lastUpdate > 0 && (now - lastUpdate) < 30 * 1000;
         statOp = (activeDevice.currentDevice.statOp || 'INATIVO').toUpperCase();
     }
 

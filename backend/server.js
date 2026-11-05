@@ -245,8 +245,9 @@ mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/device_action'); // Ações originadas pelo hardware (ex: iniciar lote)
 });
 
-mqttClient.on('message', async (topic, message) => {
+mqttClient.on('message', async (topic, message, packet) => {
     try {
+        if (packet && packet.retain) return;
         let payload;
         try { payload = JSON.parse(message.toString()); } catch (e) { return; }
         

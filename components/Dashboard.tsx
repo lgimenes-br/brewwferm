@@ -11,7 +11,7 @@ import { API_URL } from '../config';
 
 export const Dashboard: React.FC = () => {
     const { fermenters, addDevice, updateDevice, deleteDevice, isFetching } = useFermenters();
-    const { connectionStatus, sendCommand } = useBrew();
+    const { connectionStatus, isInitialSyncing, sendCommand } = useBrew();
     
     // Keep track of which devices we've already asked for status in this component lifecycle
     const askedDevices = React.useRef<Set<string>>(new Set());
@@ -30,8 +30,8 @@ export const Dashboard: React.FC = () => {
                 }
             });
         }
-    }, [connectionStatus, fermenters]);
-    const isLoadingMQTT = connectionStatus !== 'connected';
+    }, [connectionStatus, fermenters, sendCommand]);
+    const isLoadingMQTT = connectionStatus !== 'connected' || isInitialSyncing;
     const navigate = useNavigate();
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export const Dashboard: React.FC = () => {
 
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 15000);
+        const interval = setInterval(() => setNow(Date.now()), 5000);
         return () => clearInterval(interval);
     }, []);
 
@@ -167,6 +167,12 @@ export const Dashboard: React.FC = () => {
         }
     };
 
+    const isDeviceOnline = (f: Fermenter) => {
+        const lastUpdate = f.currentDevice?.lastUpdate ? new Date(f.currentDevice.lastUpdate).getTime() : 0;
+        return !isNaN(lastUpdate) && lastUpdate > 0 && (now - lastUpdate) < 30 * 1000;
+    };
+    const onlineCount = fermenters.filter(isDeviceOnline).length;
+
     return (
         <div className="p-6 md:px-10 w-full mx-auto animate-in fade-in duration-500">
             <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -176,7 +182,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex flex-col md:items-end gap-2">
                     <div className="text-xs text-neutral-600 font-mono mb-1">
-                        {fermenters.length} UNIDADES CONECTADAS
+                        {onlineCount} / {fermenters.length} UNIDADES CONECTADAS
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -200,10 +206,8 @@ export const Dashboard: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {fermenters.map((f) => {
-                    // Check connectivity
-                    const lastUpdate = f.currentDevice?.lastUpdate ? new Date(f.currentDevice.lastUpdate).getTime() : 0;
-                    // const now is from state to re-render automatically
-                    const isOnline = !isNaN(lastUpdate) && (now - lastUpdate) < 2 * 60 * 1000; // 2 minutes
+                    // Check connectivity (30s window backed by 10s MQTT request_status heartbeats)
+                    const isOnline = isDeviceOnline(f);
 
                     // Lógica dinâmica de Status/Modo/Badge
                     let statusLabel = 'Inativo';

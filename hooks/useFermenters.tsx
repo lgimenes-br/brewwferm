@@ -4,6 +4,67 @@ import * as api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Fermenter, FermenterStatus, DeviceMode, BeerStyle } from '../types';
 
+// Store latest live MQTT updates per device in memory so in-flight HTTP queries never overwrite real-time MQTT telemetry
+const liveDeviceState = new Map<string, Partial<Fermenter>>();
+
+export const clearLiveDeviceState = () => {
+    liveDeviceState.clear();
+};
+
+const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>): Fermenter => {
+    const rest = { ...updates };
+
+    // If the device has no active batch, do NOT allow MQTT to override
+    // status/profile/steps — only allow sensor telemetry through
+    let filteredRest: Partial<Fermenter> = rest;
+    if (!f.batchId) {
+        const { status, profile, currentStepIndex, isPaused, ...safeUpdates } = rest;
+        filteredRest = safeUpdates;
+    }
+
+    let updatedReadings = f.readings;
+    const isLivePacket = Boolean((filteredRest.currentDevice as any)?.lastUpdate);
+
+    // Mesclar currentDevice com segurança para manter dados do iSpindel (como gravity) que demoram a chegar
+    let updatedCurrentDevice = filteredRest.currentDevice ? { ...(filteredRest.currentDevice as any) } : undefined;
+    if (updatedCurrentDevice && f.currentDevice) {
+        // Remove undefined keys so we don't clobber existing values (like lastUpdate when a retained message arrives)
+        Object.keys(updatedCurrentDevice).forEach(key => {
+            if (updatedCurrentDevice[key] === undefined) {
+                delete updatedCurrentDevice[key];
+            }
+        });
+        updatedCurrentDevice = { ...f.currentDevice, ...updatedCurrentDevice };
+        // Se SG vier zerado ou NaN no pacote atual, mantem o antigo (se houver lote ativo)
+        if (f.batchId && (!updatedCurrentDevice.gravity || isNaN(updatedCurrentDevice.gravity))) {
+            if (f.currentDevice.gravity > 0) {
+                updatedCurrentDevice.gravity = f.currentDevice.gravity;
+            } else {
+                updatedCurrentDevice.gravity = 0;
+            }
+        }
+        filteredRest.currentDevice = updatedCurrentDevice;
+
+        // Adicionar nova leitura ao grafico local apenas em pacotes ao vivo (não retidos)
+        if (isLivePacket && filteredRest.currentDevice && filteredRest.currentDevice.temperature !== undefined && !isNaN(filteredRest.currentDevice.temperature)) {
+            const activeStepTemp = f.profile && f.profile.length > 0 && f.currentStepIndex !== undefined
+                ? f.profile[f.currentStepIndex]?.temperature
+                : undefined;
+            const newReading: any = {
+                timestamp: new Date().toISOString(),
+                beerTemp: filteredRest.currentDevice.temperature,
+                fridgeTemp: filteredRest.currentFridgeTemp ?? f.currentFridgeTemp ?? 0,
+                targetTemp: filteredRest.targetTemp ?? activeStepTemp ?? f.targetTemp ?? 0,
+                gravity: filteredRest.currentDevice.gravity,
+                extra_sensors: filteredRest.currentDevice.extSens
+            };
+            updatedReadings = [...(updatedReadings || []), newReading].slice(-300);
+        }
+    }
+
+    return { ...f, ...filteredRest, readings: updatedReadings } as Fermenter;
+};
+
 // Helper to map backend devices to frontend Fermenter interface
 // (This was previously inside BrewContext.tsx fetchDevices)
 const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] => {
@@ -17,7 +78,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
 
         const safeReadings = Array.isArray(prevDev?.readings) ? prevDev!.readings : [];
         const savedStepTime = localStorage.getItem(`device_stepTime_${d.serial_code}`);
-        const savedLastUpdate = localStorage.getItem(`device_lastUpdate_${d.serial_code}`);
+        // Purge legacy cached lastUpdate so stale timestamps never mark an offline ESP32 as online
+        localStorage.removeItem(`device_lastUpdate_${d.serial_code}`);
 
         const parsedExtraSensors = (() => {
             try {
@@ -29,14 +91,14 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             return undefined;
         })();
 
-        const hasLiveDeviceData = Boolean(prevDev && (prevDev.currentDevice.temperature !== 0 || prevDev.currentDevice.rssi !== 0 || prevDev.currentDevice.extSens));
+        const hasLiveDeviceData = Boolean(prevDev?.currentDevice?.lastUpdate);
         const safeCurrentDevice = hasLiveDeviceData ? prevDev!.currentDevice : {
             gravity: d.last_gravity !== null && d.last_gravity !== undefined ? parseFloat(d.last_gravity) : 0,
             temperature: d.last_temp !== null && d.last_temp !== undefined ? parseFloat(d.last_temp) : 0,
             battery: d.last_battery !== null && d.last_battery !== undefined ? parseFloat(d.last_battery) : 0,
             angle: 0,
             rssi: d.last_rssi ? parseInt(d.last_rssi) : 0,
-            lastUpdate: savedLastUpdate || d.last_seen || new Date().toISOString(),
+            lastUpdate: '',
             statOp: d.last_status || d.status_op || d.stat_op || 'INATIVO',
             logInterval: d.wi ? d.wi / 1000 : 30, // Default 30s
             compressorDelay: d.cds || 310,
@@ -239,6 +301,15 @@ export const useFermenters = () => {
                 }
             }
 
+            // Re-apply any live MQTT telemetry that arrived while the HTTP requests above were in flight
+            mapped = mapped.map(f => {
+                const pendingLive = liveDeviceState.get(f.id);
+                if (pendingLive) {
+                    return applyUpdateToFermenter(f, pendingLive);
+                }
+                return f;
+            });
+
             return mapped;
         },
         enabled: !!token,
@@ -291,6 +362,11 @@ export const useFermenters = () => {
     const finishBatchMutation = useMutation({
         mutationFn: (data: { serialCode: string, deviceId: string }) => api.stopBatch(data.serialCode),
         onSuccess: (_, variables) => {
+            const cachedLive = liveDeviceState.get(variables.deviceId);
+            if (cachedLive) {
+                const { status, profile, currentStepIndex, isPaused, ...restLive } = cachedLive;
+                liveDeviceState.set(variables.deviceId, restLive);
+            }
             // Optimistically update device to IDLE
             queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
                 if (!old) return [];
@@ -344,57 +420,25 @@ export const useFermenters = () => {
             } catch (e) {}
         }
 
+        // Persist in liveDeviceState so in-flight HTTP queries never drop or overwrite this MQTT update
+        const prevLive = liveDeviceState.get(serialCode) || {};
+        const mergedCurrentDevice = updates.currentDevice
+            ? {
+                ...(prevLive.currentDevice || {}),
+                ...Object.fromEntries(
+                    Object.entries(updates.currentDevice).filter(([, v]) => v !== undefined)
+                )
+              }
+            : prevLive.currentDevice;
+        liveDeviceState.set(serialCode, {
+            ...prevLive,
+            ...updates,
+            ...(mergedCurrentDevice ? { currentDevice: mergedCurrentDevice as any } : {})
+        });
+
         queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
             if (!old) return [];
-            return old.map(f => {
-                if (f.id === serialCode) {
-                    const rest = updates;
-
-                    // If the device has no active batch, do NOT allow MQTT to override
-                    // status/profile/steps — only allow sensor telemetry through
-                    let filteredRest = rest;
-                    if (!f.batchId) {
-                        const { status, profile, currentStepIndex, isPaused, ...safeUpdates } = rest;
-                        filteredRest = safeUpdates;
-                    }
-
-                    let updatedReadings = f.readings;
-
-                    // Mesclar currentDevice com segurança para manter dados do iSpindel (como gravity) que demoram a chegar
-                    let updatedCurrentDevice = filteredRest.currentDevice as any;
-                    if (updatedCurrentDevice && f.currentDevice) {
-                        updatedCurrentDevice = { ...f.currentDevice, ...updatedCurrentDevice };
-                        // Se SG vier zerado ou NaN no pacote atual, mantem o antigo (se houver lote ativo)
-                        if (f.batchId && (!updatedCurrentDevice.gravity || isNaN(updatedCurrentDevice.gravity))) {
-                            if (f.currentDevice.gravity > 0) {
-                                updatedCurrentDevice.gravity = f.currentDevice.gravity;
-                            } else {
-                                updatedCurrentDevice.gravity = 0;
-                            }
-                        }
-                        filteredRest.currentDevice = updatedCurrentDevice;
-
-                        // Adicionar nova leitura ao grafico local (em tempo real)
-                        if (filteredRest.currentDevice.temperature !== undefined) {
-                            const activeStepTemp = f.profile && f.profile.length > 0 && f.currentStepIndex !== undefined
-                                ? f.profile[f.currentStepIndex]?.temperature
-                                : undefined;
-                            const newReading: any = {
-                                timestamp: new Date().toISOString(),
-                                beerTemp: filteredRest.currentDevice.temperature,
-                                fridgeTemp: filteredRest.currentFridgeTemp ?? f.currentFridgeTemp ?? 0,
-                                targetTemp: filteredRest.targetTemp ?? activeStepTemp ?? f.targetTemp ?? 0,
-                                gravity: filteredRest.currentDevice.gravity,
-                                extra_sensors: filteredRest.currentDevice.extSens
-                            };
-                            updatedReadings = [...(updatedReadings || []), newReading].slice(-300);
-                        }
-                    }
-
-                    return { ...f, ...filteredRest, readings: updatedReadings } as Fermenter;
-                }
-                return f;
-            });
+            return old.map(f => f.id === serialCode ? applyUpdateToFermenter(f, updates) : f);
         });
     }, [queryClient]);
 
