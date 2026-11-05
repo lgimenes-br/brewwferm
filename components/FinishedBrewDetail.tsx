@@ -39,7 +39,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const [savingIng, setSavingIng] = useState(false);
 
   useEffect(() => {
-    console.log("FinishedBrewDetail mounted - brew:", { id: brew.id, og: brew.og, fg: brew.fg, abv: brew.abv, readingsCount: brew.readings?.length || 0 });
     // Prevent infinite loop - only run once
     if (!token) {
       setLoading(false);
@@ -57,8 +56,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
     const loadDetails = async () => {
       try {
-        console.log('Fetching batch data for ID:', brew.id);
-
         // Add timeout to prevent infinite loading
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -72,13 +69,8 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
         if (!isMounted) return;
 
-        console.log('Response status:', res.status);
-
         if (res.ok) {
           const logs = await res.json();
-          console.log('Received logs:', logs.length, 'entries');
-          if (logs.length > 0) console.log('Sample log:', logs[0]);
-
 
           if (!isMounted) return;
 
@@ -87,10 +79,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             beerTemp: parseFloat(l.temp_ferm) || 0,
             fridgeTemp: parseFloat(l.temp_amb) || 0,
             targetTemp: parseFloat(l.target_temp) || 0,
-            gravity: parseFloat(l.gravity) || 0
+            gravity: parseFloat(l.gravity) || 0,
+            extra_sensors: l.extra_sensors
           }));
-
-          console.log('Parsed readings:', parsedReadings.length, 'entries');
 
           // DOWNSAMPLING: Limit to ~500 points for performance
           // 32k points crashes the SVG renderer or makes it empty
@@ -100,7 +91,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           if (parsedReadings.length > targetPoints) {
             const step = Math.ceil(parsedReadings.length / targetPoints);
             finalReadings = parsedReadings.filter((_, index) => index % step === 0);
-            console.log(`Downsampling: Reduced from ${parsedReadings.length} to ${finalReadings.length} points (Step: ${step})`);
           }
 
           setReadings(finalReadings);
@@ -223,7 +213,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="flex items-center gap-3 mb-2">
           <span className="text-neutral-500 text-sm font-mono tracking-widest">{brew.batchNumber}</span>
           <span className="h-px w-8 bg-neutral-800"></span>
-          <span className="text-neutral-500 text-sm font-light">{new Date(brew.endDate).toLocaleDateString()}</span>
+          <span className="text-neutral-500 text-sm font-light">{brew.endDate ? new Date(brew.endDate).toLocaleDateString() : 'Em andamento'}</span>
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -253,8 +243,8 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           <span className="text-xl font-mono text-orange-500 font-medium">
             {(() => {
               const start = new Date(brew.startDate).getTime();
-              const end = new Date(brew.endDate).getTime();
-              const diff = end - start;
+              const end = brew.endDate ? new Date(brew.endDate).getTime() : Date.now();
+              const diff = Math.max(0, end - start);
               const days = Math.floor(diff / (1000 * 60 * 60 * 24));
               const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
               return `${days}d ${hours}h`;
@@ -430,7 +420,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       )}
 
       <div className="mt-16 pt-8 border-t border-neutral-900 flex justify-center text-xs text-neutral-600 font-mono uppercase tracking-widest">
-        Tempo Total de Fermentação: {Math.ceil((new Date(brew.endDate).getTime() - new Date(brew.startDate).getTime()) / (1000 * 3600 * 24))} dias
+        Tempo Total de Fermentação: {Math.max(0, Math.ceil(((brew.endDate ? new Date(brew.endDate).getTime() : Date.now()) - new Date(brew.startDate).getTime()) / (1000 * 3600 * 24)))} dias
       </div>
     </div>
   );

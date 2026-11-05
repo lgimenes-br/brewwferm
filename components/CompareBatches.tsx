@@ -139,18 +139,19 @@ export const CompareBatches: React.FC = () => {
                                 contentStyle={{ backgroundColor: '#000', borderColor: '#333', borderRadius: '8px' }}
                                 labelFormatter={(val) => `Hora ${val}`}
                                 formatter={(value: any, name: string) => {
-                                    if(name.includes('temp')) return [value + 'ºC', name === 'b1_temp' ? b1Name : b2Name];
-                                    if(name.includes('sg')) return [value.toFixed(3) + ' SG', name === 'b1_sg' ? b1Name : b2Name];
-                                    return [value, name];
+                                    const label = String(name);
+                                    if (label.startsWith('Temp')) return [`${Number(value).toFixed(1)}ºC`, label];
+                                    if (label.startsWith('SG')) return [`${Number(value).toFixed(3)} SG`, label];
+                                    return [value, label];
                                 }}
                             />
                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
                             
-                            <Line yAxisId="left" type="monotone" dataKey="b1_temp" name={`Temp (${b1Name})`} stroke="#f59e0b" strokeWidth={2} dot={false} />
-                            <Line yAxisId="left" type="monotone" dataKey="b2_temp" name={`Temp (${b2Name})`} stroke="#a855f7" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                            <Line yAxisId="left" type="monotone" dataKey="b1_temp" name={`Temp (${b1Name})`} stroke="#f59e0b" strokeWidth={2} dot={false} connectNulls />
+                            <Line yAxisId="left" type="monotone" dataKey="b2_temp" name={`Temp (${b2Name})`} stroke="#a855f7" strokeWidth={2} dot={false} strokeDasharray="5 5" connectNulls />
                             
-                            <Line yAxisId="right" type="monotone" dataKey="b1_sg" name={`SG (${b1Name})`} stroke="#fbbf24" strokeWidth={2} dot={false} />
-                            <Line yAxisId="right" type="monotone" dataKey="b2_sg" name={`SG (${b2Name})`} stroke="#c084fc" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                            <Line yAxisId="right" type="monotone" dataKey="b1_sg" name={`SG (${b1Name})`} stroke="#fbbf24" strokeWidth={2} dot={false} connectNulls />
+                            <Line yAxisId="right" type="monotone" dataKey="b2_sg" name={`SG (${b2Name})`} stroke="#c084fc" strokeWidth={2} dot={false} strokeDasharray="5 5" connectNulls />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>

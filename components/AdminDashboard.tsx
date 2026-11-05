@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, ShieldAlert, Activity, Zap, Shield, Megaphone, Terminal, CheckCircle2, XCircle, Wifi, TrendingUp, Battery, WifiOff, BellRing, HeartPulse, DollarSign, Download, Settings, Save } from 'lucide-react';
+import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, Activity, Zap, Shield, Megaphone, Terminal, Wifi, Battery, WifiOff, BellRing, HeartPulse, DollarSign, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useBrew } from '../context/BrewContext';
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 
@@ -154,7 +154,7 @@ const MarketingTab = () => {
 };
 
 export const AdminDashboard = () => {
-    const { token, logout, user } = useAuth();
+    const { logout, user } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'firmware' | 'ingredients' | 'terminal' | 'marketing'>('overview');
 
@@ -387,7 +387,7 @@ const OverviewTab = () => {
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie data={trends.styles} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="count">
-                                        {trends.styles.map((entry: any, index: number) => (
+                                        {trends.styles.map((_entry: any, index: number) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
@@ -565,7 +565,7 @@ const TelemetryTab = () => {
                             );
                         })}
                         {devices.length === 0 && (
-                            <tr><td colSpan={6} className="py-8 text-center text-neutral-500">Nenhum dispositivo encontrado.</td></tr>
+                            <tr><td colSpan={7} className="py-8 text-center text-neutral-500">Nenhum dispositivo encontrado.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -762,6 +762,7 @@ const UsersTab = () => {
     // Modals
     const [userModal, setUserModal] = useState<{isOpen: boolean, data: any}>({ isOpen: false, data: null });
     const [deviceModal, setDeviceModal] = useState<{isOpen: boolean, data: any, userId: number | null}>({ isOpen: false, data: null, userId: null });
+    const [devicesRefreshKey, setDevicesRefreshKey] = useState(0);
 
     const loadUsers = async () => {
         try {
@@ -771,6 +772,7 @@ const UsersTab = () => {
             });
             if (res.ok) {
                 setUsers(await res.json());
+                setDevicesRefreshKey(prev => prev + 1);
             }
         } catch (e) {
             toast.error('Erro ao carregar usuários');
@@ -904,7 +906,7 @@ const UsersTab = () => {
                                     {/* Inline Devices Accordion */}
                                     {expandedUserId === user.id && (
                                         <tr>
-                                            <td colSpan={6} className="p-0 border-b border-neutral-800">
+                                            <td colSpan={7} className="p-0 border-b border-neutral-800">
                                                 <div className="bg-black/40 px-4 md:px-10 py-6 border-l-2 border-indigo-500 animate-in slide-in-from-top-2 duration-200">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2 uppercase tracking-widest">
@@ -919,7 +921,7 @@ const UsersTab = () => {
                                                         </button>
                                                     </div>
                                                     
-                                                    <UserDevicesList userId={user.id} onEdit={(dev) => setDeviceModal({ isOpen: true, data: dev, userId: user.id })} onDelete={deleteDevice} />
+                                                    <UserDevicesList userId={user.id} refreshTrigger={devicesRefreshKey} onEdit={(dev) => setDeviceModal({ isOpen: true, data: dev, userId: user.id })} onDelete={deleteDevice} />
                                                 </div>
                                             </td>
                                         </tr>
@@ -927,7 +929,7 @@ const UsersTab = () => {
                                 </React.Fragment>
                             ))}
                             {users.length === 0 && !loading && (
-                                <tr><td colSpan={6} className="py-8 text-center text-neutral-500">Nenhum usuário encontrado.</td></tr>
+                                <tr><td colSpan={7} className="py-8 text-center text-neutral-500">Nenhum usuário encontrado.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -955,7 +957,7 @@ const UsersTab = () => {
 };
 
 // Component to load devices for a specific user
-const UserDevicesList = ({ userId, onEdit, onDelete }: { userId: number, onEdit: (dev: any) => void, onDelete: (id: number) => void }) => {
+const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId: number, refreshTrigger?: any, onEdit: (dev: any) => void, onDelete: (id: number) => void }) => {
     const { token } = useAuth();
     const [devices, setDevices] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -969,7 +971,7 @@ const UserDevicesList = ({ userId, onEdit, onDelete }: { userId: number, onEdit:
             setDevices(data.filter((d: any) => d.user_id === userId)); 
             setLoading(false);
         });
-    }, [token, userId]);
+    }, [token, userId, refreshTrigger]);
 
     return loading ? (
         <div className="text-xs text-neutral-500 py-2">Carregando...</div>
@@ -1158,7 +1160,7 @@ const IngredientsTab = () => {
         })
         .then(res => res.json())
         .then(data => { setIngredients(data); setLoading(false); })
-        .catch(err => { toast.error('Erro ao carregar'); setLoading(false); });
+        .catch(() => { toast.error('Erro ao carregar'); setLoading(false); });
     };
 
     useEffect(() => { loadIngredients(); }, [subTab, token]);
@@ -1440,7 +1442,7 @@ const TerminalTab = () => {
 // ==========================================
 const FirmwareTab = () => {
     const { token } = useAuth();
-    const { sendCommand, scanResponses } = useBrew();
+    const { sendCommand } = useBrew();
     const [devices, setDevices] = useState<any[]>([]);
     const [otaUrl, setOtaUrl] = useState('');
     const [otaMd5, setOtaMd5] = useState('');

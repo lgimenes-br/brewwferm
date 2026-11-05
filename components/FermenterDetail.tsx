@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType } from '../types';
-import { ThermometerSnowflake, Flame, PauseCircle, PlayCircle, Snowflake, Wifi, Clock, Percent, FlaskConical, Beer, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X } from 'lucide-react';
+import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X } from 'lucide-react';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
 import { DualAxisChart } from './DualAxisChart';
@@ -230,30 +230,46 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // Calculations
 
-    const abv = ((safeOG - safeCurrentGravity) * 131.25).toFixed(1);
+    const abv = (safeOG > 0 && safeCurrentGravity > 0)
+        ? Math.max(0, (safeOG - safeCurrentGravity) * 131.25).toFixed(1)
+        : "0.0";
 
-    const currentAttenuation = safeOG > 1.000
-        ? ((safeOG - safeCurrentGravity) / (safeOG - 1.000) * 100).toFixed(0)
+    const currentAttenuation = (safeOG > 1.000 && safeCurrentGravity > 0)
+        ? Math.max(0, ((safeOG - safeCurrentGravity) / (safeOG - 1.000)) * 100).toFixed(0)
         : "0";
 
     const getStepTimeRemaining = () => {
-        if (fermenter.status === FermenterStatus.IDLE || !fermenter.startDate || !fermenter.profile || fermenter.profile.length === 0) {
+        if (fermenter.status === FermenterStatus.IDLE || !fermenter.profile || fermenter.profile.length === 0) {
             return '--';
         }
 
-        const start = new Date(fermenter.startDate).getTime();
-        let daysPrior = 0;
-
-        // Sum previous steps
-        for (let i = 0; i < fermenter.currentStepIndex; i++) {
-            daysPrior += fermenter.profile[i].duration;
-        }
-
-        // Add current step duration to calculate target end time of this step
         const currentDuration = fermenter.profile[fermenter.currentStepIndex]?.duration || 0;
-        const targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
+        const durationMs = currentDuration * 24 * 60 * 60 * 1000;
         const now = Date.now();
-        const diff = targetEndTime - now;
+        let diff = 0;
+
+        const stepTime = fermenter.currentDevice?.stepTime;
+        const lastUpdate = fermenter.currentDevice?.lastUpdate;
+
+        if (stepTime !== undefined && stepTime > 0 && lastUpdate) {
+            const elapsedAtLastUpdate = stepTime * 1000;
+            const lastUpdateMs = new Date(lastUpdate).getTime();
+            const additionalElapsed = (fermenter.isPaused || isNaN(lastUpdateMs)) ? 0 : Math.max(0, now - lastUpdateMs);
+            diff = durationMs - (elapsedAtLastUpdate + additionalElapsed);
+        } else if (fermenter.stepStartDate) {
+            const stepStart = new Date(fermenter.stepStartDate).getTime();
+            diff = (stepStart + durationMs) - now;
+        } else if (fermenter.startDate) {
+            const start = new Date(fermenter.startDate).getTime();
+            let daysPrior = 0;
+            for (let i = 0; i < fermenter.currentStepIndex; i++) {
+                daysPrior += fermenter.profile[i]?.duration || 0;
+            }
+            const targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
+            diff = targetEndTime - now;
+        } else {
+            return '--';
+        }
 
         if (diff <= 0) return '0h';
 

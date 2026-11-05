@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Wind } from 'lucide-react';
 
 export const CarbonationCalculator: React.FC = () => {
     const [styleInput, setStyleInput] = useState<string>('American IPA');

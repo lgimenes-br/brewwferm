@@ -76,7 +76,7 @@ export const FermentationHistory: React.FC = () => {
                             beerName: b.name || b.beer_name || 'Sem Nome',
                             style: b.style || b.beer_style || 'Other',
                             startDate: b.started_at || b.start_date,
-                            endDate: b.ended_at || b.end_date || new Date().toISOString(),
+                            endDate: b.ended_at || b.end_date || '',
                             og,
                             fg,
                             abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
@@ -155,7 +155,7 @@ export const FermentationHistory: React.FC = () => {
                         <div className="col-span-2 text-neutral-500 text-sm font-light">
                             <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-neutral-700" />
-                                {new Date(brew.endDate).toLocaleDateString()}
+                                {brew.endDate ? new Date(brew.endDate).toLocaleDateString() : <span className="text-emerald-500 text-xs font-medium">Em andamento</span>}
                             </div>
                         </div>
 

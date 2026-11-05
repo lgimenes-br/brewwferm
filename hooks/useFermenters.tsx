@@ -93,12 +93,15 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                 
                 // If it's a valid array from backend, we map it
                 if (Array.isArray(backendProfile) && backendProfile.length > 0) {
-                    const newProfile = backendProfile.map((step: any, index: number) => ({
-                        id: step.id || `step_${index}`,
-                        name: step.name || step.n || `Etapa ${index + 1}`,
-                        temperature: parseFloat(step.temperature || step.t) || 18,
-                        duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
-                    }));
+                    const newProfile = backendProfile.map((step: any, index: number) => {
+                        const parsedTemp = parseFloat(step.temperature ?? step.t);
+                        return {
+                            id: step.id || `step_${index}`,
+                            name: step.name || step.n || `Etapa ${index + 1}`,
+                            temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
+                            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
+                        };
+                    });
 
                     // Deep compare to avoid breaking reference
                     if (prevDev?.profile && JSON.stringify(prevDev.profile) === JSON.stringify(newProfile)) {
@@ -168,12 +171,15 @@ export const useFermenters = () => {
                                 startDate: batchData.start_date || batchData.started_at || f.startDate,
                                 profile: batchData.profile ? (
                                     typeof batchData.profile === 'string'
-                                        ? JSON.parse(batchData.profile).map((step: any, index: number) => ({
-                                            id: step.id || `step_${index}`,
-                                            name: step.n || step.name || `Etapa ${index + 1}`,
-                                            temperature: parseFloat(step.t || step.temperature) || 18,
-                                            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
-                                        }))
+                                        ? JSON.parse(batchData.profile).map((step: any, index: number) => {
+                                            const parsedTemp = parseFloat(step.t ?? step.temperature);
+                                            return {
+                                                id: step.id || `step_${index}`,
+                                                name: step.n || step.name || `Etapa ${index + 1}`,
+                                                temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
+                                                duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
+                                            };
+                                        })
                                         : batchData.profile
                                 ) : f.profile
                             };
@@ -214,7 +220,8 @@ export const useFermenters = () => {
                                 fridgeTemp: parseFloat(d.temp_amb ?? d.fridgeTemp ?? d.ambient_temp ?? d.fridge_temp ?? d.amb ?? 0),
                                 targetTemp: parseFloat(d.target_temp ?? d.targetTemp ?? d.setpoint ?? 20),
                                 gravity: parseFloat(d.gravity ?? d.is_sg ?? 0),
-                                timestamp: d.recorded_at ?? d.timestamp
+                                timestamp: d.recorded_at ?? d.timestamp,
+                                extra_sensors: d.extra_sensors
                             }));
                             hasNewReadings = true;
                         }
@@ -369,14 +376,18 @@ export const useFermenters = () => {
 
                         // Adicionar nova leitura ao grafico local (em tempo real)
                         if (filteredRest.currentDevice.temperature !== undefined) {
+                            const activeStepTemp = f.profile && f.profile.length > 0 && f.currentStepIndex !== undefined
+                                ? f.profile[f.currentStepIndex]?.temperature
+                                : undefined;
                             const newReading: any = {
                                 timestamp: new Date().toISOString(),
                                 beerTemp: filteredRest.currentDevice.temperature,
-                                targetTemp: f.profile && f.profile.length > 0 && f.currentStepIndex !== undefined ? (f.profile[f.currentStepIndex]?.temperature || 0) : 0,
+                                fridgeTemp: filteredRest.currentFridgeTemp ?? f.currentFridgeTemp ?? 0,
+                                targetTemp: filteredRest.targetTemp ?? activeStepTemp ?? f.targetTemp ?? 0,
                                 gravity: filteredRest.currentDevice.gravity,
                                 extra_sensors: filteredRest.currentDevice.extSens
                             };
-                            updatedReadings = [...(updatedReadings || []), newReading].slice(-100);
+                            updatedReadings = [...(updatedReadings || []), newReading].slice(-300);
                         }
                     }
 

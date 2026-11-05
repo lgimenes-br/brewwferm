@@ -10,7 +10,7 @@ import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrappe
 import { Settings } from './components/Settings';
 import { BrewingCalculators } from './components/BrewingCalculators';
 import { CompareBatches } from './components/CompareBatches';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare, Shield, Plus, Trash2, Edit2, RotateCcw, Power, Moon, Sun, AlertCircle, WifiOff } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
@@ -86,8 +86,7 @@ const NavConfig = () => {
         if (devicesNeedingUpdate.length === 0) return;
         
         if (confirm(`ATENÇÃO: Deseja iniciar a atualização para a versão ${latestFirmware.version} em ${devicesNeedingUpdate.length} equipamento(s)? Eles serão reiniciados.`)) {
-            const apiUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
-            const finalUrl = latestFirmware.url || `${apiUrl}/firmware/update.bin`;
+            const finalUrl = latestFirmware.url || `${window.location.origin}/firmware/update.bin`;
             devicesNeedingUpdate.forEach(device => {
                 sendCommand(device.id, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
             });
@@ -290,7 +289,7 @@ const NavConfig = () => {
                             <span className="text-lg font-bold tracking-tight">Configurações</span>
                         </button>
                         
-                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname.startsWith('/admin')) && (
+                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
                             <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800 mt-auto">
                                 <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><ArrowLeft size={24} /></div>
                                 <span className="text-lg font-bold tracking-tight">Voltar</span>

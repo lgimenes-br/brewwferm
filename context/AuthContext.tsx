@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext } from 'react';
+import { toast } from 'react-hot-toast';
 import * as api from '../services/api';
 
 interface AuthContextType {
@@ -28,8 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('user', data.name);
             localStorage.setItem('role', data.role);
             return true;
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            toast.error(err?.message || 'E-mail ou senha inválidos');
             return false;
         }
     };
@@ -44,8 +46,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('user', data.name);
             localStorage.setItem('role', data.role);
             return true;
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            toast.error(err?.message || 'Falha no login com Google');
             return false;
         }
     };
@@ -54,8 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             await api.register(name, email, password);
             return true;
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            toast.error(err?.message || 'Erro ao criar conta');
             return false;
         }
     };

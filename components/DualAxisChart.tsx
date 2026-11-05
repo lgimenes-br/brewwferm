@@ -31,14 +31,15 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
     const mapped = data.map(d => {
       const rawGravity = parseFloat(String(d.gravity));
       const rawTemp = parseFloat(String((d as any).beerTemp ?? 0));
+      const hasValidGravity = !isNaN(rawGravity) && rawGravity > 0;
       return {
         ...d,
-        originalGravity: rawGravity,
-        gravity: isNaN(rawGravity) ? NaN : Math.min(rawGravity, 1.200),
+        originalGravity: hasValidGravity ? rawGravity : undefined,
+        gravity: hasValidGravity ? Math.min(rawGravity, 1.200) : null,
         beerTemp: isNaN(rawTemp) ? NaN : rawTemp,
         timestamp: d.timestamp
       };
-    }).filter(d => !isNaN(d.gravity) && !isNaN(d.beerTemp));
+    }).filter(d => !isNaN(d.beerTemp));
 
     return chartPoints > 0 ? mapped.slice(-chartPoints) : mapped;
   }, [data]);
@@ -46,8 +47,9 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
   const safeOG = (og !== undefined && og !== null) ? parseFloat(String(og)) : undefined;
   const safeFG = (fg !== undefined && fg !== null) ? parseFloat(String(fg)) : undefined;
 
-  let minGravity = safeData.length > 0 ? Math.min(...safeData.map(d => d.gravity)) : 1.000;
-  let maxGravity = safeData.length > 0 ? Math.max(...safeData.map(d => d.gravity)) : 1.100;
+  const validGravities = safeData.map(d => d.gravity).filter((g): g is number => g !== null && !isNaN(g));
+  let minGravity = validGravities.length > 0 ? Math.min(...validGravities) : 1.000;
+  let maxGravity = validGravities.length > 0 ? Math.max(...validGravities) : 1.100;
 
   if (safeOG !== undefined && !isNaN(safeOG)) maxGravity = Math.max(maxGravity, safeOG);
   if (safeFG !== undefined && !isNaN(safeFG)) minGravity = Math.min(minGravity, safeFG);
@@ -136,6 +138,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 type="monotone"
                 dataKey="gravity"
                 name={sensorSgName}
+                connectNulls
                 stroke={safeData.length > 0 ? "#8b5cf6" : "none"}
                 fillOpacity={safeData.length > 0 ? 1 : 0}
                 fill="url(#colorGravityDual)"

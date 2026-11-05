@@ -19,7 +19,7 @@ export const Dashboard: React.FC = () => {
     useEffect(() => {
         if (connectionStatus === 'connected' && fermenters.length > 0) {
             fermenters.forEach(f => {
-                const isCorrupted = f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0);
+                const isCorrupted = !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0);
                 
                 // Ask for status if it's the first time we see this device, OR if it's corrupted and we haven't asked recently
                 if (!askedDevices.current.has(f.id) || (isCorrupted && !askedDevices.current.has(`corrupted_${f.id}`))) {
@@ -263,7 +263,7 @@ export const Dashboard: React.FC = () => {
                     const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 
 
-                    const isCorrupted = isOnline && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
+                    const isCorrupted = isOnline && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
 
                     return (
                         <div key={f.id} className="relative">
@@ -454,8 +454,8 @@ export const Dashboard: React.FC = () => {
                                     <input
                                         type="text"
                                         value={editIp}
-                                        onChange={(e) => setEditIp(e.target.value)}
-                                        className="w-full bg-black border border-neutral-800 text-white font-mono text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        disabled
+                                        className="w-full bg-black/50 border border-neutral-800 text-neutral-500 font-mono text-sm rounded-xl px-4 py-3 cursor-not-allowed"
                                         placeholder="192.168.x.x"
                                     />
                                 </div>

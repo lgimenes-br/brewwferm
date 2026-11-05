@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, FlaskConical, Thermometer, Info, Beaker, CheckCircle2, Plus, Trash2, Rocket } from 'lucide-react';
-import { Fermenter, FermentationStep, BeerStyle } from '../types';
+import { ArrowRight, ArrowLeft, FlaskConical, Thermometer, Info, CheckCircle2, Plus, Trash2, Rocket } from 'lucide-react';
+import { Fermenter, FermentationStep } from '../types';
 
 interface FermentationWizardProps {
     fermenter: Fermenter;

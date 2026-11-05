@@ -54,27 +54,26 @@ export const FermenterDetailWrapper: React.FC = () => {
             const currentIndex = fermenter?.currentStepIndex || 0;
             if (updates.currentStepIndex > currentIndex) {
                 // Moving forward usually means skipping step in this interface
-                if (confirm('Avançar para a próxima etapa?')) {
-                    sendCommand(updateId, 'skipStep', {});
-                    toast.success('Comando para pular etapa enviado!');
-                }
+                if (!confirm('Avançar para a próxima etapa?')) return;
+                sendCommand(updateId, 'skipStep', {});
+                toast.success('Comando para pular etapa enviado!');
+                shouldUpdateOptimistically = true;
             } else if (updates.currentStepIndex < currentIndex) {
                 // Moving backward
-                if (confirm('Voltar para a etapa anterior?')) {
-                    // We re-send the profile with the new current step index
-                    const payloadSteps = (fermenter?.profile || []).map((step) => ({
-                        n: step.name,
-                        t: step.temperature,
-                        d: step.duration * 24 // ESP32 expects hours, DB stores days
-                    }));
-                    sendCommand(updateId, 'setProfile', { 
-                        steps: payloadSteps, 
-                        currentStep: updates.currentStepIndex 
-                    });
-                    toast.success('Comando para retornar etapa enviado!');
-                }
+                if (!confirm('Voltar para a etapa anterior?')) return;
+                // We re-send the profile with the new current step index
+                const payloadSteps = (fermenter?.profile || []).map((step) => ({
+                    n: step.name,
+                    t: step.temperature,
+                    d: step.duration * 24 // ESP32 expects hours, DB stores days
+                }));
+                sendCommand(updateId, 'setProfile', { 
+                    steps: payloadSteps, 
+                    currentStep: updates.currentStepIndex 
+                });
+                toast.success('Comando para retornar etapa enviado!');
+                shouldUpdateOptimistically = true;
             }
-            shouldUpdateOptimistically = true;
         }
 
         if (updates.targetTemp !== undefined) {
@@ -145,10 +144,11 @@ export const FermenterDetailWrapper: React.FC = () => {
             shouldUpdateOptimistically = true;
         }
 
+        if (shouldUpdateOptimistically || updates.events !== undefined) {
+            updateFermenterLocal(updateId, updates);
+        }
+
         if (updates.events !== undefined) {
-            // Update local state immediately for UI
-            updateFermenterLocal(updateId, { events: updates.events });
-            
             // Persist new events to backend
             if (fermenter?.batchId && updates.events && updates.events.length > (fermenter.events?.length || 0)) {
                 const newEvent = updates.events[updates.events.length - 1];
@@ -185,14 +185,9 @@ export const FermenterDetailWrapper: React.FC = () => {
                     }
                 }
             }
-            return;
         }
 
-        if (shouldUpdateOptimistically) {
-             updateFermenterLocal(updateId, updates);
-        }
-
-    }, [updateBatch, sendCommand, fermenter, updateFermenterLocal, saveEvent, refetch]);
+    }, [updateBatch, sendCommand, blockTelemetry, token, fermenter, updateFermenterLocal, saveEvent, deleteEvent, refetch]);
 
     // Show loading if it's the first load OR if we're fetching and haven't found the device yet
     const isWorking = isLoading || (isFetching && !fermenter);

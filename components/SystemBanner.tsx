@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Info, X } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 
 export const SystemBanner = () => {
-    const { token } = useAuth();
     const [broadcast, setBroadcast] = useState<any>(null);
     const [closed, setClosed] = useState(false);
 

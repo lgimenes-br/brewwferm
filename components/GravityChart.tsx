@@ -35,7 +35,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
         gravity: isNaN(rawVal) ? NaN : Math.min(rawVal, 1.200), // Clamp visual value to max 1.200 to preserve scale
         timestamp: d.timestamp
       };
-    }).filter(d => !isNaN(d.gravity));
+    }).filter(d => !isNaN(d.gravity) && d.gravity > 0);
 
     return chartPoints > 0 ? mapped.slice(-chartPoints) : mapped;
   }, [data]);
@@ -127,7 +127,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                   itemStyle={{ color: '#d4d4d4', fontSize: '12px', paddingBottom: '4px' }}
                   labelStyle={{ color: '#a3a3a3', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   labelFormatter={(label) => new Date(label).toLocaleString()}
-                  formatter={(value: number, name: string, props: any) => {
+                  formatter={(value: number, _name: string, props: any) => {
                     const original = props?.payload?.originalGravity;
                     const displayVal = original !== undefined ? original : value;
                     return [displayVal.toFixed(3), 'SG'];

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FermentationEvent, EventType } from '../types';
-import { Plus, Calendar, X, MessageSquareText, Activity } from 'lucide-react';
+import { Plus, Calendar, X, MessageSquareText } from 'lucide-react';
 
 interface FermentationTimelineProps {
   events: FermentationEvent[];

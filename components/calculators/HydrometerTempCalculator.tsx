@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Thermometer } from 'lucide-react';
 
 export const HydrometerTempCalculator: React.FC = () => {
     const [measuredGravInput, setMeasuredGravInput] = useState<string>('1.010');

@@ -121,8 +121,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (payload.csp !== undefined) {
                     target = payload.csp; // Always use ESP32's currentSetpoint (csp) as source of truth
                 } else if (payload.opm === 0 && payload.steps && payload.steps[payload.currStep]) {
-                    target = payload.steps[payload.currStep]?.t || 20;
-                } else if (payload.fsm) {
+                    const stepTemp = parseFloat(payload.steps[payload.currStep]?.t);
+                    target = !isNaN(stepTemp) ? stepTemp : 20;
+                } else if (payload.fsm !== undefined) {
                     target = payload.fsm;
                 }
 
@@ -133,12 +134,15 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (payload.steps && Array.isArray(payload.steps) && payload.steps.length > 0) {
                     profileUpdate = payload.steps
                         .filter((step: any) => step.t > 0 || step.d > 0)
-                        .map((step: any, index: number) => ({
-                            id: `step_${index}`,
-                            name: step.n || `Etapa ${index + 1}`,
-                            temperature: parseFloat(step.t) || 18,
-                            duration: step.d !== undefined ? (parseFloat(step.d) / 24) : 1
-                        }));
+                        .map((step: any, index: number) => {
+                            const parsedTemp = parseFloat(step.t);
+                            return {
+                                id: `step_${index}`,
+                                name: step.n || `Etapa ${index + 1}`,
+                                temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
+                                duration: step.d !== undefined ? (parseFloat(step.d) / 24) : 1
+                            };
+                        });
                 }
                 
                 if (payload.currStep !== undefined) {

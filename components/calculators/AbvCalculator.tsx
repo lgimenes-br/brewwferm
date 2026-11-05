@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Percent } from 'lucide-react';
 
 export const AbvCalculator: React.FC = () => {
     const [unit, setUnit] = useState<'SG' | 'Plato' | 'Brix'>('SG');

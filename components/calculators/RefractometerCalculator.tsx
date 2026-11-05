@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Pipette } from 'lucide-react';
 
 export const RefractometerCalculator: React.FC = () => {
     const [isFermented, setIsFermented] = useState(true);
@@ -46,8 +45,6 @@ export const RefractometerCalculator: React.FC = () => {
 
             // ABV Calculation
             if (ogSg > currentSg) {
-                // Standard ABV
-                const abvStd = (ogSg - currentSg) * 131.25;
                 // Advanced ABV
                 abv = (76.08 * (ogSg - currentSg) / (1.775 - ogSg)) * (currentSg / 0.794);
                 // ABW

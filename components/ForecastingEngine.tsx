@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Fermenter, Reading } from '../types';
-import { Target, Activity, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Fermenter } from '../types';
+import { Activity, CheckCircle2 } from 'lucide-react';
 
 interface ForecastingEngineProps {
   fermenter: Fermenter;
@@ -9,20 +9,25 @@ interface ForecastingEngineProps {
 export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter }) => {
   const { og, fg, readings } = fermenter;
 
-  const { progress, isStabilized, currentGravity, diff48h } = useMemo(() => {
-    if (!readings || readings.length === 0) {
-      return { progress: 0, isStabilized: false, currentGravity: og, diff48h: null };
+  const { progress, isStabilized } = useMemo(() => {
+    const validReadings = (readings || []).filter(r => {
+      const g = parseFloat(String(r.gravity));
+      return !isNaN(g) && g > 0;
+    });
+
+    if (validReadings.length === 0) {
+      return { progress: 0, isStabilized: false };
     }
 
     // Sort by timestamp just in case
-    const sortedReadings = [...readings].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const sortedReadings = [...validReadings].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const latestReading = sortedReadings[sortedReadings.length - 1];
     const latestGravity = parseFloat(String(latestReading.gravity));
     
     // Safety checks for NaN
     const safeOG = parseFloat(String(og)) || 1.050;
     const safeFG = parseFloat(String(fg)) || 1.010;
-    const currentG = isNaN(latestGravity) ? safeOG : latestGravity;
+    const currentG = isNaN(latestGravity) || latestGravity <= 0 ? safeOG : latestGravity;
 
     // Calculate apparent attenuation progress %
     // Formula: ((OG - SG) / (OG - FG)) * 100
@@ -37,19 +42,15 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
     const latestTime = new Date(latestReading.timestamp).getTime();
     const fortyEightHoursAgo = latestTime - (48 * 60 * 60 * 1000);
 
-    // Find reading closest to 48h ago, but it MUST be at least 40 hours ago to be considered valid
-    const oldReading = sortedReadings.find(r => new Date(r.timestamp).getTime() >= fortyEightHoursAgo);
-    
-    // Alternatively, just get the reading that is exactly or just before 48h ago
+    // Get the reading that is at or just before 48h ago
     const reading48hAgo = [...sortedReadings].reverse().find(r => new Date(r.timestamp).getTime() <= fortyEightHoursAgo);
 
     let stabilized = false;
-    let diff = null;
 
     if (reading48hAgo) {
       const oldGravity = parseFloat(String(reading48hAgo.gravity));
-      if (!isNaN(oldGravity)) {
-        diff = Math.abs(oldGravity - currentG);
+      if (!isNaN(oldGravity) && oldGravity > 0) {
+        const diff = Math.abs(oldGravity - currentG);
         // If gravity varied by less than 0.002 points in 48h, it's considered stabilized
         if (diff <= 0.002 && prog > 80) { // Also require at least 80% expected attenuation to avoid false positives early on
           stabilized = true;
@@ -59,9 +60,7 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
 
     return {
       progress: prog,
-      isStabilized: stabilized,
-      currentGravity: currentG,
-      diff48h: diff
+      isStabilized: stabilized
     };
   }, [readings, og, fg]);
 

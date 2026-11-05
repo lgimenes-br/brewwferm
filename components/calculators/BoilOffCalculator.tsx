@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Droplets } from 'lucide-react';
 
 export const BoilOffCalculator: React.FC = () => {
     const [currentGravInput, setCurrentGravInput] = useState<string>('1.042');
@@ -25,12 +24,6 @@ export const BoilOffCalculator: React.FC = () => {
         'Sugar': 46
     };
 
-    const extractNames = {
-        'DME': 'Extrato de Malte Seco (DME)',
-        'LME': 'Extrato de Malte Líquido (LME)',
-        'Sugar': 'Açúcar de Mesa / Dextrose'
-    };
-
     useEffect(() => {
         const cGrav = parseFloat(currentGravInput.replace(',', '.'));
         const tGrav = parseFloat(targetGravInput.replace(',', '.'));
@@ -42,7 +35,6 @@ export const BoilOffCalculator: React.FC = () => {
         const currentPoints = (cGrav - 1) * 1000;
         const targetPoints = (tGrav - 1) * 1000;
         const totalCurrentPoints = currentPoints * cVol;
-        const totalTargetPoints = targetPoints * cVol; 
         
         let extractNeeded = 0;
         let evapNeeded = 0;

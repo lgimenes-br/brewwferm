@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Settings as SettingsIcon, Smartphone } from 'lucide-react';
+import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
@@ -113,7 +113,12 @@ export const Settings: React.FC = () => {
               setMacSensorControle(macCtrl);
               setNameSensorControle(activeDevice.sensor1_name || 'Fermentador');
               if (extSens) {
-                  try { setExtraSensors(JSON.parse(extSens)); } catch (e) { setExtraSensors([]); }
+                  try {
+                      const parsed = typeof extSens === 'string' ? JSON.parse(extSens) : extSens;
+                      setExtraSensors(Array.isArray(parsed) ? parsed : []);
+                  } catch (e) {
+                      setExtraSensors([]);
+                  }
               } else {
                   setExtraSensors([]);
               }
@@ -245,7 +250,8 @@ export const Settings: React.FC = () => {
         { type: 'Kd_h', val: parseFloat(String(settings.pidHeating.kd)) },
         { type: 'Kp_c', val: parseFloat(String(settings.pidCooling.kp)) }, 
         { type: 'Ki_c', val: parseFloat(String(settings.pidCooling.ki)) }, 
-        { type: 'Kd_c', val: parseFloat(String(settings.pidCooling.kd)) }
+        { type: 'Kd_c', val: parseFloat(String(settings.pidCooling.kd)) },
+        { type: 'pwmWindowHeat', val: parseFloat(String(settings.pwmWindowHeat)) }
     ];
     
     const promise = new Promise<void>((resolve) => {

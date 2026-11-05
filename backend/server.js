@@ -313,17 +313,30 @@ mqttClient.on('message', async (topic, message) => {
         if (topic.endsWith('/comando')) {
             const serialCode = topic.split('/')[1];
             if (payload.type === 'setProfile' && payload.currentStep !== undefined) {
-                // Find active batch and update step_started_at
+                // Find active batch and update step_started_at only when the step actually changes
                 const [batches] = await pool.execute(`
-                    SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id 
+                    SELECT b.id, b.current_step_index FROM batches b JOIN devices d ON b.device_id = d.id 
                     WHERE d.serial_code = ? AND b.is_active = 1 LIMIT 1
                 `, [serialCode]);
-                if (batches.length > 0) {
+                if (batches.length > 0 && Number(batches[0].current_step_index) !== Number(payload.currentStep)) {
                     await pool.execute(
                         'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
                         [payload.currentStep, batches[0].id]
                     );
                     console.log(`⏱️ [Manual Override] Lote ${batches[0].id} alterado para etapa ${payload.currentStep}`);
+                }
+            } else if (payload.type === 'skipStep') {
+                const [batches] = await pool.execute(`
+                    SELECT b.id, b.current_step_index FROM batches b JOIN devices d ON b.device_id = d.id 
+                    WHERE d.serial_code = ? AND b.is_active = 1 LIMIT 1
+                `, [serialCode]);
+                if (batches.length > 0) {
+                    const nextStep = (Number(batches[0].current_step_index) || 0) + 1;
+                    await pool.execute(
+                        'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
+                        [nextStep, batches[0].id]
+                    );
+                    console.log(`⏱️ [Manual Override] Lote ${batches[0].id} avançado para etapa ${nextStep}`);
                 }
             }
             return;
@@ -351,14 +364,14 @@ mqttClient.on('message', async (topic, message) => {
             const lastLog = lastLogTimes[serialCode] || 0;
             const logInterval = payload.wi || 60000;
 
-            if (now - lastLog >= logInterval) {
-                let target = payload.fsm;
-                if (payload.csp !== undefined) target = payload.csp;
-                else if (payload.opm === 0 && payload.fermRun && payload.steps && payload.steps[payload.currStep]) {
-                    target = payload.steps[payload.currStep].t;
-                }
-                const currentBatchId = activeBatches[serialCode] || null;
+            let target = payload.fsm;
+            if (payload.csp !== undefined) target = payload.csp;
+            else if (payload.opm === 0 && payload.fermRun && payload.steps && payload.steps[payload.currStep]) {
+                target = payload.steps[payload.currStep].t;
+            }
+            const currentBatchId = activeBatches[serialCode] || null;
 
+            if (now - lastLog >= logInterval) {
                 // Sync ESP32 step with Database
                 if (currentBatchId && payload.currStep !== undefined && payload.opm === 0 && payload.fermRun) {
                     try {
@@ -419,7 +432,7 @@ mqttClient.on('message', async (topic, message) => {
                 // Alerta de Temperatura
                 const tempFerm = parseFloat(payload.ferm);
                 const targetTemp = parseFloat(sanitizeNum(target, 1));
-                if (tempFerm && targetTemp && payload.opm === 0) {
+                if (!isNaN(tempFerm) && !isNaN(targetTemp) && payload.opm === 0) {
                     if (Math.abs(tempFerm - targetTemp) > 1.5) {
                         if (!alertState[serialCode].tempAlertStartTime) {
                             alertState[serialCode].tempAlertStartTime = now;
@@ -1019,8 +1032,8 @@ app.delete('/api/history/:serial', authenticateToken, async (req, res) => {
 
 app.get('/api/export/:serial', authenticateToken, async (req, res) => {
     try {
-        let [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND b.is_active = 1 LIMIT 1`, [req.params.serial]);
-        if (batches.length === 0) [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? ORDER BY b.id DESC LIMIT 1`, [req.params.serial]);
+        let [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? AND b.is_active = 1 LIMIT 1`, [req.params.serial, req.user.id]);
+        if (batches.length === 0) [batches] = await pool.execute(`SELECT b.id, b.name, b.ended_at, b.is_active FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? ORDER BY b.id DESC LIMIT 1`, [req.params.serial, req.user.id]);
         let queryWhere = ''; let fileName = 'log_geral'; let currentBatch = null;
         const queryParams = [req.params.serial, req.user.id];
         if (batches.length > 0) {
@@ -1072,8 +1085,8 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
             data.forEach(d => {
                 const h = Math.round(d.hour * 10) / 10;
                 if (!combined[h]) combined[h] = { hour: h };
-                if (d.temp) combined[h][`${prefix}_temp`] = d.temp;
-                if (d.sg) combined[h][`${prefix}_sg`] = d.sg;
+                if (!isNaN(d.temp)) combined[h][`${prefix}_temp`] = d.temp;
+                if (!isNaN(d.sg) && d.sg > 0) combined[h][`${prefix}_sg`] = d.sg;
             });
         };
         process(data1, 'b1');
@@ -1118,6 +1131,7 @@ app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
         await pool.execute('DELETE FROM telemetry WHERE batch_id = ?', [req.params.id]);
         await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [req.params.id]);
         await pool.execute('DELETE FROM batches WHERE id = ?', [req.params.id]);
+        await loadActiveBatches();
         res.json({ message: 'Batch deletado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1142,13 +1156,13 @@ app.get('/api/voice/status', async (req, res) => {
         }
         
         const t = telemetry[0];
-        const tempFerm = t.temp_ferm ? t.temp_ferm.toString().replace('.', ' vírgula ') : 'desconhecida';
-        const tempAmb = t.temp_amb ? t.temp_amb.toString().replace('.', ' vírgula ') : 'desconhecida';
+        const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+        const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
         
         const s3 = batch.sensor_sg_name || 'Gravidade';
         let gravText = '';
-        if (t.gravity) {
-            const parts = t.gravity.toString().split('.');
+        if (t.gravity && parseFloat(t.gravity) > 0) {
+            const parts = parseFloat(t.gravity).toFixed(3).split('.');
             if (parts.length === 2) {
                 // e.g., 1.015 -> "um ponto zero quinze"
                 gravText = `e o ${s3} é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
@@ -1201,16 +1215,16 @@ app.post('/api/voice/alexa', async (req, res) => {
         }
         
         const t = telemetry[0];
-        const tempFerm = t.temp_ferm ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-        const tempAmb = t.temp_amb ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+        const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+        const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
         
         const s3 = batch.sensor_sg_name || 'Gravidade';
         let gravText = '';
-        if (t.gravity) {
+        if (t.gravity && parseFloat(t.gravity) > 0) {
             const gravFormatted = parseFloat(t.gravity).toFixed(3);
             const parts = gravFormatted.split('.');
             if (parts.length === 2) {
-                gravText = `e a SG atual é de ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
+                gravText = `e o sensor ${s3} está em ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
             }
         }
 
@@ -1398,6 +1412,7 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
         
         // 5. Finally delete the user
         await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        await loadActiveBatches();
         
         res.json({ message: 'User and all related data deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1417,6 +1432,7 @@ app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, r
         const { id } = req.params;
         const { serial_code, device_name, user_id } = req.body;
         await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code.trim().toUpperCase(), device_name || null, user_id, id]);
+        await loadActiveBatches();
         res.json({ message: 'Device updated' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1431,6 +1447,7 @@ app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req
         }
         await pool.execute('DELETE FROM batches WHERE device_id = ?', [id]);
         await pool.execute('DELETE FROM devices WHERE id = ?', [id]);
+        await loadActiveBatches();
         res.json({ message: 'Device deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

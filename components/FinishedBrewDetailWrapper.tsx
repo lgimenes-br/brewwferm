@@ -30,17 +30,19 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                     const hData = await historyRes.json();
                     const hb = hData.find((x: any) => String(x.id) === id);
                     if(hb) {
+                        const hbOg = parseFloat(hb.og) || 0;
+                        const hbFg = parseFloat(hb.fg) || 0;
                         return {
                             id: String(hb.id),
                             batchNumber: String(hb.id),
                             beerName: hb.name || hb.beer_name || 'Sem Nome',
                             style: hb.style || hb.beer_style || 'Other',
                             startDate: hb.started_at || hb.start_date,
-                            endDate: hb.ended_at || hb.end_date || new Date().toISOString(),
-                            og: parseFloat(hb.og) || 0,
-                            fg: parseFloat(hb.fg) || 0,
-                            abv: 0, // Simplified for wrapper
-                            efficiency: 0,
+                            endDate: hb.ended_at || hb.end_date || '',
+                            og: hbOg,
+                            fg: hbFg,
+                            abv: (hbOg && hbFg && hbOg > hbFg) ? ((hbOg - hbFg) * 131.25) : 0,
+                            efficiency: (hbOg && hbFg && hbOg > 1) ? ((hbOg - hbFg) / (hbOg - 1.0) * 100) : 0,
                             notes: '',
                             ingredients: hb.ingredients,
                             sensor1_name: hb.sensor1_name,
@@ -62,7 +64,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                 beerName: b.name || b.beer_name || 'Sem Nome',
                 style: b.style || b.beer_style || 'Other',
                 startDate: b.started_at || b.start_date,
-                endDate: b.ended_at || b.end_date || new Date().toISOString(),
+                endDate: b.ended_at || b.end_date || '',
                 og,
                 fg,
                 abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
