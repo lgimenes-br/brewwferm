@@ -246,31 +246,42 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         const currentDuration = fermenter.profile[fermenter.currentStepIndex]?.duration || 0;
         const durationMs = currentDuration * 24 * 60 * 60 * 1000;
         const now = Date.now();
-        let diff = 0;
+        let targetEndTime = 0;
 
         const stepTime = fermenter.currentDevice?.stepTime;
         const lastUpdate = fermenter.currentDevice?.lastUpdate;
 
-        if (stepTime !== undefined && stepTime > 0 && lastUpdate) {
-            const elapsedAtLastUpdate = stepTime * 1000;
-            const lastUpdateMs = new Date(lastUpdate).getTime();
-            const additionalElapsed = (fermenter.isPaused || isNaN(lastUpdateMs)) ? 0 : Math.max(0, now - lastUpdateMs);
-            diff = durationMs - (elapsedAtLastUpdate + additionalElapsed);
-        } else if (fermenter.stepStartDate) {
-            const stepStart = new Date(fermenter.stepStartDate).getTime();
-            diff = (stepStart + durationMs) - now;
-        } else if (fermenter.startDate) {
+        if (fermenter.stepStartDate) {
+            const dbStart = new Date(fermenter.stepStartDate).getTime();
+            let finalStart = dbStart;
+            if (stepTime !== undefined && lastUpdate) {
+                const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+                const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                if (!isNaN(absoluteStepStartTime) && Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
+                    finalStart = absoluteStepStartTime;
+                }
+            }
+            targetEndTime = finalStart + durationMs;
+        } else if (stepTime !== undefined && lastUpdate) {
+            const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+            const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+            if (!isNaN(absoluteStepStartTime)) {
+                targetEndTime = absoluteStepStartTime + durationMs;
+            }
+        }
+
+        if (targetEndTime === 0 && fermenter.startDate) {
             const start = new Date(fermenter.startDate).getTime();
             let daysPrior = 0;
             for (let i = 0; i < fermenter.currentStepIndex; i++) {
                 daysPrior += fermenter.profile[i]?.duration || 0;
             }
-            const targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
-            diff = targetEndTime - now;
-        } else {
-            return '--';
+            targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         }
 
+        if (targetEndTime === 0 || isNaN(targetEndTime)) return '--';
+
+        const diff = targetEndTime - now;
         if (diff <= 0) return '0h';
 
         const d = Math.floor(diff / (1000 * 60 * 60 * 24));

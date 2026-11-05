@@ -54,16 +54,16 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
     // Tick the timer every second if fermentation is active
     React.useEffect(() => {
-        if (!isPaused && startDate) {
+        if (!isPaused && (startDate || stepStartDate || stepTime !== undefined)) {
             const interval = setInterval(() => {
                 setNow(Date.now());
             }, 1000);
             return () => clearInterval(interval);
         }
-    }, [isPaused, startDate]);
+    }, [isPaused, startDate, stepStartDate, stepTime]);
 
     const getStepTimeRemaining = (stepIndex: number) => {
-        if (!startDate || localSteps.length === 0) return null;
+        if ((!startDate && !stepStartDate && stepTime === undefined) || localSteps.length === 0) return null;
 
         let targetEndTime = 0;
         const currentDuration = localSteps[stepIndex]?.duration || 0;
@@ -152,8 +152,15 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
     const handleToggleEdit = () => {
         if (isEditing) {
+            const sanitizedSteps = localSteps.map((s, idx) => ({
+                ...s,
+                name: (s.name || '').trim() || `Etapa ${idx + 1}`,
+                temperature: isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
+                duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
+            }));
+            setLocalSteps(sanitizedSteps);
             // User finished editing, save to backend
-            onUpdateSteps(localSteps);
+            onUpdateSteps(sanitizedSteps);
         }
         setIsEditing(!isEditing);
     };
