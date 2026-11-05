@@ -30,6 +30,15 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         fermentersRef.current = fermenters;
+        if (clientRef.current?.connected && fermenters.length > 0) {
+            const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
+            fermenters.forEach(f => {
+                if (f.id) {
+                    clientRef.current?.publish(`brewbrother/${f.id}/comando`, statusMsg);
+                    clientRef.current?.publish(`brewbrother/${f.id}/command`, statusMsg);
+                }
+            });
+        }
     }, [fermenters]);
 
     // --- MQTT ---
@@ -43,14 +52,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsInitialSyncing(true);
 
         console.log("Connecting MQTT to", MQTT_BROKER);
-        let storedClientId = localStorage.getItem('mqtt_client_id');
-        if (!storedClientId) {
-            storedClientId = 'brew_' + Math.random().toString(16).substr(2, 8);
-            localStorage.setItem('mqtt_client_id', storedClientId);
-        }
+        const clientId = 'brew_' + Math.random().toString(16).slice(2, 10);
         
         const client = mqtt.connect(MQTT_BROKER, {
-            clientId: storedClientId,
+            clientId,
             protocol: 'wss',
             username: 'esp32user',
             password: 'esp32',
@@ -62,6 +67,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clientRef.current = client;
         let syncTimer: ReturnType<typeof setTimeout> | null = null;
         let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+        // Hard timeout so initial search never hangs forever if broker or device is unreachable
+        const hardSyncTimer = setTimeout(() => {
+            setIsInitialSyncing(false);
+        }, 2500);
 
         const broadcastRequestStatus = () => {
             if (!client.connected) return;
@@ -78,7 +87,6 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         client.on('connect', () => {
             setConnectionStatus('connected');
-            setIsInitialSyncing(true);
             console.log("MQTT Connected");
             client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
@@ -89,7 +97,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (syncTimer) clearTimeout(syncTimer);
                 syncTimer = setTimeout(() => {
                     setIsInitialSyncing(false);
-                }, 800);
+                }, 1800);
             });
 
             if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -263,6 +271,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => {
+            clearTimeout(hardSyncTimer);
             if (syncTimer) clearTimeout(syncTimer);
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (clientRef.current) clientRef.current.end();

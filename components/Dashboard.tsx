@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice } from '../types';
-import { Wifi, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
@@ -10,7 +10,7 @@ import { useBrew } from '../context/BrewContext';
 import { API_URL } from '../config';
 
 export const Dashboard: React.FC = () => {
-    const { fermenters, addDevice, updateDevice, deleteDevice, isFetching } = useFermenters();
+    const { fermenters, addDevice, updateDevice, deleteDevice } = useFermenters();
     const { connectionStatus, isInitialSyncing, sendCommand } = useBrew();
     
     // Keep track of which devices we've already asked for status in this component lifecycle
@@ -31,7 +31,6 @@ export const Dashboard: React.FC = () => {
             });
         }
     }, [connectionStatus, fermenters, sendCommand]);
-    const isLoadingMQTT = connectionStatus !== 'connected' || isInitialSyncing;
     const navigate = useNavigate();
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -267,14 +266,25 @@ export const Dashboard: React.FC = () => {
                     const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 
 
-                    const isCorrupted = isOnline && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
+                    const isCorrupted = isOnline && isInitialSyncing && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
+                    const showConnectingOverlay = (!isOnline && isInitialSyncing) || isCorrupted;
+                    const showOfflineOverlay = !isOnline && !isInitialSyncing;
 
                     return (
                         <div key={f.id} className="relative">
-                            {(isLoadingMQTT || isFetching || isCorrupted) && (
-                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl border border-neutral-800">
-                                    <Loader2 className="animate-spin text-neutral-400 mb-2" size={24} />
-                                    <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">{isLoadingMQTT ? 'Conectando...' : 'Sincronizando...'}</span>
+                            {(showConnectingOverlay || showOfflineOverlay) && (
+                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl border border-neutral-800 pointer-events-none">
+                                    {showConnectingOverlay ? (
+                                        <>
+                                            <Loader2 className="animate-spin text-neutral-400 mb-2" size={24} />
+                                            <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">Conectando...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <WifiOff className="text-neutral-500 mb-2" size={24} />
+                                            <span className="text-xs font-mono text-neutral-400 tracking-widest uppercase">Offline</span>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         <div
@@ -282,11 +292,11 @@ export const Dashboard: React.FC = () => {
                             className={`group relative rounded-3xl p-8 transition-all duration-300 overflow-hidden border ${
                                 isOnline 
                                 ? 'bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 cursor-pointer hover:shadow-2xl hover:shadow-black/50' 
-                                : 'bg-neutral-900/20 border-neutral-800/50 cursor-default opacity-50'
+                                : 'bg-neutral-900/40 border-neutral-800 cursor-default'
                             }`}
                         >
                             {/* Header Section: Name & ID & Actions */}
-                            <div className="flex justify-between items-start mb-6">
+                            <div className="relative z-30 flex justify-between items-start mb-6">
                                 <div>
                                     <span className="block text-xs font-bold text-neutral-400 uppercase tracking-widest">
                                         {f.name}
