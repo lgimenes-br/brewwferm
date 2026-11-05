@@ -175,11 +175,13 @@ const seed = async () => {
       const name = key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); // water -> Water
       if (item.density && item.ppg !== undefined) {
         // yield é aproximadamente (ppg / 46.21) * 100
-        const yieldVal = item.ppg ? parseFloat((item.ppg / 46.21 * 100).toFixed(1)) : null;
+        const rawYield = item.ppg ? parseFloat((item.ppg / 46.21 * 100).toFixed(1)) : null;
+        const yieldVal = Number.isFinite(rawYield) ? rawYield : null;
+        const colorVal = Number.isFinite(Number(item.color)) ? Number(item.color) : null;
         await pool.execute(`
           INSERT IGNORE INTO fermentables (name, type, color, yield, origin, notes)
           VALUES (?, ?, ?, ?, ?, ?)
-        `, [name, item.type || 'grain', item.color || null, yieldVal, null, item.notes || null]);
+        `, [name, item.type || 'grain', colorVal, yieldVal, null, item.notes || null]);
         count++;
       }
     }
@@ -195,7 +197,8 @@ const seed = async () => {
     let count = 0;
     for (const [key, item] of Object.entries(yeastData)) {
       const name = key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      const atten = item.abv_limit ? parseFloat(item.abv_limit) * 4 : null; // Estimativa (só pra não ficar zerado)
+      const rawAtten = item.abv_limit ? parseFloat(item.abv_limit) * 4 : null; // Estimativa (só pra não ficar zerado)
+      const atten = Number.isFinite(rawAtten) ? rawAtten : null;
       await pool.execute(`
         INSERT IGNORE INTO yeasts (name, type, attenuation, temp_min, temp_max, laboratory, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?)

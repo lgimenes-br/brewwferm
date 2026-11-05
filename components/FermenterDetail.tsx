@@ -28,16 +28,21 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     // Local state for Kegerator Config to handle inputs before saving
     const [kegeratorForm, setKegeratorForm] = useState<KegeratorConfig>({
         line1: fermenter.kegeratorConfig?.line1 || fermenter.chopp_name || fermenter.beerName || '',
-        line2: '',
-        style: '',
-        brewery: '',
-        ibu: 0,
-        abv: 0
+        line2: fermenter.kegeratorConfig?.line2 || '',
+        style: fermenter.kegeratorConfig?.style || '',
+        brewery: fermenter.kegeratorConfig?.brewery || '',
+        ibu: fermenter.kegeratorConfig?.ibu || 0,
+        abv: fermenter.kegeratorConfig?.abv || 0
     });
+    const lastKegeratorConfigJsonRef = React.useRef<string>('');
 
     useEffect(() => {
         if (fermenter.kegeratorConfig) {
-            setKegeratorForm(fermenter.kegeratorConfig);
+            const nextJson = JSON.stringify(fermenter.kegeratorConfig);
+            if (nextJson !== lastKegeratorConfigJsonRef.current) {
+                lastKegeratorConfigJsonRef.current = nextJson;
+                setKegeratorForm(fermenter.kegeratorConfig);
+            }
         }
     }, [fermenter.kegeratorConfig]);
 
@@ -55,6 +60,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // pendingMode: what the user selected but hasn't activated yet
     const [pendingMode, setPendingMode] = useState<DeviceMode | null>(null);
+
+    useEffect(() => {
+        setPendingMode(null);
+    }, [fermenter.id]);
 
     // The mode to use for rendering content (preview or active)
     const displayMode = pendingMode ?? fermenter.mode;
@@ -168,8 +177,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
         try {
             blockTelemetry(fermenter.id);
-            await finishBatch({ serialCode: fermenter.id, deviceId: fermenter.id });
             onUpdate(fermenter.id, { profile: [], status: FermenterStatus.IDLE, currentStepIndex: 0, isPaused: false });
+            await finishBatch({ serialCode: fermenter.id, deviceId: fermenter.id });
             toast.success('Lote finalizado com sucesso!');
             navigate('/');
         } catch (err) {
@@ -181,16 +190,22 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const handleNewBatch = async (data: {
         name: string;
         style: string;
+        volume?: number;
         og: number;
         fg: number;
         profile: any[];
     }) => {
         try {
             blockTelemetry(fermenter.id);
+            if (fermenter.mode !== DeviceMode.FERMENTER || pendingMode === DeviceMode.FERMENTER) {
+                onUpdate(fermenter.id, { mode: DeviceMode.FERMENTER });
+                setPendingMode(null);
+            }
             await startBatch({
                 serialCode: fermenter.id,
                 name: data.name,
                 style: data.style,
+                volume: data.volume,
                 og: data.og,
                 fg: data.fg,
                 profile: data.profile
@@ -212,11 +227,16 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     };
 
     const handleSaveBatch = () => {
-        onUpdate(fermenter.id, {
-            beerName: editBeerName,
-            og: isNaN(editOG) ? undefined : editOG,
-            fg: isNaN(editFG) ? undefined : editFG
-        });
+        const updates: Partial<Fermenter> = {
+            beerName: editBeerName.trim() || fermenter.beerName || 'Sem Nome'
+        };
+        if (!isNaN(editOG) && editOG > 0) {
+            updates.og = editOG > 500 ? editOG / 1000 : editOG;
+        }
+        if (editFG !== undefined && !isNaN(editFG) && editFG > 0) {
+            updates.fg = editFG > 500 ? editFG / 1000 : editFG;
+        }
+        onUpdate(fermenter.id, updates);
         setIsEditingBatch(false);
     };
 
@@ -257,15 +277,17 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
         if (fermenter.stepStartDate) {
             const dbStart = new Date(fermenter.stepStartDate).getTime();
-            let finalStart = dbStart;
-            if (stepTime !== undefined && lastUpdate) {
-                const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
-                const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
-                if (!isNaN(absoluteStepStartTime) && Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
-                    finalStart = absoluteStepStartTime;
+            if (!isNaN(dbStart)) {
+                let finalStart = dbStart;
+                if (stepTime !== undefined && lastUpdate) {
+                    const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+                    const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                    if (!isNaN(absoluteStepStartTime) && Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
+                        finalStart = absoluteStepStartTime;
+                    }
                 }
+                targetEndTime = finalStart + durationMs;
             }
-            targetEndTime = finalStart + durationMs;
         } else if (stepTime !== undefined && lastUpdate) {
             const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
             const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
@@ -274,13 +296,15 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             }
         }
 
-        if (targetEndTime === 0 && fermenter.startDate) {
+        if ((targetEndTime === 0 || isNaN(targetEndTime)) && fermenter.startDate) {
             const start = new Date(fermenter.startDate).getTime();
-            let daysPrior = 0;
-            for (let i = 0; i < fermenter.currentStepIndex; i++) {
-                daysPrior += fermenter.profile[i]?.duration || 0;
+            if (!isNaN(start)) {
+                let daysPrior = 0;
+                for (let i = 0; i < fermenter.currentStepIndex; i++) {
+                    daysPrior += fermenter.profile[i]?.duration || 0;
+                }
+                targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
             }
-            targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         }
 
         if (targetEndTime === 0 || isNaN(targetEndTime)) return '--';
@@ -302,7 +326,38 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const isIdleFermenter = displayMode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
 
     if (isIdleFermenter) {
-        return <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />;
+        return (
+            <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
+                {hasPendingChange && (
+                    <div className="flex items-center justify-between mb-8 px-5 py-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
+                            <span className="text-sm font-semibold text-amber-300">
+                                Modo selecionado: <span className="uppercase font-black">
+                                    {pendingMode === DeviceMode.FERMENTER ? 'Fermentador' : pendingMode === DeviceMode.KEGERATOR ? 'Choppeira' : 'Geladeira'}
+                                </span>
+                            </span>
+                            <span className="text-xs text-amber-500/80">— Aguardando confirmação</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleCancelMode}
+                                className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition-colors rounded-lg hover:bg-neutral-800"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleActivateMode}
+                                className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95"
+                            >
+                                ⚡ Ativar Modo
+                            </button>
+                        </div>
+                    </div>
+                )}
+                <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />
+            </div>
+        );
     }
 
     return (

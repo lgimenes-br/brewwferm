@@ -11,6 +11,12 @@ export const clearLiveDeviceState = () => {
     liveDeviceState.clear();
 };
 
+const safeNum = (val: any, fallback: number): number => {
+    if (val === null || val === undefined || val === '') return fallback;
+    const n = parseFloat(String(val));
+    return !isNaN(n) && isFinite(n) ? n : fallback;
+};
+
 const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appendReading = true): Fermenter => {
     const rest = { ...updates };
 
@@ -22,22 +28,29 @@ const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appen
         filteredRest = safeUpdates;
     }
 
+    // Remove undefined top-level keys (except batchId when explicitly clearing batch) so we never clobber existing properties with undefined
+    Object.keys(filteredRest).forEach(k => {
+        if (k !== 'batchId' && (filteredRest as any)[k] === undefined) {
+            delete (filteredRest as any)[k];
+        }
+    });
+
     let updatedReadings = f.readings;
     const isLivePacket = Boolean((filteredRest.currentDevice as any)?.lastUpdate);
 
     // Mesclar currentDevice com segurança para manter dados do iSpindel (como gravity) que demoram a chegar
     let updatedCurrentDevice = filteredRest.currentDevice ? { ...(filteredRest.currentDevice as any) } : undefined;
-    if (updatedCurrentDevice && f.currentDevice) {
+    if (updatedCurrentDevice) {
         // Remove undefined keys so we don't clobber existing values (like lastUpdate when a retained message arrives)
         Object.keys(updatedCurrentDevice).forEach(key => {
             if (updatedCurrentDevice[key] === undefined) {
                 delete updatedCurrentDevice[key];
             }
         });
-        updatedCurrentDevice = { ...f.currentDevice, ...updatedCurrentDevice };
+        updatedCurrentDevice = { ...(f.currentDevice || {}), ...updatedCurrentDevice };
         // Se SG vier zerado ou NaN no pacote atual, mantem o antigo (se houver lote ativo)
         if (f.batchId && (!updatedCurrentDevice.gravity || isNaN(updatedCurrentDevice.gravity))) {
-            if (f.currentDevice.gravity > 0) {
+            if (f.currentDevice?.gravity > 0) {
                 updatedCurrentDevice.gravity = f.currentDevice.gravity;
             } else {
                 updatedCurrentDevice.gravity = 0;
@@ -68,15 +81,19 @@ const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appen
 // Helper to map backend devices to frontend Fermenter interface
 // (This was previously inside BrewContext.tsx fetchDevices)
 const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] => {
-    const prevMap = new Map(prevFermenters.map(f => [f.id, f]));
+    if (!Array.isArray(apiData)) return [];
+    const prevMap = new Map(prevFermenters.map(f => [(f.id || '').toUpperCase(), f]));
 
     return apiData.map((d: any): Fermenter => {
-        const prevDev = prevMap.get(d.serial_code);
+        const serialKey = String(d.serial_code || '').trim().toUpperCase();
+        const prevDev = prevMap.get(serialKey);
 
         let status = FermenterStatus.IDLE;
         if (d.active_batch_id) status = FermenterStatus.ACTIVE;
 
-        const safeReadings = Array.isArray(prevDev?.readings) ? prevDev!.readings : [];
+        const safeReadings = (d.active_batch_id && prevDev?.batchId === d.active_batch_id && Array.isArray(prevDev?.readings))
+            ? prevDev!.readings
+            : [];
         const savedStepTime = localStorage.getItem(`device_stepTime_${d.serial_code}`);
         // Purge legacy cached lastUpdate so stale timestamps never mark an offline ESP32 as online
         localStorage.removeItem(`device_lastUpdate_${d.serial_code}`);
@@ -92,20 +109,26 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
         })();
 
         const hasLiveDeviceData = Boolean(prevDev?.currentDevice?.lastUpdate);
+        const parsedSavedStepTime = savedStepTime !== null ? parseFloat(savedStepTime) : NaN;
         const safeCurrentDevice = hasLiveDeviceData ? prevDev!.currentDevice : {
-            gravity: d.last_gravity !== null && d.last_gravity !== undefined ? parseFloat(d.last_gravity) : 0,
-            temperature: d.last_temp !== null && d.last_temp !== undefined ? parseFloat(d.last_temp) : 0,
-            battery: d.last_battery !== null && d.last_battery !== undefined ? parseFloat(d.last_battery) : 0,
+            gravity: safeNum(d.last_gravity, 0),
+            temperature: safeNum(d.last_temp, 0),
+            battery: safeNum(d.last_battery, 0),
             angle: 0,
-            rssi: d.last_rssi ? parseInt(d.last_rssi) : 0,
+            rssi: d.last_rssi !== null && d.last_rssi !== undefined ? (parseInt(String(d.last_rssi), 10) || 0) : 0,
             lastUpdate: '',
             statOp: d.last_status || d.status_op || d.stat_op || 'INATIVO',
             logInterval: d.wi ? d.wi / 1000 : 30, // Default 30s
-            compressorDelay: d.cds || 310,
+            compressorDelay: d.cds ?? 310,
             version: d.firmware_version || undefined,
-            stepTime: savedStepTime ? parseFloat(savedStepTime) : undefined,
+            stepTime: !isNaN(parsedSavedStepTime) ? parsedSavedStepTime : undefined,
             extSens: parsedExtraSensors
         };
+
+        let rawOg = safeNum(d.active_batch_og, 0);
+        let rawFg = safeNum(d.active_batch_fg, 1.010);
+        if (rawOg > 500) rawOg /= 1000;
+        if (rawFg > 500) rawFg /= 1000;
 
         return {
             id: d.serial_code,
@@ -116,7 +139,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             sensor_sg_name: d.sensor_sg_name,
             mode: (() => {
                 if (prevDev?.mode) return prevDev.mode;
-                const saved = localStorage.getItem(`device_mode_${d.serial_code}`);
+                const saved = localStorage.getItem(`device_mode_${serialKey}`) || localStorage.getItem(`device_mode_${d.serial_code}`);
                 if (saved === DeviceMode.FRIDGE) return DeviceMode.FRIDGE;
                 if (saved === DeviceMode.KEGERATOR) return DeviceMode.KEGERATOR;
                 if (saved === DeviceMode.FERMENTER) return DeviceMode.FERMENTER;
@@ -141,13 +164,13 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             startDate: d.active_batch_start || d.start_date || '',
             stepStartDate: d.active_batch_step_start || '',
             batchId: d.active_batch_id || undefined,
-            og: d.active_batch_og || 0,
-            fg: d.active_batch_fg || 1.010,
-            volume: prevDev ? prevDev.volume : 20,
-            targetTemp: (hasLiveDeviceData && prevDev?.targetTemp !== undefined) ? prevDev.targetTemp : (d.last_target !== null && d.last_target !== undefined ? parseFloat(d.last_target) : 20),
+            og: rawOg,
+            fg: rawFg,
+            volume: safeNum(d.active_batch_volume, prevDev ? prevDev.volume : 20),
+            targetTemp: (hasLiveDeviceData && prevDev?.targetTemp !== undefined) ? prevDev.targetTemp : safeNum(d.last_target, 20),
             readings: safeReadings,
             currentDevice: safeCurrentDevice,
-            currentFridgeTemp: (hasLiveDeviceData && prevDev?.currentFridgeTemp !== undefined) ? prevDev.currentFridgeTemp : (d.last_temp2 !== null && d.last_temp2 !== undefined ? parseFloat(d.last_temp2) : 20),
+            currentFridgeTemp: (hasLiveDeviceData && prevDev?.currentFridgeTemp !== undefined) ? prevDev.currentFridgeTemp : safeNum(d.last_temp2, 20),
             profile: (() => {
                 // If backend profile is a string, parse it
                 let backendProfile = d.active_batch_profile || d.profile;
@@ -174,18 +197,21 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                     return newProfile;
                 }
                 
-                return prevDev?.profile || [];
+                return d.active_batch_id ? (prevDev?.profile || []) : [];
             })(),
-            currentStepIndex: prevDev ? prevDev.currentStepIndex : (d.active_batch_current_step || 0),
+            currentStepIndex: d.active_batch_current_step !== null && d.active_batch_current_step !== undefined
+                ? (parseInt(String(d.active_batch_current_step), 10) || 0)
+                : (prevDev ? prevDev.currentStepIndex : 0),
             isPaused: prevDev ? prevDev.isPaused : false,
             kegeratorConfig: prevDev?.kegeratorConfig || (() => {
                 try {
-                    const saved = localStorage.getItem(`kegerator_${d.serial_code}`);
+                    const saved = localStorage.getItem(`kegerator_${serialKey}`) || localStorage.getItem(`kegerator_${d.serial_code}`);
                     if (saved) return JSON.parse(saved);
                 } catch (e) {}
                 return undefined;
             })(),
             events: (() => {
+                if (!d.active_batch_id) return [];
                 let backendEvents = d.events || d.active_batch_events;
                 if (typeof backendEvents === 'string') {
                     try { backendEvents = JSON.parse(backendEvents); } catch (e) { backendEvents = []; }
@@ -197,10 +223,13 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                     }
                     return parsedBackendEvents;
                 }
-                if (prevDev?.events && prevDev.events.length > 0) return prevDev.events;
+                if (prevDev?.batchId === d.active_batch_id && prevDev?.events && prevDev.events.length > 0) return prevDev.events;
                 try {
-                    const stored = localStorage.getItem(`events_${d.serial_code}`);
-                    if (stored) return JSON.parse(stored);
+                    const stored = localStorage.getItem(`events_${serialKey}`) || localStorage.getItem(`events_${d.serial_code}`);
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed)) return parsed;
+                    }
                 } catch (e) {}
                 return [];
             })()
@@ -225,46 +254,47 @@ export const useFermenters = () => {
             // Fetch batches to supplement metadata
             try {
                 const batchesRes = await api.fetchBatches(token);
-                
-                mapped = mapped.map(f => {
-                    if (f.batchId) {
-                        const batchData = batchesRes.find((b: any) => b.id === f.batchId);
-                        if (batchData) {
-                            let parsedBatchProfile = f.profile;
-                            if ((!parsedBatchProfile || parsedBatchProfile.length === 0) && batchData.profile) {
-                                try {
-                                    const rawProf = typeof batchData.profile === 'string' ? JSON.parse(batchData.profile) : batchData.profile;
-                                    if (Array.isArray(rawProf)) {
-                                        parsedBatchProfile = rawProf.map((step: any, index: number) => {
-                                            const parsedTemp = parseFloat(step.t ?? step.temperature);
-                                            return {
-                                                id: step.id || `step_${index}`,
-                                                name: step.n || step.name || `Etapa ${index + 1}`,
-                                                temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
-                                                duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
-                                            };
-                                        });
-                                    }
-                                } catch (e) {}
+                if (Array.isArray(batchesRes)) {
+                    mapped = mapped.map(f => {
+                        if (f.batchId) {
+                            const batchData = batchesRes.find((b: any) => b.id === f.batchId);
+                            if (batchData) {
+                                let parsedBatchProfile = f.profile;
+                                if ((!parsedBatchProfile || parsedBatchProfile.length === 0) && batchData.profile) {
+                                    try {
+                                        const rawProf = typeof batchData.profile === 'string' ? JSON.parse(batchData.profile) : batchData.profile;
+                                        if (Array.isArray(rawProf)) {
+                                            parsedBatchProfile = rawProf.map((step: any, index: number) => {
+                                                const parsedTemp = parseFloat(step.t ?? step.temperature);
+                                                return {
+                                                    id: step.id || `step_${index}`,
+                                                    name: step.n || step.name || `Etapa ${index + 1}`,
+                                                    temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
+                                                    duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
+                                                };
+                                            });
+                                        }
+                                    } catch (e) {}
+                                }
+                                return {
+                                    ...f,
+                                    startDate: batchData.start_date || batchData.started_at || f.startDate,
+                                    profile: parsedBatchProfile
+                                };
                             }
-                            return {
-                                ...f,
-                                startDate: batchData.start_date || batchData.started_at || f.startDate,
-                                profile: parsedBatchProfile
-                            };
                         }
-                    }
-                    return f;
-                });
+                        return f;
+                    });
+                }
             } catch (err) {
                 console.error('Failed to fetch batches metadata', err);
             }
 
-            const devicesWithBatches = apiData.filter((d: any) => d.active_batch_id);
+            const devicesWithBatches = (Array.isArray(apiData) ? apiData : []).filter((d: any) => d.active_batch_id);
             for (const device of devicesWithBatches) {
                 try {
                     const backendEvents = await api.fetchEvents(device.active_batch_id);
-                    const mappedEvents = backendEvents.map((e: any) => ({
+                    const mappedEvents = (Array.isArray(backendEvents) ? backendEvents : []).map((e: any) => ({
                         id: e.id?.toString() || Math.random().toString(36).substr(2, 9),
                         type: e.event_type,
                         description: e.description,
@@ -272,27 +302,27 @@ export const useFermenters = () => {
                     }));
 
                     let hasNewReadings = false;
-                    let mappedReadings = [];
+                    let mappedReadings: any[] = [];
                     try {
                         const backendData = await api.fetchBatchData(device.active_batch_id);
-                        
-                        // optimization: only map if data length is different or no readings yet
-                        const prevDev = mapped.find(f => f.id === device.serial_code);
-                        if (!prevDev?.readings || backendData.length !== prevDev.readings.length) {
-                             // Downsample to max 300 points to prevent browser freeze with Recharts
-                             const step = Math.max(1, Math.floor(backendData.length / 300));
-                             const sampledData = backendData.filter((_: any, i: number) => i % step === 0);
+                        if (Array.isArray(backendData)) {
+                            const prevDev = mapped.find(f => f.id === device.serial_code);
+                            if (!prevDev?.readings || prevDev.readings.length === 0 || backendData.length !== prevDev.readings.length) {
+                                 // Downsample to max 300 points to prevent browser freeze with Recharts
+                                 const step = Math.max(1, Math.floor(backendData.length / 300));
+                                 const sampledData = backendData.filter((_: any, i: number) => i % step === 0 || i === backendData.length - 1);
 
-                             mappedReadings = sampledData.map((d: any) => ({
-                                id: d.id,
-                                beerTemp: parseFloat(d.temp_ferm ?? d.beerTemp ?? d.temperature ?? d.beer_temp ?? d.ferm ?? 0),
-                                fridgeTemp: parseFloat(d.temp_amb ?? d.fridgeTemp ?? d.ambient_temp ?? d.fridge_temp ?? d.amb ?? 0),
-                                targetTemp: parseFloat(d.target_temp ?? d.targetTemp ?? d.setpoint ?? 20),
-                                gravity: parseFloat(d.gravity ?? d.is_sg ?? 0),
-                                timestamp: d.recorded_at ?? d.timestamp,
-                                extra_sensors: d.extra_sensors
-                            }));
-                            hasNewReadings = true;
+                                 mappedReadings = sampledData.map((d: any) => ({
+                                    id: d.id,
+                                    beerTemp: parseFloat(d.temp_ferm ?? d.beerTemp ?? d.temperature ?? d.beer_temp ?? d.ferm ?? 0),
+                                    fridgeTemp: parseFloat(d.temp_amb ?? d.fridgeTemp ?? d.ambient_temp ?? d.fridge_temp ?? d.amb ?? 0),
+                                    targetTemp: parseFloat(d.target_temp ?? d.targetTemp ?? d.setpoint ?? 20),
+                                    gravity: parseFloat(d.gravity ?? d.is_sg ?? 0),
+                                    timestamp: d.recorded_at ?? d.timestamp,
+                                    extra_sensors: d.extra_sensors
+                                }));
+                                hasNewReadings = true;
+                            }
                         }
                     } catch (dErr) {
                         console.error(`Failed to fetch basic readings for ${device.active_batch_id}`, dErr);
@@ -310,7 +340,7 @@ export const useFermenters = () => {
 
             // Re-apply any live MQTT telemetry that arrived while the HTTP requests above were in flight
             mapped = mapped.map(f => {
-                const pendingLive = liveDeviceState.get(f.id);
+                const pendingLive = liveDeviceState.get((f.id || '').trim().toUpperCase()) || liveDeviceState.get(f.id);
                 if (pendingLive) {
                     return applyUpdateToFermenter(f, pendingLive, false);
                 }
@@ -339,47 +369,61 @@ export const useFermenters = () => {
     const deleteDeviceMutation = useMutation({
         mutationFn: (serialCode: string) => api.deleteDevice(serialCode),
         onSuccess: (_, serialCode) => {
+            const norm = serialCode.trim().toUpperCase();
             liveDeviceState.delete(serialCode);
+            liveDeviceState.delete(norm);
             localStorage.removeItem(`device_mode_${serialCode}`);
+            localStorage.removeItem(`device_mode_${norm}`);
             localStorage.removeItem(`device_stepTime_${serialCode}`);
+            localStorage.removeItem(`device_stepTime_${norm}`);
             localStorage.removeItem(`kegerator_${serialCode}`);
+            localStorage.removeItem(`kegerator_${norm}`);
             localStorage.removeItem(`events_${serialCode}`);
+            localStorage.removeItem(`events_${norm}`);
             localStorage.removeItem(`sensors_${serialCode}`);
+            localStorage.removeItem(`sensors_${norm}`);
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
         }
     });
 
     const startBatchMutation = useMutation({
-        mutationFn: (data: { serialCode: string, name: string, style: string, og: number, fg: number, profile?: any[] }) => 
-            api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile),
+        mutationFn: (data: { serialCode: string, name: string, style: string, og: number, fg: number, volume?: number, profile?: any[] }) => 
+            api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile, data.volume),
         onSuccess: (res, variables) => {
+            const norm = variables.serialCode.trim().toUpperCase();
             localStorage.removeItem(`events_${variables.serialCode}`);
+            localStorage.removeItem(`events_${norm}`);
             localStorage.setItem(`device_stepTime_${variables.serialCode}`, '0');
-            const cachedLive = liveDeviceState.get(variables.serialCode);
+            localStorage.setItem(`device_stepTime_${norm}`, '0');
+            const cachedLive = liveDeviceState.get(norm) || liveDeviceState.get(variables.serialCode);
             if (cachedLive) {
-                liveDeviceState.set(variables.serialCode, {
+                liveDeviceState.set(norm, {
                     ...cachedLive,
                     status: FermenterStatus.ACTIVE,
                     profile: variables.profile || [],
                     currentStepIndex: 0,
                     isPaused: false,
+                    readings: [],
                     ...(cachedLive.currentDevice ? { currentDevice: { ...cachedLive.currentDevice, stepTime: 0 } } : {})
                 });
             }
             queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
                 if (!old) return [];
-                return old.map(f => f.id === variables.serialCode ? {
+                return old.map(f => (f.id || '').toUpperCase() === norm ? {
                     ...f,
                     status: FermenterStatus.ACTIVE,
                     batchId: res?.batchId || f.batchId,
                     beerName: variables.name,
                     og: variables.og,
                     fg: variables.fg,
+                    volume: variables.volume ?? f.volume ?? 20,
                     profile: variables.profile || [],
                     currentStepIndex: 0,
                     isPaused: false,
                     startDate: new Date().toISOString(),
+                    stepStartDate: new Date().toISOString(),
                     events: [],
+                    readings: [],
                     currentDevice: f.currentDevice ? { ...f.currentDevice, stepTime: 0 } : f.currentDevice
                 } : f);
             });
@@ -390,15 +434,17 @@ export const useFermenters = () => {
     const finishBatchMutation = useMutation({
         mutationFn: (data: { serialCode: string, deviceId: string }) => api.stopBatch(data.serialCode),
         onSuccess: (_, variables) => {
-            const cachedLive = liveDeviceState.get(variables.deviceId);
+            const norm = variables.deviceId.trim().toUpperCase();
+            const cachedLive = liveDeviceState.get(norm) || liveDeviceState.get(variables.deviceId);
             if (cachedLive) {
-                const { status, profile, currentStepIndex, isPaused, ...restLive } = cachedLive;
-                liveDeviceState.set(variables.deviceId, restLive);
+                const { status, profile, currentStepIndex, isPaused, readings, ...restLive } = cachedLive;
+                liveDeviceState.set(norm, restLive);
+                liveDeviceState.delete(variables.deviceId);
             }
             // Optimistically update device to IDLE
             queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
                 if (!old) return [];
-                return old.map(f => f.id === variables.deviceId ? {
+                return old.map(f => (f.id || '').toUpperCase() === norm ? {
                     ...f,
                     status: FermenterStatus.IDLE,
                     batchId: undefined,
@@ -407,12 +453,16 @@ export const useFermenters = () => {
                     fg: 0,
                     profile: [],
                     startDate: '',
+                    stepStartDate: '',
                     isPaused: false,
-                    events: []
+                    events: [],
+                    readings: []
                 } : f);
             });
             localStorage.removeItem(`events_${variables.deviceId}`);
+            localStorage.removeItem(`events_${norm}`);
             localStorage.removeItem(`device_stepTime_${variables.deviceId}`);
+            localStorage.removeItem(`device_stepTime_${norm}`);
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
             queryClient.invalidateQueries({ queryKey: ['history'] });
         }
@@ -422,10 +472,11 @@ export const useFermenters = () => {
         mutationFn: (data: { serialCode: string, og?: number, fg?: number, name?: string, profile?: any[] }) =>
             api.updateBatch(data.serialCode, { og: data.og, fg: data.fg, name: data.name, profile: data.profile }),
         onSuccess: (_, variables) => {
+            const norm = variables.serialCode.trim().toUpperCase();
             if (variables.profile !== undefined) {
-                const cachedLive = liveDeviceState.get(variables.serialCode);
+                const cachedLive = liveDeviceState.get(norm) || liveDeviceState.get(variables.serialCode);
                 if (cachedLive) {
-                    liveDeviceState.set(variables.serialCode, { ...cachedLive, profile: variables.profile });
+                    liveDeviceState.set(norm, { ...cachedLive, profile: variables.profile });
                 }
             }
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
@@ -451,14 +502,16 @@ export const useFermenters = () => {
 
     // Local manual update for instant UI feedback (or when MQTT message arrives)
     const updateFermenterLocal = useCallback((serialCode: string, updates: Partial<Fermenter> ) => {
+        const norm = (serialCode || '').trim().toUpperCase();
         if (updates.events !== undefined) {
             try {
+                localStorage.setItem(`events_${norm}`, JSON.stringify(updates.events));
                 localStorage.setItem(`events_${serialCode}`, JSON.stringify(updates.events));
             } catch (e) {}
         }
 
         // Persist in liveDeviceState so in-flight HTTP queries never drop or overwrite this MQTT update
-        const prevLive = liveDeviceState.get(serialCode) || {};
+        const prevLive = liveDeviceState.get(norm) || liveDeviceState.get(serialCode) || {};
         const mergedCurrentDevice = updates.currentDevice
             ? {
                 ...(prevLive.currentDevice || {}),
@@ -467,7 +520,7 @@ export const useFermenters = () => {
                 )
               }
             : prevLive.currentDevice;
-        liveDeviceState.set(serialCode, {
+        liveDeviceState.set(norm, {
             ...prevLive,
             ...updates,
             ...(mergedCurrentDevice ? { currentDevice: mergedCurrentDevice as any } : {})
@@ -475,7 +528,7 @@ export const useFermenters = () => {
 
         queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
             if (!old) return [];
-            return old.map(f => f.id === serialCode ? applyUpdateToFermenter(f, updates) : f);
+            return old.map(f => (f.id || '').trim().toUpperCase() === norm ? applyUpdateToFermenter(f, updates) : f);
         });
     }, [queryClient]);
 

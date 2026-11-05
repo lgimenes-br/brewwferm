@@ -62,10 +62,10 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
     const minTime = new Date(safeData[0].timestamp).getTime();
     const maxTime = new Date(safeData[safeData.length - 1].timestamp).getTime();
 
-    return events
+    return (Array.isArray(events) ? events : [])
       .filter(event => {
         const t = new Date(event.timestamp).getTime();
-        return t >= minTime && t <= maxTime;
+        return !isNaN(t) && t >= minTime && t <= maxTime;
       })
       .map(event => {
         const eventTime = new Date(event.timestamp).getTime();
@@ -116,7 +116,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                 stroke="#525252"
                 domain={[yDomainMin, yDomainMax]}
                 fontSize={11}
-                tickFormatter={(val) => val.toFixed(3)}
+                tickFormatter={(val) => Number.isFinite(Number(val)) ? Number(val).toFixed(3) : ''}
                 tickLine={false}
                 axisLine={false}
                 dx={-10}
@@ -127,10 +127,10 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                   itemStyle={{ color: '#d4d4d4', fontSize: '12px', paddingBottom: '4px' }}
                   labelStyle={{ color: '#a3a3a3', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   labelFormatter={(label) => new Date(label).toLocaleString()}
-                  formatter={(value: number, _name: string, props: any) => {
+                  formatter={(value: any, _name: any, props: any) => {
                     const original = props?.payload?.originalGravity;
-                    const displayVal = original !== undefined ? original : value;
-                    return [displayVal.toFixed(3), 'SG'];
+                    const displayVal = Number(original !== undefined ? original : value);
+                    return [Number.isFinite(displayVal) ? displayVal.toFixed(3) : '--', 'SG'];
                   }}
                   cursor={{ stroke: '#525252', strokeWidth: 0.5, strokeDasharray: '4 4' }}
                 />
@@ -150,7 +150,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
               />
 
               {/* Reference Lines rendered LAST (on top) */}
-              {safeOG && (
+              {safeOG !== undefined && !isNaN(safeOG) && safeOG > 0 && (
                 <ReferenceLine
                   y={safeOG}
                   stroke="#d4d4d4"
@@ -159,7 +159,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                   label={{ position: 'insideTopRight', value: `OG: ${safeOG.toFixed(3)}`, fill: '#d4d4d4', fontSize: 10, fontWeight: 600 }}
                 />
               )}
-              {safeFG && (
+              {safeFG !== undefined && !isNaN(safeFG) && safeFG > 0 && (
                 <ReferenceLine
                   y={safeFG}
                   stroke="#ffffff"

@@ -16,11 +16,14 @@ export const Login: React.FC = () => {
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
+      setLoading(true);
       try {
         const success = await loginWithGoogle(tokenResponse.access_token);
         if (success) navigate('/');
       } catch (err: any) {
         toast.error(err.message || 'Falha ao autenticar com o Google');
+      } finally {
+        setLoading(false);
       }
     },
     onError: () => {
@@ -52,11 +55,17 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      toast.error('Preencha email e senha');
+      return;
+    }
     setLoading(true);
-    // Call API
-    const success = await login(email, password);
-    setLoading(false);
-    if(success) navigate('/');
+    try {
+      const success = await login(email.trim(), password);
+      if (success) navigate('/');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -90,6 +99,7 @@ export const Login: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700"
                 placeholder="seu@email.com"
               />
@@ -106,6 +116,7 @@ export const Login: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
                 className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700"
                 placeholder="••••••••"
               />

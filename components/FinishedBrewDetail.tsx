@@ -20,23 +20,45 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = React.useState(false);
 
-  const [activeTab, setActiveTab] = useState<'telemetry' | 'recipe'>('telemetry');
-  const [ingredients, setIngredients] = useState<any>(() => {
-    if (brew.ingredients) {
-      if (typeof brew.ingredients === 'string') {
-        try { return JSON.parse(brew.ingredients); } catch (e) {}
-      } else {
-        return brew.ingredients;
+  const parseBrewIngredients = (b: FinishedBrew) => {
+    if (b.ingredients) {
+      if (typeof b.ingredients === 'string') {
+        try {
+          const parsed = JSON.parse(b.ingredients);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              malts: parsed.malts || '',
+              hops: parsed.hops || '',
+              yeast: parsed.yeast || '',
+              notes: parsed.notes || b.notes || ''
+            };
+          }
+        } catch (e) {}
+      } else if (typeof b.ingredients === 'object') {
+        const obj = b.ingredients as any;
+        return {
+          malts: obj.malts || '',
+          hops: obj.hops || '',
+          yeast: obj.yeast || '',
+          notes: obj.notes || b.notes || ''
+        };
       }
     }
     return {
       malts: '',
       hops: '',
       yeast: '',
-      notes: brew.notes || ''
+      notes: b.notes || ''
     };
-  });
+  };
+
+  const [activeTab, setActiveTab] = useState<'telemetry' | 'recipe'>('telemetry');
+  const [ingredients, setIngredients] = useState<any>(() => parseBrewIngredients(brew));
   const [savingIng, setSavingIng] = useState(false);
+
+  useEffect(() => {
+    setIngredients(parseBrewIngredients(brew));
+  }, [brew.id, brew.ingredients, brew.notes]);
 
   useEffect(() => {
     // Prevent infinite loop - only run once
@@ -74,26 +96,22 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
           if (!isMounted) return;
 
-          const parsedReadings: Reading[] = logs.map((l: any) => ({
-            timestamp: l.recorded_at,
-            beerTemp: parseFloat(l.temp_ferm) || 0,
-            fridgeTemp: parseFloat(l.temp_amb) || 0,
-            targetTemp: parseFloat(l.target_temp) || 0,
-            gravity: parseFloat(l.gravity) || 0,
-            extra_sensors: l.extra_sensors
-          }));
+          const parsedReadings: Reading[] = (Array.isArray(logs) ? logs : []).map((l: any) => {
+            const rawBeer = l.temp_ferm !== null && l.temp_ferm !== undefined ? parseFloat(String(l.temp_ferm)) : NaN;
+            const rawFridge = l.temp_amb !== null && l.temp_amb !== undefined ? parseFloat(String(l.temp_amb)) : NaN;
+            const rawTarget = l.target_temp !== null && l.target_temp !== undefined ? parseFloat(String(l.target_temp)) : NaN;
+            const rawGrav = l.gravity !== null && l.gravity !== undefined ? parseFloat(String(l.gravity)) : NaN;
+            return {
+              timestamp: l.recorded_at,
+              beerTemp: !isNaN(rawBeer) ? rawBeer : (NaN as any),
+              fridgeTemp: !isNaN(rawFridge) ? rawFridge : (NaN as any),
+              targetTemp: !isNaN(rawTarget) ? rawTarget : (NaN as any),
+              gravity: !isNaN(rawGrav) ? rawGrav : 0,
+              extra_sensors: l.extra_sensors
+            };
+          });
 
-          // DOWNSAMPLING: Limit to ~500 points for performance
-          // 32k points crashes the SVG renderer or makes it empty
-          const targetPoints = 500;
-          let finalReadings = parsedReadings;
-
-          if (parsedReadings.length > targetPoints) {
-            const step = Math.ceil(parsedReadings.length / targetPoints);
-            finalReadings = parsedReadings.filter((_, index) => index % step === 0);
-          }
-
-          setReadings(finalReadings);
+          setReadings(parsedReadings);
         } else {
           console.error('Failed to fetch batch data:', res.status, res.statusText);
         }
@@ -143,14 +161,12 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     const element = document.getElementById('pdf-content');
     if (!element) return;
     toast.loading('Gerando PDF...', { id: 'pdf' });
+    const noPrintElements = document.querySelectorAll('.no-print');
     try {
       // Temporary hide UI elements not for PDF
-      const noPrintElements = document.querySelectorAll('.no-print');
       noPrintElements.forEach(el => (el as HTMLElement).style.display = 'none');
       
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' });
-      
-      noPrintElements.forEach(el => (el as HTMLElement).style.display = '');
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -158,17 +174,19 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Relatorio_${brew.beerName}.pdf`);
+      pdf.save(`Relatorio_${brew.beerName || 'Lote'}.pdf`);
       toast.success('PDF Exportado!', { id: 'pdf' });
     } catch (e) {
       toast.error('Erro ao gerar PDF', { id: 'pdf' });
+    } finally {
+      noPrintElements.forEach(el => (el as HTMLElement).style.display = '');
     }
   };
 
   const handleShare = async () => {
     const shareData = {
       title: `Lote ${brew.batchNumber} - ${brew.beerName}`,
-      text: `Confira minha ${brew.beerName} (${brew.style}). ABV: ${brew.abv.toFixed(1)}%, FG: ${brew.fg.toFixed(3)}. Analisado no BREWW Dashboard!`,
+      text: `Confira minha ${brew.beerName} (${brew.style}). ABV: ${(Number(brew.abv) || 0).toFixed(1)}%, FG: ${(Number(brew.fg) || 0).toFixed(3)}. Analisado no BREWW Dashboard!`,
       url: window.location.href
     };
 
@@ -178,11 +196,17 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       } catch (err) {
         console.error("Erro ao compartilhar:", err);
       }
-    } else {
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
       // Fallback: Copy to clipboard
-      navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        toast.error('Não foi possível copiar o link.');
+      }
+    } else {
+      toast.error('Compartilhamento não suportado neste navegador.');
     }
   };
 

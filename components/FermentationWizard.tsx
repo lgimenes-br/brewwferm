@@ -7,6 +7,7 @@ interface FermentationWizardProps {
     onStart: (data: {
         name: string;
         style: string;
+        volume: number;
         og: number;
         fg: number;
         profile: FermentationStep[];
@@ -72,14 +73,20 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
         const sanitizedProfile = profile.map((s, idx) => ({
             ...s,
             name: (s.name || '').trim() || `Etapa ${idx + 1}`,
-            temperature: isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
+            temperature: s.temperature === null || s.temperature === ('' as any) || isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
             duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
         }));
+        const parsedVol = parseFloat(volume);
+        let parsedOg = parseFloat(og);
+        if (!isNaN(parsedOg) && parsedOg > 500) parsedOg = parsedOg / 1000;
+        let parsedFg = parseFloat(fg);
+        if (!isNaN(parsedFg) && parsedFg > 500) parsedFg = parsedFg / 1000;
         onStart({
             name: name.trim() || 'Sem Nome',
             style,
-            og: parseFloat(og) || 1.050,
-            fg: parseFloat(fg) || 1.010,
+            volume: !isNaN(parsedVol) && parsedVol > 0 ? parsedVol : 20,
+            og: !isNaN(parsedOg) && parsedOg > 0 ? parsedOg : 1.050,
+            fg: !isNaN(parsedFg) && parsedFg > 0 ? parsedFg : 1.010,
             profile: sanitizedProfile
         });
     };
@@ -275,7 +282,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                 {step < 4 ? (
                     <button 
                         onClick={handleNext}
-                        disabled={step === 1 && (!name || !style)}
+                        disabled={step === 1 && (!name.trim() || !style)}
                         className="px-8 py-4 bg-white text-black font-bold rounded-2xl flex items-center gap-2 hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Próximo <ArrowRight size={20} />

@@ -22,7 +22,10 @@ export const AbvCalculator: React.FC = () => {
     const sgToPlato = (sg: number) => {
         return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
     };
-    const platoToSg = (p: number) => 1 + (p / (258.6 - ((p / 258.2) * 227.1)));
+    const platoToSg = (p: number) => {
+        const denom = 258.6 - ((p / 258.2) * 227.1);
+        return denom > 0 ? 1 + (p / denom) : 1.000;
+    };
 
     useEffect(() => {
         let ogSg = 1.000;
@@ -34,8 +37,8 @@ export const AbvCalculator: React.FC = () => {
         if (isNaN(ogVal) || isNaN(fgVal)) return;
 
         if (unit === 'SG') {
-            ogSg = ogVal;
-            fgSg = fgVal;
+            ogSg = ogVal > 200 ? ogVal / 1000 : ogVal;
+            fgSg = fgVal > 200 ? fgVal / 1000 : fgVal;
         } else {
             ogSg = platoToSg(ogVal);
             fgSg = platoToSg(fgVal);
@@ -96,8 +99,10 @@ export const AbvCalculator: React.FC = () => {
         if (!isNaN(currentOg) && !isNaN(currentFg)) {
             if (selectedUnit === 'Plato' || selectedUnit === 'Brix') {
                 if (unit === 'SG') {
-                    setOgInput(Math.max(0, sgToPlato(currentOg)).toFixed(1));
-                    setFgInput(Math.max(0, sgToPlato(currentFg)).toFixed(1));
+                    const normOg = currentOg > 200 ? currentOg / 1000 : currentOg;
+                    const normFg = currentFg > 200 ? currentFg / 1000 : currentFg;
+                    setOgInput(Math.max(0, sgToPlato(normOg)).toFixed(1));
+                    setFgInput(Math.max(0, sgToPlato(normFg)).toFixed(1));
                 }
             } else {
                 if (unit !== 'SG') {

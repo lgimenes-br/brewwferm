@@ -29,10 +29,9 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
   const handleDownloadPDF = async () => {
     if (!modalContentRef.current) return;
 
+    const content = modalContentRef.current;
+    const originalStyle = content.style.cssText;
     try {
-      const content = modalContentRef.current;
-
-      const originalStyle = content.style.cssText;
       content.style.backgroundColor = '#0a0a0a';
       content.style.color = '#ffffff';
       content.style.padding = '40px';
@@ -45,8 +44,6 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
         width: 1200,
         windowWidth: 1200
       });
-
-      content.style.cssText = originalStyle;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -62,11 +59,14 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
       pdf.save(`Analise_BrewwAI_${(fermenter.beerName || 'Lote').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
+    } finally {
+      content.style.cssText = originalStyle;
     }
   };
 
   // Helper to render health gauge
-  const renderHealthGauge = (score: number) => {
+  const renderHealthGauge = (rawScore: number) => {
+    const score = Number.isFinite(Number(rawScore)) ? Math.min(100, Math.max(0, Number(rawScore))) : 0;
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (score / 100) * circumference;
@@ -110,9 +110,8 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
   };
 
   const formatChartData = (data: AIAnalysis) => {
-    // Merge ideal curve with real readings roughly
-    // This is simplified. In a real app we'd map timestamps to hours more precisely.
-    const realData = fermenter.readings.map((r, i) => ({
+    const safeReadings = Array.isArray(fermenter?.readings) ? fermenter.readings : [];
+    const realData = safeReadings.map((r, i) => ({
       name: `H${i * 4}`, // Assuming 4h gaps roughly
       real: r.gravity,
       ideal: null
@@ -120,12 +119,12 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
     // Map ideal curve to the same x-axis if possible, or just overlay
     // For simplicity, let's just use the ideal curve as the base if provided
-    if (!data.ideal_curve) return realData;
+    if (!Array.isArray(data.ideal_curve) || data.ideal_curve.length === 0) return realData;
 
     return data.ideal_curve.map((p, i) => ({
       name: `H${p.hours}`,
       ideal: p.gravity,
-      real: fermenter.readings[i] ? fermenter.readings[i].gravity : null
+      real: safeReadings[i] ? safeReadings[i].gravity : null
     }));
   };
 
@@ -254,7 +253,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                           <div className={`text-xl font-bold capitalize ${insight.risk_level === 'high' ? 'text-red-500' :
                               insight.risk_level === 'medium' ? 'text-orange-500' : 'text-green-500'
                             }`}>
-                            {insight.risk_level === 'low' ? 'Baixo' : insight.risk_level === 'medium' ? 'Médio' : 'Alto'}
+                            {insight.risk_level === 'high' ? 'Alto' : insight.risk_level === 'medium' ? 'Médio' : 'Baixo'}
                           </div>
                         </div>
                       </div>
@@ -291,7 +290,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                           <CheckCircle size={16} className="text-indigo-400" /> Recomendações da IA
                         </h3>
                         <ul className="space-y-3">
-                          {insight.insights.map((item, idx) => (
+                          {(Array.isArray(insight.insights) ? insight.insights : []).map((item, idx) => (
                             <li key={idx} className="text-neutral-300 text-sm leading-relaxed flex items-start gap-2">
                               <span className="text-indigo-500 mt-1">•</span>
                               {item}

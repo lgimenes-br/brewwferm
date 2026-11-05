@@ -25,8 +25,10 @@ export const BoilOffCalculator: React.FC = () => {
     };
 
     useEffect(() => {
-        const cGrav = parseFloat(currentGravInput.replace(',', '.'));
-        const tGrav = parseFloat(targetGravInput.replace(',', '.'));
+        const rawCGrav = parseFloat(currentGravInput.replace(',', '.'));
+        const rawTGrav = parseFloat(targetGravInput.replace(',', '.'));
+        const cGrav = rawCGrav > 200 ? rawCGrav / 1000 : rawCGrav;
+        const tGrav = rawTGrav > 200 ? rawTGrav / 1000 : rawTGrav;
         const cVol = parseFloat(currentVolInput.replace(',', '.'));
         const boilRate = parseFloat(boilOffRateInput.replace(',', '.'));
 

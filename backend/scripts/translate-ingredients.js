@@ -32,11 +32,11 @@ ${JSON.stringify(names)}
             }
         });
 
-        const translatedText = response.text;
+        const translatedText = response.text || '[]';
         const translatedArray = JSON.parse(translatedText);
 
-        if (translatedArray.length !== items.length) {
-            console.error(`❌ Incompatibilidade de tamanho no retorno do lote para a tabela ${table}. Esperado ${items.length}, recebido ${translatedArray.length}`);
+        if (!Array.isArray(translatedArray) || translatedArray.length !== items.length) {
+            console.error(`❌ Incompatibilidade de tamanho no retorno do lote para a tabela ${table}. Esperado ${items.length}, recebido ${Array.isArray(translatedArray) ? translatedArray.length : 'não-array'}`);
             return [];
         }
 
@@ -91,7 +91,7 @@ const runTranslation = async () => {
                     for (let j = 0; j < batch.length; j++) {
                         const id = batch[j].id;
                         const originalName = batch[j].name;
-                        const namePt = translatedNames[j];
+                        const namePt = translatedNames[j] ?? null;
                         
                         await pool.execute(`UPDATE ${table} SET name_pt = ? WHERE id = ?`, [namePt, id]);
                         console.log(`      [OK] ${originalName} -> ${namePt}`);

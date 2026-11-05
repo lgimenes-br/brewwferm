@@ -7,11 +7,11 @@ interface ForecastingEngineProps {
 }
 
 export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter }) => {
-  const { og, fg, readings } = fermenter;
+  const { og, fg, readings } = fermenter || ({} as Fermenter);
 
   const { progress, isStabilized } = useMemo(() => {
-    const validReadings = (readings || []).filter(r => {
-      const g = parseFloat(String(r.gravity));
+    const validReadings = (Array.isArray(readings) ? readings : []).filter(r => {
+      const g = parseFloat(String(r?.gravity));
       return !isNaN(g) && g > 0;
     });
 

@@ -17,14 +17,25 @@ export const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Por favor, informe seu nome.');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error('As senhas não conferem');
       return;
     }
     setLoading(true);
-    const success = await register(name, email, password);
-    setLoading(false);
-    if(success) navigate('/login');
+    try {
+      const success = await register(name.trim(), email.trim(), password);
+      if (success) navigate('/login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

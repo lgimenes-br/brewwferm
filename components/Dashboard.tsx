@@ -97,18 +97,20 @@ export const Dashboard: React.FC = () => {
 
     // Add Manual Handlers
     const handleManualAdd = async () => {
-        if (newDeviceName && newDeviceIp) {
+        const cleanName = newDeviceName.trim();
+        const cleanIp = newDeviceIp.trim();
+        if (cleanName && cleanIp) {
             try {
                 await addDevice({
-                    name: newDeviceName,
-                    serialCode: newDeviceIp
+                    name: cleanName,
+                    serialCode: cleanIp
                 });
                 toast.success('Dispositivo adicionado com sucesso!');
                 setIsAddModalOpen(false);
                 setNewDeviceName('');
                 setNewDeviceIp('');
-            } catch (err) {
-                toast.error('Erro ao adicionar dispositivo.');
+            } catch (err: any) {
+                toast.error(err?.message || 'Erro ao adicionar dispositivo.');
             }
         }
     };
@@ -128,7 +130,7 @@ export const Dashboard: React.FC = () => {
 
             if (res.ok) {
                 const devs = await res.json();
-                setScannedDevices(devs);
+                setScannedDevices(Array.isArray(devs) ? devs : []);
             } else {
                 console.error("Discovery failed:", res.status, res.statusText);
                 if (res.status === 401) {
@@ -149,18 +151,19 @@ export const Dashboard: React.FC = () => {
     };
 
     const handleSaveScanned = async () => {
-        if (deviceToAddFromScan && newDeviceName) {
+        const cleanName = newDeviceName.trim();
+        if (deviceToAddFromScan && cleanName) {
             try {
                 await addDevice({
-                    name: newDeviceName,
-                    serialCode: deviceToAddFromScan.ip
+                    name: cleanName,
+                    serialCode: (deviceToAddFromScan.ip || '').trim()
                 });
                 toast.success('Dispositivo adicionado com sucesso!');
                 setIsScanModalOpen(false);
                 setDeviceToAddFromScan(null);
                 setScannedDevices([]);
-            } catch (err) {
-                toast.error('Erro ao adicionar dispositivo.');
+            } catch (err: any) {
+                toast.error(err?.message || 'Erro ao adicionar dispositivo.');
             }
         }
     };
@@ -257,7 +260,9 @@ export const Dashboard: React.FC = () => {
                     const lastChartGravity = f.readings && f.readings.length > 0 
                         ? f.readings[f.readings.length - 1].gravity 
                         : 0;
-                    const safeHumidity = f.currentDevice?.extSens?.hum;
+                    const rawHumidity = f.currentDevice?.extSens?.hum;
+                    const parsedHumidity = rawHumidity !== undefined && rawHumidity !== null ? parseFloat(String(rawHumidity)) : NaN;
+                    const safeHumidity = !isNaN(parsedHumidity) ? parsedHumidity : undefined;
                     const safeGravity = f.currentDevice?.gravity > 0 
                         ? parseFloat(String(f.currentDevice.gravity))
                         : (parseFloat(String(lastChartGravity)) || 0);
@@ -290,7 +295,7 @@ export const Dashboard: React.FC = () => {
                                 </div>
                             )}
                         <div
-                            onClick={() => isOnline && navigate(`/fermenter/${f.id}`)}
+                            onClick={() => isOnline && navigate(`/fermenter/${encodeURIComponent(f.id)}`)}
                             className={`group relative rounded-3xl p-8 transition-all duration-300 overflow-hidden border ${
                                 isOnline 
                                 ? 'bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 cursor-pointer hover:shadow-2xl hover:shadow-black/50' 
@@ -405,7 +410,7 @@ export const Dashboard: React.FC = () => {
                                         <>
                                             <div className="flex items-start justify-end gap-1">
                                                 <span className="text-5xl font-bold tracking-tighter text-white">
-                                                    {safeHumidity !== undefined ? parseFloat(safeHumidity).toFixed(0) : '--'}
+                                                    {safeHumidity !== undefined ? safeHumidity.toFixed(0) : '--'}
                                                 </span>
                                                 <span className="text-lg text-neutral-500 font-light mt-1">%</span>
                                             </div>

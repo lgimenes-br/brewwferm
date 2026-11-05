@@ -42,13 +42,6 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
-pool.execute('ALTER TABLE telemetry ADD COLUMN extra_sensors JSON')
-    .then(() => console.log('Migration extra_sensors OK'))
-    .catch(e => {
-        if (e.code === 'ER_DUP_FIELDNAME') console.log('extra_sensors already exists');
-        else console.error('Migration failed:', e);
-    });
-
 const ingredientsPool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -71,12 +64,15 @@ const initDb = async () => {
         await pool.execute(`CREATE TABLE IF NOT EXISTS audit_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action VARCHAR(100) NOT NULL, details TEXT, ip_address VARCHAR(45), created_at DATETIME DEFAULT NOW())`);
 
         // Migrations (Ignoring errors if columns already exist)
+        try { await pool.execute('ALTER TABLE telemetry ADD COLUMN extra_sensors JSON'); } catch (e) { }
         try { await pool.execute('ALTER TABLE users ADD COLUMN plan_type ENUM("free", "premium") DEFAULT "free"'); } catch (e) { }
         try { await pool.execute('ALTER TABLE users ADD COLUMN max_devices INT DEFAULT 1'); } catch (e) { }
         try { await pool.execute('ALTER TABLE telemetry ADD COLUMN rssi INT DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE users ADD COLUMN lat FLOAT DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE users ADD COLUMN lon FLOAT DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20'); } catch (e) { }
         
         console.log('Main DB tables initialized');
         
@@ -165,14 +161,15 @@ setInterval(async () => {
             
             if (Array.isArray(profile) && batch.current_step_index < profile.length - 1) {
                 const currentStep = profile[batch.current_step_index];
-                if (!currentStep || !currentStep.duration) continue;
+                const stepDuration = currentStep ? (currentStep.duration ?? currentStep.d) : null;
+                if (!currentStep || !stepDuration) continue;
 
                 const elapsedMs = Date.now() - new Date(batch.step_started_at).getTime();
-                const durationMs = currentStep.duration * 24 * 60 * 60 * 1000;
+                const durationMs = parseFloat(stepDuration) * 24 * 60 * 60 * 1000;
 
                 if (elapsedMs >= durationMs) {
                     const newIndex = batch.current_step_index + 1;
-                    const nextStep = profile[newIndex];
+                    const nextStep = profile[newIndex] || {};
                     
                     // Update DB
                     await pool.execute(
@@ -183,9 +180,9 @@ setInterval(async () => {
                     // Publish to ESP32!
                     if (batch.serial_code) {
                         const payloadSteps = profile.map(step => ({
-                            n: step.name,
-                            t: step.temperature,
-                            d: step.duration * 24 // ESP32 expects hours
+                            n: step.name || step.n,
+                            t: step.temperature ?? step.t,
+                            d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24 // ESP32 expects hours
                         }));
 
                         const msg = JSON.stringify({
@@ -202,7 +199,9 @@ setInterval(async () => {
                     }
 
                     // Log Event
-                    const desc = `Avançou automaticamente para a etapa: ${nextStep.name} (${nextStep.temperature}°C)`;
+                    const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
+                    const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
+                    const desc = `Avançou automaticamente para a etapa: ${nextName} (${nextTemp}°C)`;
                     await pool.execute(
                         'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
                         [batch.id, 'SYSTEM_ACTION', desc]
@@ -250,6 +249,7 @@ mqttClient.on('message', async (topic, message, packet) => {
         if (packet && packet.retain) return;
         let payload;
         try { payload = JSON.parse(message.toString()); } catch (e) { return; }
+        if (!payload || typeof payload !== 'object') return;
         
         // Intercept responses for Dashboard
         if (topic.endsWith('/response')) {
@@ -372,6 +372,7 @@ mqttClient.on('message', async (topic, message, packet) => {
             }
             const currentBatchId = activeBatches[serialCode] || null;
 
+            let stepSyncedInThisMessage = false;
             if (now - lastLog >= logInterval) {
                 // Sync ESP32 step with Database
                 if (currentBatchId && payload.currStep !== undefined && payload.opm === 0 && payload.fermRun) {
@@ -383,11 +384,12 @@ mqttClient.on('message', async (topic, message, packet) => {
                                 await pool.execute('UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?', [payload.currStep, currentBatchId]);
                                 console.log(`🔄 [Sync] Lote ${currentBatchId} sincronizado com ESP32 para etapa ${payload.currStep}`);
                                 
-                                const desc = `Sincronizado com o equipamento para a etapa: ${payload.profStat}`;
+                                const desc = `Sincronizado com o equipamento para a etapa: ${payload.profStat || payload.currStep}`;
                                 await pool.execute(
                                     'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
                                     [currentBatchId, 'SYSTEM_ACTION', desc]
                                 );
+                                stepSyncedInThisMessage = true;
                             }
                         }
                     } catch (e) { console.error('Sync error:', e); }
@@ -408,7 +410,7 @@ mqttClient.on('message', async (topic, message, packet) => {
 
                 let dateSQL = 'NOW()';
                 let extraSensorsJSON = payload.ext_s ? JSON.stringify(payload.ext_s) : null;
-                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp, payload.profStat, payload.rssi || null, extraSensorsJSON];
+                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
                 
                 // Apenas confia no timestamp do ESP32 se ele for maior que o ano 2020 (NTP Sincronizado)
                 if (payload.ts && payload.ts > 1600000000) {
@@ -457,15 +459,15 @@ mqttClient.on('message', async (topic, message, packet) => {
                     if (alertState[serialCode].lastStep && alertState[serialCode].lastStep !== payload.profStat) {
                         sendPushToUser(pool, userId, 'Mudança de Passo', `O fermentador iniciou o passo: ${payload.profStat}`);
                         
-                        // Sincroniza a mudança de passo com o Diário de Bordo (batch_events)
-                        if (currentBatchId) {
-                            pool.execute(
+                        // Sincroniza a mudança de passo com o Diário de Bordo (batch_events) apenas se não sincronizou acima
+                        if (currentBatchId && !stepSyncedInThisMessage) {
+                            await pool.execute(
                                 'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
                                 [currentBatchId, 'SYSTEM_ACTION', `Avanço de Etapa: ${payload.profStat}`]
                             ).catch(e => console.error("Error inserting step event:", e));
                             
                             if (payload.currStep !== undefined) {
-                                pool.execute(
+                                await pool.execute(
                                     'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
                                     [payload.currStep, currentBatchId]
                                 ).catch(e => console.error("Error updating batch step:", e));
@@ -532,20 +534,21 @@ const updateUserLocation = async (userId, req) => {
 
 app.post('/api/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body || {};
+        if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
         const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) return res.status(400).json({ error: 'Usuário não encontrado' });
-        if (await bcrypt.compare(password, users[0].password_hash)) {
+        if (users[0].password_hash && await bcrypt.compare(String(password), users[0].password_hash)) {
             const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET);
             
             // Log successful login
-            const userIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip;
+            const userIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || null;
             await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_SUCCESS', 'User logged in', userIp]);
             updateUserLocation(users[0].id, req);
             
             res.json({ token, name: users[0].name, role: users[0].role });
         } else { 
-            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_FAILED', 'Invalid password attempt', req.ip]);
+            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_FAILED', 'Invalid password attempt', req.ip || null]);
             res.status(403).json({ error: 'Senha incorreta' }); 
         }
     } catch (err) {
@@ -573,8 +576,9 @@ setInterval(() => {
 
 app.post('/api/register', async (req, res) => {
     try {
-        const { name, email, password } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const { name, email, password } = req.body || {};
+        if (!name || !email || !password) return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
+        const hashedPassword = await bcrypt.hash(String(password), 10);
         await pool.execute('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)', [name, email, hashedPassword]);
         res.status(201).json({ message: 'Sucesso' });
     } catch (err) {
@@ -585,7 +589,7 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/auth/google', async (req, res) => {
     try {
-        const { idToken } = req.body; // Actually this is the access_token now from useGoogleLogin
+        const { idToken } = req.body || {}; // Actually this is the access_token now from useGoogleLogin
         if (!idToken) return res.status(400).json({ error: 'Token é obrigatório' });
         
         // Obter dados do usuário no Google usando o access_token
@@ -599,10 +603,9 @@ app.post('/api/auth/google', async (req, res) => {
 
         const payload = await googleRes.json();
         const email = payload.email;
-        const name = payload.name;
-        const googleId = payload.sub;
-
         if (!email) return res.status(400).json({ error: 'Token não possui email' });
+        const name = payload.name || email.split('@')[0] || 'Usuário Google';
+        const googleId = payload.sub || '';
 
         // Verifica se o usuário existe no DB
         let [users] = await pool.execute('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
@@ -689,7 +692,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [devices] = await pool.execute(`SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
+        const [devices] = await pool.execute(`SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.volume as active_batch_volume, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
         
         for (let d of devices) {
             const [tRows] = await pool.execute(`SELECT temp_ferm as last_temp, temp_amb as last_temp2, target_temp as last_target, status_op as last_status, battery as last_battery, rssi as last_rssi, gravity as last_gravity, extra_sensors as last_extra_sensors FROM telemetry WHERE device_id = ? ORDER BY id DESC LIMIT 1`, [d.id]);
@@ -717,16 +720,19 @@ app.get('/api/discovery', authenticateToken, async (req, res) => {
 
 app.post('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [[{ max_devices }]] = await pool.execute('SELECT max_devices FROM users WHERE id = ?', [req.user.id]);
+        const [userRows] = await pool.execute('SELECT max_devices FROM users WHERE id = ?', [req.user.id]);
+        if (userRows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+        const max_devices = userRows[0].max_devices ?? 1;
         const [[{ count }]] = await pool.execute('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [req.user.id]);
         
         if (count >= max_devices) {
             return res.status(403).json({ error: 'Limite de equipamentos atingido. Atualize seu plano.' });
         }
 
-        const serialCode = (req.body.serialCode || '').trim().toUpperCase();
-        await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body.name]);
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip]);
+        const serialCode = String(req.body?.serialCode || '').trim().toUpperCase();
+        if (!serialCode) return res.status(400).json({ error: 'Código serial é obrigatório' });
+        await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body?.name ?? null]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip || null]);
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
     } catch (err) { res.status(500).json({ error: 'Erro interno' }); }
@@ -734,8 +740,8 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
-        const { name } = req.body;
-        await pool.execute('UPDATE devices SET device_name = ? WHERE serial_code = ? AND user_id = ?', [name, req.params.serial, req.user.id]);
+        const { name } = req.body || {};
+        await pool.execute('UPDATE devices SET device_name = ? WHERE serial_code = ? AND user_id = ?', [name ?? null, req.params.serial, req.user.id]);
         notifyUpdate();
         res.json({ message: 'Dispositivo atualizado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -743,9 +749,9 @@ app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
 
 app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
     try {
-        const { choppName } = req.body;
+        const { choppName } = req.body || {};
         await pool.execute('UPDATE devices SET chopp_name = ? WHERE serial_code = ? AND user_id = ?', 
-            [choppName, req.params.id, req.user.id]);
+            [choppName ?? null, req.params.id, req.user.id]);
         notifyUpdate();
         res.json({ message: 'Chopp name atualizado' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
@@ -753,9 +759,9 @@ app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
 
 app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
     try {
-        const { sensor1Name, sensor2Name, sensorSgName } = req.body;
-        await pool.execute('UPDATE devices SET sensor1_name = ?, sensor2_name = ?, sensor_sg_name = ? WHERE serial_code = ? AND user_id = ?', 
-            [sensor1Name, sensor2Name, sensorSgName, req.params.id, req.user.id]);
+        const { sensor1Name, sensor2Name, sensorSgName } = req.body || {};
+        await pool.execute('UPDATE devices SET sensor1_name = COALESCE(?, sensor1_name), sensor2_name = COALESCE(?, sensor2_name), sensor_sg_name = COALESCE(?, sensor_sg_name) WHERE serial_code = ? AND user_id = ?', 
+            [sensor1Name ?? null, sensor2Name ?? null, sensorSgName ?? null, req.params.id, req.user.id]);
         notifyUpdate();
         res.json({ message: 'Sensores atualizados no backend' });
     } catch (err) {
@@ -767,17 +773,16 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
         const normalizedSerial = req.params.serial.trim().toUpperCase();
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
-        if (devs.length > 0) {
-            const devId = devs[0].id;
-            await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [devId]);
-            const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [devId]);
-            for (const b of batches) {
-                await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
-            }
-            await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
-            await pool.execute('DELETE FROM devices WHERE id = ? AND user_id = ?', [devId, req.user.id]);
+        if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
+        const devId = devs[0].id;
+        await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [devId]);
+        const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [devId]);
+        for (const b of batches) {
+            await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
         }
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip]);
+        await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
+        await pool.execute('DELETE FROM devices WHERE id = ? AND user_id = ?', [devId, req.user.id]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
         delete activeBatches[normalizedSerial];
         delete activeBatchesUserId[normalizedSerial];
         delete alertState[normalizedSerial];
@@ -787,7 +792,8 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/batch/start', authenticateToken, async (req, res) => {
-    const { serialCode, name, style, og, fg, profile } = req.body;
+    const { serialCode, name, style, og, fg, volume, profile } = req.body || {};
+    if (!serialCode || !name) return res.status(400).json({ error: 'serialCode e name são obrigatórios' });
     try {
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [serialCode, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Device não encontrado' });
@@ -796,14 +802,15 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
         // Store profile as JSON string if provided
         const profileJson = profile ? JSON.stringify(profile) : null;
+        const safeVol = volume !== undefined && volume !== null && !isNaN(parseFloat(volume)) ? parseFloat(volume) : 20;
         const [result] = await pool.execute(
-            'INSERT INTO batches (device_id, name, style, og, fg, profile, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
-            [deviceId, name, style || '', og || null, fg || null, profileJson]
+            'INSERT INTO batches (device_id, name, style, og, fg, volume, profile, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
+            [deviceId, name, style || '', og || null, fg || null, safeVol, profileJson]
         );
 
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'START_BATCH', `Batch: ${name} (Device: ${serialCode})`, req.ip]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'START_BATCH', `Batch: ${name} (Device: ${serialCode})`, req.ip || null]);
 
-        const normalizedSerial = serialCode.trim().toUpperCase();
+        const normalizedSerial = String(serialCode).trim().toUpperCase();
         activeBatches[normalizedSerial] = result.insertId;
         activeBatchesUserId[normalizedSerial] = req.user.id;
 
@@ -832,7 +839,8 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
 app.put('/api/batch/update', authenticateToken, async (req, res) => {
     try {
-        const { serialCode, og, fg, name, profile } = req.body;
+        const { serialCode, og, fg, name, profile } = req.body || {};
+        if (!serialCode) return res.status(400).json({ error: 'serialCode é obrigatório' });
         console.log(`📝 [API] /api/batch/update - Recebido:`, { serialCode, og, fg, name, hasProfile: profile !== undefined });
 
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [serialCode, req.user.id]);
@@ -865,11 +873,13 @@ app.put('/api/batch/update', authenticateToken, async (req, res) => {
 
 app.post('/api/batch/stop', authenticateToken, async (req, res) => {
     try {
-        const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.body.serialCode, req.user.id]);
+        const serialCode = req.body?.serialCode;
+        if (!serialCode) return res.status(400).json({ error: 'serialCode é obrigatório' });
+        const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [serialCode, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Device não encontrado' });
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [devs[0].id]);
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'STOP_BATCH', `Device: ${req.body.serialCode}`, req.ip]);
-        const normalizedSerial = req.body.serialCode.trim().toUpperCase();
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'STOP_BATCH', `Device: ${serialCode}`, req.ip || null]);
+        const normalizedSerial = String(serialCode).trim().toUpperCase();
         delete activeBatches[normalizedSerial];
         delete activeBatchesUserId[normalizedSerial];
         notifyUpdate();
@@ -902,9 +912,11 @@ app.post('/api/batch/:id/finish', authenticateToken, async (req, res) => {
 
 app.post('/api/events', authenticateToken, async (req, res) => {
     try {
-        const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.body.batchId, req.user.id]);
+        const { batchId, type, description, date } = req.body || {};
+        if (!batchId || !type) return res.status(400).json({ error: 'batchId e type são obrigatórios' });
+        const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [batchId, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        await pool.execute('INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, ?)', [req.body.batchId, req.body.type, req.body.description, req.body.date || new Date()]);
+        await pool.execute('INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, ?)', [batchId, type, description ?? null, date || new Date()]);
         res.status(201).json({ message: 'Registrado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -945,7 +957,7 @@ app.get('/api/recipes/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => {
     try {
-        const { endpoint, keys } = req.body;
+        const { endpoint, keys } = req.body || {};
         if (!endpoint || !keys) {
             return res.status(400).json({ error: 'Endpoint e keys são obrigatórios.' });
         }
@@ -955,7 +967,7 @@ app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => 
         
         if (existing.length === 0) {
             await pool.execute('INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)', [
-                req.user.id, endpoint, keys.p256dh, keys.auth
+                req.user.id, endpoint, keys.p256dh ?? null, keys.auth ?? null
             ]);
         }
         
@@ -967,16 +979,17 @@ app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => 
 });
 
 app.post('/api/recipes', authenticateToken, async (req, res) => {
-    const { name, style, og, fg, steps } = req.body;
+    const { name, style, og, fg, est_og, est_fg, steps } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Nome da receita é obrigatório' });
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
-        const [resRecipe] = await conn.execute('INSERT INTO recipes (user_id, name, style, est_og, est_fg) VALUES (?, ?, ?, ?, ?)', [req.user.id, name, style, og, fg]);
+        const [resRecipe] = await conn.execute('INSERT INTO recipes (user_id, name, style, est_og, est_fg) VALUES (?, ?, ?, ?, ?)', [req.user.id, name, style ?? null, (og ?? est_og) ?? null, (fg ?? est_fg) ?? null]);
         const recipeId = resRecipe.insertId;
-        if (steps && steps.length > 0) {
+        if (Array.isArray(steps) && steps.length > 0) {
             for (let i = 0; i < steps.length; i++) {
-                const s = steps[i];
-                await conn.execute('INSERT INTO recipe_steps (recipe_id, step_order, name, temperature, days) VALUES (?, ?, ?, ?, ?)', [recipeId, i, s.n, s.t, s.d]);
+                const s = steps[i] || {};
+                await conn.execute('INSERT INTO recipe_steps (recipe_id, step_order, name, temperature, days) VALUES (?, ?, ?, ?, ?)', [recipeId, i, (s.n ?? s.name) ?? null, (s.t ?? s.temperature) ?? null, (s.d ?? s.days ?? s.duration) ?? null]);
             }
         }
         await conn.commit();
@@ -997,7 +1010,7 @@ app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
 app.get('/api/history/batches', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute(
-            `SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? AND b.is_active = 0 ORDER BY b.started_at DESC`,
+            `SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id, (SELECT gravity FROM telemetry t WHERE t.batch_id = b.id AND t.gravity IS NOT NULL AND t.gravity > 0 ORDER BY t.recorded_at DESC LIMIT 1) as last_gravity FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? AND b.is_active = 0 ORDER BY b.started_at DESC`,
             [req.user.id]
         );
         res.json(rows);
@@ -1007,16 +1020,15 @@ app.get('/api/history/batches', authenticateToken, async (req, res) => {
 app.get('/api/history/:serial', authenticateToken, async (req, res) => {
     try {
         const { batch } = req.query;
-        const limit = parseInt(req.query.limit) || 25;
-        const safeLimit = limit > 5000 ? 5000 : limit;
+        const limit = parseInt(req.query.limit, 10) || 25;
+        const safeLimit = Math.max(1, Math.min(5000, limit));
         let query = `SELECT t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.recorded_at FROM telemetry t JOIN devices d ON t.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? `;
         const params = [req.params.serial.trim().toUpperCase(), req.user.id];
         if (batch === 'active') {
             const [active] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? AND b.is_active = 1 LIMIT 1`, [params[0], req.user.id]);
             if (active.length > 0) { query += ` AND t.batch_id = ? `; params.push(active[0].id); } else return res.json([]);
         } else query += ` AND t.recorded_at > NOW() - INTERVAL 30 DAY `;
-        query += ` ORDER BY t.recorded_at DESC LIMIT ?`;
-        params.push(safeLimit);
+        query += ` ORDER BY t.recorded_at DESC LIMIT ${safeLimit}`;
         const [rows] = await pool.execute(query, params);
         res.json(rows.reverse());
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1101,7 +1113,7 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/batches', authenticateToken, async (req, res) => {
-    try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id, (SELECT gravity FROM telemetry t WHERE t.batch_id = b.id AND t.gravity IS NOT NULL AND t.gravity > 0 ORDER BY t.recorded_at DESC LIMIT 1) as last_gravity FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Get batch details (metadata)
@@ -1119,8 +1131,8 @@ app.put('/api/batches/:id/ingredients', authenticateToken, async (req, res) => {
         const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         
-        const { ingredients } = req.body;
-        await pool.execute('UPDATE batches SET ingredients = ? WHERE id = ?', [JSON.stringify(ingredients), req.params.id]);
+        const { ingredients } = req.body || {};
+        await pool.execute('UPDATE batches SET ingredients = ? WHERE id = ?', [ingredients !== undefined ? JSON.stringify(ingredients) : null, req.params.id]);
         res.json({ message: 'Ingredientes atualizados com sucesso' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1334,7 +1346,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
 
 app.put('/api/admin/users/:id/plan', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { plan_type } = req.body;
+        const plan_type = req.body?.plan_type === 'premium' ? 'premium' : 'free';
         const max_devices = plan_type === 'premium' ? 9999 : 1;
         await pool.execute('UPDATE users SET plan_type = ?, max_devices = ? WHERE id = ?', [plan_type, max_devices, req.params.id]);
         res.json({ message: 'Plano atualizado' });
@@ -1354,9 +1366,9 @@ app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) 
 
 app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password, role } = req.body || {};
         if (!name || !email || !password) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(String(password), 10);
         await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hashedPassword, role || 'user']);
         res.status(201).json({ message: 'User created' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1365,12 +1377,14 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
 app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, email, role, password } = req.body;
+        const { name, email, role, password } = req.body || {};
+        if (!name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios' });
+        const safeRole = role || 'user';
         if (password) {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            await pool.execute('UPDATE users SET name=?, email=?, role=?, password_hash=? WHERE id=?', [name, email, role, hashedPassword, id]);
+            const hashedPassword = await bcrypt.hash(String(password), 10);
+            await pool.execute('UPDATE users SET name=?, email=?, role=?, password_hash=? WHERE id=?', [name, email, safeRole, hashedPassword, id]);
         } else {
-            await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [name, email, role, id]);
+            await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [name, email, safeRole, id]);
         }
         res.json({ message: 'User updated' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1460,8 +1474,9 @@ app.post('/api/admin/ingredients/:table', authenticateToken, requireAdmin, async
         const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
         if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
         
-        const { name, name_pt } = req.body;
-        const [result] = await ingredientsPool.execute(`INSERT INTO ${table} (name, name_pt) VALUES (?, ?)`, [name, name_pt]);
+        const { name, name_pt } = req.body || {};
+        if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
+        const [result] = await ingredientsPool.execute(`INSERT INTO ${table} (name, name_pt) VALUES (?, ?)`, [name, name_pt ?? null]);
         res.json({ id: result.insertId, message: 'Ingrediente criado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1472,8 +1487,9 @@ app.put('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, as
         const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
         if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
         
-        const { name, name_pt } = req.body;
-        await ingredientsPool.execute(`UPDATE ${table} SET name = ?, name_pt = ? WHERE id = ?`, [name, name_pt, id]);
+        const { name, name_pt } = req.body || {};
+        if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
+        await ingredientsPool.execute(`UPDATE ${table} SET name = ?, name_pt = ? WHERE id = ?`, [name, name_pt ?? null, id]);
         res.json({ message: 'Ingrediente atualizado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1549,7 +1565,8 @@ app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res
 app.get('/api/admin/server/status', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { stdout } = await execPromise('pm2 jlist');
-        res.json(JSON.parse(stdout));
+        const jsonStart = stdout.indexOf('[');
+        res.json(JSON.parse(jsonStart >= 0 ? stdout.slice(jsonStart) : stdout));
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -1573,8 +1590,8 @@ app.get('/api/admin/financials', authenticateToken, requireAdmin, async (req, re
         const [users] = await pool.execute('SELECT plan_type, COUNT(*) as count FROM users GROUP BY plan_type');
         let free = 0; let premium = 0;
         users.forEach(u => {
-            if (u.plan_type === 'premium') premium = u.count;
-            else free = u.count;
+            if (u.plan_type === 'premium') premium += Number(u.count) || 0;
+            else free += Number(u.count) || 0;
         });
         const mrr = premium * 29.90; // Exemplo: R$ 29,90 por premium
         res.json({ free, premium, mrr });
@@ -1631,8 +1648,8 @@ app.get('/api/admin/community-trends', authenticateToken, requireAdmin, async (r
             SELECT style as name, 
                    COUNT(*) as count, 
                    AVG(DATEDIFF(IFNULL(ended_at, NOW()), started_at)) as avg_days,
-                   AVG(CAST(og AS FLOAT)) as avg_og,
-                   AVG(CAST(fg AS FLOAT)) as avg_fg
+                   AVG(CASE WHEN CAST(og AS DECIMAL(10,4)) > 500 THEN CAST(og AS DECIMAL(10,4)) / 1000 ELSE CAST(og AS DECIMAL(10,4)) END) as avg_og,
+                   AVG(CASE WHEN CAST(fg AS DECIMAL(10,4)) > 500 THEN CAST(fg AS DECIMAL(10,4)) / 1000 ELSE CAST(fg AS DECIMAL(10,4)) END) as avg_fg
             FROM batches 
             WHERE style IS NOT NULL AND style != "" 
             GROUP BY style 
@@ -1640,10 +1657,12 @@ app.get('/api/admin/community-trends', authenticateToken, requireAdmin, async (r
             LIMIT 10
         `);
         const enriched = styles.map(s => {
-            const og = parseFloat(s.avg_og);
-            const fg = parseFloat(s.avg_fg);
+            let og = parseFloat(s.avg_og);
+            let fg = parseFloat(s.avg_fg);
+            if (og > 500) og /= 1000;
+            if (fg > 500) fg /= 1000;
             let abv = 0;
-            if (og > 1 && fg > 0.99) abv = (og - fg) * 131.25;
+            if (og > 1 && fg > 0.99 && og > fg) abv = (og - fg) * 131.25;
             return { ...s, abv: abv > 0 ? abv.toFixed(1) : '-' };
         });
         res.json(enriched);
@@ -1692,9 +1711,10 @@ app.get('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, re
 
 app.post('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { title, message, type, is_active, send_push } = req.body;
-        await pool.execute('INSERT INTO system_broadcasts (title, message, type, is_active) VALUES (?, ?, ?, ?)', [title, message, type, is_active ? 1 : 0]);
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_BROADCAST', `Title: ${title}`, req.ip]);
+        const { title, message, type, is_active, send_push } = req.body || {};
+        if (!message) return res.status(400).json({ error: 'Mensagem é obrigatória' });
+        await pool.execute('INSERT INTO system_broadcasts (title, message, type, is_active) VALUES (?, ?, ?, ?)', [title ?? null, message, type || 'info', is_active ? 1 : 0]);
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_BROADCAST', `Title: ${title || ''}`, req.ip || null]);
         
         if (send_push) {
             // Find all active subscriptions and push

@@ -16,9 +16,11 @@ const getBestModel = async (apiKey: string): Promise<string> => {
     const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     const listData = await listRes.json();
 
-    if (!listData.models) return 'gemini-2.0-flash'; // Fallback
+    if (!Array.isArray(listData?.models)) return 'gemini-2.0-flash'; // Fallback
 
-    const availableModels = listData.models.map((m: any) => m.name.replace('models/', ''));
+    const availableModels = listData.models
+      .filter((m: any) => typeof m?.name === 'string')
+      .map((m: any) => m.name.replace('models/', ''));
 
     // Preference list: try to find these in order
     // Prioritizing 1.5-flash because 2.0-flash has a limit of 0 on some free tiers (e.g. in Brazil)
@@ -126,12 +128,20 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
       throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
-    if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
-      const text = data.candidates[0].content.parts[0].text;
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof text === 'string' && text.trim().length > 0) {
       try {
         // Clean markdown code blocks if present (just in case model ignores instruction)
         const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanText) as AIAnalysis;
+        const parsed = JSON.parse(cleanText);
+        return {
+          summary: typeof parsed?.summary === 'string' ? parsed.summary : 'Análise concluída.',
+          health_score: Number.isFinite(Number(parsed?.health_score)) ? Math.min(100, Math.max(0, Number(parsed.health_score))) : 80,
+          estimated_completion_days: Number.isFinite(Number(parsed?.estimated_completion_days)) ? Math.max(0, Number(parsed.estimated_completion_days)) : 0,
+          risk_level: (parsed?.risk_level === 'low' || parsed?.risk_level === 'medium' || parsed?.risk_level === 'high') ? parsed.risk_level : 'low',
+          insights: Array.isArray(parsed?.insights) ? parsed.insights.map((item: any) => String(item)) : [],
+          ideal_curve: Array.isArray(parsed?.ideal_curve) ? parsed.ideal_curve : []
+        } as AIAnalysis;
       } catch (e) {
         console.error("Failed to parse AI JSON:", e);
         throw new Error("A IA não retornou um formato JSON válido.");

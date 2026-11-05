@@ -30,7 +30,8 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
     
     const mapped = data.map(d => {
       const rawGravity = parseFloat(String(d.gravity));
-      const rawTemp = parseFloat(String((d as any).beerTemp ?? (d as any).temp_ferm ?? 0));
+      const rawTempVal = (d as any).beerTemp ?? (d as any).temp_ferm;
+      const rawTemp = rawTempVal !== null && rawTempVal !== undefined ? parseFloat(String(rawTempVal)) : NaN;
       const hasValidGravity = !isNaN(rawGravity) && rawGravity > 0;
       return {
         ...d,
@@ -95,7 +96,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 stroke="#ffffff" // white for temp
                 domain={['auto', 'auto']}
                 fontSize={11}
-                tickFormatter={(val) => val.toFixed(1) + '°'}
+                tickFormatter={(val) => Number.isFinite(Number(val)) ? Number(val).toFixed(1) + '°' : ''}
                 tickLine={false}
                 axisLine={false}
                 dx={-10}
@@ -107,7 +108,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 stroke="#8b5cf6" // purpleish for gravity
                 domain={[yGravityMin, yGravityMax]}
                 fontSize={11}
-                tickFormatter={(val) => val.toFixed(3)}
+                tickFormatter={(val) => Number.isFinite(Number(val)) ? Number(val).toFixed(3) : ''}
                 tickLine={false}
                 axisLine={false}
                 dx={10}
@@ -119,13 +120,14 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                   itemStyle={{ fontSize: '12px', paddingBottom: '4px' }}
                   labelStyle={{ color: '#a3a3a3', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   labelFormatter={(label) => new Date(label).toLocaleString()}
-                  formatter={(value: number, name: string, props: any) => {
+                  formatter={(value: any, name: any, props: any) => {
                     if (name === sensorSgName) {
                       const original = props?.payload?.originalGravity;
-                      const displayVal = original !== undefined ? original : value;
-                      return [displayVal.toFixed(3), 'SG'];
+                      const displayVal = Number(original !== undefined ? original : value);
+                      return [Number.isFinite(displayVal) ? displayVal.toFixed(3) : '--', 'SG'];
                     }
-                    return [value.toFixed(1), '°C'];
+                    const numTemp = Number(value);
+                    return [Number.isFinite(numTemp) ? numTemp.toFixed(1) : '--', '°C'];
                   }}
                   cursor={{ stroke: '#525252', strokeWidth: 0.5, strokeDasharray: '4 4' }}
                 />
@@ -163,10 +165,10 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 if (safeData.length < 2) return null;
                 const minTime = new Date(safeData[0].timestamp).getTime();
                 const maxTime = new Date(safeData[safeData.length - 1].timestamp).getTime();
-                return events
+                return (Array.isArray(events) ? events : [])
                   .filter(event => {
                     const t = new Date(event.timestamp).getTime();
-                    return t >= minTime && t <= maxTime;
+                    return !isNaN(t) && t >= minTime && t <= maxTime;
                   })
                   .map(event => {
                     const eventTime = new Date(event.timestamp).getTime();

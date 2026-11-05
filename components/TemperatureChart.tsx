@@ -46,12 +46,19 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
           }
       }
 
+      const rawBeer = (d as any).beerTemp ?? (d as any).temp_ferm;
+      const rawTarget = (d as any).targetTemp ?? (d as any).target_temp;
+      const rawFridge = (d as any).fridgeTemp ?? (d as any).temp_amb;
+      const parsedBeer = rawBeer !== null && rawBeer !== undefined ? parseFloat(String(rawBeer)) : NaN;
+      const parsedTarget = rawTarget !== null && rawTarget !== undefined ? parseFloat(String(rawTarget)) : NaN;
+      const parsedFridge = rawFridge !== null && rawFridge !== undefined ? parseFloat(String(rawFridge)) : NaN;
+
       return {
         ...d,
         timestamp: d.timestamp || (d as any).recorded_at,
-        beerTemp: parseFloat(String((d as any).beerTemp ?? (d as any).temp_ferm ?? 0)),
-        targetTemp: parseFloat(String((d as any).targetTemp ?? (d as any).target_temp ?? 0)),
-        fridgeTemp: parseFloat(String((d as any).fridgeTemp ?? (d as any).temp_amb ?? 0)),
+        beerTemp: parsedBeer,
+        targetTemp: !isNaN(parsedTarget) ? parsedTarget : null,
+        fridgeTemp: !isNaN(parsedFridge) ? parsedFridge : null,
         ...extras
       };
     }).filter(d => !isNaN(d.beerTemp));
@@ -166,10 +173,10 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               if (safeData.length < 2) return null;
               const minTime = new Date(safeData[0].timestamp).getTime();
               const maxTime = new Date(safeData[safeData.length - 1].timestamp).getTime();
-              return events
+              return (Array.isArray(events) ? events : [])
                 .filter(event => {
                   const t = new Date(event.timestamp).getTime();
-                  return t >= minTime && t <= maxTime;
+                  return !isNaN(t) && t >= minTime && t <= maxTime;
                 })
                 .map(event => {
                   const eventTime = new Date(event.timestamp).getTime();

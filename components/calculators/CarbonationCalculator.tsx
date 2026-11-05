@@ -127,7 +127,7 @@ export const CarbonationCalculator: React.FC = () => {
         const co2Vol = parseFloat(co2VolInput.replace(',', '.'));
         const tempC = parseFloat(tempInput.replace(',', '.'));
         
-        if (isNaN(co2Vol) || isNaN(tempC)) return;
+        if (isNaN(co2Vol) || co2Vol < 0) return;
 
         let pressureBar = 0;
         let pressurePsi = 0;
@@ -135,15 +135,18 @@ export const CarbonationCalculator: React.FC = () => {
         let residualCo2 = 0;
 
         if (typeInput === 'Keg (Forçado)') {
+            if (isNaN(tempC)) return;
             const tempF = (tempC * 9/5) + 32;
             const denom = 0.01821 + 0.09011 * Math.exp(-(tempF - 32) / 43.11);
-            pressurePsi = (co2Vol + 0.003342) / denom - 14.695;
-            pressureBar = pressurePsi * 0.0689476;
+            if (denom > 0) {
+                pressurePsi = (co2Vol + 0.003342) / denom - 14.695;
+                pressureBar = pressurePsi * 0.0689476;
+            }
         } else {
             const volL = parseFloat(batchVolInput.replace(',', '.'));
             const fTempC = parseFloat(fermTempInput.replace(',', '.'));
             
-            if (!isNaN(volL) && !isNaN(fTempC)) {
+            if (!isNaN(volL) && volL > 0 && !isNaN(fTempC)) {
                 const fTempF = (fTempC * 9/5) + 32;
                 residualCo2 = 3.0378 - 0.050062 * fTempF + 0.00026555 * Math.pow(fTempF, 2);
                 if (residualCo2 < 0) residualCo2 = 0;

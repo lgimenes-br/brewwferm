@@ -18,8 +18,18 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
         queryKey: ['brew', id],
         queryFn: async (): Promise<FinishedBrew | null> => {
             if(!token || !id) return null;
+            const extractNotes = (ing: any, rawNotes?: string) => {
+                if (rawNotes) return rawNotes;
+                if (!ing) return '';
+                try {
+                    const parsed = typeof ing === 'string' ? JSON.parse(ing) : ing;
+                    return parsed && typeof parsed.notes === 'string' ? parsed.notes : '';
+                } catch {
+                    return '';
+                }
+            };
             const batchesRes = await api.fetchBatches(token);
-            const b = batchesRes.find((x: any) => String(x.id) === id);
+            const b = Array.isArray(batchesRes) ? batchesRes.find((x: any) => String(x.id) === id) : null;
             
             if(!b) {
                 // Try history dedicated endpoint
@@ -28,7 +38,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                 });
                 if(historyRes.ok) {
                     const hData = await historyRes.json();
-                    const hb = hData.find((x: any) => String(x.id) === id);
+                    const hb = Array.isArray(hData) ? hData.find((x: any) => String(x.id) === id) : null;
                     if(hb) {
                         let hbOg = parseFloat(hb.og) || 0;
                         let hbFg = parseFloat(hb.fg) || parseFloat(hb.last_gravity) || 0;
@@ -45,7 +55,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                             fg: hbFg,
                             abv: (hbOg && hbFg && hbOg > hbFg) ? ((hbOg - hbFg) * 131.25) : 0,
                             efficiency: (hbOg && hbFg && hbOg > 1) ? ((hbOg - hbFg) / (hbOg - 1.0) * 100) : 0,
-                            notes: '',
+                            notes: extractNotes(hb.ingredients, hb.notes),
                             ingredients: hb.ingredients,
                             sensor1_name: hb.sensor1_name,
                             sensor2_name: hb.sensor2_name,
@@ -73,7 +83,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                 fg,
                 abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
                 efficiency: (og && fg && og > 1) ? ((og - fg) / (og - 1.0) * 100) : 0,
-                notes: '',
+                notes: extractNotes(b.ingredients, b.notes),
                 ingredients: b.ingredients,
                 sensor1_name: b.sensor1_name,
                 sensor2_name: b.sensor2_name,

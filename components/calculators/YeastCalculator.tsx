@@ -70,17 +70,19 @@ export const YeastCalculator: React.FC = () => {
         }
         const mfg = new Date(mfgDate);
         const today = new Date();
-        const diffTime = Math.abs(today.getTime() - mfg.getTime());
+        const diffTime = Math.max(0, today.getTime() - mfg.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         const dropRate = purePitch ? 0.35 : 0.7;
         let v = 100 - (diffDays * dropRate);
         if (v < 0) v = 0;
+        if (v > 100) v = 100;
         setViability(v.toFixed(0));
     }, [calcViability, mfgDate, purePitch, yeastType]);
 
     useEffect(() => {
-        const og = parseFloat(ogSgInput.replace(',', '.'));
+        const rawOg = parseFloat(ogSgInput.replace(',', '.'));
+        const og = rawOg > 200 ? rawOg / 1000 : rawOg;
         const volL = parseFloat(volumeInput.replace(',', '.'));
         const pr = pitchRateSlider;
         const cpp = parseFloat(cellsPerPack.replace(',', '.'));
@@ -99,7 +101,7 @@ export const YeastCalculator: React.FC = () => {
         const diff = cellsAvailable - targetCells;
         const pitchRateMml = (cellsAvailable * 1000) / (volL * 1000);
 
-        const initialStarterCells = sPacks * viableCellsPerPack;
+        const initialStarterCells = Math.max(0, sPacks) * viableCellsPerPack;
         const maxYieldFactor = propagationModel === 'stirred' ? 1.4 : 0.4;
         
         let currentCells = initialStarterCells;
@@ -107,11 +109,34 @@ export const YeastCalculator: React.FC = () => {
 
         for (let i = 0; i < stages.length; i++) {
             const stage = stages[i];
-            const sSg = parseFloat(stage.sg.replace(',', '.'));
-            if (isNaN(sSg) || sSg <= 1) continue;
+            const rawSSg = parseFloat(stage.sg.replace(',', '.'));
+            const sSg = rawSSg > 200 ? rawSSg / 1000 : rawSSg;
+            if (isNaN(sSg) || sSg <= 1) {
+                newStageResults.push({
+                    vol: 0,
+                    dme: 0,
+                    initialCells: currentCells,
+                    newCells: currentCells,
+                    pitchRateMml: 0,
+                    growthFactor: 1,
+                    lmeGrams: 0
+                });
+                continue;
+            }
 
             const dmeGramsPerL = (sgToPlato(sSg) * sSg * 10);
-            if (dmeGramsPerL <= 0) continue;
+            if (dmeGramsPerL <= 0) {
+                newStageResults.push({
+                    vol: 0,
+                    dme: 0,
+                    initialCells: currentCells,
+                    newCells: currentCells,
+                    pitchRateMml: 0,
+                    growthFactor: 1,
+                    lmeGrams: 0
+                });
+                continue;
+            }
             let sVol = parseFloat(stage.vol.replace(',', '.'));
             
             if (stage.auto && targetCells > currentCells) {
@@ -429,7 +454,7 @@ export const YeastCalculator: React.FC = () => {
                     {/* Result Card Right (Final) */}
                     <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
                         
-                        {results.starterNeeded || !stages[0].auto ? (
+                        {results.starterNeeded || !stages[0]?.auto ? (
                             <>
                                 <div className="text-center mb-6">
                                     <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Contagem Final (Starter)</span>

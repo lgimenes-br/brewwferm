@@ -45,6 +45,11 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     const [now, setNow] = useState(Date.now());
     const stabilizedStepStartRef = React.useRef<number | null>(null);
 
+    // Reset stabilizedStepStartRef when step changes
+    React.useEffect(() => {
+        stabilizedStepStartRef.current = null;
+    }, [currentStepIndex, stepStartDate]);
+
     // Keep local steps synced when not editing
     React.useEffect(() => {
         if (!isEditing) {
@@ -71,50 +76,56 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
         if (stepIndex === currentStepIndex) {
             if (stepStartDate) {
                 const dbStart = new Date(stepStartDate).getTime();
-                let useDbStart = true;
-                
-                // Se o ESP32 enviou o stepTime (decorrido), usamos para calcular o início absoluto sob a ótica dele
-                if (stepTime !== undefined && lastUpdate) {
-                    const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
-                    const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                if (!isNaN(dbStart)) {
+                    let useDbStart = true;
                     
-                    // Se a diferença entre a ótica do banco e a ótica do ESP32 for MAIOR que 1 hora,
-                    // Significa que o usuário pausou o ESP32 (o tempo parou de contar lá), mas o banco não sabe.
-                    // Nesses casos, abrimos mão da precisão do banco e confiamos na matemática (meio imprecisa) do ESP32.
-                    if (Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
-                        useDbStart = false;
-                        if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
-                            stabilizedStepStartRef.current = absoluteStepStartTime;
+                    // Se o ESP32 enviou o stepTime (decorrido), usamos para calcular o início absoluto sob a ótica dele
+                    if (stepTime !== undefined && lastUpdate) {
+                        const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+                        const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                        
+                        // Se a diferença entre a ótica do banco e a ótica do ESP32 for MAIOR que 1 hora,
+                        // Significa que o usuário pausou o ESP32 (o tempo parou de contar lá), mas o banco não sabe.
+                        // Nesses casos, abrimos mão da precisão do banco e confiamos na matemática (meio imprecisa) do ESP32.
+                        if (!isNaN(absoluteStepStartTime) && Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
+                            useDbStart = false;
+                            if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
+                                stabilizedStepStartRef.current = absoluteStepStartTime;
+                            }
                         }
                     }
+                    
+                    // Se a diferença for menor que 1h, usamos o dbStart, que tem precisão de milissegundos absoluta (sem jitter)
+                    const finalStart = useDbStart ? dbStart : (stabilizedStepStartRef.current || dbStart);
+                    targetEndTime = finalStart + (currentDuration * 24 * 60 * 60 * 1000);
                 }
-                
-                // Se a diferença for menor que 1h, usamos o dbStart, que tem precisão de milissegundos absoluta (sem jitter)
-                const finalStart = useDbStart ? dbStart : (stabilizedStepStartRef.current || dbStart);
-                targetEndTime = finalStart + (currentDuration * 24 * 60 * 60 * 1000);
             } 
             // Senão (lotes antigos ou recém iniciados que o DB ainda não pegou), cai pro cálculo normal do ESP32
             else if (stepTime !== undefined && lastUpdate) {
                 const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
                 const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
                 
-                if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
-                    stabilizedStepStartRef.current = absoluteStepStartTime;
-                }
+                if (!isNaN(absoluteStepStartTime)) {
+                    if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
+                        stabilizedStepStartRef.current = absoluteStepStartTime;
+                    }
 
-                const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
-                targetEndTime = stabilizedStepStartRef.current + totalDurationMs;
+                    const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
+                    targetEndTime = stabilizedStepStartRef.current + totalDurationMs;
+                }
             }
         } 
         
-        if (targetEndTime === 0 && startDate) {
+        if ((targetEndTime === 0 || isNaN(targetEndTime)) && startDate) {
             // Fallback for past/future steps (ou lotes antigos sem stepStartDate)
             const start = new Date(startDate).getTime();
-            let daysPrior = 0;
-            for (let i = 0; i < stepIndex; i++) {
-                daysPrior += localSteps[i]?.duration || 0;
+            if (!isNaN(start)) {
+                let daysPrior = 0;
+                for (let i = 0; i < stepIndex; i++) {
+                    daysPrior += localSteps[i]?.duration || 0;
+                }
+                targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
             }
-            targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
         }
 
         if (targetEndTime === 0 || isNaN(targetEndTime)) return null;
@@ -145,6 +156,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     };
 
     const handleRemoveStep = (id: string) => {
+        if (localSteps.length <= 1) return;
         setLocalSteps(localSteps.filter(s => s.id !== id));
     };
 
@@ -157,7 +169,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             const sanitizedSteps = localSteps.map((s, idx) => ({
                 ...s,
                 name: (s.name || '').trim() || `Etapa ${idx + 1}`,
-                temperature: isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
+                temperature: s.temperature === null || s.temperature === ('' as any) || isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
                 duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
             }));
             setLocalSteps(sanitizedSteps);
@@ -192,16 +204,16 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                     <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">Vol</span>
                     <span className="text-white">{volume}L</span>
                 </div>
-                {og && og > 0 && (
+                {Number(og) > 0 && (
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">OG</span>
-                        <span className="text-white">{og.toFixed(3)}</span>
+                        <span className="text-white">{Number(og).toFixed(3)}</span>
                     </div>
                 )}
-                {fg && fg > 0 && (
+                {Number(fg) > 0 && (
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">FG</span>
-                        <span className="text-white">{fg.toFixed(3)}</span>
+                        <span className="text-white">{Number(fg).toFixed(3)}</span>
                     </div>
                 )}
             </div>
@@ -278,7 +290,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                 </div>
                             </div>
 
-                            {isEditing && (
+                            {isEditing && localSteps.length > 1 && (
                                 <button
                                     onClick={() => handleRemoveStep(step.id)}
                                     className="text-neutral-600 hover:text-red-500 transition-colors p-2"

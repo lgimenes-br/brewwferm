@@ -34,18 +34,48 @@ const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
   </div>
 );
 
-const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => (
-  <div className="space-y-2">
-    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
-    <input 
-      type={type}
-      value={type === 'number' && isNaN(value) ? '' : value}
-      onChange={(e) => onChange(type === 'number' ? parseFloat(e.target.value) : e.target.value)}
-      placeholder={placeholder}
-      className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors font-mono text-sm"
-    />
-  </div>
-);
+const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => {
+  const [rawText, setRawText] = useState<string>(
+    type === 'number' ? (value === undefined || value === null || isNaN(Number(value)) ? '' : String(value)) : String(value ?? '')
+  );
+
+  useEffect(() => {
+    if (type === 'number') {
+      const parsedRaw = parseFloat(rawText);
+      const numVal = Number(value);
+      if (isNaN(numVal)) {
+        if (rawText !== '' && rawText !== '-' && rawText !== '.') setRawText('');
+      } else if (parsedRaw !== numVal) {
+        setRawText(String(numVal));
+      }
+    } else {
+      setRawText(String(value ?? ''));
+    }
+  }, [value, type]);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
+      <input 
+        type={type === 'number' ? 'text' : type}
+        inputMode={type === 'number' ? 'decimal' : undefined}
+        value={type === 'number' ? rawText : (value ?? '')}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (type === 'number') {
+            setRawText(val);
+            const normalized = val.replace(',', '.');
+            onChange(parseFloat(normalized));
+          } else {
+            onChange(val);
+          }
+        }}
+        placeholder={placeholder}
+        className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors font-mono text-sm"
+      />
+    </div>
+  );
+};
 
 export const Settings: React.FC = () => {
   const { fermenters, updateFermenterLocal } = useFermenters();
@@ -54,19 +84,24 @@ export const Settings: React.FC = () => {
   
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   
-  // Set default device
+  // Set default device or fallback if selected device was removed
   useEffect(() => {
-    if (fermenters.length > 0 && !selectedDeviceId) {
-        setSelectedDeviceId(fermenters[0].id);
+    if (fermenters.length > 0) {
+        const exists = fermenters.some(f => f.id === selectedDeviceId);
+        if (!selectedDeviceId || !exists) {
+            setSelectedDeviceId(fermenters[0].id);
+        }
+    } else if (selectedDeviceId) {
+        setSelectedDeviceId('');
     }
-  }, [fermenters]);
+  }, [fermenters, selectedDeviceId]);
 
   const activeDevice = fermenters.find(f => f.id === selectedDeviceId);
 
   const [settings, setSettings] = useState<SystemSettings>({
     logInterval: 30,
     compressorDelay: 310,
-    chartPoints: parseInt(localStorage.getItem('breww_chartPoints') || '50', 10),
+    chartPoints: parseInt(localStorage.getItem('breww_chartPoints') || '50', 10) || 50,
     sensor1Name: 'Fermentador',
     sensor2Name: 'Geladeira',
     sensorSgName: 'iSpindel',
@@ -86,12 +121,12 @@ export const Settings: React.FC = () => {
             sensor1Name: activeDevice.sensor1_name || 'Fermentador',
             sensor2Name: activeDevice.sensor2_name || 'Geladeira',
             sensorSgName: activeDevice.sensor_sg_name || 'Gravidade',
-            logInterval: activeDevice.currentDevice?.logInterval || prev.logInterval,
-            compressorDelay: activeDevice.currentDevice?.compressorDelay || prev.compressorDelay
+            logInterval: activeDevice.currentDevice?.logInterval ?? prev.logInterval,
+            compressorDelay: activeDevice.currentDevice?.compressorDelay ?? prev.compressorDelay
             // Note: add S1/S2 offset mapping here later if needed
         }));
     }
-  }, [selectedDeviceId, activeDevice?.sensor1_name, activeDevice?.sensor2_name, activeDevice?.currentDevice?.logInterval, activeDevice?.currentDevice?.compressorDelay]);
+  }, [selectedDeviceId, activeDevice?.sensor1_name, activeDevice?.sensor2_name, activeDevice?.sensor_sg_name, activeDevice?.currentDevice?.logInterval, activeDevice?.currentDevice?.compressorDelay]);
 
   const [relayState, setRelayState] = useState<'AUTO' | 'HEAT' | 'COOL'>('AUTO');
   
@@ -115,7 +150,17 @@ export const Settings: React.FC = () => {
               if (extSens) {
                   try {
                       const parsed = typeof extSens === 'string' ? JSON.parse(extSens) : extSens;
-                      setExtraSensors(Array.isArray(parsed) ? parsed : []);
+                      if (Array.isArray(parsed)) {
+                          const validExtras = parsed
+                              .filter((item: any) => item && typeof item.mac === 'string')
+                              .map((item: any, idx: number) => ({
+                                  mac: item.mac,
+                                  name: typeof item.name === 'string' && item.name.trim() ? item.name : (idx === 0 ? (activeDevice.sensor2_name || 'Geladeira') : `Sensor ${idx + 1}`)
+                              }));
+                          setExtraSensors(validExtras);
+                      } else {
+                          setExtraSensors([]);
+                      }
                   } catch (e) {
                       setExtraSensors([]);
                   }
@@ -127,7 +172,7 @@ export const Settings: React.FC = () => {
       }
   }, [activeDevice?.currentDevice, initialMappingLoaded]);
 
-  const deviceMacs = scanResponses[selectedDeviceId] || [];
+  const deviceMacs = scanResponses[selectedDeviceId] || scanResponses[(selectedDeviceId || '').toUpperCase()] || [];
 
   const handleScanSensors = () => {
       if (!selectedDeviceId) return toast.error('Selecione um dispositivo primeiro');
@@ -137,28 +182,34 @@ export const Settings: React.FC = () => {
 
   const handleSaveMapping = async () => {
       if (!selectedDeviceId) return;
-      sendCommand(selectedDeviceId, 'set_sensors', { macSensorControle, nameSensorControle, extraSensors });
+      const s1Name = (nameSensorControle || '').trim() || 'Fermentador';
+      const sensor2Name = extraSensors.length > 0 && (extraSensors[0].name || '').trim() ? extraSensors[0].name.trim() : 'Geladeira';
+      sendCommand(selectedDeviceId, 'set_sensors', { macSensorControle, nameSensorControle: s1Name, extraSensors });
       
       // Update the database with the new names
       try {
-          const sensor2Name = extraSensors.length > 0 ? extraSensors[0].name : 'Geladeira';
           try {
               localStorage.setItem(`sensors_${selectedDeviceId}`, JSON.stringify({
-                  s1: nameSensorControle,
+                  s1: s1Name,
                   s2: sensor2Name,
                   sg: settings.sensorSgName
               }));
           } catch (e) {}
+          setSettings(prev => ({ ...prev, sensor1Name: s1Name, sensor2Name }));
           updateFermenterLocal(selectedDeviceId, {
-              sensor1_name: nameSensorControle,
+              sensor1_name: s1Name,
               sensor2_name: sensor2Name,
               sensor_sg_name: settings.sensorSgName
           });
-          await fetch(`${API_URL}/devices/${selectedDeviceId}/sensors`, {
+          const res = await fetch(`${API_URL}/devices/${encodeURIComponent(selectedDeviceId)}/sensors`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ sensor1Name: nameSensorControle, sensor2Name: sensor2Name, sensorSgName: settings.sensorSgName })
+              body: JSON.stringify({ sensor1Name: s1Name, sensor2Name: sensor2Name, sensorSgName: settings.sensorSgName })
           });
+          if (!res.ok) {
+              toast.error('Mapeamento enviado à placa, mas falhou ao salvar nomes no servidor.');
+              return;
+          }
       } catch (e) {
           console.error('Failed to save sensor names to db', e);
       }
@@ -169,9 +220,9 @@ export const Settings: React.FC = () => {
   useEffect(() => {
       const checkSubscription = async () => {
           try {
-              if (Notification.permission === 'granted') {
+              if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && Notification.permission === 'granted') {
                   const registration = await navigator.serviceWorker.ready;
-                  const subscription = await registration.pushManager.getSubscription();
+                  const subscription = await registration.pushManager?.getSubscription();
                   if (subscription) setIsSubscribed(true);
               }
           } catch (e) {
@@ -245,11 +296,15 @@ export const Settings: React.FC = () => {
     
     if (token) {
         try {
-            await fetch(`${API_URL}/devices/${selectedDeviceId}/sensors`, {
+            const res = await fetch(`${API_URL}/devices/${encodeURIComponent(selectedDeviceId)}/sensors`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ sensor1Name: settings.sensor1Name, sensor2Name: settings.sensor2Name, sensorSgName: settings.sensorSgName })
             });
+            if (!res.ok) {
+                toast.error('Erro ao salvar nome do sensor no servidor.');
+                return;
+            }
         } catch (e) {
             console.error('Falha ao salvar sensores no backend', e);
         }
@@ -358,6 +413,7 @@ export const Settings: React.FC = () => {
             document.body.appendChild(a);
             a.click();
             a.remove();
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
             toast.success('Download iniciado!', { id: loadingId });
         } else { 
             toast.error('Erro ao baixar. Talvez não haja dados ativos.', { id: loadingId }); 
@@ -378,6 +434,9 @@ export const Settings: React.FC = () => {
 
   const handleSubscribePush = async () => {
     try {
+      if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+        return toast.error('Notificações Push não são suportadas neste navegador.');
+      }
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return toast.error('Permissão para notificações negada.');
       
@@ -685,7 +744,7 @@ export const Settings: React.FC = () => {
                                         setExtraSensors(prev => prev.filter(p => p.mac !== mac));
                                     } else if (val === 'extra') {
                                         if (macSensorControle === mac) setMacSensorControle('');
-                                        setExtraSensors(prev => [...prev, {mac, name: `Sensor ${extraSensors.length + 1}`}]);
+                                        setExtraSensors(prev => [...prev.filter(p => p.mac !== mac), {mac, name: `Sensor ${prev.length + 1}`}]);
                                     } else {
                                         if (macSensorControle === mac) setMacSensorControle('');
                                         setExtraSensors(prev => prev.filter(p => p.mac !== mac));
@@ -794,9 +853,9 @@ export const Settings: React.FC = () => {
                     </h4>
                     <p className="text-emerald-500/70 text-xs">Seu equipamento está na versão {activeDevice?.currentDevice?.version}. Atualize para obter as últimas melhorias.</p>
                     <div className="mt-4 w-full bg-emerald-950 rounded-full h-2.5 overflow-hidden">
-                        <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${Math.max(0, otaProgress[selectedDeviceId!] || 0)}%` }}></div>
+                        <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${Math.max(0, otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!] ?? 0)}%` }}></div>
                     </div>
-                    {otaProgress[selectedDeviceId!] > 0 && <p className="text-emerald-400 text-[10px] text-right mt-1 font-bold">{otaProgress[selectedDeviceId!]}%</p>}
+                    {(otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!] ?? 0) > 0 && <p className="text-emerald-400 text-[10px] text-right mt-1 font-bold">{otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!]}%</p>}
                 </div>
                 <button 
                     onClick={() => {

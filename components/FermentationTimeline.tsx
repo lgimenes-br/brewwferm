@@ -14,11 +14,11 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
   const [newType, setNewType] = useState<EventType>(EventType.OTHER);
   const [newDesc, setNewDesc] = useState('');
 
-  const safeEvents = events || [];
+  const safeEvents = Array.isArray(events) ? events : [];
   
   // Synthesize Start Event if startDate exists
   const syntheticEvents: FermentationEvent[] = [];
-  if (startDate) {
+  if (startDate && !isNaN(new Date(startDate).getTime())) {
     syntheticEvents.push({
       id: 'system-start',
       type: EventType.SYSTEM_ACTION,
@@ -29,7 +29,11 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
   
   // Sort events chronologically, oldest first
   const allEvents = [...safeEvents, ...syntheticEvents];
-  const sortedEvents = allEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const sortedEvents = allEvents.sort((a, b) => {
+    const tA = new Date(a.timestamp).getTime();
+    const tB = new Date(b.timestamp).getTime();
+    return (isNaN(tA) ? 0 : tA) - (isNaN(tB) ? 0 : tB);
+  });
 
   const handleAdd = () => {
     if (!newDesc.trim()) return;
@@ -110,7 +114,11 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
                 </span>
                 <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
                   <Calendar size={10} />
-                  {new Date(event.timestamp).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })} às {new Date(event.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                  {(() => {
+                    const d = new Date(event.timestamp);
+                    if (isNaN(d.getTime())) return '--/--';
+                    return `${d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })} às ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+                  })()}
                 </span>
               </div>
               <p className="text-sm text-neutral-300 font-light leading-relaxed whitespace-pre-wrap">{event.description}</p>

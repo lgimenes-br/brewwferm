@@ -21,7 +21,7 @@ export const CompareBatches: React.FC = () => {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    const completed = data.filter((b: any) => !b.is_active);
+                    const completed = (Array.isArray(data) ? data : []).filter((b: any) => !b.is_active);
                     setBatches(completed);
                 }
             } catch (err) {
@@ -42,7 +42,11 @@ export const CompareBatches: React.FC = () => {
             });
             if (res.ok) {
                 const result = await res.json();
-                setData(result);
+                const safeResult = Array.isArray(result) ? result : [];
+                setData(safeResult);
+                if (safeResult.length === 0) {
+                    toast('Nenhum dado de telemetria encontrado para estes lotes.', { icon: 'ℹ️' });
+                }
             } else {
                 toast.error('Erro ao buscar dados');
             }
@@ -132,16 +136,18 @@ export const CompareBatches: React.FC = () => {
                                 stroke="#525252" 
                                 tick={{ fill: '#737373', fontSize: 12 }}
                                 domain={['auto', 'auto']}
-                                tickFormatter={(v) => v.toFixed(3)}
+                                tickFormatter={(v) => Number.isFinite(Number(v)) ? Number(v).toFixed(3) : ''}
                             />
                             
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#000', borderColor: '#333', borderRadius: '8px' }}
                                 labelFormatter={(val) => `Hora ${val}`}
-                                formatter={(value: any, name: string) => {
-                                    const label = String(name);
-                                    if (label.startsWith('Temp')) return [`${Number(value).toFixed(1)}ºC`, label];
-                                    if (label.startsWith('SG')) return [`${Number(value).toFixed(3)} SG`, label];
+                                formatter={(value: any, name: any) => {
+                                    const label = String(name || '');
+                                    const numVal = Number(value);
+                                    if (!Number.isFinite(numVal)) return ['--', label];
+                                    if (label.startsWith('Temp')) return [`${numVal.toFixed(1)}ºC`, label];
+                                    if (label.startsWith('SG')) return [`${numVal.toFixed(3)} SG`, label];
                                     return [value, label];
                                 }}
                             />

@@ -14,7 +14,7 @@ if (vapidPublicKey && vapidPrivateKey) {
 }
 
 export const sendPushToUser = async (pool, userId, title, body, url = '/') => {
-  if (!vapidPublicKey || !vapidPrivateKey) return;
+  if (!vapidPublicKey || !vapidPrivateKey || !userId) return;
   
   try {
     const [rows] = await pool.execute('SELECT * FROM push_subscriptions WHERE user_id = ?', [userId]);

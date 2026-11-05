@@ -30,7 +30,10 @@ export const FermentationHistory: React.FC = () => {
 
     useEffect(() => {
         const fetchHistory = async () => {
-            if (!token) return;
+            if (!token) {
+                setLoading(false);
+                return;
+            }
             try {
                 // Try the dedicated history endpoint first
                 const [historyRes, batchesRes] = await Promise.all([

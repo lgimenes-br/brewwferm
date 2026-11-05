@@ -120,8 +120,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (isRetained) return;
                 try {
                     const payload = JSON.parse(msgStr);
-                    const serial = topic.split('/')[1];
-                    if (payload.progress !== undefined) {
+                    const serial = (topic.split('/')[1] || '').trim().toUpperCase();
+                    if (serial && payload?.progress !== undefined) {
                         setOtaProgress(prev => ({ ...prev, [serial]: payload.progress }));
                     }
                 } catch (e) {}
@@ -132,8 +132,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (isRetained) return;
                 try {
                     const payload = JSON.parse(msgStr);
-                    if (payload.type === 'scan_sensors_response') {
-                        setScanResponses(prev => ({ ...prev, [payload.id]: payload.macs || [] }));
+                    if (payload?.type === 'scan_sensors_response' && payload.id) {
+                        setScanResponses(prev => ({ ...prev, [payload.id]: Array.isArray(payload.macs) ? payload.macs : [] }));
                     }
                 } catch (e) {}
                 return;
@@ -141,7 +141,10 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             try {
                 const payload = JSON.parse(msgStr);
-                const serial = topic.split('/')[1]; // brewbrother/SERIAL/data
+                if (!payload || typeof payload !== 'object') return;
+                const rawSerial = topic.split('/')[1]; // brewbrother/SERIAL/data
+                if (!rawSerial) return;
+                const serial = rawSerial.trim().toUpperCase();
 
                 // Se recebeu telemetria ao vivo (não retida), significa que reiniciou e já está vivo. Remove o progresso OTA.
                 if (!isRetained) {
@@ -157,8 +160,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Logic isolated directly referencing payload values
                 let newStatus = undefined;
-                let target = 20;
-                const statusStr = (payload.statOp || '').toUpperCase();
+                let target: number | string | undefined = undefined;
+                const statusStr = typeof payload.statOp === 'string' ? payload.statOp.toUpperCase() : String(payload.statOp || '').toUpperCase();
                 
                 if (statusStr.includes('FERMENT')) newStatus = FermenterStatus.ACTIVE;
                 else if (statusStr.includes('CRASH')) newStatus = FermenterStatus.COLD_CRASH;
@@ -166,12 +169,12 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 else if (statusStr.includes('IDLE')) newStatus = FermenterStatus.IDLE;
                 else if (payload.fermRun) newStatus = FermenterStatus.ACTIVE; 
 
-                if (payload.csp !== undefined) {
+                if (payload.csp !== undefined && payload.csp !== null) {
                     target = payload.csp; // Always use ESP32's currentSetpoint (csp) as source of truth
                 } else if (payload.opm === 0 && payload.steps && payload.steps[payload.currStep]) {
                     const stepTemp = parseFloat(payload.steps[payload.currStep]?.t);
-                    target = !isNaN(stepTemp) ? stepTemp : 20;
-                } else if (payload.fsm !== undefined) {
+                    if (!isNaN(stepTemp)) target = stepTemp;
+                } else if (payload.fsm !== undefined && payload.fsm !== null) {
                     target = payload.fsm;
                 }
 
@@ -180,17 +183,21 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 let isPausedUpdate = undefined;
 
                 if (payload.steps && Array.isArray(payload.steps) && payload.steps.length > 0) {
-                    profileUpdate = payload.steps
-                        .filter((step: any) => step.t > 0 || step.d > 0)
+                    const validSteps = payload.steps
+                        .filter((step: any) => step && (parseFloat(step.t) > 0 || parseFloat(step.d) > 0))
                         .map((step: any, index: number) => {
                             const parsedTemp = parseFloat(step.t);
+                            const parsedDur = step.d !== undefined ? (parseFloat(step.d) / 24) : 1;
                             return {
                                 id: `step_${index}`,
                                 name: step.n || `Etapa ${index + 1}`,
                                 temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
-                                duration: step.d !== undefined ? (parseFloat(step.d) / 24) : 1
+                                duration: !isNaN(parsedDur) && parsedDur > 0 ? parsedDur : 1
                             };
                         });
+                    if (validSteps.length > 0) {
+                        profileUpdate = validSteps;
+                    }
                 }
                 
                 // Cooldown: se um comando foi enviado ha menos de 10s, nao sobrescreve estado otimista
@@ -198,7 +205,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 10000;
 
                 if (payload.currStep !== undefined) {
-                    currentStepIndexUpdate = parseInt(payload.currStep) || 0;
+                    currentStepIndexUpdate = parseInt(payload.currStep, 10) || 0;
                 }
                 
                 if (payload.isPaused !== undefined || payload.fermRun !== undefined) {
@@ -238,12 +245,13 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // Only live (non-retained) MQTT packets update lastUpdate so powered-off devices are never marked online
                 const parsedAmb = payload.amb !== undefined ? parseFloat(payload.amb) : NaN;
-                const parsedTarget = parseFloat(target as any);
+                const parsedTarget = target !== undefined ? parseFloat(String(target)) : NaN;
                 const parsedFerm = payload.ferm !== undefined ? parseFloat(payload.ferm) : NaN;
                 const parsedRssi = payload.rssi !== undefined ? parseFloat(payload.rssi) : NaN;
-                const parsedStepTime = (!isInCooldown && payload.stepTime !== undefined)
+                const savedStepTimeStr = localStorage.getItem(`device_stepTime_${serial}`);
+                const parsedStepTime = (!isRetained && !isInCooldown && payload.stepTime !== undefined)
                     ? parseFloat(payload.stepTime)
-                    : parseFloat(localStorage.getItem(`device_stepTime_${serial}`) || '0');
+                    : (savedStepTimeStr !== null ? parseFloat(savedStepTimeStr) : NaN);
 
                 updateFermenterLocal(serial, {
                     ...(!isInCooldown && newStatus ? { status: newStatus } : {}),
@@ -267,7 +275,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         version: payload.ver || payload.fw, // Firmware version
                         macCtrl: payload.macCtrl,
                         extSens: payload.ext_s || payload.extSens,
-                        stepTime: !isNaN(parsedStepTime) ? parsedStepTime : 0
+                        stepTime: !isNaN(parsedStepTime) ? parsedStepTime : undefined
                     } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });
             } catch (e) {
@@ -292,14 +300,13 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const sendCommand = useCallback((serialCode: string, type: string, payload: any) => {
         if (clientRef.current && serialCode) {
-            const msg = JSON.stringify({ type, cmd: type, ...payload });
+            const normalizedSerial = serialCode.trim().toUpperCase();
+            const msg = JSON.stringify({ ...payload, type, cmd: type });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
-            if (type === 'request_status') {
-                clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
-            }
+            clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
             // Cooldown: bloqueia telemetria de sobrescrever updates otimistas (exceto comandos de leitura)
             if (type !== 'request_status' && type !== 'scan_sensors') {
-                commandCooldownRef.current[serialCode] = Date.now();
+                commandCooldownRef.current[normalizedSerial] = Date.now();
             }
         }
     }, []);
@@ -309,7 +316,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const blockTelemetry = useCallback((serialCode: string) => {
-        commandCooldownRef.current[serialCode] = Date.now();
+        if (serialCode) {
+            commandCooldownRef.current[serialCode.trim().toUpperCase()] = Date.now();
+        }
     }, []);
 
     return (

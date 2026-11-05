@@ -27,8 +27,14 @@ const MarketingTab = () => {
                     fetch(`${baseUrl}/admin/health-radar`, { headers }),
                     fetch(`${baseUrl}/admin/push-stats`, { headers })
                 ]);
-                if (resHealth.ok) setHealth(await resHealth.json());
-                if (resPush.ok) setPushStats(await resPush.json());
+                if (resHealth.ok) {
+                    const hData = await resHealth.json();
+                    setHealth(Array.isArray(hData) ? hData : []);
+                }
+                if (resPush.ok) {
+                    const pData = await resPush.json();
+                    if (pData && typeof pData === 'object') setPushStats(pData);
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -87,7 +93,13 @@ const MarketingTab = () => {
                                         <td className="py-3 px-3 text-white text-sm">{d.user_name}</td>
                                         <td className="py-3 px-3 text-neutral-400 text-sm font-mono">{d.serial_code}</td>
                                         <td className="py-3 px-3 text-sm">
-                                            {d.rssi < -80 ? <span className="text-red-400 flex items-center gap-1"><WifiOff size={14}/> {d.rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (d.rssi + 100)))}%</span> : <span className="text-amber-400">{d.rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (d.rssi + 100)))}%</span>}
+                                            {d.rssi !== null && d.rssi !== undefined && !isNaN(Number(d.rssi)) ? (
+                                                Number(d.rssi) < -80 ? (
+                                                    <span className="text-red-400 flex items-center gap-1"><WifiOff size={14}/> {Number(d.rssi) === 0 ? 0 : Math.min(100, Math.max(0, 2 * (Number(d.rssi) + 100)))}%</span>
+                                                ) : (
+                                                    <span className="text-amber-400">{Number(d.rssi) === 0 ? 0 : Math.min(100, Math.max(0, 2 * (Number(d.rssi) + 100)))}%</span>
+                                                )
+                                            ) : '--'}
                                         </td>
                                         <td className="py-3 px-3 text-sm">
                                             {d.battery !== null && d.battery !== undefined && Number(d.battery) > 0 ? (
@@ -181,40 +193,40 @@ export const AdminDashboard = () => {
                         </span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                         {/* Tab Buttons as Icons */}
-                        <div className="flex items-center gap-2 mr-2">
-                            <button onClick={() => setActiveTab('overview')} title="Visão Geral" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'overview' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                        <div className="flex items-center gap-2 mr-2 overflow-x-auto max-w-[65vw] md:max-w-none py-1">
+                            <button onClick={() => setActiveTab('overview')} title="Visão Geral" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'overview' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Activity size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('telemetry')} title="Telemetria" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'telemetry' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('telemetry')} title="Telemetria" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'telemetry' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Zap size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('users')} title="Contas e Dispositivos" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('users')} title="Contas e Dispositivos" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Users size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('security')} title="Segurança e Avisos" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'security' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('security')} title="Segurança e Avisos" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'security' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Shield size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('firmware')} title="Firmware (OTA)" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'firmware' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('firmware')} title="Firmware (OTA)" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'firmware' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Download size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <TestTube size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('terminal')} title="Terminal do Servidor" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'terminal' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('terminal')} title="Terminal do Servidor" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'terminal' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Terminal size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('marketing')} title="Marketing e Saúde" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'marketing' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button onClick={() => setActiveTab('marketing')} title="Marketing e Saúde" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'marketing' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <HeartPulse size={18} />
                             </button>
                         </div>
 
                         <div className="hidden md:flex items-center gap-3 border-l border-neutral-800 pl-4 mr-2">
                             <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-neutral-300">
-                                {user?.charAt(0).toUpperCase()}
+                                {String(user || 'A').charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm font-medium text-neutral-300">{user}</span>
+                            <span className="text-sm font-medium text-neutral-300">{String(user || 'Admin')}</span>
                         </div>
                         
                         <button 
@@ -278,10 +290,16 @@ const OverviewTab = () => {
                 if (resStats.ok) setStats(await resStats.json());
                 if (resAnalytics.ok) setAnalytics(await resAnalytics.json());
                 if (resTrends.ok) setTrends(await resTrends.json());
-                if (resMap.ok) setMapData(await resMap.json());
+                if (resMap.ok) {
+                    const mData = await resMap.json();
+                    setMapData(Array.isArray(mData) ? mData : []);
+                }
                 if (resFin.ok) setFinancials(await resFin.json());
                 if (resBatch.ok) setBatchStats(await resBatch.json());
-                if (resComm.ok) setCommunity(await resComm.json());
+                if (resComm.ok) {
+                    const cData = await resComm.json();
+                    setCommunity(Array.isArray(cData) ? cData : []);
+                }
             } catch (e) {
                 console.error(e);
             } finally {
@@ -314,7 +332,7 @@ const OverviewTab = () => {
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl"></div>
                     <div className="p-3 bg-amber-500/10 rounded-full text-amber-400 mb-3 z-10"><DollarSign size={24} /></div>
-                    <div className="text-3xl font-black text-white z-10">R$ {financials.mrr.toFixed(2)}</div>
+                    <div className="text-3xl font-black text-white z-10">R$ {Number(financials?.mrr || 0).toFixed(2)}</div>
                     <div className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 z-10">MRR (Premium)</div>
                 </div>
                 
@@ -445,12 +463,17 @@ const OverviewTab = () => {
                                     <Geography key={geo.rsmKey} geography={geo} fill="#171717" stroke="#262626" strokeWidth={0.5} />
                                 ))}
                             </Geographies>
-                            {mapData.map(({ name, lat, lon }) => (
-                                <Marker key={name} coordinates={[lon, lat]}>
-                                    <circle r={4} fill="#10b981" className="animate-pulse" />
-                                    <circle r={2} fill="#059669" />
-                                </Marker>
-                            ))}
+                            {mapData.map(({ name, lat, lon }, i) => {
+                                const numLon = Number(lon);
+                                const numLat = Number(lat);
+                                if (isNaN(numLon) || isNaN(numLat)) return null;
+                                return (
+                                    <Marker key={`${name || 'loc'}-${i}`} coordinates={[numLon, numLat]}>
+                                        <circle r={4} fill="#10b981" className="animate-pulse" />
+                                        <circle r={2} fill="#059669" />
+                                    </Marker>
+                                );
+                            })}
                         </ComposableMap>
                     </div>
                 </div>
@@ -531,11 +554,11 @@ const TelemetryTab = () => {
                                     <td className="py-3 px-4 text-neutral-300">{dev.owner_name}</td>
                                     <td className="py-3 px-4 text-center">
                                         <span className="font-mono text-neutral-200 bg-neutral-800 px-2 py-1 rounded">
-                                            {dev.last_temp !== null ? `${Number(dev.last_temp).toFixed(1)}°C` : '--'}
+                                            {dev.last_temp !== null && dev.last_temp !== undefined && !isNaN(Number(dev.last_temp)) ? `${Number(dev.last_temp).toFixed(1)}°C` : '--'}
                                         </span>
                                     </td>
                                     <td className="py-3 px-4 text-center">
-                                        {dev.last_battery !== null && Number(dev.last_battery) > 0 ? (
+                                        {dev.last_battery !== null && dev.last_battery !== undefined && Number(dev.last_battery) > 0 ? (
                                             <div className="flex items-center justify-center gap-1">
                                                 <div className="w-6 h-3 border border-neutral-600 rounded-sm relative overflow-hidden">
                                                     <div
@@ -548,13 +571,13 @@ const TelemetryTab = () => {
                                         ) : '--'}
                                     </td>
                                     <td className="py-3 px-4 text-center">
-                                        {dev.last_rssi !== null ? (
+                                        {dev.last_rssi !== null && dev.last_rssi !== undefined && !isNaN(Number(dev.last_rssi)) ? (
                                             <div className="flex flex-col items-center justify-center gap-0.5" title={`${dev.last_rssi} dBm`}>
                                                 <Wifi size={16} className={
-                                                    dev.last_rssi >= -65 ? "text-emerald-500" :
-                                                    dev.last_rssi >= -80 ? "text-amber-500" : "text-red-500"
+                                                    Number(dev.last_rssi) >= -65 ? "text-emerald-500" :
+                                                    Number(dev.last_rssi) >= -80 ? "text-amber-500" : "text-red-500"
                                                 } />
-                                                <span className="text-[9px] font-mono text-neutral-500">{dev.last_rssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (dev.last_rssi + 100)))}%</span>
+                                                <span className="text-[9px] font-mono text-neutral-500">{Number(dev.last_rssi) === 0 ? 0 : Math.min(100, Math.max(0, 2 * (Number(dev.last_rssi) + 100)))}%</span>
                                             </div>
                                         ) : '--'}
                                     </td>
@@ -587,10 +610,10 @@ const SecurityTab = () => {
 
     const loadData = () => {
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/audit`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(res => res.json()).then(data => setLogs(Array.isArray(data) ? data : [])).catch(() => {});
+            .then(res => res.ok ? res.json() : []).then(data => setLogs(Array.isArray(data) ? data : [])).catch(() => {});
             
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(res => res.json()).then(data => setBroadcasts(Array.isArray(data) ? data : [])).catch(() => {});
+            .then(res => res.ok ? res.json() : []).then(data => setBroadcasts(Array.isArray(data) ? data : [])).catch(() => {});
     };
 
     useEffect(() => { loadData(); }, [token]);
@@ -617,12 +640,16 @@ const SecurityTab = () => {
 
     const toggleBroadcast = async (id: number, currentStatus: number) => {
         try {
-            await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts/${id}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ is_active: !currentStatus })
             });
-            loadData();
+            if (res.ok) {
+                loadData();
+            } else {
+                toast.error('Erro ao atualizar status do aviso');
+            }
         } catch (e) { toast.error('Erro'); }
     };
 
@@ -717,9 +744,10 @@ const SecurityTab = () => {
                     </div>
                     <div className="p-4 overflow-y-auto flex-1 font-mono text-xs space-y-3">
                         {logs.map(log => {
-                            const isFail = log.action.includes('FAIL');
-                            const isDelete = log.action.includes('DELETE');
-                            const isAuth = log.action.includes('LOGIN');
+                            const actionStr = String(log.action || '');
+                            const isFail = actionStr.includes('FAIL');
+                            const isDelete = actionStr.includes('DELETE');
+                            const isAuth = actionStr.includes('LOGIN');
                             
                             return (
                                 <div key={log.id} className="flex items-start gap-3 border-b border-neutral-800/50 pb-2">
@@ -771,7 +799,8 @@ const UsersTab = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-                setUsers(await res.json());
+                const uData = await res.json();
+                setUsers(Array.isArray(uData) ? uData : []);
                 setDevicesRefreshKey(prev => prev + 1);
             }
         } catch (e) {
@@ -966,7 +995,7 @@ const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId:
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/devices`, {
             headers: { Authorization: `Bearer ${token}` }
         })
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : [])
         .then(data => { 
             setDevices(Array.isArray(data) ? data.filter((d: any) => d.user_id === userId) : []); 
             setLoading(false);
@@ -1202,7 +1231,7 @@ const IngredientsTab = () => {
     };
 
     const filtered = ingredients.filter(i => 
-        i.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (i.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
         (i.name_pt && i.name_pt.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
@@ -1336,7 +1365,7 @@ const TerminalTab = () => {
     const [logs, setLogs] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const logsEndRef = React.useRef<HTMLDivElement>(null);
+    const logsContainerRef = React.useRef<HTMLDivElement>(null);
 
     const fetchData = async () => {
         setRefreshing(true);
@@ -1346,7 +1375,7 @@ const TerminalTab = () => {
             });
             if (statusRes.ok) {
                 const statusData = await statusRes.json();
-                setStatus(statusData);
+                setStatus(Array.isArray(statusData) ? statusData : []);
             }
 
             const logsRes = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/server/logs`, {
@@ -1370,14 +1399,14 @@ const TerminalTab = () => {
     }, [token]);
 
     useEffect(() => {
-        if (logsEndRef.current) {
-            logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        if (logsContainerRef.current) {
+            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
         }
     }, [logs]);
 
     if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
-    const pm2Process = status && status.length > 0 ? status.find((p: any) => p.name === 'breww-server') || status[0] : null;
+    const pm2Process = Array.isArray(status) && status.length > 0 ? status.find((p: any) => p.name === 'breww-server') || status[0] : null;
 
     return (
         <div className="space-y-6">
@@ -1429,9 +1458,8 @@ const TerminalTab = () => {
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                     <span className="ml-2 text-xs font-mono text-neutral-500">pm2 logs breww-server</span>
                 </div>
-                <div className="p-4 h-[500px] overflow-y-auto font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
+                <div ref={logsContainerRef} className="p-4 h-[500px] overflow-y-auto font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
                     {logs || "Carregando logs..."}
-                    <div ref={logsEndRef} />
                 </div>
             </div>
         </div>
@@ -1451,7 +1479,7 @@ const FirmwareTab = () => {
     
     useEffect(() => {
         fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : [])
         .then(data => setDevices(Array.isArray(data) ? data : []))
         .catch(() => {});
     }, [token]);

@@ -16,21 +16,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getCleanStorage = (key: string): string | null => {
+    const val = localStorage.getItem(key);
+    return val && val !== 'undefined' && val !== 'null' ? val : null;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const queryClient = useQueryClient();
-    const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-    const [user, setUser] = useState<string | null>(localStorage.getItem('user'));
-    const [role, setRole] = useState<string | null>(localStorage.getItem('role'));
+    const [token, setToken] = useState<string | null>(() => getCleanStorage('token'));
+    const [user, setUser] = useState<string | null>(() => getCleanStorage('user'));
+    const [role, setRole] = useState<string | null>(() => getCleanStorage('role'));
 
     const login = async (email: string, password: string) => {
         try {
             const data = await api.login(email, password);
+            if (!data?.token) throw new Error('Token inválido recebido do servidor');
+            const safeName = data.name || 'Usuário';
+            const safeRole = data.role || 'user';
             setToken(data.token);
-            setUser(data.name);
-            setRole(data.role);
+            setUser(safeName);
+            setRole(safeRole);
             localStorage.setItem('token', data.token);
-            localStorage.setItem('user', data.name);
-            localStorage.setItem('role', data.role);
+            localStorage.setItem('user', safeName);
+            localStorage.setItem('role', safeRole);
             return true;
         } catch (err: any) {
             console.error(err);
@@ -42,12 +50,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loginWithGoogle = async (idToken: string) => {
         try {
             const data = await api.loginWithGoogle(idToken);
+            if (!data?.token) throw new Error('Token inválido recebido do servidor');
+            const safeName = data.name || 'Usuário';
+            const safeRole = data.role || 'user';
             setToken(data.token);
-            setUser(data.name);
-            setRole(data.role);
+            setUser(safeName);
+            setRole(safeRole);
             localStorage.setItem('token', data.token);
-            localStorage.setItem('user', data.name);
-            localStorage.setItem('role', data.role);
+            localStorage.setItem('user', safeName);
+            localStorage.setItem('role', safeRole);
             return true;
         } catch (err: any) {
             console.error(err);

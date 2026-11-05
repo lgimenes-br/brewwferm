@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Info, X } from 'lucide-react';
+import { API_URL } from '../config';
 
 export const SystemBanner = () => {
     const [broadcast, setBroadcast] = useState<any>(null);
@@ -7,13 +8,17 @@ export const SystemBanner = () => {
 
     useEffect(() => {
         // Fetch active broadcast
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/broadcasts/active`)
-            .then(res => res.json())
+        fetch(`${API_URL}/broadcasts/active`)
+            .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data && data.id && data.message) {
                     // Check if user already closed this specific broadcast
-                    const closedId = localStorage.getItem('closed_broadcast');
-                    if (closedId !== String(data.id)) {
+                    try {
+                        const closedId = localStorage.getItem('closed_broadcast');
+                        if (closedId !== String(data.id)) {
+                            setBroadcast(data);
+                        }
+                    } catch {
                         setBroadcast(data);
                     }
                 }
@@ -24,7 +29,9 @@ export const SystemBanner = () => {
     if (!broadcast || closed) return null;
 
     const handleClose = () => {
-        localStorage.setItem('closed_broadcast', String(broadcast.id));
+        try {
+            localStorage.setItem('closed_broadcast', String(broadcast.id));
+        } catch {}
         setClosed(true);
     };
 

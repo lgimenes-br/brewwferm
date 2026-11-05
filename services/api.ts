@@ -19,7 +19,7 @@ export const login = async (email: string, pass: string) => {
     headers: getHeaders(),
     body: JSON.stringify({ email, password: pass })
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Login failed');
   return data;
 };
@@ -30,7 +30,7 @@ export const loginWithGoogle = async (idToken: string) => {
     headers: getHeaders(),
     body: JSON.stringify({ idToken })
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Google login failed');
   return data;
 };
@@ -42,7 +42,7 @@ export const register = async (name: string, email: string, pass: string) => {
     body: JSON.stringify({ name, email, password: pass })
   });
   if (!res.ok) {
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Server Error');
   }
   return true;
@@ -58,12 +58,9 @@ export const fetchDevices = async (token?: string | null) => {
 };
 
 export const updateChoppName = async (token: string, deviceId: string, choppName: string) => {
-    const res = await fetch(`${API_URL}/devices/${deviceId}/chopp_name`, {
+    const res = await fetch(`${API_URL}/devices/${encodeURIComponent(deviceId)}/chopp_name`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
+        headers: getHeaders(token),
         body: JSON.stringify({ choppName })
     });
     if (!res.ok) throw new Error('Falha ao atualizar chopp');
@@ -71,12 +68,9 @@ export const updateChoppName = async (token: string, deviceId: string, choppName
 };
 
 export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string, sensorSgName: string) => {
-    const res = await fetch(`${API_URL}/devices/${deviceId}/sensors`, {
+    const res = await fetch(`${API_URL}/devices/${encodeURIComponent(deviceId)}/sensors`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
+        headers: getHeaders(token),
         body: JSON.stringify({ sensor1Name, sensor2Name, sensorSgName })
     });
     if (!res.ok) throw new Error('Falha ao atualizar sensores');
@@ -92,7 +86,7 @@ export const fetchBatches = async (token?: string | null) => {
 };
 
 export const deleteBatch = async (id: string | number, token?: string | null) => {
-  const res = await fetch(`${API_URL}/batches/${id}`, {
+  const res = await fetch(`${API_URL}/batches/${encodeURIComponent(String(id))}`, {
     method: 'DELETE',
     headers: getHeaders(token)
   });
@@ -114,7 +108,7 @@ export const addDevice = async (serialCode: string, name: string) => {
 };
 
 export const updateDevice = async (serialCode: string, name: string) => {
-  const res = await fetch(`${API_URL}/devices/${serialCode}`, {
+  const res = await fetch(`${API_URL}/devices/${encodeURIComponent(serialCode)}`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify({ name })
@@ -124,7 +118,7 @@ export const updateDevice = async (serialCode: string, name: string) => {
 };
 
 export const deleteDevice = async (serialCode: string) => {
-  const res = await fetch(`${API_URL}/devices/${serialCode}`, {
+  const res = await fetch(`${API_URL}/devices/${encodeURIComponent(serialCode)}`, {
     method: 'DELETE',
     headers: getHeaders()
   });
@@ -133,11 +127,11 @@ export const deleteDevice = async (serialCode: string) => {
 };
 
 // --- Batches ---
-export const startBatch = async (serialCode: string, name: string, style: string, og: number, fg: number, profile?: any[]) => {
+export const startBatch = async (serialCode: string, name: string, style: string, og: number, fg: number, profile?: any[], volume?: number) => {
   const res = await fetch(`${API_URL}/batch/start`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ serialCode, name, style, og, fg, profile })
+    body: JSON.stringify({ serialCode, name, style, og, fg, volume, profile })
   });
   if (!res.ok) throw new Error('Failed to start batch');
   return res.json();
@@ -192,7 +186,8 @@ export const fetchBatchData = async (batchId: number) => {
 
 export const saveEvent = async (batchId: number, type: string, description: string, date: string) => {
   // Convert ISO to MySQL datetime format: YYYY-MM-DD HH:MM:SS
-  const d = new Date(date);
+  const parsed = new Date(date);
+  const d = isNaN(parsed.getTime()) ? new Date() : parsed;
   const sqlDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
   
   const res = await fetch(`${API_URL}/events`, {
@@ -205,7 +200,7 @@ export const saveEvent = async (batchId: number, type: string, description: stri
 };
 
 export const deleteEvent = async (eventId: string) => {
-  const res = await fetch(`${API_URL}/events/${eventId}`, {
+  const res = await fetch(`${API_URL}/events/${encodeURIComponent(eventId)}`, {
     method: 'DELETE',
     headers: getHeaders()
   });

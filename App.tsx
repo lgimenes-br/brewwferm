@@ -62,8 +62,15 @@ const NavConfig = () => {
 
     // Check if we are inside a device page
     const match = location.pathname.match(/\/fermenter\/(.+)/);
-    const deviceId = match ? decodeURIComponent(match[1]) : null;
-    const activeDevice = deviceId ? fermenters.find(f => f.id.toUpperCase() === deviceId.toUpperCase()) : null;
+    let deviceId: string | null = null;
+    if (match) {
+        try {
+            deviceId = decodeURIComponent(match[1]);
+        } catch (e) {
+            deviceId = match[1];
+        }
+    }
+    const activeDevice = deviceId ? fermenters.find(f => (f.id || '').toUpperCase() === deviceId!.toUpperCase()) : null;
 
     const handleModeDropdownSelect = (mode: DeviceMode) => {
         setIsModeDropdownOpen(false);
@@ -76,7 +83,7 @@ const NavConfig = () => {
     if (activeDevice?.currentDevice) {
         const lastUpdate = activeDevice.currentDevice.lastUpdate ? new Date(activeDevice.currentDevice.lastUpdate).getTime() : 0;
         isOnline = !isNaN(lastUpdate) && lastUpdate > 0 && (now - lastUpdate) < 30 * 1000;
-        statOp = isOnline ? (activeDevice.currentDevice.statOp || 'INATIVO').toUpperCase() : 'OFFLINE';
+        statOp = isOnline ? String(activeDevice.currentDevice.statOp || 'INATIVO').toUpperCase() : 'OFFLINE';
     }
 
     // Icon Styles
@@ -314,7 +321,8 @@ const NavConfig = () => {
         
         {/* Global Firmware Alert */}
         {hasUpdate && location.pathname !== '/settings' && (() => {
-            const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, otaProgress?.[dev.id] || 0), 0);
+            const getDevProgress = (id: string) => otaProgress?.[(id || '').toUpperCase()] ?? otaProgress?.[id] ?? 0;
+            const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, getDevProgress(dev.id)), 0);
             const isUpdating = maxProgress > 0;
             return (
                 <>
@@ -370,14 +378,17 @@ const NavConfig = () => {
                             
                             <div className="w-full text-left bg-black rounded-xl p-3 border border-neutral-800 max-h-32 overflow-y-auto font-mono text-[10px] text-neutral-500 space-y-1 mb-6">
                                 <div className="text-neutral-400 mb-2 border-b border-neutral-800 pb-1">Debug MQTT:</div>
-                                {devicesNeedingUpdate.map(dev => (
-                                    <div key={dev.id} className="flex justify-between py-1">
-                                        <span>[{dev.id}] progresso OTA:</span>
-                                        <span className={otaProgress?.[dev.id] === 100 ? 'text-green-500 font-bold' : 'text-amber-500 font-bold'}>
-                                            {otaProgress?.[dev.id] || 0}%
-                                        </span>
-                                    </div>
-                                ))}
+                                {devicesNeedingUpdate.map(dev => {
+                                    const prog = getDevProgress(dev.id);
+                                    return (
+                                        <div key={dev.id} className="flex justify-between py-1">
+                                            <span>[{dev.id}] progresso OTA:</span>
+                                            <span className={prog === 100 ? 'text-green-500 font-bold' : 'text-amber-500 font-bold'}>
+                                                {prog}%
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {maxProgress === 100 && (

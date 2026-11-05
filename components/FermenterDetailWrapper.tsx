@@ -16,9 +16,18 @@ export const FermenterDetailWrapper: React.FC = () => {
     const { connectionStatus, sendCommand, blockTelemetry } = useBrew();
     const { token } = useAuth();
     
-    const fermenter = fermenters.find(f => f.id === id);
+    const fermenter = fermenters.find(f => (f.id || '').toUpperCase() === (id || '').toUpperCase());
     const setpointDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const choppTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
     const requestedStatusRef = useRef<string | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            if (setpointDebounceRef.current) clearTimeout(setpointDebounceRef.current);
+            choppTimeoutsRef.current.forEach(t => clearTimeout(t));
+            choppTimeoutsRef.current = [];
+        };
+    }, []);
 
     React.useEffect(() => {
         if (connectionStatus === 'connected' && id && requestedStatusRef.current !== id) {
@@ -40,6 +49,9 @@ export const FermenterDetailWrapper: React.FC = () => {
                  og: updates.og, 
                  fg: updates.fg, 
                  name: updates.beerName
+             }).catch(err => {
+                 console.error('Failed to update batch metadata:', err);
+                 toast.error('Erro ao salvar alterações do lote.');
              });
              shouldUpdateOptimistically = true;
         }
@@ -52,6 +64,7 @@ export const FermenterDetailWrapper: React.FC = () => {
 
         if (updates.currentStepIndex !== undefined && updates.profile === undefined) {
             const currentIndex = fermenter?.currentStepIndex || 0;
+            const targetStep = fermenter?.profile?.[updates.currentStepIndex];
             if (updates.currentStepIndex > currentIndex) {
                 // Moving forward usually means skipping step in this interface
                 if (!confirm('Avançar para a próxima etapa?')) return;
@@ -60,6 +73,10 @@ export const FermenterDetailWrapper: React.FC = () => {
                 } catch (e) {}
                 sendCommand(updateId, 'skipStep', {});
                 updates.currentDevice = { ...(updates.currentDevice as any), stepTime: 0 };
+                updates.stepStartDate = new Date().toISOString();
+                if (targetStep && !isNaN(Number(targetStep.temperature))) {
+                    updates.targetTemp = Number(targetStep.temperature);
+                }
                 toast.success('Comando para pular etapa enviado!');
                 shouldUpdateOptimistically = true;
             } else if (updates.currentStepIndex < currentIndex) {
@@ -81,6 +98,10 @@ export const FermenterDetailWrapper: React.FC = () => {
                     stepTime: 0
                 });
                 updates.currentDevice = { ...(updates.currentDevice as any), stepTime: 0 };
+                updates.stepStartDate = new Date().toISOString();
+                if (targetStep && !isNaN(Number(targetStep.temperature))) {
+                    updates.targetTemp = Number(targetStep.temperature);
+                }
                 toast.success('Comando para retornar etapa enviado!');
                 shouldUpdateOptimistically = true;
             }
@@ -122,8 +143,12 @@ export const FermenterDetailWrapper: React.FC = () => {
             });
             blockTelemetry(updateId);
             if (updates.profile.length > 0) {
-                updateBatch({ serialCode: updateId, profile: updates.profile });
-                toast.success('Perfil atualizado com sucesso!');
+                updateBatch({ serialCode: updateId, profile: updates.profile })
+                    .then(() => toast.success('Perfil atualizado com sucesso!'))
+                    .catch(err => {
+                        console.error('Failed to update batch profile:', err);
+                        toast.error('Erro ao salvar perfil no servidor.');
+                    });
             }
             updates.currentDevice = { ...(updates.currentDevice as any), stepTime: 0 };
             shouldUpdateOptimistically = true;
@@ -155,10 +180,13 @@ export const FermenterDetailWrapper: React.FC = () => {
                 { field: 'c_vol', val: String(updates.kegeratorConfig.abv) } // Legacy app maps 'vol' to ABV %
             ];
             
+            choppTimeoutsRef.current.forEach(t => clearTimeout(t));
+            choppTimeoutsRef.current = [];
             queue.forEach((item, index) => { 
-                setTimeout(() => {
+                const timer = setTimeout(() => {
                     sendCommand(updateId, 'setChopp', item);
                 }, index * 80);
+                choppTimeoutsRef.current.push(timer);
             });
             if (token) {
                 updateChoppName(token, updateId, updates.kegeratorConfig.line1).catch(err => console.error(err));
@@ -196,7 +224,7 @@ export const FermenterDetailWrapper: React.FC = () => {
                 const updatedEventIds = new Set(updates.events.map(e => e.id));
                 const deletedEvent = fermenter.events?.find(e => !updatedEventIds.has(e.id));
                 
-                if (deletedEvent && deletedEvent.id && !deletedEvent.id.startsWith('system-')) {
+                if (deletedEvent && deletedEvent.id && /^\d+$/.test(String(deletedEvent.id))) {
                     try {
                         await deleteEvent(deletedEvent.id);
                         toast.success('Evento removido!');

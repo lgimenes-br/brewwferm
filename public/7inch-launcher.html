@@ -937,21 +937,17 @@ function updateClock() {
       // Show selected app
       activeAppId = appIds[index];
       const appEl = document.getElementById(activeAppId);
+      if (!appEl) return;
       appEl.style.display = 'flex';
       
       // Setup swiping context for this app
       const wrapper = appEl.querySelector('.views-wrapper');
       activeTrack = appEl.querySelector('.views-track');
-      activeTotalPages = parseInt(wrapper.getAttribute('data-pages') || 1);
+      activeTotalPages = wrapper ? parseInt(wrapper.getAttribute('data-pages') || '1', 10) : 1;
       activeDots = appEl.querySelectorAll('.dot');
       
       // Reset to page 0
       setAppPage(0);
-    }
-    
-    function goHome() {
-      document.getElementById('main-ui').style.display = 'none';
-      document.getElementById('launcher-ui').style.display = 'flex';
     }
 
     function setAppPage(index) {
@@ -983,7 +979,10 @@ function updateClock() {
       if (startX - currentX > 100) setAppPage(activePageIndex + 1); else if (currentX - startX > 100) setAppPage(activePageIndex - 1);
     });
 
+    let dashboardInterval = null;
+
     function initMainDashboard() {
+      if (dashboardInterval) clearInterval(dashboardInterval);
       let currentTarget = 18.0; let actualTemp = 18.5; let currentSG = 1.024;
       let tempAngle = 0; let sgAngle = 0;
       const fullPointsCount = 100;  
@@ -1005,7 +1004,7 @@ function updateClock() {
           let yB = fullHeight - ((beerData[i] - yMinT) / (yMaxT - yMinT)) * fullHeight;
           if(i === 0) dBeer += `M ${x},${yB} `; else dBeer += `L ${x},${yB} `;
         }
-        beerLine.setAttribute('d', dBeer); 
+        if (beerLine) beerLine.setAttribute('d', dBeer); 
 
         const sgMin = 1.010; const sgMax = 1.050;
         let dSg = "";
@@ -1014,14 +1013,14 @@ function updateClock() {
           let yS = fullHeight - ((sgData[i] - sgMin) / (sgMax - sgMin)) * fullHeight;
           if(i === 0) dSg += `M ${x},${yS} `; else dSg += `L ${x},${yS} `;
         }
-        sgLine.setAttribute('d', dSg);
+        if (sgLine) sgLine.setAttribute('d', dSg);
 
         let percent = (actualTemp - (-5)) / (30 - (-5));
         let offset = 565 - (565 * percent);
-        gaugeValue.style.strokeDashoffset = offset;
+        if (gaugeValue) gaugeValue.style.strokeDashoffset = offset;
       }
 
-      setInterval(() => {
+      dashboardInterval = setInterval(() => {
         tempAngle += 0.05; sgAngle += 0.03;
         actualTemp += Math.sin(tempAngle) * 0.05;
         currentSG += Math.sin(sgAngle) * 0.0005;
@@ -1030,10 +1029,14 @@ function updateClock() {
         sgData.shift(); sgData.push(currentSG);
         drawChart();
 
-        document.getElementById('main-temp').innerText = actualTemp.toFixed(1);
-        document.getElementById('main-sg').innerText = currentSG.toFixed(3);
-        document.getElementById('telemetria-temp').innerText = actualTemp.toFixed(1);
-        document.getElementById('telemetria-sg').innerText = currentSG.toFixed(3);
+        const mainTempEl = document.getElementById('main-temp');
+        const mainSgEl = document.getElementById('main-sg');
+        const telTempEl = document.getElementById('telemetria-temp');
+        const telSgEl = document.getElementById('telemetria-sg');
+        if (mainTempEl) mainTempEl.innerText = actualTemp.toFixed(1);
+        if (mainSgEl) mainSgEl.innerText = currentSG.toFixed(3);
+        if (telTempEl) telTempEl.innerText = actualTemp.toFixed(1);
+        if (telSgEl) telSgEl.innerText = currentSG.toFixed(3);
       }, 50);
     }
   </script>
