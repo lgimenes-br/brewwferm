@@ -170,6 +170,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         ibu: parseFloat(payload.c_ibu) || 0,
                         abv: parseFloat(payload.c_vol) || 0
                     };
+                    try {
+                        localStorage.setItem(`kegerator_${serial}`, JSON.stringify(kegeratorConfigUpdate));
+                    } catch (e) {}
                 }
 
                 if (payload.stepTime !== undefined) {

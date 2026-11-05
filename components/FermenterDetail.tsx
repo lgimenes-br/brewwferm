@@ -51,9 +51,16 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         setEditFG(fermenter.fg);
     }, [fermenter.beerName, fermenter.og, fermenter.fg]);
 
+    // pendingMode: what the user selected but hasn't activated yet
+    const [pendingMode, setPendingMode] = useState<DeviceMode | null>(null);
+
+    // The mode to use for rendering content (preview or active)
+    const displayMode = pendingMode ?? fermenter.mode;
+    const hasPendingChange = pendingMode !== null && pendingMode !== fermenter.mode;
+
     // SAFE PARSING OF NUMBERS (Fix for string data from API)
     const safeTargetTemp = parseFloat(String(fermenter.targetTemp || 0));
-    const safeCurrentTemp = (fermenter.mode === DeviceMode.KEGERATOR || fermenter.mode === DeviceMode.FRIDGE) 
+    const safeCurrentTemp = (displayMode === DeviceMode.KEGERATOR || displayMode === DeviceMode.FRIDGE) 
         ? parseFloat(String(fermenter.currentFridgeTemp || 0)) 
         : parseFloat(String(fermenter.currentDevice?.temperature || 0));
     const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
@@ -67,26 +74,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const safeOG = parseFloat(String(fermenter.og || 0));
     const safeFG = fermenter.fg ? parseFloat(String(fermenter.fg)) : null;
     const safeBattery = parseFloat(String(fermenter.currentDevice?.battery || 0));
-
-    // Online Status Calculation
-    const lastUpdateMs = new Date(fermenter.currentDevice?.lastUpdate || 0).getTime();
-    const isDeviceOnline = !isNaN(lastUpdateMs) && (Date.now() - lastUpdateMs) < 30 * 60 * 1000;
-
-    // pendingMode: what the user selected but hasn't activated yet
-    const [pendingMode, setPendingMode] = useState<DeviceMode | null>(null);
-
-    // The mode to use for rendering content (preview or active)
-    const displayMode = pendingMode ?? fermenter.mode;
-    const hasPendingChange = pendingMode !== null && pendingMode !== fermenter.mode;
-
-    const handleModeChange = (mode: DeviceMode) => {
-        // If clicking the already active mode, clear any pending selection
-        if (mode === fermenter.mode) {
-            setPendingMode(null);
-        } else {
-            setPendingMode(mode);
-        }
-    };
 
     useEffect(() => {
         const handleRequestModeChange = (e: any) => {
@@ -204,7 +191,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 fg: data.fg,
                 profile: data.profile
             });
-            onUpdate(fermenter.id, { profile: data.profile, currentStepIndex: 0 });
             toast.success('Novo lote iniciado com sucesso!');
         } catch (err) {
             console.error('Error starting batch:', err);
@@ -350,19 +336,19 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                         <>
                             {/* Beer name or idle state */}
                             <div>
-                                <div className="mb-1 flex items-center gap-2">
+                                <div className="mb-1 flex items-center gap-2 group">
                                     <h1 className="text-6xl md:text-7xl font-black text-white tracking-tighter leading-tight">{fermenter.beerName || 'Sem Produção'}</h1>
                                     {fermenter.batchId && (
                                         <button
                                             onClick={() => setIsEditingBatch(true)}
-                                            className="p-2 opacity-0 group-hover:opacity-100 hover:bg-neutral-800 rounded-lg transition-all text-neutral-500 hover:text-white"
+                                            className="p-2 opacity-60 md:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 rounded-lg transition-all text-neutral-500 hover:text-white"
                                             title="Editar Batch"
                                         >
                                             <Edit2 size={24} />
                                         </button>
                                     )}
-                                    </div>
                                 </div>
+                            </div>
                         </>
                     )}
                 </div>

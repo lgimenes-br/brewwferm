@@ -121,6 +121,9 @@ export const FermenterDetailWrapper: React.FC = () => {
         }
 
         if (updates.kegeratorConfig !== undefined) {
+            try {
+                localStorage.setItem(`kegerator_${updateId}`, JSON.stringify(updates.kegeratorConfig));
+            } catch (e) {}
             const queue = [
                 { field: 'c_n1', val: updates.kegeratorConfig.line1 }, 
                 { field: 'c_n2', val: updates.kegeratorConfig.line2 },
@@ -131,7 +134,9 @@ export const FermenterDetailWrapper: React.FC = () => {
             ];
             
             queue.forEach((item, index) => { 
-                sendCommand(updateId, 'setChopp', item); 
+                setTimeout(() => {
+                    sendCommand(updateId, 'setChopp', item);
+                }, index * 80);
             });
             if (token) {
                 updateChoppName(token, updateId, updates.kegeratorConfig.line1).catch(err => console.error(err));

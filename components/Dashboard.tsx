@@ -32,7 +32,6 @@ export const Dashboard: React.FC = () => {
         }
     }, [connectionStatus, fermenters]);
     const isLoadingMQTT = connectionStatus !== 'connected';
-    const isInitialLoading = isFetching && fermenters.some(f => f.currentDevice?.temperature === 0 && !f.currentDevice?.extSens?.hum);
     const navigate = useNavigate();
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);

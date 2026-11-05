@@ -45,6 +45,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                             ingredients: hb.ingredients,
                             sensor1_name: hb.sensor1_name,
                             sensor2_name: hb.sensor2_name,
+                            sensor_sg_name: hb.sensor_sg_name,
                             readings: []
                         };
                     }
@@ -70,6 +71,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
                 ingredients: b.ingredients,
                 sensor1_name: b.sensor1_name,
                 sensor2_name: b.sensor2_name,
+                sensor_sg_name: b.sensor_sg_name,
                 readings: []
             };
         },

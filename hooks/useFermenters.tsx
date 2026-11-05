@@ -111,6 +111,13 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             })(),
             currentStepIndex: prevDev ? prevDev.currentStepIndex : (d.active_batch_current_step || 0),
             isPaused: prevDev ? prevDev.isPaused : false,
+            kegeratorConfig: prevDev?.kegeratorConfig || (() => {
+                try {
+                    const saved = localStorage.getItem(`kegerator_${d.serial_code}`);
+                    if (saved) return JSON.parse(saved);
+                } catch (e) {}
+                return undefined;
+            })(),
             events: (() => {
                 let backendEvents = d.events || d.active_batch_events;
                 if (typeof backendEvents === 'string') {
@@ -252,8 +259,24 @@ export const useFermenters = () => {
     const startBatchMutation = useMutation({
         mutationFn: (data: { serialCode: string, name: string, style: string, og: number, fg: number, profile?: any[] }) => 
             api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile),
-        onSuccess: (_, variables) => {
+        onSuccess: (res, variables) => {
             localStorage.removeItem(`events_${variables.serialCode}`);
+            queryClient.setQueryData<Fermenter[]>(['fermenters'], old => {
+                if (!old) return [];
+                return old.map(f => f.id === variables.serialCode ? {
+                    ...f,
+                    status: FermenterStatus.ACTIVE,
+                    batchId: res?.batchId || f.batchId,
+                    beerName: variables.name,
+                    og: variables.og,
+                    fg: variables.fg,
+                    profile: variables.profile || [],
+                    currentStepIndex: 0,
+                    isPaused: false,
+                    startDate: new Date().toISOString(),
+                    events: []
+                } : f);
+            });
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
         }
     });

@@ -752,7 +752,17 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
 app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
         const normalizedSerial = req.params.serial.trim().toUpperCase();
-        await pool.execute('DELETE FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
+        const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
+        if (devs.length > 0) {
+            const devId = devs[0].id;
+            await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [devId]);
+            const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [devId]);
+            for (const b of batches) {
+                await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
+            }
+            await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
+            await pool.execute('DELETE FROM devices WHERE id = ? AND user_id = ?', [devId, req.user.id]);
+        }
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip]);
         delete activeBatches[normalizedSerial];
         delete activeBatchesUserId[normalizedSerial];
@@ -782,6 +792,25 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
         const normalizedSerial = serialCode.trim().toUpperCase();
         activeBatches[normalizedSerial] = result.insertId;
         activeBatchesUserId[normalizedSerial] = req.user.id;
+
+        if (Array.isArray(profile) && profile.length > 0) {
+            const payloadSteps = profile.map(step => ({
+                n: step.name || step.n,
+                t: step.temperature ?? step.t,
+                d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24
+            }));
+            const msg = JSON.stringify({
+                cmd: 'setProfile',
+                type: 'setProfile',
+                steps: payloadSteps,
+                currentStep: 0,
+                currStep: 0,
+                stepTime: 0
+            });
+            mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
+            mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
+        }
+
         notifyUpdate();
         res.json({ message: 'Iniciado!', batchId: result.insertId });
     } catch (err) { res.status(500).json({ error: err.message }); }

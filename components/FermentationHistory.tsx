@@ -85,6 +85,7 @@ export const FermentationHistory: React.FC = () => {
                             ingredients: b.ingredients,
                             sensor1_name: b.sensor1_name,
                             sensor2_name: b.sensor2_name,
+                            sensor_sg_name: b.sensor_sg_name,
                             readings: [] // Details fetched specifically
                         };
                     })

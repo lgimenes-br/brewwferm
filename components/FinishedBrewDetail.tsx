@@ -21,11 +21,20 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const [copied, setCopied] = React.useState(false);
 
   const [activeTab, setActiveTab] = useState<'telemetry' | 'recipe'>('telemetry');
-  const [ingredients, setIngredients] = useState<any>(brew.ingredients || {
-    malts: '',
-    hops: '',
-    yeast: '',
-    notes: brew.notes || ''
+  const [ingredients, setIngredients] = useState<any>(() => {
+    if (brew.ingredients) {
+      if (typeof brew.ingredients === 'string') {
+        try { return JSON.parse(brew.ingredients); } catch (e) {}
+      } else {
+        return brew.ingredients;
+      }
+    }
+    return {
+      malts: '',
+      hops: '',
+      yeast: '',
+      notes: brew.notes || ''
+    };
   });
   const [savingIng, setSavingIng] = useState(false);
 
@@ -120,14 +129,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     };
   }, [brew.id, token]); // Only re-run if brew.id or token changes
 
-  const attenuation = (brew.og && brew.fg && brew.og > 1)
-    ? ((brew.og - brew.fg) / (brew.og - 1)) * 100
-    : 0;
-  const calories = (brew.abv && brew.fg)
-    ? (brew.abv * 2.5) * (brew.fg * 10)
-    : 0;
-
-
   const saveIngredients = async () => {
     setSavingIng(true);
     try {
@@ -194,14 +195,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       setTimeout(() => setCopied(false), 2000);
     }
   };
-
-  const StatCard = ({ label, value, subtext, colorClass }: any) => (
-    <div className="bg-neutral-900/20 rounded-2xl p-6 border border-neutral-800/50 hover:border-neutral-700 transition-colors">
-      <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-2">{label}</p>
-      <p className={`text-4xl font-light tracking-tighter ${colorClass}`}>{value}</p>
-      {subtext && <p className="text-neutral-600 text-xs mt-1">{subtext}</p>}
-    </div>
-  );
 
   return (
     <div id="pdf-content" className="p-6 md:px-10 w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16 bg-[#0a0a0a] min-h-screen text-white">
@@ -307,9 +300,10 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Min Temp</span>
           <span className="text-xl font-mono text-blue-500 font-medium">
-            {readings.length > 0
-              ? Math.min(...readings.filter(r => r.beerTemp > 0).map(r => r.beerTemp)).toFixed(1)
-              : '0.0'}°C
+            {(() => {
+              const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
+              return validTemps.length > 0 ? Math.min(...validTemps).toFixed(1) : '0.0';
+            })()}°C
           </span>
         </div>
       </div>

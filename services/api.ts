@@ -137,7 +137,7 @@ export const startBatch = async (serialCode: string, name: string, style: string
     body: JSON.stringify({ serialCode, name, style, og, fg, profile })
   });
   if (!res.ok) throw new Error('Failed to start batch');
-  return true;
+  return res.json();
 };
 
 export const stopBatch = async (serialCode: string) => {
