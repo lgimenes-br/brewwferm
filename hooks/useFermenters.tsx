@@ -395,12 +395,26 @@ export const useFermenters = () => {
             localStorage.removeItem(`events_${norm}`);
             localStorage.setItem(`device_stepTime_${variables.serialCode}`, '0');
             localStorage.setItem(`device_stepTime_${norm}`, '0');
+            const firstStepTemp = Array.isArray(variables.profile) && variables.profile.length > 0 && !isNaN(Number(variables.profile[0]?.temperature))
+                ? Number(variables.profile[0].temperature)
+                : undefined;
+            const mappedStyle = (() => {
+                const styleUpper = String(variables.style || '').toUpperCase().replace(/\s+/g, '_');
+                if (styleUpper.includes('PALE') && styleUpper.includes('ALE')) return BeerStyle.PALE_ALE;
+                if (styleUpper.includes('NEIPA')) return BeerStyle.NEIPA;
+                if (styleUpper.includes('IPA')) return BeerStyle.IPA;
+                if (styleUpper.includes('STOUT')) return BeerStyle.STOUT;
+                if (styleUpper.includes('LAGER') || styleUpper.includes('PILSNER')) return BeerStyle.LAGER;
+                if (styleUpper.includes('WHEAT')) return BeerStyle.WHEAT;
+                return (variables.style as BeerStyle) || BeerStyle.LAGER;
+            })();
             const cachedLive = liveDeviceState.get(norm) || liveDeviceState.get(variables.serialCode);
             if (cachedLive) {
                 liveDeviceState.set(norm, {
                     ...cachedLive,
                     status: FermenterStatus.ACTIVE,
                     profile: variables.profile || [],
+                    ...(firstStepTemp !== undefined ? { targetTemp: firstStepTemp } : {}),
                     currentStepIndex: 0,
                     isPaused: false,
                     readings: [],
@@ -412,11 +426,13 @@ export const useFermenters = () => {
                 return old.map(f => (f.id || '').toUpperCase() === norm ? {
                     ...f,
                     status: FermenterStatus.ACTIVE,
-                    batchId: res?.batchId || f.batchId,
+                    batchId: res?.batchId ?? f.batchId ?? 1,
                     beerName: variables.name,
+                    style: mappedStyle,
                     og: variables.og,
                     fg: variables.fg,
                     volume: variables.volume ?? f.volume ?? 20,
+                    ...(firstStepTemp !== undefined ? { targetTemp: firstStepTemp } : {}),
                     profile: variables.profile || [],
                     currentStepIndex: 0,
                     isPaused: false,

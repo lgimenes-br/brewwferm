@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom';
 
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
 const store: Record<string, string> = {};
 const localStorageShim = {
     getItem: (key: string) => (key in store ? store[key] : null),

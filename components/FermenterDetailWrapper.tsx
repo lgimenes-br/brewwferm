@@ -129,9 +129,10 @@ export const FermenterDetailWrapper: React.FC = () => {
                 t: step.temperature,
                 d: step.duration * 24 // ESP32 expects hours, DB stores days
             }));
+            const rawStepIdx = updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0);
             const nextStepIdx = updates.profile.length === 0
                 ? 0
-                : (updates.currentStepIndex !== undefined ? updates.currentStepIndex : (fermenter?.currentStepIndex || 0));
+                : Math.min(Math.max(0, rawStepIdx), updates.profile.length - 1);
             try {
                 localStorage.setItem(`device_stepTime_${updateId}`, '0');
             } catch (e) {}
@@ -143,6 +144,11 @@ export const FermenterDetailWrapper: React.FC = () => {
             });
             blockTelemetry(updateId);
             if (updates.profile.length > 0) {
+                const activeStep = updates.profile[nextStepIdx];
+                if (updates.targetTemp === undefined && activeStep && !isNaN(Number(activeStep.temperature))) {
+                    updates.targetTemp = Number(activeStep.temperature);
+                }
+                updates.currentStepIndex = nextStepIdx;
                 updateBatch({ serialCode: updateId, profile: updates.profile })
                     .then(() => toast.success('Perfil atualizado com sucesso!'))
                     .catch(err => {

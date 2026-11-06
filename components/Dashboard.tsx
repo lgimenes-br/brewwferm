@@ -263,12 +263,15 @@ export const Dashboard: React.FC = () => {
                     const rawHumidity = f.currentDevice?.extSens?.hum;
                     const parsedHumidity = rawHumidity !== undefined && rawHumidity !== null ? parseFloat(String(rawHumidity)) : NaN;
                     const safeHumidity = !isNaN(parsedHumidity) ? parsedHumidity : undefined;
-                    const safeGravity = f.currentDevice?.gravity > 0 
+                    const rawGravity = f.currentDevice?.gravity > 0 
                         ? parseFloat(String(f.currentDevice.gravity))
                         : (parseFloat(String(lastChartGravity)) || 0);
+                    const safeGravity = rawGravity > 500 ? rawGravity / 1000 : rawGravity;
                         
-                    const safeOG = parseFloat(String(f.og || 0));
-                    const safeFG = f.fg ? parseFloat(String(f.fg)) : null;
+                    const rawOG = parseFloat(String(f.og || 0));
+                    const safeOG = rawOG > 500 ? rawOG / 1000 : rawOG;
+                    const rawFG = f.fg ? parseFloat(String(f.fg)) : null;
+                    const safeFG = rawFG !== null ? (rawFG > 500 ? rawFG / 1000 : rawFG) : null;
                     const rawRssi = f.currentDevice?.rssi || 0;
                     const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 
