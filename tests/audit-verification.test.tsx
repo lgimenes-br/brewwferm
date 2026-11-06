@@ -36,7 +36,6 @@ import { FermentationHistory } from '../components/FermentationHistory';
 import { FinishedBrewDetail } from '../components/FinishedBrewDetail';
 import { FinishedBrewDetailWrapper } from '../components/FinishedBrewDetailWrapper';
 import { FermenterDetail } from '../components/FermenterDetail';
-import { FermenterDetailWrapper } from '../components/FermenterDetailWrapper';
 import { GeminiAdvisor } from '../components/GeminiAdvisor';
 import { Dashboard } from '../components/Dashboard';
 import { CompareBatches } from '../components/CompareBatches';

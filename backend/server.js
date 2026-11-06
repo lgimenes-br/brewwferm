@@ -7,7 +7,6 @@ import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
-import crypto from 'crypto';
 import { exec } from 'child_process';
 import util from 'util';
 import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
@@ -295,10 +294,12 @@ mqttClient.on('message', async (topic, message, packet) => {
                     const [devs] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ?', [serialCode]);
                     if (devs.length > 0) {
                         const deviceId = devs[0].id;
+                        const activeBatchId = activeBatches[normalizedSerial];
                         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [deviceId]);
                         
                         delete activeBatches[normalizedSerial];
                         delete activeBatchesUserId[normalizedSerial];
+                        if (activeBatchId) delete alertState[`magic_${activeBatchId}`];
                         notifyUpdate();
                         console.log(`🍺 [Device Action] Lote fisicamente encerrado na placa ${serialCode}`);
                     }
@@ -633,62 +634,22 @@ app.post('/api/auth/google', async (req, res) => {
     }
 });
 
-// --- ROTAS DE COMPARTILHAMENTO (NOVO) ---
-app.post('/api/batch/:id/share', authenticateToken, async (req, res) => {
-    try {
-        const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
-        if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        const token = crypto.randomBytes(16).toString('hex');
-        await pool.execute('UPDATE batches SET public_token = ? WHERE id = ?', [token, req.params.id]);
-        res.json({ publicToken: token });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/batch/:id/share', authenticateToken, async (req, res) => {
-    try {
-        const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
-        if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        await pool.execute('UPDATE batches SET public_token = NULL WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Compartilhamento desativado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/public/batch/:token', async (req, res) => {
-    try {
-        // 1. Busca Lote e Device
-        const [batches] = await pool.execute(
-            `SELECT b.id, b.name, b.style, b.started_at, b.ended_at, b.is_active, b.og, b.fg, d.device_name 
-             FROM batches b 
-             JOIN devices d ON b.device_id = d.id 
-             WHERE b.public_token = ?`,
-            [req.params.token]
-        );
-
-        if (batches.length === 0) return res.status(404).json({ error: 'Link inválido ou expirado' });
-        const batch = batches[0];
-
-        // 2. Busca Telemetria
-        const [logs] = await pool.execute(
-            `SELECT temp_ferm, temp_amb, target_temp, gravity, recorded_at, step_name 
-             FROM telemetry 
-             WHERE batch_id = ? 
-             ORDER BY recorded_at ASC`,
-            [batch.id]
-        );
-
-        // 3. Busca Eventos (NOVO - Adicionado aqui)
-        const [events] = await pool.execute(
-            `SELECT event_type, description, recorded_at 
-             FROM batch_events 
-             WHERE batch_id = ? 
-             ORDER BY recorded_at ASC`,
-            [batch.id]
-        );
-
-        res.json({ meta: batch, logs: logs, events: events });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-// ----------------------------------------
+const deleteDeviceCascade = async (devId, serialCode) => {
+    await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [devId]);
+    const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [devId]);
+    for (const b of batches) {
+        await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
+        delete alertState[`magic_${b.id}`];
+    }
+    await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
+    await pool.execute('DELETE FROM devices WHERE id = ?', [devId]);
+    if (serialCode) {
+        const normalizedSerial = String(serialCode).trim().toUpperCase();
+        delete activeBatches[normalizedSerial];
+        delete activeBatchesUserId[normalizedSerial];
+        delete alertState[normalizedSerial];
+    }
+};
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
@@ -771,21 +732,10 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
 
 app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
-        const normalizedSerial = req.params.serial.trim().toUpperCase();
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
-        const devId = devs[0].id;
-        await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [devId]);
-        const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [devId]);
-        for (const b of batches) {
-            await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
-        }
-        await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
-        await pool.execute('DELETE FROM devices WHERE id = ? AND user_id = ?', [devId, req.user.id]);
+        await deleteDeviceCascade(devs[0].id, req.params.serial);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
-        delete activeBatches[normalizedSerial];
-        delete activeBatchesUserId[normalizedSerial];
-        delete alertState[normalizedSerial];
         notifyUpdate();
         res.json({ message: 'Excluído' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -880,33 +830,12 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [devs[0].id]);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'STOP_BATCH', `Device: ${serialCode}`, req.ip || null]);
         const normalizedSerial = String(serialCode).trim().toUpperCase();
+        const stoppedBatchId = activeBatches[normalizedSerial];
         delete activeBatches[normalizedSerial];
         delete activeBatchesUserId[normalizedSerial];
+        if (stoppedBatchId) delete alertState[`magic_${stoppedBatchId}`];
         notifyUpdate();
         res.json({ message: 'Finalizado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Finish batch by ID - mark as inactive and set end date
-app.post('/api/batch/:id/finish', authenticateToken, async (req, res) => {
-    try {
-        // Verify ownership
-        const [check] = await pool.execute(`SELECT b.id, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
-        if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-
-        // Mark batch as inactive and set end date
-        await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE id = ?', [req.params.id]);
-
-        const normalizedSerial = (check[0].serial_code || '').trim().toUpperCase();
-        if (normalizedSerial && String(activeBatches[normalizedSerial]) === String(req.params.id)) {
-            delete activeBatches[normalizedSerial];
-            delete activeBatchesUserId[normalizedSerial];
-        }
-
-        // Notify MQTT clients
-        notifyUpdate();
-
-        res.json({ message: 'Batch finalizado com sucesso' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -939,22 +868,6 @@ app.delete('/api/events/:id', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/recipes', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await pool.execute('SELECT * FROM recipes WHERE user_id = ? ORDER BY name ASC', [req.user.id]);
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/recipes/:id', authenticateToken, async (req, res) => {
-    try {
-        const [check] = await pool.execute('SELECT id FROM recipes WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-        if (check.length === 0) return res.status(404).json({ error: 'Receita não encontrada' });
-        const [steps] = await pool.execute('SELECT step_order, name as n, temperature as t, days as d FROM recipe_steps WHERE recipe_id = ? ORDER BY step_order ASC', [req.params.id]);
-        res.json(steps);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => {
     try {
         const { endpoint, keys } = req.body || {};
@@ -978,35 +891,6 @@ app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => 
     }
 });
 
-app.post('/api/recipes', authenticateToken, async (req, res) => {
-    const { name, style, og, fg, est_og, est_fg, steps } = req.body || {};
-    if (!name) return res.status(400).json({ error: 'Nome da receita é obrigatório' });
-    const conn = await pool.getConnection();
-    try {
-        await conn.beginTransaction();
-        const [resRecipe] = await conn.execute('INSERT INTO recipes (user_id, name, style, est_og, est_fg) VALUES (?, ?, ?, ?, ?)', [req.user.id, name, style ?? null, (og ?? est_og) ?? null, (fg ?? est_fg) ?? null]);
-        const recipeId = resRecipe.insertId;
-        if (Array.isArray(steps) && steps.length > 0) {
-            for (let i = 0; i < steps.length; i++) {
-                const s = steps[i] || {};
-                await conn.execute('INSERT INTO recipe_steps (recipe_id, step_order, name, temperature, days) VALUES (?, ?, ?, ?, ?)', [recipeId, i, (s.n ?? s.name) ?? null, (s.t ?? s.temperature) ?? null, (s.d ?? s.days ?? s.duration) ?? null]);
-            }
-        }
-        await conn.commit();
-        notifyUpdate();
-        res.status(201).json({ message: 'Salva', id: recipeId });
-    } catch (err) { await conn.rollback(); res.status(500).json({ error: err.message }); } finally { conn.release(); }
-});
-
-app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
-    try {
-        const [result] = await pool.execute('DELETE FROM recipes WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-        if (result.affectedRows === 0) return res.status(404).json({ error: 'Receita não encontrada' });
-        notifyUpdate();
-        res.json({ message: 'Apagada' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.get('/api/history/batches', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -1014,23 +898,6 @@ app.get('/api/history/batches', authenticateToken, async (req, res) => {
             [req.user.id]
         );
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/history/:serial', authenticateToken, async (req, res) => {
-    try {
-        const { batch } = req.query;
-        const limit = parseInt(req.query.limit, 10) || 25;
-        const safeLimit = Math.max(1, Math.min(5000, limit));
-        let query = `SELECT t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.recorded_at FROM telemetry t JOIN devices d ON t.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? `;
-        const params = [req.params.serial.trim().toUpperCase(), req.user.id];
-        if (batch === 'active') {
-            const [active] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.serial_code = ? AND d.user_id = ? AND b.is_active = 1 LIMIT 1`, [params[0], req.user.id]);
-            if (active.length > 0) { query += ` AND t.batch_id = ? `; params.push(active[0].id); } else return res.json([]);
-        } else query += ` AND t.recorded_at > NOW() - INTERVAL 30 DAY `;
-        query += ` ORDER BY t.recorded_at DESC LIMIT ${safeLimit}`;
-        const [rows] = await pool.execute(query, params);
-        res.json(rows.reverse());
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1116,15 +983,6 @@ app.get('/api/batches', authenticateToken, async (req, res) => {
     try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id, (SELECT gravity FROM telemetry t WHERE t.batch_id = b.id AND t.gravity IS NOT NULL AND t.gravity > 0 ORDER BY t.recorded_at DESC LIMIT 1) as last_gravity FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Get batch details (metadata)
-app.get('/api/batch/:id', authenticateToken, async (req, res) => {
-    try {
-        const [check] = await pool.execute(`SELECT b.* FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
-        if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        res.json(check[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 // Update batch ingredients
 app.put('/api/batches/:id/ingredients', authenticateToken, async (req, res) => {
     try {
@@ -1144,6 +1002,7 @@ app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
         await pool.execute('DELETE FROM telemetry WHERE batch_id = ?', [req.params.id]);
         await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [req.params.id]);
         await pool.execute('DELETE FROM batches WHERE id = ?', [req.params.id]);
+        delete alertState[`magic_${req.params.id}`];
         await loadActiveBatches();
         res.json({ message: 'Batch deletado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1259,14 +1118,6 @@ app.post('/api/voice/alexa', async (req, res) => {
         console.error("Alexa Endpoint Error:", err);
         res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Ocorreu um erro interno ao consultar o servidor Breww." }, shouldEndSession: true } });
     }
-});
-
-app.get('/api/debug-alexa', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [batches] = await pool.execute(`SELECT b.id, b.name, b.is_active, d.serial_code FROM batches b JOIN devices d ON b.device_id = d.id`);
-        const [latestTelemetries] = await pool.execute('SELECT batch_id, temp_ferm, temp_amb, gravity, status_op, step_name, rssi FROM telemetry WHERE id IN (SELECT MAX(id) FROM telemetry GROUP BY batch_id)');
-        res.json({ batches, telemetry: latestTelemetries, activeBatchesCache: activeBatches, lastLogs: lastLogTimes });
-    } catch (e) { res.status(500).json({error: e.message}); }
 });
 
 // Get batch telemetry data
@@ -1407,22 +1258,9 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
         await pool.execute('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
         
         // 4. Delete devices, batches, batch_events and readings
-        const [devices] = await pool.execute('SELECT id FROM devices WHERE user_id = ?', [id]);
+        const [devices] = await pool.execute('SELECT id, serial_code FROM devices WHERE user_id = ?', [id]);
         for (let dev of devices) {
-            // Delete telemetry
-            await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [dev.id]);
-            
-            // Delete batch_events
-            const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [dev.id]);
-            for (let b of batches) {
-                await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
-            }
-            
-            // Delete batches
-            await pool.execute('DELETE FROM batches WHERE device_id = ?', [dev.id]);
-            
-            // Delete device
-            await pool.execute('DELETE FROM devices WHERE id = ?', [dev.id]);
+            await deleteDeviceCascade(dev.id, dev.serial_code);
         }
         
         // 5. Finally delete the user
@@ -1456,13 +1294,8 @@ app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, r
 app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [id]);
-        const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [id]);
-        for (const b of batches) {
-            await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
-        }
-        await pool.execute('DELETE FROM batches WHERE device_id = ?', [id]);
-        await pool.execute('DELETE FROM devices WHERE id = ?', [id]);
+        const [devs] = await pool.execute('SELECT serial_code FROM devices WHERE id = ?', [id]);
+        await deleteDeviceCascade(id, devs[0]?.serial_code);
         await loadActiveBatches();
         res.json({ message: 'Device deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1697,7 +1530,8 @@ app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, r
 // BROADCASTS & LOGS
 app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const [logs] = await pool.execute('SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT 100');
+        const safeLimit = 100;
+        const [logs] = await pool.execute(`SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT ${safeLimit}`);
         res.json(logs);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

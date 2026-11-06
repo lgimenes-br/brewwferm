@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { FinishedBrew } from '../types';
+import { FinishedBrew, mapBatchToFinishedBrew } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
@@ -68,34 +68,7 @@ export const FermentationHistory: React.FC = () => {
                 }
 
                 // Map backend data to FinishedBrew
-                const mapped: FinishedBrew[] = await Promise.all(
-                    allBatches.map(async (b: any) => {
-                        let og = parseFloat(b.og) || 0;
-                        let fg = parseFloat(b.fg) || parseFloat(b.last_gravity) || 0;
-                        if (og > 500) og = og / 1000;
-                        if (fg > 500) fg = fg / 1000;
-
-                        return {
-                            id: String(b.id),
-                            batchNumber: String(b.id),
-                            beerName: b.name || b.beer_name || 'Sem Nome',
-                            style: b.style || b.beer_style || 'Other',
-                            startDate: b.started_at || b.start_date,
-                            endDate: b.ended_at || b.end_date || '',
-                            og,
-                            fg,
-                            abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
-                            efficiency: (og && fg && og > 1) ? ((og - fg) / (og - 1.0) * 100) : 0,
-                            notes: '',
-                            ingredients: b.ingredients,
-                            sensor1_name: b.sensor1_name,
-                            sensor2_name: b.sensor2_name,
-                            sensor_sg_name: b.sensor_sg_name,
-                            readings: [] // Details fetched specifically
-                        };
-                    })
-                );
-                setHistory(mapped);
+                setHistory(allBatches.map(mapBatchToFinishedBrew));
             } catch (e) {
                 console.error("Failed to fetch history", e);
             } finally {

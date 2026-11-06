@@ -38,7 +38,7 @@ export interface FermentationEvent {
   timestamp: string;
 }
 
-export interface ISpindelData {
+export interface DeviceData {
   gravity: number; // Specific Gravity (e.g., 1.050)
   temperature: number; // Celsius (Beer Temp)
   battery: number; // Volts
@@ -48,6 +48,7 @@ export interface ISpindelData {
   statOp?: string; // Operation Status (e.g. AQUECENDO, RESFRIANDO)
   logInterval?: number; // webinterval (ms)
   extSens?: any; // Extra sensors like humidity
+  macCtrl?: string; // Control sensor 1-Wire MAC
   compressorDelay?: number; // cds
   version?: string; // Firmware version (e.g. V1.0.017 SAFE-BOOT STABLE)
   stepTime?: number; // Elapsed time in current step (in hours, from ESP32)
@@ -97,7 +98,7 @@ export interface Fermenter {
   volume: number; // Liters
   targetTemp: number;
   readings: Reading[];
-  currentDevice: ISpindelData;
+  currentDevice: DeviceData;
   currentFridgeTemp: number; // Ambient/Fridge Temperature
   profile: FermentationStep[]; // Lista de rampas
   currentStepIndex: number; // Índice da rampa ativa
@@ -134,3 +135,76 @@ export interface ScannedDevice {
     type: string;
     rssi: number;
 }
+
+export const normalizeGravity = (val: any, fallback = 0): number => {
+    if (val === null || val === undefined || val === '') return fallback;
+    const n = parseFloat(String(val));
+    if (isNaN(n) || !isFinite(n)) return fallback;
+    return n > 500 ? n / 1000 : n;
+};
+
+export const parseBeerStyle = (rawStyle: any): BeerStyle => {
+    if (typeof rawStyle === 'string') {
+        const styleUpper = rawStyle.toUpperCase().replace(/\s+/g, '_');
+        if (styleUpper.includes('PALE') && styleUpper.includes('ALE')) return BeerStyle.PALE_ALE;
+        if (styleUpper.includes('NEIPA')) return BeerStyle.NEIPA;
+        if (styleUpper.includes('IPA')) return BeerStyle.IPA;
+        if (styleUpper.includes('STOUT')) return BeerStyle.STOUT;
+        if (styleUpper.includes('LAGER') || styleUpper.includes('PILSNER')) return BeerStyle.LAGER;
+        if (styleUpper.includes('WHEAT')) return BeerStyle.WHEAT;
+    }
+    return BeerStyle.LAGER;
+};
+
+export const mapBatchToFinishedBrew = (b: any): FinishedBrew => {
+    const og = normalizeGravity(b?.og, 0);
+    const fg = normalizeGravity(b?.fg, 0) || normalizeGravity(b?.last_gravity, 0);
+    const extractNotes = (ing: any, rawNotes?: string) => {
+        if (rawNotes) return rawNotes;
+        if (!ing) return '';
+        try {
+            const parsed = typeof ing === 'string' ? JSON.parse(ing) : ing;
+            return parsed && typeof parsed.notes === 'string' ? parsed.notes : '';
+        } catch {
+            return '';
+        }
+    };
+    return {
+        id: String(b.id),
+        batchNumber: String(b.id),
+        beerName: b.name || b.beer_name || 'Sem Nome',
+        style: b.style || b.beer_style || 'Other',
+        startDate: b.started_at || b.start_date,
+        endDate: b.ended_at || b.end_date || '',
+        og,
+        fg,
+        abv: (og && fg && og > fg) ? ((og - fg) * 131.25) : 0,
+        efficiency: (og && fg && og > 1) ? ((og - fg) / (og - 1.0) * 100) : 0,
+        notes: extractNotes(b.ingredients, b.notes),
+        ingredients: b.ingredients,
+        sensor1_name: b.sensor1_name,
+        sensor2_name: b.sensor2_name,
+        sensor_sg_name: b.sensor_sg_name,
+        readings: []
+    };
+};
+
+export const getEventReferenceMarks = (safeData: { timestamp: string }[], events?: FermentationEvent[]) => {
+    if (!Array.isArray(safeData) || safeData.length < 2 || !Array.isArray(events)) return [];
+    const minTime = new Date(safeData[0].timestamp).getTime();
+    const maxTime = new Date(safeData[safeData.length - 1].timestamp).getTime();
+    return events
+        .filter(event => {
+            const t = new Date(event.timestamp).getTime();
+            return !isNaN(t) && t >= minTime && t <= maxTime;
+        })
+        .map(event => {
+            const eventTime = new Date(event.timestamp).getTime();
+            const closest = safeData.reduce((prev, curr) =>
+                Math.abs(new Date(curr.timestamp).getTime() - eventTime) <
+                Math.abs(new Date(prev.timestamp).getTime() - eventTime) ? curr : prev
+            );
+            return { ...event, markTime: closest?.timestamp };
+        })
+        .filter(e => Boolean(e.markTime));
+};

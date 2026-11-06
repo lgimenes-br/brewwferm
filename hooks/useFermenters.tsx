@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Fermenter, FermenterStatus, DeviceMode, BeerStyle } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, normalizeGravity, parseBeerStyle } from '../types';
 
 // Store latest live MQTT updates per device in memory so in-flight HTTP queries never overwrite real-time MQTT telemetry
 const liveDeviceState = new Map<string, Partial<Fermenter>>();
@@ -125,10 +125,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             extSens: parsedExtraSensors
         };
 
-        let rawOg = safeNum(d.active_batch_og, 0);
-        let rawFg = safeNum(d.active_batch_fg, 1.010);
-        if (rawOg > 500) rawOg /= 1000;
-        if (rawFg > 500) rawFg /= 1000;
+        const rawOg = normalizeGravity(d.active_batch_og, 0);
+        const rawFg = normalizeGravity(d.active_batch_fg, 1.010);
 
         return {
             id: d.serial_code,
@@ -148,19 +146,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             status: status,
             beerName: d.active_batch_name || '',
             chopp_name: d.chopp_name,
-            style: (() => {
-                const backendStyle = d.active_batch_style || d.style;
-                if (typeof backendStyle === 'string') {
-                    const styleUpper = backendStyle.toUpperCase().replace(/\s+/g, '_');
-                    if (styleUpper.includes('PALE') && styleUpper.includes('ALE')) return BeerStyle.PALE_ALE;
-                    if (styleUpper.includes('IPA')) return BeerStyle.IPA;
-                    if (styleUpper.includes('NEIPA')) return BeerStyle.NEIPA;
-                    if (styleUpper.includes('STOUT')) return BeerStyle.STOUT;
-                    if (styleUpper.includes('LAGER')) return BeerStyle.LAGER;
-                    if (styleUpper.includes('WHEAT')) return BeerStyle.WHEAT;
-                }
-                return BeerStyle.LAGER;
-            })(),
+            style: parseBeerStyle(d.active_batch_style || d.style),
             startDate: d.active_batch_start || d.start_date || '',
             stepStartDate: d.active_batch_step_start || '',
             batchId: d.active_batch_id || undefined,
@@ -398,16 +384,7 @@ export const useFermenters = () => {
             const firstStepTemp = Array.isArray(variables.profile) && variables.profile.length > 0 && !isNaN(Number(variables.profile[0]?.temperature))
                 ? Number(variables.profile[0].temperature)
                 : undefined;
-            const mappedStyle = (() => {
-                const styleUpper = String(variables.style || '').toUpperCase().replace(/\s+/g, '_');
-                if (styleUpper.includes('PALE') && styleUpper.includes('ALE')) return BeerStyle.PALE_ALE;
-                if (styleUpper.includes('NEIPA')) return BeerStyle.NEIPA;
-                if (styleUpper.includes('IPA')) return BeerStyle.IPA;
-                if (styleUpper.includes('STOUT')) return BeerStyle.STOUT;
-                if (styleUpper.includes('LAGER') || styleUpper.includes('PILSNER')) return BeerStyle.LAGER;
-                if (styleUpper.includes('WHEAT')) return BeerStyle.WHEAT;
-                return (variables.style as BeerStyle) || BeerStyle.LAGER;
-            })();
+            const mappedStyle = parseBeerStyle(variables.style);
             const cachedLive = liveDeviceState.get(norm) || liveDeviceState.get(variables.serialCode);
             if (cachedLive) {
                 liveDeviceState.set(norm, {

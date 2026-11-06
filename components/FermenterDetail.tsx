@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType } from '../types';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity } from '../types';
 import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X } from 'lucide-react';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
@@ -79,14 +79,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         : 0;
     const safeHumidity = fermenter.currentDevice?.extSens?.hum;
     const rawCurrentGravity = fermenter.currentDevice?.gravity > 0 
-        ? parseFloat(String(fermenter.currentDevice.gravity))
-        : (parseFloat(String(lastChartGravity)) || 0);
-    const safeCurrentGravity = rawCurrentGravity > 500 ? rawCurrentGravity / 1000 : rawCurrentGravity;
+        ? fermenter.currentDevice.gravity
+        : lastChartGravity;
+    const safeCurrentGravity = normalizeGravity(rawCurrentGravity, 0);
     const safeCurrentFridgeTemp = parseFloat(String(fermenter.currentFridgeTemp || 0));
-    const rawOG = parseFloat(String(fermenter.og || 0));
-    const safeOG = rawOG > 500 ? rawOG / 1000 : rawOG;
-    const rawFG = fermenter.fg ? parseFloat(String(fermenter.fg)) : null;
-    const safeFG = rawFG !== null ? (rawFG > 500 ? rawFG / 1000 : rawFG) : null;
+    const safeOG = normalizeGravity(fermenter.og, 0);
+    const safeFG = fermenter.fg ? normalizeGravity(fermenter.fg, 0) : null;
     const safeBattery = parseFloat(String(fermenter.currentDevice?.battery || 0));
 
     useEffect(() => {
@@ -234,10 +232,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             beerName: editBeerName.trim() || fermenter.beerName || 'Sem Nome'
         };
         if (!isNaN(editOG) && editOG > 0) {
-            updates.og = editOG > 500 ? editOG / 1000 : editOG;
+            updates.og = normalizeGravity(editOG, 0);
         }
         if (editFG !== undefined && !isNaN(editFG) && editFG > 0) {
-            updates.fg = editFG > 500 ? editFG / 1000 : editFG;
+            updates.fg = normalizeGravity(editFG, 0);
         }
         onUpdate(fermenter.id, updates);
         setIsEditingBatch(false);
@@ -328,36 +326,38 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     };
     const isIdleFermenter = displayMode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
 
+    const pendingModeBanner = hasPendingChange ? (
+        <div className="flex items-center justify-between mb-8 px-5 py-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
+                <span className="text-sm font-semibold text-amber-300">
+                    Modo selecionado: <span className="uppercase font-black">
+                        {pendingMode === DeviceMode.FERMENTER ? 'Fermentador' : pendingMode === DeviceMode.KEGERATOR ? 'Choppeira' : 'Geladeira'}
+                    </span>
+                </span>
+                <span className="text-xs text-amber-500/80">— Aguardando confirmação</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={handleCancelMode}
+                    className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition-colors rounded-lg hover:bg-neutral-800"
+                >
+                    Cancelar
+                </button>
+                <button
+                    onClick={handleActivateMode}
+                    className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95"
+                >
+                    ⚡ Ativar Modo
+                </button>
+            </div>
+        </div>
+    ) : null;
+
     if (isIdleFermenter) {
         return (
             <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
-                {hasPendingChange && (
-                    <div className="flex items-center justify-between mb-8 px-5 py-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
-                            <span className="text-sm font-semibold text-amber-300">
-                                Modo selecionado: <span className="uppercase font-black">
-                                    {pendingMode === DeviceMode.FERMENTER ? 'Fermentador' : pendingMode === DeviceMode.KEGERATOR ? 'Choppeira' : 'Geladeira'}
-                                </span>
-                            </span>
-                            <span className="text-xs text-amber-500/80">— Aguardando confirmação</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleCancelMode}
-                                className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition-colors rounded-lg hover:bg-neutral-800"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleActivateMode}
-                                className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95"
-                            >
-                                ⚡ Ativar Modo
-                            </button>
-                        </div>
-                    </div>
-                )}
+                {pendingModeBanner}
                 <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />
             </div>
         );
@@ -422,58 +422,27 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             </div>
                         </div>
                     ) : (
-                        <>
-                            {/* Beer name or idle state */}
-                            <div>
-                                <div className="mb-1 flex items-center gap-2 group">
-                                    <h1 className="text-6xl md:text-7xl font-black text-white tracking-tighter leading-tight">{fermenter.beerName || 'Sem Produção'}</h1>
-                                    {fermenter.batchId && (
-                                        <button
-                                            onClick={() => setIsEditingBatch(true)}
-                                            className="p-2 opacity-60 md:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 rounded-lg transition-all text-neutral-500 hover:text-white"
-                                            title="Editar Batch"
-                                        >
-                                            <Edit2 size={24} />
-                                        </button>
-                                    )}
-                                </div>
+                        <div>
+                            <div className="mb-1 flex items-center gap-2 group">
+                                <h1 className="text-6xl md:text-7xl font-black text-white tracking-tighter leading-tight">{fermenter.beerName || 'Sem Produção'}</h1>
+                                {fermenter.batchId && (
+                                    <button
+                                        onClick={() => setIsEditingBatch(true)}
+                                        className="p-2 opacity-60 md:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 rounded-lg transition-all text-neutral-500 hover:text-white"
+                                        title="Editar Batch"
+                                    >
+                                        <Edit2 size={24} />
+                                    </button>
+                                )}
                             </div>
-                        </>
+                        </div>
                     )}
-                </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
                 </div>
             </div>
             )}
 
             {/* ATIVAR MODO Banner */}
-            {hasPendingChange && (
-                <div className="flex items-center justify-between mb-8 px-5 py-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
-                        <span className="text-sm font-semibold text-amber-300">
-                            Modo selecionado: <span className="uppercase font-black">
-                                {pendingMode === DeviceMode.FERMENTER ? 'Fermentador' : pendingMode === DeviceMode.KEGERATOR ? 'Choppeira' : 'Geladeira'}
-                            </span>
-                        </span>
-                        <span className="text-xs text-amber-500/80">— Aguardando confirmação</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleCancelMode}
-                            className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition-colors rounded-lg hover:bg-neutral-800"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleActivateMode}
-                            className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95"
-                        >
-                            ⚡ Ativar Modo
-                        </button>
-                    </div>
-                </div>
-            )}
+            {pendingModeBanner}
 
             {(displayMode === DeviceMode.KEGERATOR || displayMode === DeviceMode.FRIDGE) ? (
                 // === KEGERATOR & FRIDGE MODE LAYOUT ===

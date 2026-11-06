@@ -147,15 +147,6 @@ export const stopBatch = async (serialCode: string) => {
   return true;
 };
 
-export const finishBatch = async (batchId: number) => {
-  const res = await fetch(`${API_URL}/batch/${batchId}/finish`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  if (!res.ok) throw new Error('Failed to finish batch');
-  return true;
-};
-
 export const updateBatch = async (serialCode: string, updates: { og?: number, fg?: number, name?: string, profile?: any[] }) => {
   const body: any = { serialCode, ...updates };
   const res = await fetch(`${API_URL}/batch/update`, {

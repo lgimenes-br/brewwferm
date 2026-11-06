@@ -54,7 +54,6 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (clientRef.current) clientRef.current.end();
         setIsInitialSyncing(true);
 
-        console.log("Connecting MQTT to", MQTT_BROKER);
         const clientId = 'brew_' + Math.random().toString(16).slice(2, 10);
         
         const client = mqtt.connect(MQTT_BROKER, {
@@ -90,7 +89,6 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         client.on('connect', () => {
             setConnectionStatus('connected');
-            console.log("MQTT Connected");
             client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
             client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)

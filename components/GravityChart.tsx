@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ReferenceLine
 } from 'recharts';
-import { Reading, FermentationEvent } from '../types';
+import { Reading, FermentationEvent, getEventReferenceMarks } from '../types';
 
 interface GravityChartProps {
   data: Reading[];
@@ -57,26 +57,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
   const yDomainMax = isNaN(maxDomain) ? 1.2 : maxDomain + 0.005;
 
   // Map events to chart data points, only if within visible range
-  const eventMarks = (() => {
-    if (safeData.length < 2) return [];
-    const minTime = new Date(safeData[0].timestamp).getTime();
-    const maxTime = new Date(safeData[safeData.length - 1].timestamp).getTime();
-
-    return (Array.isArray(events) ? events : [])
-      .filter(event => {
-        const t = new Date(event.timestamp).getTime();
-        return !isNaN(t) && t >= minTime && t <= maxTime;
-      })
-      .map(event => {
-        const eventTime = new Date(event.timestamp).getTime();
-        const closest = safeData.reduce((prev, curr) =>
-          Math.abs(new Date(curr.timestamp).getTime() - eventTime) <
-          Math.abs(new Date(prev.timestamp).getTime() - eventTime) ? curr : prev
-        );
-        return { ...event, markTime: closest?.timestamp };
-      })
-      .filter(e => e.markTime);
-  })();
+  const eventMarks = getEventReferenceMarks(safeData, events);
 
   // Determine if we should render the chart components (if we have data OR reference lines)
   const shouldRenderChart = safeData.length > 0 || safeOG !== undefined || safeFG !== undefined;

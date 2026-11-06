@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity } from '../types';
 import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -264,14 +264,12 @@ export const Dashboard: React.FC = () => {
                     const parsedHumidity = rawHumidity !== undefined && rawHumidity !== null ? parseFloat(String(rawHumidity)) : NaN;
                     const safeHumidity = !isNaN(parsedHumidity) ? parsedHumidity : undefined;
                     const rawGravity = f.currentDevice?.gravity > 0 
-                        ? parseFloat(String(f.currentDevice.gravity))
-                        : (parseFloat(String(lastChartGravity)) || 0);
-                    const safeGravity = rawGravity > 500 ? rawGravity / 1000 : rawGravity;
+                        ? f.currentDevice.gravity
+                        : lastChartGravity;
+                    const safeGravity = normalizeGravity(rawGravity, 0);
                         
-                    const rawOG = parseFloat(String(f.og || 0));
-                    const safeOG = rawOG > 500 ? rawOG / 1000 : rawOG;
-                    const rawFG = f.fg ? parseFloat(String(f.fg)) : null;
-                    const safeFG = rawFG !== null ? (rawFG > 500 ? rawFG / 1000 : rawFG) : null;
+                    const safeOG = normalizeGravity(f.og, 0);
+                    const safeFG = f.fg ? normalizeGravity(f.fg, 0) : null;
                     const rawRssi = f.currentDevice?.rssi || 0;
                     const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 

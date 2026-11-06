@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, HardDrive, TestTube, Edit2, Trash2, Plus, X, Search, ChevronDown, ChevronRight, LogOut, Activity, Zap, Shield, Megaphone, Terminal, Wifi, Battery, WifiOff, BellRing, HeartPulse, DollarSign, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -21,7 +22,7 @@ const MarketingTab = () => {
     useEffect(() => {
         const fetchMarketing = async () => {
             const headers = { Authorization: `Bearer ${token}` };
-            const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+            const baseUrl = API_URL;
             try {
                 const [resHealth, resPush] = await Promise.all([
                     fetch(`${baseUrl}/admin/health-radar`, { headers }),
@@ -46,7 +47,7 @@ const MarketingTab = () => {
         if (!pushTitle || !pushMessage) return toast.error('Preencha título e mensagem');
         setSending(true);
         try {
-            const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+            const baseUrl = API_URL;
             const res = await fetch(`${baseUrl}/admin/broadcast-push`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -275,7 +276,7 @@ const OverviewTab = () => {
         const fetchData = async () => {
             try {
                 const headers = { Authorization: `Bearer ${token}` };
-                const baseUrl = import.meta.env.VITE_API_URL || window.location.origin + '/api';
+                const baseUrl = API_URL;
                 
                 const [resStats, resAnalytics, resTrends, resMap, resFin, resBatch, resComm] = await Promise.all([
                     fetch(`${baseUrl}/admin/stats`, { headers }),
@@ -510,7 +511,7 @@ const TelemetryTab = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, {
+        fetch(`${API_URL}/admin/telemetry`, {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => res.json())
@@ -609,10 +610,10 @@ const SecurityTab = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const loadData = () => {
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/audit`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_URL}/admin/audit`, { headers: { Authorization: `Bearer ${token}` } })
             .then(res => res.ok ? res.json() : []).then(data => setLogs(Array.isArray(data) ? data : [])).catch(() => {});
             
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_URL}/admin/broadcasts`, { headers: { Authorization: `Bearer ${token}` } })
             .then(res => res.ok ? res.json() : []).then(data => setBroadcasts(Array.isArray(data) ? data : [])).catch(() => {});
     };
 
@@ -622,7 +623,7 @@ const SecurityTab = () => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts`, {
+            const res = await fetch(`${API_URL}/admin/broadcasts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify(broadcastForm)
@@ -640,7 +641,7 @@ const SecurityTab = () => {
 
     const toggleBroadcast = async (id: number, currentStatus: number) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/broadcasts/${id}`, {
+            const res = await fetch(`${API_URL}/admin/broadcasts/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ is_active: !currentStatus })
@@ -795,7 +796,7 @@ const UsersTab = () => {
     const loadUsers = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/users`, {
+            const res = await fetch(`${API_URL}/admin/users`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -819,7 +820,7 @@ const UsersTab = () => {
     const deleteUser = async (id: number) => {
         if (!window.confirm('ATENÇÃO: Deletar este usuário apagará TODOS os dispositivos, lotes e leituras dele. Continuar?')) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/users/${id}`, {
+            const res = await fetch(`${API_URL}/admin/users/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -835,7 +836,7 @@ const UsersTab = () => {
 
     const changeUserPlan = async (id: number, plan_type: string) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/users/${id}/plan`, {
+            const res = await fetch(`${API_URL}/admin/users/${id}/plan`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ plan_type })
@@ -850,7 +851,7 @@ const UsersTab = () => {
     const deleteDevice = async (id: number) => {
         if (!window.confirm('Remover este dispositivo?')) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/devices/${id}`, {
+            const res = await fetch(`${API_URL}/admin/devices/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -992,7 +993,7 @@ const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId:
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/devices`, {
+        fetch(`${API_URL}/admin/devices`, {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => res.ok ? res.json() : [])
@@ -1047,8 +1048,8 @@ const UserFormModal = ({ data, onClose, onSuccess }: { data: any, onClose: () =>
         setLoading(true);
         try {
             const url = data 
-                ? `${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/users/${data.id}`
-                : `${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/users`;
+                ? `${API_URL}/admin/users/${data.id}`
+                : `${API_URL}/admin/users`;
             
             const res = await fetch(url, {
                 method: data ? 'PUT' : 'POST',
@@ -1120,8 +1121,8 @@ const DeviceFormModal = ({ data, userId, onClose, onSuccess }: { data: any, user
         setLoading(true);
         try {
             const url = data 
-                ? `${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/devices/${data.id}`
-                : `${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/devices`;
+                ? `${API_URL}/admin/devices/${data.id}`
+                : `${API_URL}/admin/devices`;
             
             const res = await fetch(url, {
                 method: data ? 'PUT' : 'POST',
@@ -1185,7 +1186,7 @@ const IngredientsTab = () => {
 
     const loadIngredients = () => {
         setLoading(true);
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/ingredients/${subTab}`, {
+        fetch(`${API_URL}/ingredients/${subTab}`, {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => res.json())
@@ -1199,8 +1200,8 @@ const IngredientsTab = () => {
         try {
             const method = id ? 'PUT' : 'POST';
             const url = id 
-                ? `${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/ingredients/${subTab}/${id}`
-                : `${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/ingredients/${subTab}`;
+                ? `${API_URL}/admin/ingredients/${subTab}/${id}`
+                : `${API_URL}/admin/ingredients/${subTab}`;
             
             const res = await fetch(url, {
                 method,
@@ -1220,7 +1221,7 @@ const IngredientsTab = () => {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Excluir este ingrediente?')) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/ingredients/${subTab}/${id}`, {
+            const res = await fetch(`${API_URL}/admin/ingredients/${subTab}/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -1370,7 +1371,7 @@ const TerminalTab = () => {
     const fetchData = async () => {
         setRefreshing(true);
         try {
-            const statusRes = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/server/status`, {
+            const statusRes = await fetch(`${API_URL}/admin/server/status`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (statusRes.ok) {
@@ -1378,7 +1379,7 @@ const TerminalTab = () => {
                 setStatus(Array.isArray(statusData) ? statusData : []);
             }
 
-            const logsRes = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/server/logs`, {
+            const logsRes = await fetch(`${API_URL}/admin/server/logs`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (logsRes.ok) {
@@ -1478,7 +1479,7 @@ const FirmwareTab = () => {
     const [selectedDevice, setSelectedDevice] = useState('');
     
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_URL}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
         .then(res => res.ok ? res.json() : [])
         .then(data => setDevices(Array.isArray(data) ? data : []))
         .catch(() => {});

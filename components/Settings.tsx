@@ -4,6 +4,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+import { updateSensors } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 interface PIDParams {
@@ -201,17 +202,11 @@ export const Settings: React.FC = () => {
               sensor2_name: sensor2Name,
               sensor_sg_name: settings.sensorSgName
           });
-          const res = await fetch(`${API_URL}/devices/${encodeURIComponent(selectedDeviceId)}/sensors`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ sensor1Name: s1Name, sensor2Name: sensor2Name, sensorSgName: settings.sensorSgName })
-          });
-          if (!res.ok) {
-              toast.error('Mapeamento enviado à placa, mas falhou ao salvar nomes no servidor.');
-              return;
-          }
+          await updateSensors(token || '', selectedDeviceId, s1Name, sensor2Name, settings.sensorSgName);
       } catch (e) {
           console.error('Failed to save sensor names to db', e);
+          toast.error('Mapeamento enviado à placa, mas falhou ao salvar nomes no servidor.');
+          return;
       }
       
       toast.success('Mapeamento e nomes enviados!');
@@ -296,17 +291,11 @@ export const Settings: React.FC = () => {
     
     if (token) {
         try {
-            const res = await fetch(`${API_URL}/devices/${encodeURIComponent(selectedDeviceId)}/sensors`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ sensor1Name: settings.sensor1Name, sensor2Name: settings.sensor2Name, sensorSgName: settings.sensorSgName })
-            });
-            if (!res.ok) {
-                toast.error('Erro ao salvar nome do sensor no servidor.');
-                return;
-            }
+            await updateSensors(token, selectedDeviceId, settings.sensor1Name, settings.sensor2Name, settings.sensorSgName);
         } catch (e) {
             console.error('Falha ao salvar sensores no backend', e);
+            toast.error('Erro ao salvar nome do sensor no servidor.');
+            return;
         }
     }
 

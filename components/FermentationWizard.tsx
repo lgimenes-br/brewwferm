@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, ArrowLeft, FlaskConical, Thermometer, Info, CheckCircle2, Plus, Trash2, Rocket } from 'lucide-react';
-import { Fermenter, FermentationStep } from '../types';
+import { Fermenter, FermentationStep, normalizeGravity } from '../types';
 
 interface FermentationWizardProps {
     fermenter: Fermenter;
@@ -77,16 +77,14 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
             duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
         }));
         const parsedVol = parseFloat(volume);
-        let parsedOg = parseFloat(og);
-        if (!isNaN(parsedOg) && parsedOg > 500) parsedOg = parsedOg / 1000;
-        let parsedFg = parseFloat(fg);
-        if (!isNaN(parsedFg) && parsedFg > 500) parsedFg = parsedFg / 1000;
+        const parsedOg = normalizeGravity(og, 1.050);
+        const parsedFg = normalizeGravity(fg, 1.010);
         onStart({
             name: name.trim() || 'Sem Nome',
             style,
             volume: !isNaN(parsedVol) && parsedVol > 0 ? parsedVol : 20,
-            og: !isNaN(parsedOg) && parsedOg > 0 ? parsedOg : 1.050,
-            fg: !isNaN(parsedFg) && parsedFg > 0 ? parsedFg : 1.010,
+            og: parsedOg > 0 ? parsedOg : 1.050,
+            fg: parsedFg > 0 ? parsedFg : 1.010,
             profile: sanitizedProfile
         });
     };

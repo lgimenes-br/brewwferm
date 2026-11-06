@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { FinishedBrew, Reading } from '../types';
+import { FinishedBrew, Reading, normalizeGravity } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { Award, Share2, FileDown, Quote, CheckCircle, Loader2, Save } from 'lucide-react';
@@ -183,14 +183,8 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     }
   };
 
-  const normOg = (() => {
-    const raw = Number(brew.og) || 0;
-    return raw > 200 ? raw / 1000 : raw;
-  })();
-  const normFg = (() => {
-    const raw = Number(brew.fg) || 0;
-    return raw > 200 ? raw / 1000 : raw;
-  })();
+  const normOg = normalizeGravity(brew.og, 0);
+  const normFg = normalizeGravity(brew.fg, 0);
   const displayAbv = (() => {
     const rawAbv = Number(brew.abv) || 0;
     if (rawAbv > 0) return rawAbv;

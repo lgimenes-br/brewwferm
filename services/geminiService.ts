@@ -101,9 +101,7 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
 
   try {
     // Dynamically resolve the best model
-    console.log("Resolving best model via API...");
     const model = await getBestModel(apiKey);
-    console.log(`Using resolved model: ${model}`);
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',

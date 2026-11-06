@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ReferenceLine
 } from 'recharts';
-import { Reading, FermentationEvent } from '../types';
+import { Reading, FermentationEvent, getEventReferenceMarks } from '../types';
 
 interface TemperatureChartProps {
   data: Reading[];
@@ -169,39 +169,22 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
             />
 
             {/* Event markers as vertical reference lines */}
-            {(() => {
-              if (safeData.length < 2) return null;
-              const minTime = new Date(safeData[0].timestamp).getTime();
-              const maxTime = new Date(safeData[safeData.length - 1].timestamp).getTime();
-              return (Array.isArray(events) ? events : [])
-                .filter(event => {
-                  const t = new Date(event.timestamp).getTime();
-                  return !isNaN(t) && t >= minTime && t <= maxTime;
-                })
-                .map(event => {
-                  const eventTime = new Date(event.timestamp).getTime();
-                  const closest = safeData.reduce((prev, curr) =>
-                    Math.abs(new Date(curr.timestamp).getTime() - eventTime) <
-                    Math.abs(new Date(prev.timestamp).getTime() - eventTime) ? curr : prev
-                  );
-                  return (
-                    <ReferenceLine
-                      key={event.id}
-                      x={closest.timestamp}
-                      stroke="#a855f7"
-                      strokeDasharray="4 4"
-                      strokeWidth={1}
-                      label={{
-                        value: event.type,
-                        position: 'top',
-                        fill: '#a855f7',
-                        fontSize: 10,
-                        fontWeight: 'bold'
-                      }}
-                    />
-                  );
-                });
-            })()}
+            {getEventReferenceMarks(safeData, events).map(event => (
+              <ReferenceLine
+                key={event.id}
+                x={event.markTime}
+                stroke="#a855f7"
+                strokeDasharray="4 4"
+                strokeWidth={1}
+                label={{
+                  value: event.type,
+                  position: 'top',
+                  fill: '#a855f7',
+                  fontSize: 10,
+                  fontWeight: 'bold'
+                }}
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
