@@ -28,6 +28,7 @@ import { Dashboard } from '../components/Dashboard';
 import { FermenterDetailWrapper } from '../components/FermenterDetailWrapper';
 import { FermentationHistory } from '../components/FermentationHistory';
 import { FinishedBrewDetail } from '../components/FinishedBrewDetail';
+import { PublicLiveBatch } from '../components/PublicLiveBatch';
 import { CompareBatches } from '../components/CompareBatches';
 import { BrewingCalculators } from '../components/BrewingCalculators';
 import { Settings } from '../components/Settings';
@@ -75,7 +76,7 @@ function renderWithProviders(ui: React.ReactElement, initialEntries: string[] = 
     act(() => {
         root.render(
             <GoogleOAuthProvider clientId="test-client-id">
-                <MemoryRouter initialEntries={initialEntries}>
+                <MemoryRouter key={initialEntries.join(',')} initialEntries={initialEntries}>
                     <QueryClientProvider client={queryClient}>
                         <AuthProvider>
                             <BrewProvider>
@@ -226,6 +227,31 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
                 dbRecipes.push(newRec);
                 return new Response(JSON.stringify({ message: 'Salva', id: newRec.id }), { status: 201 });
             }
+            if (url.includes('/share-token') && method === 'POST') {
+                return new Response(JSON.stringify({ publicToken: 'pub123456' }), { status: 200 });
+            }
+            if (url.includes('/public/batch/pub123456') && method === 'GET') {
+                return new Response(JSON.stringify({
+                    batch: {
+                        id: 501,
+                        name: 'West Coast IPA',
+                        style: 'IPA',
+                        og: 1.065,
+                        fg: 1.012,
+                        is_active: 1,
+                        current_step_index: 0,
+                        device_name: 'Fermentador Inox 01',
+                        sensor1_name: 'Mosto',
+                        sensor2_name: 'Geladeira',
+                        sensor_sg_name: 'iSpindel',
+                        profile: JSON.stringify([{ name: 'Fermentação Primária', temperature: 19, duration: 7, triggerGravity: 1.018 }])
+                    },
+                    telemetry: [
+                        { temp_ferm: 19.1, temp_amb: 15.0, target_temp: 19.0, gravity: 1.042, battery: 4.02, recorded_at: new Date().toISOString() }
+                    ],
+                    events: []
+                }), { status: 200 });
+            }
             return new Response(JSON.stringify([]), { status: 200 });
         });
 
@@ -347,6 +373,14 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('Cold Crash');
         expect(container.textContent).toContain('Ativo');
 
+        // 3.5 Testa botão "Compartilhar Ao Vivo" (geração de public_token)
+        await act(async () => {
+            findButtonByText('Compartilhar Ao Vivo')!.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(fetchCalls.some(c => c.url.includes('/batches/501/share-token') && c.method === 'POST')).toBe(true);
+        expect(container.textContent).toContain('Link Ao Vivo Copiado');
+
         // 4. Testa Pausar e Retomar Fermentação
         const pauseBtn = findButtonByText('Pausar')!;
         await act(async () => {
@@ -467,6 +501,21 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
         expect(fetchCalls.some(c => c.url.includes('/batch/stop') && c.method === 'POST')).toBe(true);
         expect(container.textContent).toContain('Voltou ao Dashboard');
+
+        // 10. Testa a Página Pública de Modo Espectador (/live/:token) sem exigir autenticação de controle
+        renderWithProviders(
+            <Routes>
+                <Route path="/live/:token" element={<PublicLiveBatch />} />
+            </Routes>,
+            ['/live/pub123456']
+        );
+        await act(async () => {
+            await new Promise(r => setTimeout(r, 50));
+        });
+        expect(container.textContent).toContain('Ao Vivo • Modo Espectador');
+        expect(container.textContent).toContain('West Coast IPA');
+        expect(container.textContent).toContain('1.042');
+        expect(container.textContent).toContain('Avança em SG <= 1.018');
     });
 
     it('Fluxo 2: Dashboard — Adicionar Manual (com validação), Buscar na Rede (Scan), Editar e Excluir Dispositivo', async () => {

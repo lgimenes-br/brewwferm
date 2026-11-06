@@ -279,3 +279,22 @@ export const deleteEvent = async (eventId: string) => {
   if (!res.ok) throw new Error('Failed to delete event');
   return true;
 };
+
+// --- Public Live Spectator Mode ---
+export const generateBatchShareToken = async (batchId: number | string, options?: { revoke?: boolean; regenerate?: boolean }, token?: string | null) => {
+  const res = await fetch(`${API_URL}/batches/${encodeURIComponent(String(batchId))}/share-token`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify(options || {})
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Failed to generate share link');
+  return body as { publicToken: string | null };
+};
+
+export const fetchPublicBatch = async (publicToken: string) => {
+  const res = await fetch(`${API_URL}/public/batch/${encodeURIComponent(publicToken)}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Lote público não encontrado');
+  return body;
+};

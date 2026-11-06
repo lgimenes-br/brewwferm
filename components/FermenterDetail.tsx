@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity } from '../types';
-import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X } from 'lucide-react';
+import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X, Share2, Check } from 'lucide-react';
+import { generateBatchShareToken } from '../services/api';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
 import { DualAxisChart } from './DualAxisChart';
@@ -48,6 +49,23 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // Batch Editing State
     const [isEditingBatch, setIsEditingBatch] = useState(false);
+    const [isCopiedShare, setIsCopiedShare] = useState(false);
+
+    const handleShareLiveBatch = async () => {
+        if (!fermenter.batchId) return;
+        try {
+            const res = await generateBatchShareToken(fermenter.batchId);
+            const publicUrl = `${window.location.origin}/live/${res.publicToken || fermenter.batchId}`;
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(publicUrl).catch(() => {});
+            }
+            setIsCopiedShare(true);
+            setTimeout(() => setIsCopiedShare(false), 2500);
+            toast.success('Link público ao vivo copiado!');
+        } catch (err: any) {
+            toast.error(err?.message || 'Erro ao gerar link público.');
+        }
+    };
     const [editBeerName, setEditBeerName] = useState(fermenter.beerName || '');
     const [editOG, setEditOG] = useState(fermenter.og);
     const [editFG, setEditFG] = useState(fermenter.fg);
@@ -372,8 +390,16 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             <div className="flex justify-between items-start mb-8">
                 <div className="flex-1">
                     {fermenter.batchId && (
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center justify-between gap-2 mb-2">
                             <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Lote #{fermenter.batchId}</span>
+                            <button
+                                type="button"
+                                onClick={handleShareLiveBatch}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-[11px] font-bold text-neutral-300 hover:text-white uppercase tracking-wider transition-all"
+                            >
+                                {isCopiedShare ? <Check size={13} className="text-emerald-400" /> : <Share2 size={13} />}
+                                {isCopiedShare ? 'Link Ao Vivo Copiado' : 'Compartilhar Ao Vivo'}
+                            </button>
                         </div>
                     )}
 

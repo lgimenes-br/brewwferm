@@ -10,6 +10,7 @@ import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrappe
 import { Settings } from './components/Settings';
 import { BrewingCalculators } from './components/BrewingCalculators';
 import { CompareBatches } from './components/CompareBatches';
+import { PublicLiveBatch } from './components/PublicLiveBatch';
 import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode } from './types';
 import { useAuth } from './context/AuthContext';
@@ -58,7 +59,7 @@ const NavConfig = () => {
 
     // Hide navigation bar on public or landing pages
     const publicRoutes = ['/login', '/register'];
-    if (publicRoutes.includes(location.pathname)) return null;
+    if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
     const match = location.pathname.match(/\/fermenter\/(.+)/);
@@ -437,6 +438,7 @@ const AppRoutes = () => {
                         <Register />
                     </PublicRoute>
                 } />
+                <Route path="/live/:token" element={<PublicLiveBatch />} />
 
                 {/* Protected App Routes */}
                 <Route path="/*" element={

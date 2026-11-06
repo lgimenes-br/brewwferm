@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import mqtt from 'mqtt';
 import mysql from 'mysql2/promise';
@@ -1337,6 +1338,83 @@ app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
         delete alertState[`magic_${req.params.id}`];
         await loadActiveBatches();
         res.json({ message: 'Batch deletado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Public Live Spectator Share Token Generation / Retrieval
+app.post('/api/batches/:id/share-token', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT b.id, b.public_token FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`,
+            [req.params.id, req.user.id]
+        );
+        if (rows.length === 0) return res.status(403).json({ error: 'Não autorizado' });
+
+        if (req.body?.revoke) {
+            await pool.execute('UPDATE batches SET public_token = NULL WHERE id = ?', [req.params.id]);
+            return res.json({ publicToken: null });
+        }
+
+        let token = rows[0].public_token;
+        if (!token || req.body?.regenerate) {
+            token = crypto.randomBytes(16).toString('hex');
+            await pool.execute('UPDATE batches SET public_token = ? WHERE id = ?', [token, req.params.id]);
+        }
+        res.json({ publicToken: token });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Public Read-Only Live Spectator Endpoint (No Auth Required)
+app.get('/api/public/batch/:token', async (req, res) => {
+    try {
+        const token = String(req.params.token || '').trim();
+        if (!token || token.length < 8) return res.status(404).json({ error: 'Link público inválido' });
+
+        const [batches] = await pool.execute(
+            `SELECT b.id, b.name, b.style, b.og, b.fg, b.volume, b.profile, b.started_at, b.ended_at, b.is_active, b.current_step_index, b.step_started_at, b.ingredients,
+                    d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online
+             FROM batches b
+             JOIN devices d ON b.device_id = d.id
+             WHERE b.public_token = ? LIMIT 1`,
+            [token]
+        );
+        if (batches.length === 0) return res.status(404).json({ error: 'Lote público não encontrado ou link revogado' });
+
+        const batch = batches[0];
+        const [rows] = await pool.execute(
+            `SELECT temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at
+             FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`,
+            [batch.id]
+        );
+
+        let lastValidGravity = null;
+        const filledRows = rows.map(row => {
+            const currentGravity = row.gravity !== null ? parseFloat(row.gravity) : null;
+            if (currentGravity !== null && !isNaN(currentGravity) && currentGravity > 0) {
+                lastValidGravity = currentGravity;
+            } else if (lastValidGravity !== null) {
+                row.gravity = lastValidGravity;
+            }
+            return row;
+        });
+
+        let finalTelemetry = filledRows;
+        const targetPoints = 400;
+        if (filledRows.length > targetPoints) {
+            const step = Math.ceil(filledRows.length / targetPoints);
+            finalTelemetry = filledRows.filter((_, index) => index % step === 0 || index === filledRows.length - 1);
+        }
+
+        const [events] = await pool.execute(
+            `SELECT id, event_type, description, recorded_at FROM batch_events WHERE batch_id = ? ORDER BY recorded_at ASC`,
+            [batch.id]
+        );
+
+        res.json({
+            batch,
+            telemetry: finalTelemetry,
+            events
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
