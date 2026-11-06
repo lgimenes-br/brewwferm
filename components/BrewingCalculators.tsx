@@ -8,7 +8,8 @@ import {
     Thermometer, 
     Beer, 
     ChevronRight,
-    Calculator
+    Calculator,
+    Compass
 } from 'lucide-react';
 import { AbvCalculator } from './calculators/AbvCalculator';
 import { RefractometerCalculator } from './calculators/RefractometerCalculator';
@@ -16,6 +17,7 @@ import { YeastCalculator } from './calculators/YeastCalculator';
 import { BoilOffCalculator } from './calculators/BoilOffCalculator';
 import { HydrometerTempCalculator } from './calculators/HydrometerTempCalculator';
 import { CarbonationCalculator } from './calculators/CarbonationCalculator';
+import { ISpindelCalibrationCalculator } from './calculators/ISpindelCalibrationCalculator';
 
 interface CalculatorItem {
     id: string;
@@ -67,6 +69,13 @@ const calculators: CalculatorItem[] = [
         description: 'Calcule a pressão de CO2 ou quantidade de primming para o estilo.',
         icon: Beer,
         color: 'text-yellow-500 bg-yellow-500/10'
+    },
+    {
+        id: 'ispindel',
+        title: 'Calibração Polinomial (iSpindel / Tilt)',
+        description: 'Gere o polinômio de 2º ou 3º grau (R²) a partir dos ângulos de inclinação e densidades medidas.',
+        icon: Compass,
+        color: 'text-cyan-400 bg-cyan-400/10'
     }
 ];
 
@@ -99,7 +108,7 @@ export const BrewingCalculators: React.FC = () => {
                             <button 
                                 className={`w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left ${isActive ? 'bg-neutral-800/30' : ''}`}
                                 onClick={() => {
-                                    if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation'].includes(calc.id)) {
+                                    if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation', 'ispindel'].includes(calc.id)) {
                                         setActiveCalculator(isActive ? null : calc.id);
                                     } else {
                                         toast(`A calculadora "${calc.title}" será implementada em breve!`);
@@ -129,6 +138,7 @@ export const BrewingCalculators: React.FC = () => {
                                     {calc.id === 'density' && <BoilOffCalculator />}
                                     {calc.id === 'hydrometer' && <HydrometerTempCalculator />}
                                     {calc.id === 'carbonation' && <CarbonationCalculator />}
+                                    {calc.id === 'ispindel' && <ISpindelCalibrationCalculator />}
                                 </div>
                             )}
                         </div>

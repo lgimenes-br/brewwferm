@@ -796,6 +796,16 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         setSelectValue(carbSelects[carbSelects.length - 1] as HTMLSelectElement, 'Priming (Açúcar)');
         expect(container.textContent).toContain('Açúcar para Adicionar');
         expect(container.textContent).toContain('CO₂ Residual');
+
+        // 7. Abre calculadora de Calibração Polinomial (iSpindel / Tilt) e testa regressão 2º e 3º grau
+        clickElement(findButtonByText('Calibração Polinomial (iSpindel / Tilt)'));
+        expect(container.textContent).toContain('Fórmula Polinomial p/ iSpindel');
+        expect(container.textContent).toContain('*tilt^2');
+        expect(container.textContent).toContain('R² =');
+
+        // Alterna para Polinômio 3º Grau e verifica que o termo *tilt^3 foi gerado
+        clickElement(findButtonByText('Polinômio 3º Grau'));
+        expect(container.textContent).toContain('*tilt^3');
     });
 
     it('Fluxo 5: Configurações (Settings) e Painel Admin (AdminDashboard — todas as 8 abas e disparo de Push)', async () => {
