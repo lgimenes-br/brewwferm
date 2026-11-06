@@ -72,6 +72,7 @@ const initDb = async () => {
         try { await pool.execute('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL'); } catch (e) { }
         
         console.log('Main DB tables initialized');
         
@@ -820,7 +821,7 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/batch/start', authenticateToken, async (req, res) => {
-    const { serialCode, name, style, og, fg, volume, profile } = req.body || {};
+    const { serialCode, name, style, og, fg, volume, profile, ingredients } = req.body || {};
     if (!serialCode || !name) return res.status(400).json({ error: 'serialCode e name são obrigatórios' });
     try {
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [serialCode, req.user.id]);
@@ -828,12 +829,13 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
         const deviceId = devs[0].id;
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [deviceId]);
 
-        // Store profile as JSON string if provided
+        // Store profile and ingredients as JSON string if provided
         const profileJson = profile ? JSON.stringify(profile) : null;
+        const ingredientsJson = ingredients ? (typeof ingredients === 'string' ? ingredients : JSON.stringify(ingredients)) : null;
         const safeVol = volume !== undefined && volume !== null && !isNaN(parseFloat(volume)) ? parseFloat(volume) : 20;
         const [result] = await pool.execute(
-            'INSERT INTO batches (device_id, name, style, og, fg, volume, profile, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
-            [deviceId, name, style || '', og || null, fg || null, safeVol, profileJson]
+            'INSERT INTO batches (device_id, name, style, og, fg, volume, profile, ingredients, started_at, is_active, current_step_index, step_started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1, 0, NOW())',
+            [deviceId, name, style || '', og || null, fg || null, safeVol, profileJson, ingredientsJson]
         );
 
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'START_BATCH', `Batch: ${name} (Device: ${serialCode})`, req.ip || null]);
@@ -943,6 +945,54 @@ app.delete('/api/events/:id', authenticateToken, async (req, res) => {
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         await pool.execute('DELETE FROM batch_events WHERE id = ?', [req.params.id]);
         res.json({ message: 'Apagado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/recipes', authenticateToken, async (req, res) => {
+    try {
+        const [recipes] = await pool.execute('SELECT * FROM recipes WHERE user_id = ? ORDER BY id DESC', [req.user.id]);
+        for (const r of recipes) {
+            const [steps] = await pool.execute(
+                'SELECT step_order, name, temperature, days as duration, trigger_gravity as triggerGravity FROM recipe_steps WHERE recipe_id = ? ORDER BY step_order ASC',
+                [r.id]
+            );
+            r.steps = steps;
+        }
+        res.json(recipes);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/recipes', authenticateToken, async (req, res) => {
+    const { name, style, og, fg, est_og, est_fg, steps } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Nome do perfil/receita é obrigatório' });
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [resRecipe] = await conn.execute(
+            'INSERT INTO recipes (user_id, name, style, est_og, est_fg) VALUES (?, ?, ?, ?, ?)',
+            [req.user.id, name, style ?? null, (og ?? est_og) ?? null, (fg ?? est_fg) ?? null]
+        );
+        const recipeId = resRecipe.insertId;
+        if (Array.isArray(steps) && steps.length > 0) {
+            for (let i = 0; i < steps.length; i++) {
+                const s = steps[i] || {};
+                await conn.execute(
+                    'INSERT INTO recipe_steps (recipe_id, step_order, name, temperature, days, trigger_gravity) VALUES (?, ?, ?, ?, ?, ?)',
+                    [recipeId, i, (s.name ?? s.n) ?? `Etapa ${i + 1}`, (s.temperature ?? s.t) ?? 18, (s.duration ?? s.days ?? s.d) ?? 1, (s.triggerGravity ?? s.g) ?? null]
+                );
+            }
+        }
+        await conn.commit();
+        res.status(201).json({ message: 'Salva', id: recipeId });
+    } catch (err) { await conn.rollback(); res.status(500).json({ error: err.message }); } finally { conn.release(); }
+});
+
+app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
+    try {
+        await pool.execute('DELETE FROM recipe_steps WHERE recipe_id = ? AND recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)', [req.params.id, req.user.id]);
+        const [result] = await pool.execute('DELETE FROM recipes WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Receita não encontrada' });
+        res.json({ message: 'Apagada' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

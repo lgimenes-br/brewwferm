@@ -195,6 +195,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         og: number;
         fg: number;
         profile: any[];
+        ingredients?: any;
     }) => {
         try {
             blockTelemetry(fermenter.id);
@@ -209,7 +210,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 volume: data.volume,
                 og: data.og,
                 fg: data.fg,
-                profile: data.profile
+                profile: data.profile,
+                ingredients: data.ingredients
             });
             toast.success('Novo lote iniciado com sucesso!');
         } catch (err) {

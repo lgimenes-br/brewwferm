@@ -387,8 +387,8 @@ export const useFermenters = () => {
     });
 
     const startBatchMutation = useMutation({
-        mutationFn: (data: { serialCode: string, name: string, style: string, og: number, fg: number, volume?: number, profile?: any[] }) => 
-            api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile, data.volume),
+        mutationFn: (data: { serialCode: string, name: string, style: string, og: number, fg: number, volume?: number, profile?: any[], ingredients?: any }) => 
+            api.startBatch(data.serialCode, data.name, data.style, data.og, data.fg, data.profile, data.volume, data.ingredients),
         onSuccess: (res, variables) => {
             const norm = variables.serialCode.trim().toUpperCase();
             localStorage.removeItem(`events_${variables.serialCode}`);

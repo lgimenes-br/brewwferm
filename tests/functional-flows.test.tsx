@@ -138,6 +138,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         };
         let dbBatches: any[] = [];
         let dbEvents: any[] = [];
+        let dbRecipes: any[] = [];
 
         const fetchCalls: { url: string; method: string; body?: any }[] = [];
 
@@ -217,6 +218,14 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             if (url.includes('/chopp_name') && method === 'PUT') {
                 return new Response(JSON.stringify({ message: 'Chopp name atualizado' }), { status: 200 });
             }
+            if (url.endsWith('/recipes') && method === 'GET') {
+                return new Response(JSON.stringify(dbRecipes), { status: 200 });
+            }
+            if (url.endsWith('/recipes') && method === 'POST') {
+                const newRec = { id: 301 + dbRecipes.length, ...body };
+                dbRecipes.push(newRec);
+                return new Response(JSON.stringify({ message: 'Salva', id: newRec.id }), { status: 201 });
+            }
             return new Response(JSON.stringify([]), { status: 200 });
         });
 
@@ -241,8 +250,21 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(nextBtnStep1).toBeTruthy();
         expect(nextBtnStep1.disabled).toBe(true);
 
+        // Testa importação de arquivo BeerXML antes de customizar
+        const fileInput = container.querySelector('input[data-testid="recipe-file-input"]') as HTMLInputElement;
+        expect(fileInput).toBeTruthy();
+        const sampleBeerXml = `<RECIPES><RECIPE><NAME>Imported BeerXML Ale</NAME><STYLE><NAME>American Pale Ale</NAME></STYLE><BATCH_SIZE>22</BATCH_SIZE><EST_OG>1.054</EST_OG><EST_FG>1.011</EST_FG><PRIMARY_AGE>6</PRIMARY_AGE><PRIMARY_TEMP>19</PRIMARY_TEMP><FERMENTABLES><FERMENTABLE><NAME>Pale Malt</NAME><AMOUNT>5.0</AMOUNT></FERMENTABLE></FERMENTABLES><HOPS><HOP><NAME>Cascade</NAME><AMOUNT>0.050</AMOUNT></HOP></HOPS><YEASTS><YEAST><NAME>US-05</NAME></YEAST></YEASTS></RECIPE></RECIPES>`;
+        const xmlFile = new File([sampleBeerXml], 'recipe.xml', { type: 'text/xml' });
+        await act(async () => {
+            Object.defineProperty(fileInput, 'files', { value: [xmlFile], configurable: true });
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Receita e ingredientes importados (1 maltes, 1 lúpulos, 1 leveduras)');
+
         // Preenche Nome da Receita, Estilo e Volume
         const recipeInput = container.querySelector('input[placeholder="Ex: IPA da Casa"]') as HTMLInputElement;
+        expect(recipeInput.value).toBe('Imported BeerXML Ale');
         setInputValue(recipeInput, 'West Coast IPA');
         expect(nextBtnStep1.disabled).toBe(false); // Habilitou imediatamente!
 
@@ -264,9 +286,10 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         // Avança para o Passo 3 (Perfil de Temperatura)
         clickElement(findButtonByText('Próximo'));
         expect(container.textContent).toContain('Perfil de Temperatura');
+        expect(container.textContent).toContain('Presets Rápidos de Fermentação');
 
-        // Adiciona uma 3ª rampa ("Cold Crash") e altera a 1ª rampa para 19°C
-        clickElement(findButtonByText('Adicionar Rampa'));
+        // Aplica preset "Ale Clássica" (que já traz 3 etapas: Primária 5d, Diacetil 3d, Cold Crash 3d) e ajusta para 7d + 3d + 3d = 13 dias
+        clickElement(findButtonByText('Ale Clássica'));
         const step3TextInputs = container.querySelectorAll('input[placeholder="Nome da Etapa"]');
         expect(step3TextInputs.length).toBe(3);
         setInputValue(step3TextInputs[2] as HTMLInputElement, 'Cold Crash');
@@ -274,9 +297,19 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         const step3NumInputs = container.querySelectorAll('input[type="number"]');
         // Cada rampa tem 3 inputs numéricos: Temp (°C), Tempo (Dias) e Avançar em SG (Opcional)
         setInputValue(step3NumInputs[0] as HTMLInputElement, '19');   // Rampa 1: 19°C
+        setInputValue(step3NumInputs[1] as HTMLInputElement, '7');    // Rampa 1: 7 dias
         setInputValue(step3NumInputs[2] as HTMLInputElement, '1018'); // Rampa 1: Avançar quando SG <= 1.018 (normaliza 4 dígitos!)
+        setInputValue(step3NumInputs[3] as HTMLInputElement, '18');   // Rampa 2: 18°C
         setInputValue(step3NumInputs[6] as HTMLInputElement, '2');    // Rampa 3: 2°C
         setInputValue(step3NumInputs[7] as HTMLInputElement, '3');    // Rampa 3: 3 dias
+
+        // Salva nos Perfis Favoritos e verifica que apareceu na lista "Meus Perfis Favoritos"
+        await act(async () => {
+            findButtonByText('Salvar Favorito')!.click();
+            await new Promise(r => setTimeout(r, 40));
+        });
+        expect(fetchCalls.some(c => c.url.endsWith('/recipes') && c.method === 'POST')).toBe(true);
+        expect(container.textContent).toContain('Meus Perfis Favoritos');
 
         // Avança para o Passo 4 (Resumo)
         clickElement(findButtonByText('Próximo'));
