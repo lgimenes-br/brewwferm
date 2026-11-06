@@ -4,7 +4,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, UserAlertConfig } from '../services/api';
+import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, fetchFirmwareVersion, UserAlertConfig } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 interface PIDParams {
@@ -273,19 +273,9 @@ export const Settings: React.FC = () => {
 
   // Fetch latest firmware version from backend
   useEffect(() => {
-      const fetchFirmwareVersion = async () => {
-          try {
-              const baseUrl = window.location.origin;
-              const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
-              if (res.ok) {
-                  const data = await res.json();
-                  setLatestFirmware(data);
-              }
-          } catch (e) {
-              console.error('Erro ao buscar versão do firmware:', e);
-          }
-      };
-      fetchFirmwareVersion();
+      fetchFirmwareVersion().then(data => {
+          if (data) setLatestFirmware(data);
+      });
   }, []);
 
   useEffect(() => {

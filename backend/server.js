@@ -178,6 +178,41 @@ const toEsp32Steps = (profile) => (Array.isArray(profile) ? profile : []).map(st
     d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24 // ESP32 expects hours
 }));
 
+// Normalizes profile arrays coming from either the frontend ({ name, temperature, duration })
+// or the ESP32 physical wizard ({ n, t, d } where d is in hours) into standard days-based steps
+const normalizeIncomingProfile = (rawProfile) => {
+    if (!rawProfile) return null;
+    let arr = rawProfile;
+    if (typeof rawProfile === 'string') {
+        try { arr = JSON.parse(rawProfile); } catch (e) { return null; }
+    }
+    if (!Array.isArray(arr)) return null;
+    return arr.map((step, idx) => {
+        if (!step || typeof step !== 'object') return step;
+        if (step.duration !== undefined) {
+            return {
+                ...step,
+                id: step.id || String(idx + 1),
+                name: step.name || step.n || `Etapa ${idx + 1}`,
+                temperature: Number(step.temperature ?? step.t ?? 20),
+                duration: Number(step.duration)
+            };
+        }
+        // Step came from ESP32 in { n, t, d } format where d is in hours
+        const rawHours = Number(step.d);
+        const durationDays = !isNaN(rawHours) && rawHours > 0 ? Number((rawHours / 24).toFixed(4)) : 1;
+        return {
+            id: step.id || String(idx + 1),
+            name: step.name || step.n || `Etapa ${idx + 1}`,
+            temperature: Number(step.temperature ?? step.t ?? 20),
+            duration: durationDays,
+            ...(step.triggerGravity !== undefined || step.g !== undefined
+                ? { triggerGravity: Number(step.triggerGravity ?? step.g) }
+                : {})
+        };
+    });
+};
+
 // Shared Batch Step Advancement Helper (used by Smart Scheduler & live SG Trigger)
 const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex, gravityTriggered, liveSgNorm, trigNorm }) => {
     const nextStep = profile[newIndex] || {};
@@ -289,7 +324,11 @@ setInterval(async () => {
                 if (!currentStep || !stepDuration) continue;
 
                 const elapsedMs = Date.now() - new Date(batch.step_started_at).getTime();
-                const durationMs = parseFloat(stepDuration) * 24 * 60 * 60 * 1000;
+                // If step only has .d (ESP32 raw format), it was sent in hours; .duration is stored in days
+                const durationDays = currentStep.duration !== undefined
+                    ? parseFloat(stepDuration)
+                    : (parseFloat(stepDuration) / 24);
+                const durationMs = durationDays * 24 * 60 * 60 * 1000;
 
                 // Check Gravity Trigger (optional per-step target SG)
                 let gravityTriggered = false;
@@ -335,7 +374,9 @@ console.log(`🔌 [MQTT] Conectando a ${brokerUrl}...`);
 
 const mqttClient = mqtt.connect(brokerUrl, {
     clientId: 'server_pro_' + Math.random().toString(16).substr(2, 8),
-    username: 'esp32user', password: 'esp32', reconnectPeriod: 5000
+    username: process.env.MQTT_USER || 'esp32user',
+    password: process.env.MQTT_PASSWORD || 'esp32',
+    reconnectPeriod: 5000
     // Note: MQTT.js handles ws/wss protocols automatically based on URL scheme
 });
 
@@ -381,8 +422,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                         // Terminar qualquer lote ativo
                         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [deviceId]);
                         
-                        // Criar novo lote
-                        const profileJson = payload.profile ? JSON.stringify(payload.profile) : null;
+                        // Criar novo lote (normalizando perfil caso venha em horas {n, t, d} da tela do ESP32)
+                        const normalizedProfile = normalizeIncomingProfile(payload.profile);
+                        const profileJson = normalizedProfile ? JSON.stringify(normalizedProfile) : null;
                         const name = payload.name || `Lote Físico #${Math.floor(Math.random() * 1000)}`;
                         const style = payload.style || '';
                         
@@ -1006,6 +1048,78 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
         notifyUpdate(req.params.serial);
         res.json({ message: 'Excluído' });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/devices/:serial/command', authenticateToken, async (req, res) => {
+    try {
+        const rawSerial = String(req.params.serial || '').trim();
+        const normSerial = rawSerial.toUpperCase();
+        if (!rawSerial) return res.status(400).json({ error: 'Serial inválido' });
+
+        // Verify ownership (or admin privilege verified against DB)
+        const [devs] = await pool.execute('SELECT id, user_id, serial_code FROM devices WHERE UPPER(serial_code) = ? LIMIT 1', [normSerial]);
+        if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
+
+        if (Number(devs[0].user_id) !== Number(req.user.id)) {
+            const [uRows] = await pool.execute('SELECT role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+            if (!uRows.length || uRows[0].role !== 'admin') {
+                return res.status(403).json({ error: 'Acesso negado a este equipamento' });
+            }
+        }
+
+        const payload = req.body && typeof req.body === 'object' ? { ...req.body } : {};
+        const type = String(payload.type || payload.cmd || '').trim();
+        if (!type) return res.status(400).json({ error: 'Tipo de comando obrigatório' });
+
+        // Guard against arbitrary external URLs in update_firmware unless safe HTTP(S)
+        if (type === 'update_firmware' && payload.url) {
+            try {
+                const parsedUrl = new URL(String(payload.url));
+                if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+                    return res.status(400).json({ error: 'URL de firmware inválida' });
+                }
+            } catch (e) {
+                return res.status(400).json({ error: 'URL de firmware inválida' });
+            }
+        }
+
+        const targetSerial = devs[0].serial_code || rawSerial;
+        const msg = JSON.stringify({ ...payload, type, cmd: type });
+        mqttClient.publish(`brewbrother/${targetSerial}/comando`, msg);
+        mqttClient.publish(`brewbrother/${targetSerial}/command`, msg);
+
+        // Keep step_started_at / current_step_index synchronized on manual step overrides
+        if (type === 'setProfile' && payload.currentStep !== undefined) {
+            const [batches] = await pool.execute(
+                'SELECT id, current_step_index FROM batches WHERE device_id = ? AND is_active = 1 LIMIT 1',
+                [devs[0].id]
+            );
+            if (batches.length > 0 && Number(batches[0].current_step_index) !== Number(payload.currentStep)) {
+                await pool.execute(
+                    'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
+                    [payload.currentStep, batches[0].id]
+                );
+                alertState[normSerial] = { ...(alertState[normSerial] || {}), lastStepIndex: Number(payload.currentStep), lastStepAdvanceTs: Date.now() };
+            }
+        } else if (type === 'skipStep') {
+            const [batches] = await pool.execute(
+                'SELECT id, current_step_index FROM batches WHERE device_id = ? AND is_active = 1 LIMIT 1',
+                [devs[0].id]
+            );
+            if (batches.length > 0) {
+                const nextStep = (Number(batches[0].current_step_index) || 0) + 1;
+                await pool.execute(
+                    'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
+                    [nextStep, batches[0].id]
+                );
+                alertState[normSerial] = { ...(alertState[normSerial] || {}), lastStepIndex: nextStep, lastStepAdvanceTs: Date.now() };
+            }
+        }
+
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Falha ao enviar comando' });
+    }
 });
 
 app.post('/api/batch/start', authenticateToken, async (req, res) => {

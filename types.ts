@@ -144,6 +144,12 @@ export const normalizeGravity = (val: any, fallback = 0): number => {
     return n > 500 ? n / 1000 : n;
 };
 
+export const isDeviceOnline = (fermenter?: Fermenter | null, nowMs = Date.now(), timeoutMs = 30000): boolean => {
+    if (!fermenter?.currentDevice?.lastUpdate) return false;
+    const lastUpdate = new Date(fermenter.currentDevice.lastUpdate).getTime();
+    return !isNaN(lastUpdate) && lastUpdate > 0 && (nowMs - lastUpdate) < timeoutMs;
+};
+
 export const parseBeerStyle = (rawStyle: any): BeerStyle => {
     if (typeof rawStyle === 'string') {
         const styleUpper = rawStyle.toUpperCase().replace(/\s+/g, '_');

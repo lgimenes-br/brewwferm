@@ -89,6 +89,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setRole(null);
     };
 
+    React.useEffect(() => {
+        const handleUnauthorized = () => {
+            if (localStorage.getItem('token')) {
+                logout();
+                toast.error('Sessão expirada. Faça login novamente.');
+            }
+        };
+        window.addEventListener('auth:unauthorized', handleUnauthorized);
+        return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    }, []);
+
     return (
         <AuthContext.Provider value={{ token, user, role, login, loginWithGoogle, logout, register }}>
             {children}

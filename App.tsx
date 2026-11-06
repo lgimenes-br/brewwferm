@@ -12,7 +12,8 @@ import { BrewingCalculators } from './components/BrewingCalculators';
 import { CompareBatches } from './components/CompareBatches';
 import { PublicLiveBatch } from './components/PublicLiveBatch';
 import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
-import { DeviceMode } from './types';
+import { DeviceMode, isDeviceOnline } from './types';
+import { fetchFirmwareVersion } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -39,19 +40,9 @@ const NavConfig = () => {
     }, []);
 
     React.useEffect(() => {
-        const fetchFirmwareVersion = async () => {
-            try {
-                const baseUrl = window.location.origin;
-                const res = await fetch(`${baseUrl}/firmware/version.json?t=${new Date().getTime()}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setLatestFirmware(data);
-                }
-            } catch (e) {
-                console.error('Erro ao buscar versão do firmware:', e);
-            }
-        };
-        fetchFirmwareVersion();
+        fetchFirmwareVersion().then(data => {
+            if (data) setLatestFirmware(data);
+        });
     }, []);
 
     // If admin, we don't render this NavConfig. They get a full-screen admin experience.
@@ -78,14 +69,10 @@ const NavConfig = () => {
         window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode } }));
     };
 
-    let isOnline = false;
-    let statOp = 'INATIVO';
-    
-    if (activeDevice?.currentDevice) {
-        const lastUpdate = activeDevice.currentDevice.lastUpdate ? new Date(activeDevice.currentDevice.lastUpdate).getTime() : 0;
-        isOnline = !isNaN(lastUpdate) && lastUpdate > 0 && (now - lastUpdate) < 30 * 1000;
-        statOp = isOnline ? String(activeDevice.currentDevice.statOp || 'INATIVO').toUpperCase() : 'OFFLINE';
-    }
+    const isOnline = isDeviceOnline(activeDevice, now);
+    const statOp = isOnline
+        ? String(activeDevice?.currentDevice?.statOp || 'INATIVO').toUpperCase()
+        : (activeDevice?.currentDevice ? 'OFFLINE' : 'INATIVO');
 
     // Icon Styles
     const iconOnlyBase = "flex items-center justify-center w-9 h-9 rounded-md border transition-all shrink-0 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white";

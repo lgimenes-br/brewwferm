@@ -12,6 +12,45 @@ const getHeaders = (token?: string | null) => {
   return headers;
 };
 
+const checkUnauthorized = (res: Response) => {
+  if (res.status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  }
+};
+
+let cachedFirmwareInfo: { data: { version: string; md5?: string; url?: string } | null; ts: number } | null = null;
+export const fetchFirmwareVersion = async (): Promise<{ version: string; md5?: string; url?: string } | null> => {
+  if (cachedFirmwareInfo && Date.now() - cachedFirmwareInfo.ts < 60000) {
+    return cachedFirmwareInfo.data;
+  }
+  try {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const res = await fetch(`${baseUrl}/firmware/version.json?t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      cachedFirmwareInfo = { data, ts: Date.now() };
+      return data;
+    }
+  } catch (e) {
+    // Ignore firmware check failures offline
+  }
+  return null;
+};
+
+export const sendDeviceCommand = async (serialCode: string, type: string, payload: any = {}, token?: string | null) => {
+  const res = await fetch(`${API_URL}/devices/${encodeURIComponent(serialCode)}/command`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify({ ...(payload || {}), type, cmd: type })
+  });
+  checkUnauthorized(res);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Falha ao enviar comando ao equipamento');
+  }
+  return res.json();
+};
+
 // --- Auth ---
 export const login = async (email: string, pass: string) => {
   const res = await fetch(`${API_URL}/login`, {
@@ -53,6 +92,7 @@ export const fetchDevices = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/devices`, {
     headers: getHeaders(token)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to fetch devices');
   return res.json();
 };
@@ -63,6 +103,7 @@ export const updateChoppName = async (token: string, deviceId: string, choppName
         headers: getHeaders(token),
         body: JSON.stringify({ choppName })
     });
+    checkUnauthorized(res);
     if (!res.ok) throw new Error('Falha ao atualizar chopp');
     return res.json();
 };
@@ -73,6 +114,7 @@ export const updateSensors = async (token: string, deviceId: string, sensor1Name
         headers: getHeaders(token),
         body: JSON.stringify({ sensor1Name, sensor2Name, sensorSgName })
     });
+    checkUnauthorized(res);
     if (!res.ok) throw new Error('Falha ao atualizar sensores');
     return res.json();
 };
@@ -81,6 +123,7 @@ export const fetchBatches = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/batches`, {
     headers: getHeaders(token)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to fetch batches');
   return res.json();
 };
@@ -90,6 +133,7 @@ export const deleteBatch = async (id: string | number, token?: string | null) =>
     method: 'DELETE',
     headers: getHeaders(token)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to delete batch');
   return res.json();
 };
@@ -100,6 +144,7 @@ export const addDevice = async (serialCode: string, name: string) => {
     headers: getHeaders(),
     body: JSON.stringify({ serialCode, name })
   });
+  checkUnauthorized(res);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to add device');
@@ -113,6 +158,7 @@ export const updateDevice = async (serialCode: string, name: string) => {
     headers: getHeaders(),
     body: JSON.stringify({ name })
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to update device');
   return res.json();
 };
@@ -122,6 +168,7 @@ export const deleteDevice = async (serialCode: string) => {
     method: 'DELETE',
     headers: getHeaders()
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to delete device');
   return true;
 };
@@ -133,6 +180,7 @@ export const startBatch = async (serialCode: string, name: string, style: string
     headers: getHeaders(),
     body: JSON.stringify({ serialCode, name, style, og, fg, volume, profile, ...(ingredients ? { ingredients } : {}) })
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to start batch');
   return res.json();
 };
@@ -142,6 +190,7 @@ export const fetchRecipes = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/recipes`, {
     headers: getHeaders(token)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to fetch recipes');
   return res.json();
 };
@@ -152,6 +201,7 @@ export const saveRecipe = async (recipe: { name: string; style?: string; og?: nu
     headers: getHeaders(token),
     body: JSON.stringify(recipe)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to save recipe');
   return res.json();
 };
@@ -161,6 +211,7 @@ export const deleteRecipe = async (id: string | number, token?: string | null) =
     method: 'DELETE',
     headers: getHeaders(token)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to delete recipe');
   return res.json();
 };

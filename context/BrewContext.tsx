@@ -4,6 +4,7 @@ import { MQTT_BROKER } from '../config';
 import { useAuth } from './AuthContext';
 import { useFermenters } from '../hooks/useFermenters';
 import { FermenterStatus, DeviceMode } from '../types';
+import { sendDeviceCommand } from '../services/api';
 
 interface BrewContextType {
     connectionStatus: 'connected' | 'disconnected';
@@ -334,17 +335,28 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
     const sendCommand = useCallback((serialCode: string, type: string, payload: any) => {
-        if (clientRef.current && serialCode) {
-            const normalizedSerial = serialCode.trim().toUpperCase();
+        if (!serialCode) return;
+        const normalizedSerial = serialCode.trim().toUpperCase();
+        // Ownership guard on client side when fermenter list is loaded
+        if (fermentersRef.current.length > 0) {
+            const ownsDevice = fermentersRef.current.some(f => (f.id || '').trim().toUpperCase() === normalizedSerial);
+            if (!ownsDevice) return;
+        }
+        // Cooldown: bloqueia telemetria de sobrescrever updates otimistas (exceto comandos de leitura)
+        if (type !== 'request_status' && type !== 'scan_sensors') {
+            commandCooldownRef.current[normalizedSerial] = Date.now();
+        }
+        // Publica via MQTT local (e mantém compatibilidade com mocks de testes)
+        if (clientRef.current) {
             const msg = JSON.stringify({ ...payload, type, cmd: type });
             clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
             clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
-            // Cooldown: bloqueia telemetria de sobrescrever updates otimistas (exceto comandos de leitura)
-            if (type !== 'request_status' && type !== 'scan_sensors') {
-                commandCooldownRef.current[normalizedSerial] = Date.now();
-            }
         }
-    }, []);
+        // Envia também via endpoint autenticado do backend (garante entrega mesmo com broker restrito por ACL)
+        if (token && type !== 'request_status') {
+            sendDeviceCommand(serialCode, type, payload, token).catch(() => {});
+        }
+    }, [token]);
 
     const clearOtaProgress = useCallback(() => {
         setOtaProgress({});
