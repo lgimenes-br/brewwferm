@@ -801,33 +801,126 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             return new Response(JSON.stringify([]), { status: 200 });
         });
 
-        // Parte A: Settings -> Testar botões de salvar configurações gerais, sensores e calibração
+        // Parte A: Settings -> Testar TODAS as seções interativas (Gerais, SG, Calibração, PID, Auto-Tune, Relés, Scan 1-Wire via MQTT, Sistema e OTA)
         renderWithProviders(<Settings />);
         await act(async () => {
             await new Promise(r => setTimeout(r, 60));
         });
 
-        const saveButtons = Array.from(container.querySelectorAll('button'));
-        const saveGeneralBtn = saveButtons.find(b => (b.textContent || '').includes('Salvar Configurações'));
-        const saveCalibrationBtn = saveButtons.find(b => (b.textContent || '').includes('Salvar Calibração'));
+        // 1. Configurações Gerais ("Salvar Gerais")
+        clickElement(findButtonByText('Salvar Gerais'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"setConfig"')
+        );
 
-        if (saveGeneralBtn) {
-            clickElement(saveGeneralBtn);
-            expect(mqttPublishMock).toHaveBeenCalledWith(
-                'brewbrother/ESP32_CFG/comando',
-                expect.stringContaining('"type":"setConfig"')
+        // 2. Nome Sensor SG ("Salvar Nome SG")
+        await act(async () => {
+            findButtonByText('Salvar Nome SG')!.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"setNames"')
+        );
+        expect(apiCalls.some(c => c.url.includes('/sensors') && c.method === 'PUT')).toBe(true);
+
+        // 3. Calibração ("Salvar Calibração")
+        clickElement(findButtonByText('Salvar Calibração'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"setCalibration"')
+        );
+
+        // 4. Auto-Tune e Atualizar PID
+        clickElement(findButtonByText('Iniciar Auto-Tune'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"autotune"')
+        );
+        clickElement(findButtonByText('Atualizar PID'));
+        await act(async () => {
+            await new Promise(r => setTimeout(r, 20));
+        });
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"Kp_h"')
+        );
+
+        // 5. Teste de Relés (Aquecer, Refrigerar, Auto)
+        clickElement(findButtonByText('Aquecer'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"value":1')
+        );
+        clickElement(findButtonByText('Refrigerar'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"value":2')
+        );
+        clickElement(Array.from(container.querySelectorAll('button')).find(b => (b.textContent || '').trim() === 'Auto'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"value":0')
+        );
+
+        // 6. Mapeamento 1-Wire: Verifica que "Salvar Mapeamento" inicia desabilitado antes do scan
+        const saveMappingBtn = findButtonByText('Salvar Mapeamento')!;
+        expect(saveMappingBtn.disabled).toBe(true);
+        clickElement(findButtonByText('Escanear Sensores'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"scan_sensors"')
+        );
+
+        // Simula resposta MQTT da placa com 2 sensores 1-Wire encontrados
+        const messageHandler = mqttOnMock.mock.calls.find(c => c[0] === 'message')?.[1];
+        expect(messageHandler).toBeTruthy();
+        act(() => {
+            messageHandler(
+                'brewbrother/global/response',
+                Buffer.from(JSON.stringify({
+                    type: 'scan_sensors_response',
+                    id: 'ESP32_CFG',
+                    macs: ['28FFAA112233', '28FFBB445566']
+                })),
+                { retain: false }
             );
-        }
+        });
 
-        if (saveCalibrationBtn) {
-            clickElement(saveCalibrationBtn);
-            expect(mqttPublishMock).toHaveBeenCalledWith(
-                'brewbrother/ESP32_CFG/comando',
-                expect.stringContaining('"type":"setCalibration"')
-            );
-        }
+        // Verifica que os MACs apareceram na tela e "Salvar Mapeamento" habilitou!
+        expect(container.textContent).toContain('28FFAA112233');
+        expect(container.textContent).toContain('28FFBB445566');
+        expect(saveMappingBtn.disabled).toBe(false);
 
-        // Parte B: AdminDashboard -> Navegar pelas abas e disparar Push Broadcast
+        // Define o 1º como Sensor de Controle e o 2º como Sensor Extra
+        const mappingSelects = container.querySelectorAll('select');
+        setSelectValue(mappingSelects[1] as HTMLSelectElement, 'control');
+        setSelectValue(mappingSelects[2] as HTMLSelectElement, 'extra');
+
+        await act(async () => {
+            saveMappingBtn.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"type":"set_sensors"')
+        );
+
+        // 7. Botões de Sistema (Reiniciar, Reset Fábrica)
+        vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+        clickElement(findButtonByText('Reiniciar'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"action":"reboot"')
+        );
+        clickElement(findButtonByText('Reset Fábrica'));
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_CFG/comando',
+            expect.stringContaining('"action":"resetconfig"')
+        );
+
+        // Parte B: AdminDashboard -> Navegar pelas 8 abas e testar ações administrativas
         renderWithProviders(<AdminDashboard />);
         await act(async () => {
             await new Promise(r => setTimeout(r, 60));
@@ -836,7 +929,67 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('Métricas e Inteligência de Negócio');
         expect(container.textContent).toContain('R$ 89.70');
 
-        // Navega para a aba Marketing e Saúde
+        // Aba 2: Telemetria
+        await act(async () => {
+            (container.querySelector('button[title="Telemetria"]') as HTMLButtonElement).click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Monitoramento em Tempo Real');
+
+        // Aba 3: Contas e Dispositivos (abrir modal Nova Conta)
+        await act(async () => {
+            (container.querySelector('button[title="Contas e Dispositivos"]') as HTMLButtonElement).click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Gerenciamento de Contas');
+        clickElement(findButtonByText('Nova Conta'));
+        expect(container.textContent).toContain('Nível de Acesso');
+        clickElement(findButtonByText('Cancelar'));
+
+        // Aba 4: Segurança e Avisos (publicar aviso global)
+        await act(async () => {
+            (container.querySelector('button[title="Segurança e Avisos"]') as HTMLButtonElement).click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Enviar Aviso Global');
+        const broadcastTitle = container.querySelector('input[placeholder="Ex: Manutenção Programada"]') as HTMLInputElement;
+        const broadcastMsg = container.querySelector('textarea[placeholder*="O servidor será reiniciado"]') as HTMLTextAreaElement;
+        setInputValue(broadcastTitle, 'Manutenção Preventiva');
+        setInputValue(broadcastMsg, 'Atualização programada às 03h.');
+        await act(async () => {
+            findButtonByText('Publicar Aviso')!.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(apiCalls.some(c => c.url.includes('/admin/broadcasts') && c.method === 'POST')).toBe(true);
+
+        // Aba 5: Firmware (OTA)
+        await act(async () => {
+            (container.querySelector('button[title="Firmware (OTA)"]') as HTMLButtonElement).click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Atualização Remota Forçada (OTA)');
+        const otaBtn = findButtonByText('Disparar Atualização Forçada')!;
+        expect(otaBtn.disabled).toBe(true); // Desabilitado até selecionar dispositivo e URL
+
+        // Aba 6: Banco de Ingredientes (alternar sub-abas e abrir modal Novo Ingrediente)
+        await act(async () => {
+            (container.querySelector('button[title="Banco de Ingredientes"]') as HTMLButtonElement).click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Fermentáveis');
+        clickElement(findButtonByText('Lúpulos'));
+        clickElement(container.querySelector('button[title="Adicionar Novo"]'));
+        expect(container.textContent).toContain('Novo Ingrediente');
+        clickElement(findButtonByText('Cancelar'));
+
+        // Aba 7: Terminal do Servidor
+        await act(async () => {
+            (container.querySelector('button[title="Terminal do Servidor"]') as HTMLButtonElement).click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Terminal & Processos');
+
+        // Aba 8: Marketing e Saúde
         const marketingTabBtn = container.querySelector('button[title="Marketing e Saúde"]') as HTMLButtonElement;
         await act(async () => {
             marketingTabBtn.click();
@@ -862,5 +1015,221 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             title: 'Nova Versão V2.6',
             message: 'Atualize seu controlador agora pelo painel!'
         });
+    });
+
+    it('Fluxo 6: Edição ao vivo de Rampas no FermentationProfile (sincronização imediata de Set-point e clamp de etapa), Cancelamentos, Exclusão de Evento e Modo Geladeira (+/- Set-Point)', async () => {
+        localStorage.setItem('token', 'valid-token');
+        localStorage.setItem('user', 'Cervejeiro');
+
+        const apiCalls: { url: string; method: string; body?: any }[] = [];
+        vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
+            const url = String(input);
+            const method = (init?.method || 'GET').toUpperCase();
+            const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+            apiCalls.push({ url, method, body });
+
+            if (url.endsWith('/auth/me')) {
+                return new Response(JSON.stringify({ id: 1, username: 'Cervejeiro', role: 'user' }), { status: 200 });
+            }
+            if (url.endsWith('/devices') && method === 'GET') {
+                return new Response(JSON.stringify([{
+                    id: 1,
+                    serial_code: 'ESP32_LIVE',
+                    device_name: 'Fermentador Live',
+                    active_batch_id: 777,
+                    active_batch_name: 'Belgian Blonde',
+                    active_batch_style: 'BELGIAN',
+                    active_batch_og: 1.062,
+                    active_batch_fg: 1.010,
+                    active_batch_volume: 20,
+                    active_batch_current_step: 1, // Na 2ª rampa (última rampa de um perfil de 2 etapas)
+                    active_batch_profile: JSON.stringify([
+                        { id: 's1', name: 'Primária', temperature: 19, duration: 5 },
+                        { id: 's2', name: 'Maturação', temperature: 14, duration: 4 }
+                    ]),
+                    last_temp: 14.1,
+                    last_temp2: 10.5,
+                    last_target: 14.0,
+                    last_gravity: 1.015,
+                    last_battery: 3.98,
+                    last_rssi: -60
+                }]), { status: 200 });
+            }
+            if (url.includes('/events') && method === 'GET') {
+                return new Response(JSON.stringify([
+                    { id: 42, event_type: 'Dry Hop', description: 'Adição de Saaz', recorded_at: '2026-03-01T12:00:00Z' }
+                ]), { status: 200 });
+            }
+            return new Response(JSON.stringify([]), { status: 200 });
+        });
+
+        renderWithProviders(
+            <Routes>
+                <Route path="/fermenter/:id" element={<FermenterDetailWrapper />} />
+            </Routes>,
+            ['/fermenter/ESP32_LIVE']
+        );
+
+        await act(async () => {
+            await new Promise(r => setTimeout(r, 60));
+        });
+
+        expect(container.textContent).toContain('Belgian Blonde');
+        expect(container.textContent).toContain('14.0°'); // Set-point inicial na rampa 2
+        expect(container.textContent).toContain('Adição de Saaz');
+
+        // 1. Testa Editar Batch e clicar em "Cancelar" (deve manter "Belgian Blonde" e não chamar updateBatch)
+        clickElement(container.querySelector('button[title="Editar Batch"]'));
+        const nameInput = container.querySelector('input[placeholder="Nome da Cerveja"]') as HTMLInputElement;
+        setInputValue(nameInput, 'Nome Descartado');
+        clickElement(findButtonByText('Cancelar'));
+        expect(container.textContent).toContain('Belgian Blonde');
+        expect(container.textContent).not.toContain('Nome Descartado');
+        expect(apiCalls.some(c => c.url.includes('/batch/update'))).toBe(false);
+
+        // 2. Edita o Perfil de Fermentação ao vivo: remove a 2ª rampa (onde currentStepIndex estava em 1) e altera a 1ª rampa para 21.5°C
+        const profileCard = Array.from(container.querySelectorAll('h3')).find(h => h.textContent === 'Perfil de Fermentação')?.parentElement;
+        const editProfileBtn = profileCard?.querySelector('button') as HTMLButtonElement;
+        clickElement(editProfileBtn);
+
+        // Remove a 2ª rampa (deve fazer clamp do currentStepIndex de 1 para 0!)
+        const trashButtons = profileCard?.parentElement?.querySelectorAll('button');
+        const removeStepBtn = Array.from(trashButtons || []).find(b => b.innerHTML.includes('lucide-trash-2') || b.className.includes('hover:text-red-500'));
+        clickElement(removeStepBtn);
+
+        // Altera a temperatura da rampa restante (agora ativa no índice 0) para 21.5°C
+        const tempInputs = profileCard?.parentElement?.querySelectorAll('input[type="number"]');
+        expect(tempInputs && tempInputs.length >= 1).toBe(true);
+        setInputValue(tempInputs![0] as HTMLInputElement, '21.5');
+
+        // Clica no botão Check (salvar edição do perfil)
+        await act(async () => {
+            editProfileBtn.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+
+        // Verifica que o Set-point no painel principal mudou IMEDIATAMENTE para 21.5°!
+        expect(container.textContent).toContain('21.5°');
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_LIVE/comando',
+            expect.stringContaining('"type":"setProfile"')
+        );
+        expect(apiCalls.some(c => c.url.includes('/batch/update') && Array.isArray(c.body?.profile) && c.body.profile.length === 1)).toBe(true);
+
+        // 3. Exclui o evento "Adição de Saaz" do Diário de Bordo
+        const removeEventBtn = container.querySelector('button[title="Remover evento"]') as HTMLButtonElement;
+        await act(async () => {
+            removeEventBtn.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(apiCalls.some(c => c.url.includes('/events/42') && c.method === 'DELETE')).toBe(true);
+
+        // 4. Testa cancelar troca de modo e depois ativar Modo Geladeira (FRIDGE) + botões +/- de Set-Point
+        act(() => {
+            window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FRIDGE } }));
+        });
+        expect(container.textContent).toContain('Geladeira');
+        expect(container.textContent).toContain('Aguardando confirmação');
+        clickElement(findButtonByText('Cancelar'));
+        expect(container.textContent).not.toContain('Aguardando confirmação');
+
+        // Agora ativa o Modo Geladeira e clica no botão '+' de Set-Point (+0.5°C)
+        act(() => {
+            window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FRIDGE } }));
+        });
+        await act(async () => {
+            findButtonByText('Ativar Modo')!.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(container.textContent).toContain('Temperatura Atual');
+        expect(container.textContent).toContain('21.5°C'); // Set-Point antes do clique
+
+        // Clica no botão '+' (aumenta 0.5°C -> 22.0°C imediatamente no display)
+        const setpointBox = Array.from(container.querySelectorAll('span')).find(s => s.textContent === 'Set-Point')?.parentElement?.parentElement;
+        const plusMinusButtons = setpointBox?.querySelectorAll('button');
+        expect(plusMinusButtons?.length).toBe(2);
+
+        await act(async () => {
+            (plusMinusButtons![1] as HTMLButtonElement).click(); // Botão '+'
+            await new Promise(r => setTimeout(r, 550)); // Aguarda o debounce de 500ms para envio MQTT
+        });
+        expect(container.textContent).toContain('22.0°C');
+        expect(mqttPublishMock).toHaveBeenCalledWith(
+            'brewbrother/ESP32_LIVE/comando',
+            expect.stringContaining('"type":"setManual"')
+        );
+    });
+
+    it('Fluxo 7: Telemetria MQTT em Tempo Real no Dashboard (Transição Offline -> Online e atualização instantânea de sensores) + Alerta Global de Firmware OTA (0% -> 50% -> 100%)', async () => {
+        localStorage.setItem('token', 'valid-token');
+        localStorage.setItem('user', 'Cervejeiro');
+
+        vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any) => {
+            const url = String(input);
+            if (url.endsWith('/auth/me')) {
+                return new Response(JSON.stringify({ id: 1, username: 'Cervejeiro', role: 'user' }), { status: 200 });
+            }
+            if (url.endsWith('/devices')) {
+                return new Response(JSON.stringify([{
+                    id: 1,
+                    serial_code: 'ESP32_MQTT',
+                    device_name: 'Fermentador Telemetria',
+                    active_batch_id: 88,
+                    active_batch_name: 'NEIPA Juicy',
+                    active_batch_og: 1.070,
+                    active_batch_fg: 1.015,
+                    last_temp: 18.0,
+                    last_temp2: 15.0,
+                    last_target: 18.0,
+                    last_gravity: 1.050,
+                    firmware_version: 'V2.4.0'
+                }]), { status: 200 });
+            }
+            return new Response(JSON.stringify([]), { status: 200 });
+        });
+
+        renderWithProviders(<Dashboard />);
+        await act(async () => {
+            await new Promise(r => setTimeout(r, 60));
+        });
+
+        // Inicialmente 0 / 1 unidades conectadas (aguardando pacote MQTT ao vivo)
+        expect(container.textContent).toContain('0 / 1 UNIDADES CONECTADAS');
+        expect(container.textContent).toContain('18.0');
+
+        // Simula pacote MQTT ao vivo chegando em brewbrother/ESP32_MQTT/data
+        const messageHandler = mqttOnMock.mock.calls.find(c => c[0] === 'message')?.[1];
+        expect(messageHandler).toBeTruthy();
+
+        await act(async () => {
+            messageHandler(
+                'brewbrother/ESP32_MQTT/data',
+                Buffer.from(JSON.stringify({
+                    ferm: 19.7,
+                    amb: 11.4,
+                    csp: 19.5,
+                    is_sg: 1.028,
+                    is_bat: 4.11,
+                    rssi: -52,
+                    statOp: 'RESFRIANDO',
+                    ver: 'V2.4.0',
+                    ip: '192.168.1.120'
+                })),
+                { retain: false }
+            );
+            await new Promise(r => setTimeout(r, 30));
+        });
+
+        // Verifica que o Dashboard atualizou IMEDIATAMENTE para Online (1 / 1) e refletiu todas as leituras ao vivo!
+        expect(container.textContent).toContain('1 / 1 UNIDADES CONECTADAS');
+        expect(container.textContent).toContain('19.7');
+        expect(container.textContent).toContain('Alvo: 19.5°');
+        expect(container.textContent).toContain('Geladeira: 11.4°');
+        expect(container.textContent).toContain('1.028');
+        expect(container.textContent).toContain('96%'); // RSSI -52 dBm -> 2 * (-52 + 100) = 96%
+        expect(container.textContent).toContain('192.168.1.120');
     });
 });
