@@ -75,6 +75,16 @@ const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appen
         }
     }
 
+    // Preserve triggerGravity from existing profile when ESP32 telemetry sends raw steps ({ n, t, d })
+    if (Array.isArray(filteredRest.profile) && Array.isArray(f.profile) && f.profile.length > 0) {
+        filteredRest.profile = filteredRest.profile.map((step, idx) => {
+            if (step.triggerGravity === undefined && f.profile[idx]?.triggerGravity !== undefined) {
+                return { ...step, triggerGravity: f.profile[idx].triggerGravity };
+            }
+            return step;
+        });
+    }
+
     return { ...f, ...filteredRest, readings: updatedReadings } as Fermenter;
 };
 
@@ -168,11 +178,13 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                 if (Array.isArray(backendProfile) && backendProfile.length > 0) {
                     const newProfile = backendProfile.map((step: any, index: number) => {
                         const parsedTemp = parseFloat(step.temperature ?? step.t);
+                        const trigGrav = normalizeGravity(step.triggerGravity ?? step.g, 0);
                         return {
                             id: step.id || `step_${index}`,
                             name: step.name || step.n || `Etapa ${index + 1}`,
                             temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
-                            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
+                            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1),
+                            ...(trigGrav > 0 ? { triggerGravity: trigGrav } : {})
                         };
                     });
 
@@ -252,11 +264,13 @@ export const useFermenters = () => {
                                         if (Array.isArray(rawProf)) {
                                             parsedBatchProfile = rawProf.map((step: any, index: number) => {
                                                 const parsedTemp = parseFloat(step.t ?? step.temperature);
+                                                const trigGrav = normalizeGravity(step.triggerGravity ?? step.g, 0);
                                                 return {
                                                     id: step.id || `step_${index}`,
                                                     name: step.n || step.name || `Etapa ${index + 1}`,
                                                     temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
-                                                    duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1)
+                                                    duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1),
+                                                    ...(trigGrav > 0 ? { triggerGravity: trigGrav } : {})
                                                 };
                                             });
                                         }

@@ -166,7 +166,28 @@ setInterval(async () => {
                 const elapsedMs = Date.now() - new Date(batch.step_started_at).getTime();
                 const durationMs = parseFloat(stepDuration) * 24 * 60 * 60 * 1000;
 
-                if (elapsedMs >= durationMs) {
+                // Check Gravity Trigger (optional per-step target SG)
+                let gravityTriggered = false;
+                let latestGravNorm = 0;
+                const rawTriggerGrav = parseFloat(currentStep.triggerGravity ?? currentStep.g);
+                const triggerGravNorm = !isNaN(rawTriggerGrav) && rawTriggerGrav > 0
+                    ? (rawTriggerGrav > 500 ? rawTriggerGrav / 1000 : rawTriggerGrav)
+                    : 0;
+                if (triggerGravNorm > 0) {
+                    const [gRows] = await pool.execute(
+                        'SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 ORDER BY id DESC LIMIT 1',
+                        [batch.id]
+                    );
+                    if (gRows.length > 0) {
+                        const rawLastG = parseFloat(gRows[0].gravity);
+                        latestGravNorm = rawLastG > 500 ? rawLastG / 1000 : rawLastG;
+                        if (latestGravNorm > 0.980 && latestGravNorm <= triggerGravNorm) {
+                            gravityTriggered = true;
+                        }
+                    }
+                }
+
+                if (elapsedMs >= durationMs || gravityTriggered) {
                     const newIndex = batch.current_step_index + 1;
                     const nextStep = profile[newIndex] || {};
                     
@@ -200,7 +221,9 @@ setInterval(async () => {
                     // Log Event
                     const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
                     const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
-                    const desc = `Avançou automaticamente para a etapa: ${nextName} (${nextTemp}°C)`;
+                    const desc = gravityTriggered
+                        ? `Avançou automaticamente por densidade (SG ${latestGravNorm.toFixed(3)} <= ${triggerGravNorm.toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`
+                        : `Avançou automaticamente para a etapa: ${nextName} (${nextTemp}°C)`;
                     await pool.execute(
                         'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
                         [batch.id, 'SYSTEM_ACTION', desc]
@@ -208,10 +231,10 @@ setInterval(async () => {
 
                     // Send Push Notification
                     if (batch.user_id) {
-                        sendPushToUser(pool, batch.user_id, 'Avanço Automático de Etapa', desc);
+                        sendPushToUser(pool, batch.user_id, gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
                     }
-                    
-                    console.log(`🤖 [Smart Scheduler] Lote ${batch.id} avançou para etapa ${newIndex}`);
+                    notifyUpdate();
+                    console.log(`🤖 [Smart Scheduler] Lote ${batch.id} avançou para etapa ${newIndex} (${gravityTriggered ? 'SG Trigger' : 'Tempo'})`);
                 }
             }
         }
@@ -406,6 +429,61 @@ mqttClient.on('message', async (topic, message, packet) => {
                         }
                     } catch (err) {
                         console.error('Failed to get last gravity', err);
+                    }
+                }
+
+                // Instant Gravity-Triggered Step Advancement on live SG reading
+                if (currentBatchId && !stepSyncedInThisMessage && payload.is_sg && parseFloat(payload.is_sg) > 0) {
+                    try {
+                        const rawLiveSg = parseFloat(payload.is_sg);
+                        const liveSgNorm = rawLiveSg > 500 ? rawLiveSg / 1000 : rawLiveSg;
+                        if (liveSgNorm > 0.980) {
+                            const [bProfRows] = await pool.execute('SELECT profile, current_step_index FROM batches WHERE id = ?', [currentBatchId]);
+                            if (bProfRows.length > 0 && bProfRows[0].profile) {
+                                const prof = typeof bProfRows[0].profile === 'string' ? JSON.parse(bProfRows[0].profile) : bProfRows[0].profile;
+                                const curIdx = Number(bProfRows[0].current_step_index) || 0;
+                                if (Array.isArray(prof) && curIdx < prof.length - 1) {
+                                    const curStepObj = prof[curIdx];
+                                    const rawTrig = parseFloat(curStepObj?.triggerGravity ?? curStepObj?.g);
+                                    const trigNorm = !isNaN(rawTrig) && rawTrig > 0 ? (rawTrig > 500 ? rawTrig / 1000 : rawTrig) : 0;
+                                    if (trigNorm > 0 && liveSgNorm <= trigNorm) {
+                                        const nextIdx = curIdx + 1;
+                                        const nextStepObj = prof[nextIdx] || {};
+                                        await pool.execute('UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?', [nextIdx, currentBatchId]);
+                                        const payloadSteps = prof.map(step => ({
+                                            n: step.name || step.n,
+                                            t: step.temperature ?? step.t,
+                                            d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24
+                                        }));
+                                        const msg = JSON.stringify({
+                                            cmd: 'setProfile',
+                                            type: 'setProfile',
+                                            steps: payloadSteps,
+                                            currentStep: nextIdx,
+                                            currStep: nextIdx,
+                                            stepTime: 0
+                                        });
+                                        mqttClient.publish(`brewbrother/${parts[1]}/command`, msg);
+                                        mqttClient.publish(`brewbrother/${parts[1]}/comando`, msg);
+                                        const nextName = nextStepObj.name || nextStepObj.n || `Etapa ${nextIdx + 1}`;
+                                        const nextTemp = nextStepObj.temperature ?? nextStepObj.t ?? 0;
+                                        const desc = `Avançou automaticamente por densidade (SG ${liveSgNorm.toFixed(3)} <= ${trigNorm.toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`;
+                                        await pool.execute(
+                                            'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
+                                            [currentBatchId, 'SYSTEM_ACTION', desc]
+                                        );
+                                        const ownerId = activeBatchesUserId[serialCode];
+                                        if (ownerId) {
+                                            sendPushToUser(pool, ownerId, 'Avanço por Densidade Atingida 🎯', desc);
+                                        }
+                                        stepSyncedInThisMessage = true;
+                                        notifyUpdate();
+                                    }
+                                }
+                            }
+                        }
+                    } catch (gErr) {
+                        console.error('Gravity trigger check error:', gErr);
                     }
                 }
 

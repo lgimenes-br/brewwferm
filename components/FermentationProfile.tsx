@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { FermentationStep } from '../types';
-import { Plus, Trash2, Clock, Thermometer, Edit2, Check, Play, Pause, SkipBack, SkipForward, Square } from 'lucide-react';
+import { FermentationStep, normalizeGravity } from '../types';
+import { Plus, Trash2, Clock, Thermometer, Edit2, Check, Play, Pause, SkipBack, SkipForward, Square, FlaskConical } from 'lucide-react';
 
 interface FermentationProfileProps {
     steps: FermentationStep[];
@@ -166,12 +166,17 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
     const handleToggleEdit = () => {
         if (isEditing) {
-            const sanitizedSteps = localSteps.map((s, idx) => ({
-                ...s,
-                name: (s.name || '').trim() || `Etapa ${idx + 1}`,
-                temperature: s.temperature === null || s.temperature === ('' as any) || isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
-                duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
-            }));
+            const sanitizedSteps = localSteps.map((s, idx) => {
+                const parsedTrigger = normalizeGravity(s.triggerGravity, 0);
+                const { triggerGravity, ...restStep } = s;
+                return {
+                    ...restStep,
+                    name: (s.name || '').trim() || `Etapa ${idx + 1}`,
+                    temperature: s.temperature === null || s.temperature === ('' as any) || isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
+                    duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration),
+                    ...(parsedTrigger > 0 ? { triggerGravity: parsedTrigger } : {})
+                };
+            });
             setLocalSteps(sanitizedSteps);
             // User finished editing, save to backend
             onUpdateSteps(sanitizedSteps);
@@ -287,6 +292,26 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                             <span className="text-xs font-mono text-neutral-300">{step.duration}d</span>
                                         )}
                                     </div>
+                                    {(isEditing || (step.triggerGravity !== undefined && step.triggerGravity > 0)) && (
+                                        <div className="flex items-center gap-1.5" title="Gatilho de Densidade (Avança automaticamente ao atingir esta SG)">
+                                            <FlaskConical size={12} className="text-purple-400" />
+                                            {isEditing ? (
+                                                <input
+                                                    type="number"
+                                                    step="0.001"
+                                                    placeholder="SG alvo"
+                                                    aria-label={`Meta SG ${step.name}`}
+                                                    value={step.triggerGravity !== undefined && !isNaN(step.triggerGravity) ? step.triggerGravity : ''}
+                                                    onChange={(e) => handleChangeStep(step.id, 'triggerGravity', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                                                    className="bg-transparent text-xs font-mono text-purple-300 w-16 border-b border-neutral-700 outline-none focus:border-purple-500"
+                                                />
+                                            ) : (
+                                                <span className="text-[11px] font-mono text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                                                    ≤ {Number(step.triggerGravity).toFixed(3)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

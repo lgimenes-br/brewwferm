@@ -272,10 +272,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         setInputValue(step3TextInputs[2] as HTMLInputElement, 'Cold Crash');
 
         const step3NumInputs = container.querySelectorAll('input[type="number"]');
-        // Cada rampa tem 2 inputs numéricos: Temp (°C) e Tempo (Dias)
-        setInputValue(step3NumInputs[0] as HTMLInputElement, '19'); // Rampa 1: 19°C
-        setInputValue(step3NumInputs[4] as HTMLInputElement, '2');  // Rampa 3: 2°C
-        setInputValue(step3NumInputs[5] as HTMLInputElement, '3');  // Rampa 3: 3 dias
+        // Cada rampa tem 3 inputs numéricos: Temp (°C), Tempo (Dias) e Avançar em SG (Opcional)
+        setInputValue(step3NumInputs[0] as HTMLInputElement, '19');   // Rampa 1: 19°C
+        setInputValue(step3NumInputs[2] as HTMLInputElement, '1018'); // Rampa 1: Avançar quando SG <= 1.018 (normaliza 4 dígitos!)
+        setInputValue(step3NumInputs[6] as HTMLInputElement, '2');    // Rampa 3: 2°C
+        setInputValue(step3NumInputs[7] as HTMLInputElement, '3');    // Rampa 3: 3 dias
 
         // Avança para o Passo 4 (Resumo)
         clickElement(findButtonByText('Próximo'));
@@ -291,7 +292,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             await new Promise(r => setTimeout(r, 60));
         });
 
-        // Verifica que chamou POST /api/batch/start com OG normalizado (1.065) e as 3 rampas
+        // Verifica que chamou POST /api/batch/start com OG normalizado (1.065), triggerGravity normalizado (1.018) e as 3 rampas
         const startCall = fetchCalls.find(c => c.url.includes('/batch/start'));
         expect(startCall).toBeTruthy();
         expect(startCall?.body.name).toBe('West Coast IPA');
@@ -299,6 +300,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(startCall?.body.fg).toBeCloseTo(1.012, 3);
         expect(startCall?.body.volume).toBe(25);
         expect(startCall?.body.profile.length).toBe(3);
+        expect(startCall?.body.profile[0].triggerGravity).toBeCloseTo(1.018, 3);
 
         // Verifica que o display mudou IMEDIATAMENTE do Wizard para o Painel de Fermentação Ativa!
         expect(container.textContent).not.toContain('O que vamos produzir hoje?');
@@ -308,6 +310,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('1.012'); // Meta FG no display
         expect(container.textContent).toContain('19.0°'); // Set-point atualizado para a 1ª rampa (19°C)
         expect(container.textContent).toContain('Fermentação Primária');
+        expect(container.textContent).toContain('≤ 1.018'); // Badge de Gatilho de Densidade no perfil ativo!
         expect(container.textContent).toContain('Cold Crash');
         expect(container.textContent).toContain('Ativo');
 
@@ -1099,10 +1102,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         const removeStepBtn = Array.from(trashButtons || []).find(b => b.innerHTML.includes('lucide-trash-2') || b.className.includes('hover:text-red-500'));
         clickElement(removeStepBtn);
 
-        // Altera a temperatura da rampa restante (agora ativa no índice 0) para 21.5°C
+        // Altera a temperatura da rampa restante (agora ativa no índice 0) para 21.5°C e define gatilho SG em 1.014
         const tempInputs = profileCard?.parentElement?.querySelectorAll('input[type="number"]');
-        expect(tempInputs && tempInputs.length >= 1).toBe(true);
+        expect(tempInputs && tempInputs.length >= 3).toBe(true);
         setInputValue(tempInputs![0] as HTMLInputElement, '21.5');
+        setInputValue(tempInputs![2] as HTMLInputElement, '1.014');
 
         // Clica no botão Check (salvar edição do perfil)
         await act(async () => {
@@ -1110,8 +1114,9 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             await new Promise(r => setTimeout(r, 30));
         });
 
-        // Verifica que o Set-point no painel principal mudou IMEDIATAMENTE para 21.5°!
+        // Verifica que o Set-point no painel principal mudou IMEDIATAMENTE para 21.5° e o badge de SG (≤ 1.014) apareceu!
         expect(container.textContent).toContain('21.5°');
+        expect(container.textContent).toContain('≤ 1.014');
         expect(mqttPublishMock).toHaveBeenCalledWith(
             'brewbrother/ESP32_LIVE/comando',
             expect.stringContaining('"type":"setProfile"')

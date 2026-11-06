@@ -68,6 +68,7 @@ export interface FermentationStep {
   name: string; // ex: Primária, Descanso Diacetil
   temperature: number;
   duration: number; // dias
+  triggerGravity?: number; // Meta opcional de SG para avançar automaticamente (ex: 1.018)
 }
 
 export interface KegeratorConfig {

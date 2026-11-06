@@ -70,12 +70,17 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
     };
 
     const handleStart = () => {
-        const sanitizedProfile = profile.map((s, idx) => ({
-            ...s,
-            name: (s.name || '').trim() || `Etapa ${idx + 1}`,
-            temperature: s.temperature === null || s.temperature === ('' as any) || isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
-            duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration)
-        }));
+        const sanitizedProfile = profile.map((s, idx) => {
+            const parsedTrigger = normalizeGravity(s.triggerGravity, 0);
+            const { triggerGravity, ...restStep } = s;
+            return {
+                ...restStep,
+                name: (s.name || '').trim() || `Etapa ${idx + 1}`,
+                temperature: s.temperature === null || s.temperature === ('' as any) || isNaN(Number(s.temperature)) ? 18 : Number(s.temperature),
+                duration: isNaN(Number(s.duration)) || Number(s.duration) <= 0 ? 1 : Number(s.duration),
+                ...(parsedTrigger > 0 ? { triggerGravity: parsedTrigger } : {})
+            };
+        });
         const parsedVol = parseFloat(volume);
         const parsedOg = normalizeGravity(og, 1.050);
         const parsedFg = normalizeGravity(fg, 1.010);
@@ -226,8 +231,8 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             placeholder="Nome da Etapa"
                                         />
                                     </div>
-                                    <div className="flex items-center gap-4 w-full md:w-auto">
-                                        <div className="flex-1 md:w-32">
+                                    <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                                        <div className="flex-1 md:w-28">
                                             <div className="text-[10px] text-neutral-500 uppercase font-bold ml-1 mb-1">Temp (°C)</div>
                                             <input 
                                                 type="number" 
@@ -236,13 +241,24 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-neutral-600"
                                             />
                                         </div>
-                                        <div className="flex-1 md:w-32">
+                                        <div className="flex-1 md:w-28">
                                             <div className="text-[10px] text-neutral-500 uppercase font-bold ml-1 mb-1">Tempo (Dias)</div>
                                             <input 
                                                 type="number" 
                                                 value={isNaN(p.duration) ? '' : p.duration}
                                                 onChange={(e) => handleUpdateStep(p.id, 'duration', parseFloat(e.target.value))}
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-neutral-600"
+                                            />
+                                        </div>
+                                        <div className="flex-1 md:w-36" title="Opcional: Avança automaticamente para a próxima rampa quando o densímetro atingir esta gravidade (ex: 1.018)">
+                                            <div className="text-[10px] text-purple-400 uppercase font-bold ml-1 mb-1">Avançar em SG (Opc.)</div>
+                                            <input 
+                                                type="number"
+                                                step="0.001"
+                                                placeholder="Ex: 1.018"
+                                                value={p.triggerGravity !== undefined && !isNaN(p.triggerGravity) ? p.triggerGravity : ''}
+                                                onChange={(e) => handleUpdateStep(p.id, 'triggerGravity', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                                                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono text-sm"
                                             />
                                         </div>
                                         {profile.length > 1 && (
