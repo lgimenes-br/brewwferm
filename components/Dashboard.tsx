@@ -35,7 +35,6 @@ export const Dashboard: React.FC = () => {
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const [editIp, setEditIp] = useState('');
 
     // Delete State
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -63,7 +62,6 @@ export const Dashboard: React.FC = () => {
         e.stopPropagation(); // Prevent opening the detail view
         setEditingId(fermenter.id);
         setEditName(fermenter.name);
-        setEditIp(fermenter.ipAddress || '');
     };
 
     const handleDeleteClick = (e: React.MouseEvent, id: string) => {
@@ -469,16 +467,6 @@ export const Dashboard: React.FC = () => {
                                         value={editName}
                                         onChange={(e) => setEditName(e.target.value)}
                                         className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">IP / Serial</label>
-                                    <input
-                                        type="text"
-                                        value={editIp}
-                                        disabled
-                                        className="w-full bg-black/50 border border-neutral-800 text-neutral-500 font-mono text-sm rounded-xl px-4 py-3 cursor-not-allowed"
-                                        placeholder="192.168.x.x"
                                     />
                                 </div>
 

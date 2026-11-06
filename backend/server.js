@@ -136,6 +136,7 @@ const loadActiveBatches = async () => {
 loadActiveBatches();
 
 const lastLogTimes = {};
+const lastSeenTimes = {};
 const lastBrewfatherPushTimes = {};
 const userAlertConfigs = {};
 const DEFAULT_ALERT_CONFIG = {
@@ -298,6 +299,10 @@ setInterval(async () => {
                     // Log Event
                     const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
                     const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
+                    if (batch.serial_code) {
+                        const normSer = String(batch.serial_code).trim().toUpperCase();
+                        alertState[normSer] = { ...(alertState[normSer] || {}), lastStep: nextName, lastStepIndex: newIndex, lastStepAdvanceTs: Date.now() };
+                    }
                     const desc = gravityTriggered
                         ? `Avançou automaticamente por densidade (SG ${latestGravNorm.toFixed(3)} <= ${triggerGravNorm.toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`
                         : `Avançou automaticamente para a etapa: ${nextName} (${nextTemp}°C)`;
@@ -310,7 +315,7 @@ setInterval(async () => {
                     if (batch.user_id) {
                         sendPushToUser(pool, batch.user_id, gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
                     }
-                    notifyUpdate();
+                    notifyUpdate(batch.serial_code);
                     console.log(`🤖 [Smart Scheduler] Lote ${batch.id} avançou para etapa ${newIndex} (${gravityTriggered ? 'SG Trigger' : 'Tempo'})`);
                 }
             }
@@ -330,8 +335,11 @@ const mqttClient = mqtt.connect(brokerUrl, {
     // Note: MQTT.js handles ws/wss protocols automatically based on URL scheme
 });
 
-const notifyUpdate = () => {
-    mqttClient.publish('brewbrother/global/update', JSON.stringify({ ts: Date.now() }));
+const notifyUpdate = (serialCode) => {
+    mqttClient.publish('brewbrother/global/update', JSON.stringify({
+        ts: Date.now(),
+        ...(serialCode ? { serial: String(serialCode).trim().toUpperCase() } : {})
+    }));
 };
 
 mqttClient.on('connect', () => {
@@ -383,7 +391,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                         
                         activeBatches[normalizedSerial] = result.insertId;
                         activeBatchesUserId[normalizedSerial] = userId;
-                        notifyUpdate();
+                        notifyUpdate(normalizedSerial);
                         console.log(`🍺 [Device Action] Novo lote ${result.insertId} criado fisicamente na placa ${serialCode}`);
                     }
                 } catch (e) {
@@ -400,7 +408,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                         delete activeBatches[normalizedSerial];
                         delete activeBatchesUserId[normalizedSerial];
                         if (activeBatchId) delete alertState[`magic_${activeBatchId}`];
-                        notifyUpdate();
+                        notifyUpdate(normalizedSerial);
                         console.log(`🍺 [Device Action] Lote fisicamente encerrado na placa ${serialCode}`);
                     }
                 } catch (err) {
@@ -414,6 +422,7 @@ mqttClient.on('message', async (topic, message, packet) => {
         // Intercept Manual Overrides from frontend
         if (topic.endsWith('/comando')) {
             const serialCode = topic.split('/')[1];
+            const normSerial = String(serialCode || '').trim().toUpperCase();
             if (payload.type === 'setProfile' && payload.currentStep !== undefined) {
                 // Find active batch and update step_started_at only when the step actually changes
                 const [batches] = await pool.execute(`
@@ -425,6 +434,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                         'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
                         [payload.currentStep, batches[0].id]
                     );
+                    alertState[normSerial] = { ...(alertState[normSerial] || {}), lastStepIndex: Number(payload.currentStep), lastStepAdvanceTs: Date.now() };
                     console.log(`⏱️ [Manual Override] Lote ${batches[0].id} alterado para etapa ${payload.currentStep}`);
                 }
             } else if (payload.type === 'skipStep') {
@@ -438,6 +448,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                         'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
                         [nextStep, batches[0].id]
                     );
+                    alertState[normSerial] = { ...(alertState[normSerial] || {}), lastStepIndex: nextStep, lastStepAdvanceTs: Date.now() };
                     console.log(`⏱️ [Manual Override] Lote ${batches[0].id} avançado para etapa ${nextStep}`);
                 }
             }
@@ -463,6 +474,7 @@ mqttClient.on('message', async (topic, message, packet) => {
             }
 
             const now = Date.now();
+            lastSeenTimes[serialCode] = now;
             const lastLog = lastLogTimes[serialCode] || 0;
             const logInterval = payload.wi || 60000;
 
@@ -544,6 +556,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                                         mqttClient.publish(`brewbrother/${parts[1]}/comando`, msg);
                                         const nextName = nextStepObj.name || nextStepObj.n || `Etapa ${nextIdx + 1}`;
                                         const nextTemp = nextStepObj.temperature ?? nextStepObj.t ?? 0;
+                                        alertState[serialCode] = { ...(alertState[serialCode] || {}), lastStep: nextName, lastStepIndex: nextIdx, lastStepAdvanceTs: Date.now() };
                                         const desc = `Avançou automaticamente por densidade (SG ${liveSgNorm.toFixed(3)} <= ${trigNorm.toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`;
                                         await pool.execute(
                                             'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
@@ -554,7 +567,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                                             sendPushToUser(pool, ownerId, 'Avanço por Densidade Atingida 🎯', desc);
                                         }
                                         stepSyncedInThisMessage = true;
-                                        notifyUpdate();
+                                        notifyUpdate(serialCode);
                                     }
                                 }
                             }
@@ -675,13 +688,17 @@ mqttClient.on('message', async (topic, message, packet) => {
                     }
                 }
 
-                // Alerta de Mudança de Passo
+                // Alerta de Mudança de Passo (ignora eco imediato de avanço já registrado pelo servidor ou pela UI)
                 if (payload.opm === 0 && payload.profStat) {
-                    if (alertState[serialCode].lastStep && alertState[serialCode].lastStep !== payload.profStat) {
+                    const alreadyHandledAdvance =
+                        stepSyncedInThisMessage ||
+                        (alertState[serialCode].lastStepAdvanceTs && (now - alertState[serialCode].lastStepAdvanceTs < 120000)) ||
+                        (payload.currStep !== undefined && alertState[serialCode].lastStepIndex !== undefined && Number(payload.currStep) === Number(alertState[serialCode].lastStepIndex));
+                    if (alertState[serialCode].lastStep && alertState[serialCode].lastStep !== payload.profStat && !alreadyHandledAdvance) {
                         sendPushToUser(pool, userId, 'Mudança de Passo', `O fermentador iniciou o passo: ${payload.profStat}`);
                         
                         // Sincroniza a mudança de passo com o Diário de Bordo (batch_events) apenas se não sincronizou acima
-                        if (currentBatchId && !stepSyncedInThisMessage) {
+                        if (currentBatchId) {
                             await pool.execute(
                                 'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
                                 [currentBatchId, 'SYSTEM_ACTION', `Avanço de Etapa: ${payload.profStat}`]
@@ -696,6 +713,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                         }
                     }
                     alertState[serialCode].lastStep = payload.profStat;
+                    if (payload.currStep !== undefined) {
+                        alertState[serialCode].lastStepIndex = Number(payload.currStep);
+                    }
                 }
                 
                 // Recuperação de Offline
@@ -789,11 +809,11 @@ app.post('/api/login', authRateLimiter, async (req, res) => {
     }
 });
 
-// Monitor de Dispositivos Offline
+// Monitor de Dispositivos Offline (baseado no último contato MQTT real, independente do intervalo de gravação no banco)
 setInterval(() => {
     const now = Date.now();
-    for (const serialCode in lastLogTimes) {
-        if (now - lastLogTimes[serialCode] > 10 * 60 * 1000) { // 10 minutos
+    for (const serialCode in lastSeenTimes) {
+        if (now - lastSeenTimes[serialCode] > 10 * 60 * 1000) { // 10 minutos sem nenhum contato MQTT
             const userId = activeBatchesUserId[serialCode];
             if (userId) {
                 if (!alertState[serialCode]) alertState[serialCode] = {};
@@ -951,7 +971,7 @@ app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
         const { name } = req.body || {};
         await pool.execute('UPDATE devices SET device_name = ? WHERE serial_code = ? AND user_id = ?', [name ?? null, req.params.serial, req.user.id]);
-        notifyUpdate();
+        notifyUpdate(req.params.serial);
         res.json({ message: 'Dispositivo atualizado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -961,7 +981,7 @@ app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
         const { choppName } = req.body || {};
         await pool.execute('UPDATE devices SET chopp_name = ? WHERE serial_code = ? AND user_id = ?', 
             [choppName ?? null, req.params.id, req.user.id]);
-        notifyUpdate();
+        notifyUpdate(req.params.id);
         res.json({ message: 'Chopp name atualizado' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
@@ -971,7 +991,7 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
         const { sensor1Name, sensor2Name, sensorSgName } = req.body || {};
         await pool.execute('UPDATE devices SET sensor1_name = COALESCE(?, sensor1_name), sensor2_name = COALESCE(?, sensor2_name), sensor_sg_name = COALESCE(?, sensor_sg_name) WHERE serial_code = ? AND user_id = ?', 
             [sensor1Name ?? null, sensor2Name ?? null, sensorSgName ?? null, req.params.id, req.user.id]);
-        notifyUpdate();
+        notifyUpdate(req.params.id);
         res.json({ message: 'Sensores atualizados no backend' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -984,7 +1004,7 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
         if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
         await deleteDeviceCascade(devs[0].id, req.params.serial);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
-        notifyUpdate();
+        notifyUpdate(req.params.serial);
         res.json({ message: 'Excluído' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1031,7 +1051,7 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
             mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
         }
 
-        notifyUpdate();
+        notifyUpdate(normalizedSerial);
         res.json({ message: 'Iniciado!', batchId: result.insertId });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1062,7 +1082,7 @@ app.put('/api/batch/update', authenticateToken, async (req, res) => {
             await pool.execute(query, params);
         }
 
-        notifyUpdate();
+        notifyUpdate(serialCode);
         res.json({ message: 'Atualizado' });
     } catch (err) {
         console.error(`❌ [API] Erro ao atualizar batch:`, err.message);
@@ -1083,7 +1103,7 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
         delete activeBatches[normalizedSerial];
         delete activeBatchesUserId[normalizedSerial];
         if (stoppedBatchId) delete alertState[`magic_${stoppedBatchId}`];
-        notifyUpdate();
+        notifyUpdate(normalizedSerial);
         res.json({ message: 'Finalizado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1239,11 +1259,14 @@ app.post('/api/user/integrations/test-telegram', authenticateToken, async (req, 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                text: '🍺 *Breww Dashboard*\nNotificações via Telegram conectadas com sucesso!',
-                parse_mode: 'Markdown'
+                text: '🍺 <b>Breww Dashboard</b>\nNotificações via Telegram conectadas com sucesso!',
+                parse_mode: 'HTML'
             })
         });
-        res.json({ success: tgRes.ok, status: tgRes.status });
+        if (!tgRes.ok) {
+            return res.status(400).json({ success: false, status: tgRes.status, error: 'Falha ao enviar para o Telegram. Verifique o Bot Token e o Chat ID.' });
+        }
+        res.json({ success: true, status: tgRes.status });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1272,7 +1295,10 @@ app.post('/api/user/integrations/test-brewfather', authenticateToken, async (req
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(samplePayload)
         });
-        res.json({ success: bfRes.ok, status: bfRes.status });
+        if (!bfRes.ok) {
+            return res.status(400).json({ success: false, status: bfRes.status, error: `O Brewfather recusou o pacote (HTTP ${bfRes.status}). Verifique a URL do Custom Stream.` });
+        }
+        res.json({ success: true, status: bfRes.status });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1338,7 +1364,8 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
         if (currentBatch && !currentBatch.is_active && currentBatch.ended_at && rows.length > 0) { const last = rows[rows.length - 1]; rows.push({ recorded_at: currentBatch.ended_at, batch_name: last.batch_name, temp_ferm: last.temp_ferm, temp_amb: last.temp_amb, target_temp: last.target_temp, gravity: last.gravity, battery: last.battery, status_op: 'FINALIZADO', step_name: 'MANUAL' }); }
         let csv = 'Data/Hora,Lote,Temp Fermentador,Temp Ambiente,Alvo,Densidade (SG),Bateria,Status,Etapa\n';
         const f = (v) => v != null ? parseFloat(v).toFixed(1) : ''; const fs = (v) => v != null ? parseFloat(v).toFixed(3) : '';
-        rows.forEach(r => { csv += `"${new Date(r.recorded_at).toLocaleString('pt-BR')}","${r.batch_name || ''}",${f(r.temp_ferm)},${f(r.temp_amb)},${f(r.target_temp)},${fs(r.gravity)},${f(r.battery)},"${r.status_op || ''}","${r.step_name || ''}"\n`; });
+        const esc = (s) => String(s ?? '').replace(/"/g, '""');
+        rows.forEach(r => { csv += `"${new Date(r.recorded_at).toLocaleString('pt-BR')}","${esc(r.batch_name)}",${f(r.temp_ferm)},${f(r.temp_amb)},${f(r.target_temp)},${fs(r.gravity)},${f(r.battery)},"${esc(r.status_op)}","${esc(r.step_name)}"\n`; });
         res.header('Content-Type', 'text/csv'); res.attachment(`${fileName}.csv`); res.send(csv);
     } catch (err) { res.status(500).send('Erro ao exportar'); }
 });
@@ -2081,6 +2108,7 @@ app.get('/api/broadcasts/active', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint de API não encontrado' }));
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
@@ -2096,8 +2124,16 @@ setInterval(async () => {
             if (isNaN(targetFg) || targetFg <= 0) continue;
             if (targetFg > 500) targetFg = targetFg / 1000;
             
-            // Já alertou?
+            // Já alertou em memória ou no histórico de eventos do lote?
             if (alertState[`magic_${batch.id}`]) continue;
+            const [existingMagic] = await pool.execute(
+                `SELECT id FROM batch_events WHERE batch_id = ? AND event_type = 'MAGIC_PREDICTION' LIMIT 1`,
+                [batch.id]
+            );
+            if (existingMagic.length > 0) {
+                alertState[`magic_${batch.id}`] = true;
+                continue;
+            }
             
             // Pega dados das últimas 48h
             const [rows] = await pool.execute(`SELECT gravity, recorded_at FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 AND recorded_at > DATE_SUB(NOW(), INTERVAL 48 HOUR) ORDER BY recorded_at ASC`, [batch.id]);
@@ -2125,10 +2161,15 @@ setInterval(async () => {
             if (remainingDrop > 0 && dropRatePerHour > 0) {
                 const hoursRemaining = remainingDrop / dropRatePerHour;
                 
-                // Se faltar 24h ou menos, avisa o usuário
+                // Se faltar 24h ou menos, avisa o usuário e grava no banco para não repetir após restart
                 if (hoursRemaining > 0 && hoursRemaining <= 24) {
                     alertState[`magic_${batch.id}`] = true;
-                    await sendPushToUser(pool, batch.user_id, 'Previsão Mágica 🔮', `Atenção! Sua ${batch.name} deve atingir o FG esperado (${batch.fg}) nas próximas ${Math.round(hoursRemaining)} horas!`);
+                    const msgText = `Atenção! Sua ${batch.name} deve atingir o FG esperado (${batch.fg}) nas próximas ${Math.round(hoursRemaining)} horas!`;
+                    await pool.execute(
+                        `INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, 'MAGIC_PREDICTION', ?, NOW())`,
+                        [batch.id, msgText]
+                    ).catch(() => {});
+                    await sendPushToUser(pool, batch.user_id, 'Previsão Mágica 🔮', msgText);
                     console.log(`[Magic Prediction] Alerta enviado para lote ${batch.id} (${batch.name}) - ETA: ${hoursRemaining}h`);
                 }
             }

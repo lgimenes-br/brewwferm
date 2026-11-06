@@ -203,7 +203,7 @@ export const testBrewfatherWebhook = async (brewfatherWebhookUrl: string, device
     body: JSON.stringify({ brewfatherWebhookUrl, deviceName })
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Failed to test Brewfather webhook');
+  if (!res.ok || body.success === false) throw new Error(body.error || 'Falha ao testar envio para o Brewfather');
   return body;
 };
 
@@ -214,7 +214,7 @@ export const testTelegramWebhook = async (telegramBotToken: string, telegramChat
     body: JSON.stringify({ telegramBotToken, telegramChatId })
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Failed to test Telegram notification');
+  if (!res.ok || body.success === false) throw new Error(body.error || 'Falha ao testar envio para o Telegram');
   return body;
 };
 

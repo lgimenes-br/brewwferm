@@ -55,7 +55,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         if (!fermenter.batchId) return;
         try {
             const res = await generateBatchShareToken(fermenter.batchId);
-            const publicUrl = `${window.location.origin}/live/${res.publicToken || fermenter.batchId}`;
+            if (!res?.publicToken) {
+                throw new Error('Não foi possível gerar o token público de compartilhamento.');
+            }
+            const publicUrl = `${window.location.origin}/live/${res.publicToken}`;
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(publicUrl).catch(() => {});
             }

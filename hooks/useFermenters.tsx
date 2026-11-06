@@ -417,7 +417,7 @@ export const useFermenters = () => {
                 return old.map(f => (f.id || '').toUpperCase() === norm ? {
                     ...f,
                     status: FermenterStatus.ACTIVE,
-                    batchId: res?.batchId ?? f.batchId ?? 1,
+                    batchId: res?.batchId ?? f.batchId,
                     beerName: variables.name,
                     style: mappedStyle,
                     og: variables.og,
@@ -471,7 +471,6 @@ export const useFermenters = () => {
             localStorage.removeItem(`device_stepTime_${variables.deviceId}`);
             localStorage.removeItem(`device_stepTime_${norm}`);
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
-            queryClient.invalidateQueries({ queryKey: ['history'] });
         }
     });
 
@@ -494,7 +493,6 @@ export const useFermenters = () => {
         mutationFn: (data: { batchId: number, type: string, description: string, date: string }) => 
             api.saveEvent(data.batchId, data.type, data.description, data.date),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['events'] });
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
         }
     });
@@ -502,7 +500,6 @@ export const useFermenters = () => {
     const deleteEventMutation = useMutation({
         mutationFn: (eventId: string) => api.deleteEvent(eventId),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['events'] });
             queryClient.invalidateQueries({ queryKey: ['fermenters'] });
         }
     });

@@ -300,7 +300,17 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         version: payload.ver || payload.fw, // Firmware version
                         macCtrl: payload.macCtrl,
                         extSens: payload.ext_s || payload.extSens,
-                        stepTime: !isNaN(parsedStepTime) ? parsedStepTime : undefined
+                        stepTime: !isNaN(parsedStepTime) ? parsedStepTime : undefined,
+                        offsetS1: payload.off_t1 ?? payload.off1,
+                        offsetS2: payload.off_t2 ?? payload.off2,
+                        offsetSG: payload.off_sg,
+                        kp_h: payload.kp_h ?? payload.Kp_h,
+                        ki_h: payload.ki_h ?? payload.Ki_h,
+                        kd_h: payload.kd_h ?? payload.Kd_h,
+                        kp_c: payload.kp_c ?? payload.Kp_c,
+                        ki_c: payload.ki_c ?? payload.Ki_c,
+                        kd_c: payload.kd_c ?? payload.Kd_c,
+                        pwmWindowHeat: payload.pwmWindowHeat ?? payload.pwm_w
                     } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });
             } catch (e) {

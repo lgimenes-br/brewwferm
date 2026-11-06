@@ -117,17 +117,55 @@ export const Settings: React.FC = () => {
   // Sync settings when selecting a device or when telemetry arrives
   useEffect(() => {
     if (activeDevice) {
+        const dev = (activeDevice.currentDevice || {}) as any;
+        let savedLocal: any = {};
+        try {
+            const rawSaved = localStorage.getItem(`pid_calib_${activeDevice.id}`);
+            if (rawSaved) savedLocal = JSON.parse(rawSaved) || {};
+        } catch (e) {}
+
         setSettings(prev => ({
             ...prev,
             sensor1Name: activeDevice.sensor1_name || 'Fermentador',
             sensor2Name: activeDevice.sensor2_name || 'Geladeira',
             sensorSgName: activeDevice.sensor_sg_name || 'Gravidade',
-            logInterval: activeDevice.currentDevice?.logInterval ?? prev.logInterval,
-            compressorDelay: activeDevice.currentDevice?.compressorDelay ?? prev.compressorDelay
-            // Note: add S1/S2 offset mapping here later if needed
+            logInterval: dev.logInterval ?? prev.logInterval,
+            compressorDelay: dev.compressorDelay ?? prev.compressorDelay,
+            offsetS1: dev.offsetS1 !== undefined ? Number(dev.offsetS1) : (savedLocal.offsetS1 ?? prev.offsetS1),
+            offsetS2: dev.offsetS2 !== undefined ? Number(dev.offsetS2) : (savedLocal.offsetS2 ?? prev.offsetS2),
+            offsetSG: dev.offsetSG !== undefined ? Number(dev.offsetSG) : (savedLocal.offsetSG ?? prev.offsetSG),
+            pidHeating: {
+                kp: dev.kp_h !== undefined ? Number(dev.kp_h) : (savedLocal.pidHeating?.kp ?? prev.pidHeating.kp),
+                ki: dev.ki_h !== undefined ? Number(dev.ki_h) : (savedLocal.pidHeating?.ki ?? prev.pidHeating.ki),
+                kd: dev.kd_h !== undefined ? Number(dev.kd_h) : (savedLocal.pidHeating?.kd ?? prev.pidHeating.kd)
+            },
+            pidCooling: {
+                kp: dev.kp_c !== undefined ? Number(dev.kp_c) : (savedLocal.pidCooling?.kp ?? prev.pidCooling.kp),
+                ki: dev.ki_c !== undefined ? Number(dev.ki_c) : (savedLocal.pidCooling?.ki ?? prev.pidCooling.ki),
+                kd: dev.kd_c !== undefined ? Number(dev.kd_c) : (savedLocal.pidCooling?.kd ?? prev.pidCooling.kd)
+            },
+            pwmWindowHeat: dev.pwmWindowHeat !== undefined ? Number(dev.pwmWindowHeat) : (savedLocal.pwmWindowHeat ?? prev.pwmWindowHeat)
         }));
     }
-  }, [selectedDeviceId, activeDevice?.sensor1_name, activeDevice?.sensor2_name, activeDevice?.sensor_sg_name, activeDevice?.currentDevice?.logInterval, activeDevice?.currentDevice?.compressorDelay]);
+  }, [
+    selectedDeviceId,
+    activeDevice?.id,
+    activeDevice?.sensor1_name,
+    activeDevice?.sensor2_name,
+    activeDevice?.sensor_sg_name,
+    activeDevice?.currentDevice?.logInterval,
+    activeDevice?.currentDevice?.compressorDelay,
+    (activeDevice?.currentDevice as any)?.offsetS1,
+    (activeDevice?.currentDevice as any)?.offsetS2,
+    (activeDevice?.currentDevice as any)?.offsetSG,
+    (activeDevice?.currentDevice as any)?.kp_h,
+    (activeDevice?.currentDevice as any)?.ki_h,
+    (activeDevice?.currentDevice as any)?.kd_h,
+    (activeDevice?.currentDevice as any)?.kp_c,
+    (activeDevice?.currentDevice as any)?.ki_c,
+    (activeDevice?.currentDevice as any)?.kd_c,
+    (activeDevice?.currentDevice as any)?.pwmWindowHeat
+  ]);
 
   const [relayState, setRelayState] = useState<'AUTO' | 'HEAT' | 'COOL'>('AUTO');
   
@@ -379,11 +417,24 @@ export const Settings: React.FC = () => {
 
   const handleSaveCalibration = () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
+    const off1 = isNaN(settings.offsetS1) ? 0 : parseFloat(String(settings.offsetS1));
+    const off2 = isNaN(settings.offsetS2) ? 0 : parseFloat(String(settings.offsetS2));
+    const offSg = isNaN(settings.offsetSG) ? 0 : parseFloat(String(settings.offsetSG));
     sendCommand(selectedDeviceId, 'setCalibration', { 
-        off_t1: isNaN(settings.offsetS1) ? 0 : parseFloat(String(settings.offsetS1)), 
-        off_t2: isNaN(settings.offsetS2) ? 0 : parseFloat(String(settings.offsetS2)), 
-        off_sg: isNaN(settings.offsetSG) ? 0 : parseFloat(String(settings.offsetSG)) 
+        off_t1: off1, 
+        off_t2: off2, 
+        off_sg: offSg 
     });
+    try {
+        const rawSaved = localStorage.getItem(`pid_calib_${selectedDeviceId}`);
+        const prevSaved = rawSaved ? JSON.parse(rawSaved) : {};
+        localStorage.setItem(`pid_calib_${selectedDeviceId}`, JSON.stringify({
+            ...prevSaved,
+            offsetS1: off1,
+            offsetS2: off2,
+            offsetSG: offSg
+        }));
+    } catch (e) {}
     toast.success('Calibração enviada ao equipamento!');
   };
 
@@ -398,6 +449,16 @@ export const Settings: React.FC = () => {
         { type: 'Kd_c', val: isNaN(settings.pidCooling.kd) ? 0 : parseFloat(String(settings.pidCooling.kd)) },
         { type: 'pwmWindowHeat', val: isNaN(settings.pwmWindowHeat) ? 2000 : parseFloat(String(settings.pwmWindowHeat)) }
     ];
+    try {
+        const rawSaved = localStorage.getItem(`pid_calib_${selectedDeviceId}`);
+        const prevSaved = rawSaved ? JSON.parse(rawSaved) : {};
+        localStorage.setItem(`pid_calib_${selectedDeviceId}`, JSON.stringify({
+            ...prevSaved,
+            pidHeating: settings.pidHeating,
+            pidCooling: settings.pidCooling,
+            pwmWindowHeat: settings.pwmWindowHeat
+        }));
+    } catch (e) {}
     
     const promise = new Promise<void>((resolve) => {
         commands.forEach((cmd, index) => { 
