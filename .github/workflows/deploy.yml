@@ -94,6 +94,7 @@ jobs:
           script: |
             cd /var/www/breww-backend/
             chmod +x mosquitto/setup-vps-mosquitto.sh 2>/dev/null || true
+            bash mosquitto/setup-vps-mosquitto.sh || true
             if [ ! -f .env ] || ! grep -q "^VITE_GEMINI_API_KEY=" .env; then echo "VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" >> .env; else sed -i "s|^VITE_GEMINI_API_KEY=.*|VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}|" .env; fi
             npm install
             pm2 restart breww-server || pm2 start server.js --name "breww-server"
