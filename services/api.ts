@@ -165,7 +165,18 @@ export const deleteRecipe = async (id: string | number, token?: string | null) =
   return res.json();
 };
 
-// --- External Integrations (Brewfather Custom Stream) ---
+export interface UserAlertConfig {
+  lowBatteryEnabled: boolean;
+  lowBatteryThreshold: number;
+  tempDeviationEnabled: boolean;
+  tempDeviationMargin: number;
+  sgTargetEnabled: boolean;
+  sgTargetValue: number | null;
+  telegramBotToken: string;
+  telegramChatId: string;
+}
+
+// --- External Integrations & Custom Alerts (Brewfather + Telegram + Alert Rules) ---
 export const fetchIntegrations = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/user/integrations`, {
     headers: getHeaders(token)
@@ -174,7 +185,7 @@ export const fetchIntegrations = async (token?: string | null) => {
   return res.json();
 };
 
-export const updateIntegrations = async (data: { brewfatherWebhookUrl: string }, token?: string | null) => {
+export const updateIntegrations = async (data: { brewfatherWebhookUrl?: string; alertConfig?: UserAlertConfig }, token?: string | null) => {
   const res = await fetch(`${API_URL}/user/integrations`, {
     method: 'PUT',
     headers: getHeaders(token),
@@ -193,6 +204,17 @@ export const testBrewfatherWebhook = async (brewfatherWebhookUrl: string, device
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Failed to test Brewfather webhook');
+  return body;
+};
+
+export const testTelegramWebhook = async (telegramBotToken: string, telegramChatId: string, token?: string | null) => {
+  const res = await fetch(`${API_URL}/user/integrations/test-telegram`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify({ telegramBotToken, telegramChatId })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Failed to test Telegram notification');
   return body;
 };
 

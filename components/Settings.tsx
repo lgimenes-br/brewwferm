@@ -4,7 +4,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook } from '../services/api';
+import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, UserAlertConfig } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 interface PIDParams {
@@ -135,6 +135,17 @@ export const Settings: React.FC = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [brewfatherUrl, setBrewfatherUrl] = useState('');
   const [isTestingBrewfather, setIsTestingBrewfather] = useState(false);
+  const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<UserAlertConfig>({
+    lowBatteryEnabled: true,
+    lowBatteryThreshold: 3.5,
+    tempDeviationEnabled: true,
+    tempDeviationMargin: 1.5,
+    sgTargetEnabled: true,
+    sgTargetValue: null,
+    telegramBotToken: '',
+    telegramChatId: ''
+  });
   const [macSensorControle, setMacSensorControle] = useState('');
   const [nameSensorControle, setNameSensorControle] = useState('');
   const [extraSensors, setExtraSensors] = useState<{mac: string, name: string}[]>([]);
@@ -253,9 +264,36 @@ export const Settings: React.FC = () => {
               if (data && typeof data.brewfatherWebhookUrl === 'string') {
                   setBrewfatherUrl(data.brewfatherWebhookUrl);
               }
+              if (data && data.alertConfig && typeof data.alertConfig === 'object') {
+                  setAlertConfig(prev => ({ ...prev, ...data.alertConfig }));
+              }
           })
           .catch(() => {});
   }, [token]);
+
+  const handleSaveAlertConfig = async () => {
+      try {
+          await updateIntegrations({ alertConfig }, token);
+          toast.success('Regras de alerta e Telegram salvas!');
+      } catch (err: any) {
+          toast.error(err?.message || 'Erro ao salvar regras de alerta.');
+      }
+  };
+
+  const handleTestTelegram = async () => {
+      if (!alertConfig.telegramBotToken.trim() || !alertConfig.telegramChatId.trim()) {
+          return toast.error('Informe o Bot Token e o Chat ID do Telegram primeiro.');
+      }
+      setIsTestingTelegram(true);
+      try {
+          await testTelegramWebhook(alertConfig.telegramBotToken.trim(), alertConfig.telegramChatId.trim(), token);
+          toast.success('Alerta de teste enviado para o Telegram!');
+      } catch (err: any) {
+          toast.error(err?.message || 'Falha ao enviar para o Telegram.');
+      } finally {
+          setIsTestingTelegram(false);
+      }
+  };
 
   const handleSaveBrewfather = async () => {
       try {
@@ -548,6 +586,100 @@ export const Settings: React.FC = () => {
             >
                 <Bell size={14} /> {isSubscribed ? 'Alertas Ativos' : 'Ativar Alertas'}
             </button>
+        </div>
+
+        {/* Regras Customizáveis de Alerta (Bateria, Desvio Térmico, SG Alvo e Telegram) */}
+        <div className="mt-8 pt-6 border-t border-neutral-800/80 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-black/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Bateria Fraca (iSpindel)</span>
+                <input
+                  type="checkbox"
+                  checked={alertConfig.lowBatteryEnabled}
+                  onChange={(e) => setAlertConfig(prev => ({ ...prev, lowBatteryEnabled: e.target.checked }))}
+                  className="accent-amber-500 w-4 h-4"
+                />
+              </label>
+              <InputField
+                label="Tensão Mínima de Alerta (V)"
+                type="number"
+                value={alertConfig.lowBatteryThreshold}
+                onChange={(v: number) => setAlertConfig(prev => ({ ...prev, lowBatteryThreshold: isNaN(v) ? 3.5 : v }))}
+                placeholder="3.5"
+              />
+            </div>
+
+            <div className="bg-black/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Desvio de Temperatura</span>
+                <input
+                  type="checkbox"
+                  checked={alertConfig.tempDeviationEnabled}
+                  onChange={(e) => setAlertConfig(prev => ({ ...prev, tempDeviationEnabled: e.target.checked }))}
+                  className="accent-amber-500 w-4 h-4"
+                />
+              </label>
+              <InputField
+                label="Margem Máxima Alvo (±°C)"
+                type="number"
+                value={alertConfig.tempDeviationMargin}
+                onChange={(v: number) => setAlertConfig(prev => ({ ...prev, tempDeviationMargin: isNaN(v) ? 1.5 : v }))}
+                placeholder="1.5"
+              />
+            </div>
+
+            <div className="bg-black/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Alerta de SG Alvo</span>
+                <input
+                  type="checkbox"
+                  checked={alertConfig.sgTargetEnabled}
+                  onChange={(e) => setAlertConfig(prev => ({ ...prev, sgTargetEnabled: e.target.checked }))}
+                  className="accent-amber-500 w-4 h-4"
+                />
+              </label>
+              <InputField
+                label="Avisar quando SG <="
+                type="number"
+                value={alertConfig.sgTargetValue ?? ''}
+                onChange={(v: number) => setAlertConfig(prev => ({ ...prev, sgTargetValue: isNaN(v) ? null : (v > 500 ? v / 1000 : v) }))}
+                placeholder="Ex: 1.014 (Opcional)"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <InputField
+              label="Telegram Bot Token (Opcional)"
+              value={alertConfig.telegramBotToken}
+              onChange={(v: string) => setAlertConfig(prev => ({ ...prev, telegramBotToken: v }))}
+              placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+            />
+            <InputField
+              label="Telegram Chat ID (Opcional)"
+              value={alertConfig.telegramChatId}
+              onChange={(v: string) => setAlertConfig(prev => ({ ...prev, telegramChatId: v }))}
+              placeholder="Ex: 987654321"
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={handleTestTelegram}
+                disabled={isTestingTelegram}
+                className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+              >
+                <Send size={14} /> Testar Telegram
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAlertConfig}
+                className="px-5 py-3 bg-neutral-100 hover:bg-white text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
+                <Save size={14} /> Salvar Alertas
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

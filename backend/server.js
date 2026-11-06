@@ -74,6 +74,7 @@ const initDb = async () => {
         try { await pool.execute('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20'); } catch (e) { }
         try { await pool.execute('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE users ADD COLUMN brewfather_webhook_url VARCHAR(255) DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE users ADD COLUMN alert_config JSON DEFAULT NULL'); } catch (e) { }
         
         console.log('Main DB tables initialized');
         
@@ -134,6 +135,31 @@ loadActiveBatches();
 
 const lastLogTimes = {};
 const lastBrewfatherPushTimes = {};
+const userAlertConfigs = {};
+const DEFAULT_ALERT_CONFIG = {
+    lowBatteryEnabled: true,
+    lowBatteryThreshold: 3.5,
+    tempDeviationEnabled: true,
+    tempDeviationMargin: 1.5,
+    sgTargetEnabled: true,
+    sgTargetValue: null,
+    telegramBotToken: '',
+    telegramChatId: ''
+};
+const getUserAlertConfig = async (userId) => {
+    const cached = userAlertConfigs[userId];
+    if (cached && Date.now() - cached.ts < 5 * 60 * 1000) return cached.cfg;
+    try {
+        const [rows] = await pool.execute('SELECT alert_config FROM users WHERE id = ?', [userId]);
+        const raw = rows?.[0]?.alert_config;
+        const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+        const cfg = { ...DEFAULT_ALERT_CONFIG, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+        userAlertConfigs[userId] = { cfg, ts: Date.now() };
+        return cfg;
+    } catch (e) {
+        return { ...DEFAULT_ALERT_CONFIG };
+    }
+};
 const discoveredUnknowns = {}; // Cache for unknown devices detected via MQTT 
 const sanitizeNum = (val, precision) => {
     const num = parseFloat(val);
@@ -540,17 +566,19 @@ mqttClient.on('message', async (topic, message, packet) => {
             const userId = activeBatchesUserId[serialCode];
             if (userId) {
                 if (!alertState[serialCode]) alertState[serialCode] = {};
+                const userCfg = await getUserAlertConfig(userId);
+                const tempMargin = Math.max(0.2, parseFloat(userCfg.tempDeviationMargin) || 1.5);
                 
                 // Alerta de Temperatura
                 const tempFerm = parseFloat(payload.ferm);
                 const targetTemp = parseFloat(sanitizeNum(target, 1));
-                if (!isNaN(tempFerm) && !isNaN(targetTemp) && payload.opm === 0) {
-                    if (Math.abs(tempFerm - targetTemp) > 1.5) {
+                if (userCfg.tempDeviationEnabled !== false && !isNaN(tempFerm) && !isNaN(targetTemp) && payload.opm === 0) {
+                    if (Math.abs(tempFerm - targetTemp) > tempMargin) {
                         if (!alertState[serialCode].tempAlertStartTime) {
                             alertState[serialCode].tempAlertStartTime = now;
                         } else if (now - alertState[serialCode].tempAlertStartTime > 15 * 60 * 1000) { // 15 min
                             if (!alertState[serialCode].tempAlertSent) {
-                                sendPushToUser(pool, userId, 'Alerta de Temperatura', `Cerveja fora da temperatura alvo: ${tempFerm}ºC (Alvo: ${targetTemp}ºC)`);
+                                sendPushToUser(pool, userId, 'Alerta de Temperatura', `Cerveja fora da temperatura alvo: ${tempFerm}ºC (Alvo: ${targetTemp}ºC ±${tempMargin}ºC)`);
                                 alertState[serialCode].tempAlertSent = true;
                             }
                         }
@@ -560,6 +588,42 @@ mqttClient.on('message', async (topic, message, packet) => {
                             sendPushToUser(pool, userId, 'Temperatura Normalizada', `A temperatura voltou ao alvo: ${tempFerm}ºC`);
                             alertState[serialCode].tempAlertSent = false;
                         }
+                    }
+                }
+
+                // Alerta de Bateria Fraca do iSpindel / Densímetro (< lowBatteryThreshold, padrão 3.5V)
+                const batVal = parseFloat(payload.is_bat);
+                const batThreshold = Math.max(2.8, Math.min(4.2, parseFloat(userCfg.lowBatteryThreshold) || 3.5));
+                if (userCfg.lowBatteryEnabled !== false && !isNaN(batVal) && batVal > 2.0) {
+                    if (batVal < batThreshold) {
+                        if (!alertState[serialCode].lowBatAlertTime || (now - alertState[serialCode].lowBatAlertTime > 12 * 60 * 60 * 1000)) {
+                            sendPushToUser(
+                                pool,
+                                userId,
+                                'Alerta de Bateria Fraca 🪫',
+                                `A bateria do densímetro (${serialCode}) caiu para ${batVal.toFixed(2)}V (Limite: ${batThreshold.toFixed(2)}V).`
+                            );
+                            alertState[serialCode].lowBatAlertTime = now;
+                        }
+                    } else if (batVal >= batThreshold + 0.1) {
+                        alertState[serialCode].lowBatAlertTime = null;
+                    }
+                }
+
+                // Alerta de Densidade Alvo Customizada
+                const rawLiveSg = parseFloat(payload.is_sg);
+                const liveSgVal = !isNaN(rawLiveSg) && rawLiveSg > 0 ? (rawLiveSg > 500 ? rawLiveSg / 1000 : rawLiveSg) : 0;
+                const rawTargetSg = parseFloat(userCfg.sgTargetValue);
+                const targetSgVal = !isNaN(rawTargetSg) && rawTargetSg > 0 ? (rawTargetSg > 500 ? rawTargetSg / 1000 : rawTargetSg) : 0;
+                if (userCfg.sgTargetEnabled !== false && liveSgVal > 0.980 && targetSgVal > 0.980 && liveSgVal <= targetSgVal) {
+                    if (alertState[serialCode].sgTargetAlertValue !== targetSgVal) {
+                        sendPushToUser(
+                            pool,
+                            userId,
+                            'Densidade Alvo Atingida 🎯',
+                            `O mosto no controlador ${serialCode} atingiu SG ${liveSgVal.toFixed(3)} (Alvo configurado: ${targetSgVal.toFixed(3)}).`
+                        );
+                        alertState[serialCode].sgTargetAlertValue = targetSgVal;
                     }
                 }
 
@@ -1027,21 +1091,83 @@ app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
 
 app.get('/api/user/integrations', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT brewfather_webhook_url FROM users WHERE id = ?', [req.user.id]);
+        const [rows] = await pool.execute('SELECT brewfather_webhook_url, alert_config FROM users WHERE id = ?', [req.user.id]);
+        const rawCfg = rows?.[0]?.alert_config;
+        const parsedCfg = rawCfg ? (typeof rawCfg === 'string' ? JSON.parse(rawCfg) : rawCfg) : {};
         res.json({
-            brewfatherWebhookUrl: rows?.[0]?.brewfather_webhook_url || ''
+            brewfatherWebhookUrl: rows?.[0]?.brewfather_webhook_url || '',
+            alertConfig: { ...DEFAULT_ALERT_CONFIG, ...(parsedCfg && typeof parsedCfg === 'object' ? parsedCfg : {}) }
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/user/integrations', authenticateToken, async (req, res) => {
     try {
-        const rawUrl = String(req.body?.brewfatherWebhookUrl || '').trim();
-        if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
-            return res.status(400).json({ error: 'A URL do webhook deve iniciar com http:// ou https://' });
+        const hasUrl = req.body?.brewfatherWebhookUrl !== undefined;
+        const hasAlertCfg = req.body?.alertConfig !== undefined;
+        const updates = [];
+        const params = [];
+
+        let rawUrl = '';
+        if (hasUrl) {
+            rawUrl = String(req.body.brewfatherWebhookUrl || '').trim();
+            if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
+                return res.status(400).json({ error: 'A URL do webhook deve iniciar com http:// ou https://' });
+            }
+            updates.push('brewfather_webhook_url = ?');
+            params.push(rawUrl || null);
         }
-        await pool.execute('UPDATE users SET brewfather_webhook_url = ? WHERE id = ?', [rawUrl || null, req.user.id]);
-        res.json({ message: 'Integração atualizada com sucesso', brewfatherWebhookUrl: rawUrl });
+
+        let normalizedAlertCfg = undefined;
+        if (hasAlertCfg && req.body.alertConfig && typeof req.body.alertConfig === 'object') {
+            const c = req.body.alertConfig;
+            const rawSg = parseFloat(c.sgTargetValue);
+            const normSg = !isNaN(rawSg) && rawSg > 0 ? (rawSg > 500 ? rawSg / 1000 : rawSg) : null;
+            normalizedAlertCfg = {
+                lowBatteryEnabled: c.lowBatteryEnabled !== false,
+                lowBatteryThreshold: Math.max(2.8, Math.min(4.2, parseFloat(c.lowBatteryThreshold) || 3.5)),
+                tempDeviationEnabled: c.tempDeviationEnabled !== false,
+                tempDeviationMargin: Math.max(0.2, Math.min(10, parseFloat(c.tempDeviationMargin) || 1.5)),
+                sgTargetEnabled: c.sgTargetEnabled !== false,
+                sgTargetValue: normSg,
+                telegramBotToken: String(c.telegramBotToken || '').trim(),
+                telegramChatId: String(c.telegramChatId || '').trim()
+            };
+            updates.push('alert_config = ?');
+            params.push(JSON.stringify(normalizedAlertCfg));
+            userAlertConfigs[req.user.id] = { cfg: normalizedAlertCfg, ts: Date.now() };
+        }
+
+        if (updates.length > 0) {
+            params.push(req.user.id);
+            await pool.execute(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+        }
+
+        res.json({
+            message: 'Integração atualizada com sucesso',
+            ...(hasUrl ? { brewfatherWebhookUrl: rawUrl } : {}),
+            ...(normalizedAlertCfg ? { alertConfig: normalizedAlertCfg } : {})
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/user/integrations/test-telegram', authenticateToken, async (req, res) => {
+    try {
+        const botToken = String(req.body?.telegramBotToken || '').trim();
+        const chatId = String(req.body?.telegramChatId || '').trim();
+        if (!botToken || !chatId) {
+            return res.status(400).json({ error: 'Informe o Bot Token e o Chat ID do Telegram' });
+        }
+        const tgRes = await fetch(`https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: '🍺 *Breww Dashboard*\nNotificações via Telegram conectadas com sucesso!',
+                parse_mode: 'Markdown'
+            })
+        });
+        res.json({ success: tgRes.ok, status: tgRes.status });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
