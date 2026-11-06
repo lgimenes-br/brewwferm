@@ -89,6 +89,11 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
         if (!isMounted) return;
 
+        if (res.status === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+          return;
+        }
+
         if (res.ok) {
           const logs = await res.json();
 
@@ -146,6 +151,10 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         },
         body: JSON.stringify({ ingredients })
       });
+      if (res.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        return;
+      }
       if (res.ok) toast.success('Receita salva com sucesso');
       else toast.error('Erro ao salvar receita');
     } catch (e) {
@@ -320,7 +329,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           <span className="text-xl font-mono text-red-500 font-medium">
             {(() => {
               const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
-              return validTemps.length > 0 ? Math.max(...validTemps).toFixed(1) : '0.0';
+              if (validTemps.length === 0) return '0.0';
+              const maxTemp = validTemps.reduce((max, t) => (t > max ? t : max), validTemps[0]);
+              return maxTemp.toFixed(1);
             })()}°C
           </span>
         </div>
@@ -331,7 +342,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           <span className="text-xl font-mono text-blue-500 font-medium">
             {(() => {
               const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
-              return validTemps.length > 0 ? Math.min(...validTemps).toFixed(1) : '0.0';
+              if (validTemps.length === 0) return '0.0';
+              const minTemp = validTemps.reduce((min, t) => (t < min ? t : min), validTemps[0]);
+              return minTemp.toFixed(1);
             })()}°C
           </span>
         </div>
@@ -347,14 +360,20 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       )}
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-neutral-800 mb-8 mt-12 no-print">
+      <div role="tablist" className="flex gap-4 border-b border-neutral-800 mb-8 mt-12 no-print">
         <button 
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'telemetry'}
           onClick={() => setActiveTab('telemetry')}
           className={`pb-4 px-4 text-sm font-bold uppercase tracking-widest transition-colors ${activeTab === 'telemetry' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
         >
           Telemetria
         </button>
         <button 
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'recipe'}
           onClick={() => setActiveTab('recipe')}
           className={`pb-4 px-4 text-sm font-bold uppercase tracking-widest transition-colors ${activeTab === 'recipe' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
         >
@@ -424,9 +443,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               <p className="text-neutral-500 mb-2">📊 Sem dados de telemetria disponíveis</p>
               <p className="text-neutral-600 text-sm">
                 Este lote não possui registros de temperatura e gravidade salvos durante a fermentação.
-              </p>
-              <p className="text-neutral-700 text-xs mt-2">
-                Batch ID: {brew.id} | Tentou buscar de: /api/batch/{brew.id}/data
               </p>
             </div>
           ) : (

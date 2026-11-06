@@ -57,15 +57,17 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
         }
     }, [steps, isEditing]);
 
-    // Tick the timer every second if fermentation is active
+    // Tick the timer every second if fermentation is active (paused while editing or tab hidden)
     React.useEffect(() => {
-        if (!isPaused && (startDate || stepStartDate || stepTime !== undefined)) {
+        if (!isPaused && !isEditing && (startDate || stepStartDate || stepTime !== undefined)) {
             const interval = setInterval(() => {
-                setNow(Date.now());
+                if (typeof document === 'undefined' || !document.hidden) {
+                    setNow(Date.now());
+                }
             }, 1000);
             return () => clearInterval(interval);
         }
-    }, [isPaused, startDate, stepStartDate, stepTime]);
+    }, [isPaused, isEditing, startDate, stepStartDate, stepTime]);
 
     const getStepTimeRemaining = (stepIndex: number) => {
         if ((!startDate && !stepStartDate && stepTime === undefined) || localSteps.length === 0) return null;
@@ -191,6 +193,9 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Perfil de Fermentação</h3>
                 <button
+                    type="button"
+                    aria-label={isEditing ? 'Salvar perfil de fermentação' : 'Editar perfil de fermentação'}
+                    title={isEditing ? 'Salvar perfil' : 'Editar perfil'}
                     onClick={handleToggleEdit}
                     className="text-neutral-400 hover:text-white transition-colors"
                 >
@@ -260,7 +265,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                         className="bg-transparent border-b border-neutral-700 text-sm font-medium text-white w-full outline-none focus:border-neutral-500"
                                     />
                                 ) : (
-                                    <h4 className={`text-sm font-medium truncate ${isActive ? 'text-white' : 'text-neutral-300'}`}>
+                                    <h4 title={step.name} className={`text-sm font-medium truncate ${isActive ? 'text-white' : 'text-neutral-300'}`}>
                                         {step.name}
                                     </h4>
                                 )}
@@ -317,6 +322,9 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
                             {isEditing && localSteps.length > 1 && (
                                 <button
+                                    type="button"
+                                    aria-label={`Remover etapa ${step.name}`}
+                                    title="Remover etapa"
                                     onClick={() => handleRemoveStep(step.id)}
                                     className="text-neutral-600 hover:text-red-500 transition-colors p-2"
                                 >

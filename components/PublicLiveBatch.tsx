@@ -30,7 +30,9 @@ export const PublicLiveBatch: React.FC = () => {
     useEffect(() => {
         loadBatch();
         const interval = setInterval(() => {
-            loadBatch();
+            if (typeof document === 'undefined' || !document.hidden) {
+                loadBatch();
+            }
         }, 30000);
         return () => clearInterval(interval);
     }, [loadBatch]);

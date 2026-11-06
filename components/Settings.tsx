@@ -478,6 +478,9 @@ export const Settings: React.FC = () => {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.status === 401 && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
         if (res.ok) {
             sendCommand(selectedDeviceId, 'cmd', { action: 'clearchart' });
             toast.success('Histórico limpo com sucesso!', { id: loadingId });
@@ -497,6 +500,9 @@ export const Settings: React.FC = () => {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.status === 401 && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
         
         if (res.ok) {
             let filename = `${activeDevice?.name || 'log'}.csv`;
@@ -557,6 +563,9 @@ export const Settings: React.FC = () => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(subscription)
       });
+      if (res.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
       
       if (res.ok) {
         toast.success('Notificações ativadas com sucesso!');
@@ -584,6 +593,7 @@ export const Settings: React.FC = () => {
                 <Cpu size={16} className="text-neutral-400" />
             </div>
             <select
+                aria-label="Selecionar controlador"
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
                 className="w-full pl-11 pr-10 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-700 transition-all appearance-none cursor-pointer text-sm font-bold tracking-wider"

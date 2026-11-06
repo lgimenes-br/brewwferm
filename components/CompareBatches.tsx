@@ -19,6 +19,10 @@ export const CompareBatches: React.FC = () => {
                 const res = await fetch(`${API_URL}/batches`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401 && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                    return;
+                }
                 if (res.ok) {
                     const data = await res.json();
                     const completed = (Array.isArray(data) ? data : []).filter((b: any) => !b.is_active);
@@ -37,9 +41,13 @@ export const CompareBatches: React.FC = () => {
         
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/batches/compare?batch1=${batch1}&batch2=${batch2}`, {
+            const res = await fetch(`${API_URL}/batches/compare?batch1=${encodeURIComponent(batch1)}&batch2=${encodeURIComponent(batch2)}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (res.status === 401 && typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                return;
+            }
             if (res.ok) {
                 const result = await res.json();
                 const safeResult = Array.isArray(result) ? result : [];
@@ -75,8 +83,9 @@ export const CompareBatches: React.FC = () => {
             <div className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-6 md:p-8 mb-8">
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                     <div className="flex-1 w-full">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2">Lote 1</label>
+                        <label htmlFor="compare-batch-1" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2">Lote 1</label>
                         <select 
+                            id="compare-batch-1"
                             value={batch1} 
                             onChange={e => setBatch1(e.target.value)}
                             className="w-full bg-black border border-amber-500/30 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 font-bold"
@@ -88,8 +97,9 @@ export const CompareBatches: React.FC = () => {
                         </select>
                     </div>
                     <div className="flex-1 w-full">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2">Lote 2</label>
+                        <label htmlFor="compare-batch-2" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2">Lote 2</label>
                         <select 
+                            id="compare-batch-2"
                             value={batch2} 
                             onChange={e => setBatch2(e.target.value)}
                             className="w-full bg-black border border-purple-500/30 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 font-bold"

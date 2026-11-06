@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FermentationEvent, EventType } from '../types';
 import { Plus, Calendar, X, MessageSquareText } from 'lucide-react';
 
@@ -13,6 +13,15 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
   const [isAdding, setIsAdding] = useState(false);
   const [newType, setNewType] = useState<EventType>(EventType.OTHER);
   const [newDesc, setNewDesc] = useState('');
+
+  useEffect(() => {
+    if (!isAdding) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsAdding(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAdding]);
 
   const safeEvents = Array.isArray(events) ? events : [];
   
@@ -100,8 +109,10 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
             <div className="flex-1 bg-neutral-900/60 border border-neutral-800 p-4 rounded-2xl hover:border-neutral-700 transition-colors relative">
               {event.id !== 'system-start' && (
                 <button
+                  type="button"
+                  aria-label="Remover evento"
                   onClick={() => onRemoveEvent(event.id)}
-                  className="absolute top-3 right-3 text-neutral-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-3 right-3 text-neutral-600 hover:text-red-500 opacity-60 md:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   title="Remover evento"
                 >
                   <X size={14} />
@@ -129,11 +140,23 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
 
       {/* Add Event Overlay */}
       {isAdding && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 rounded-3xl">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-event-dialog-title"
+          className="absolute inset-0 z-20 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 rounded-3xl"
+        >
           <div className="w-full">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-white">Nova Anotação</h3>
-              <button onClick={() => setIsAdding(false)} className="text-neutral-500 hover:text-white"><X size={20}/></button>
+              <h3 id="new-event-dialog-title" className="text-lg font-bold text-white">Nova Anotação</h3>
+              <button
+                type="button"
+                aria-label="Fechar nova anotação"
+                onClick={() => setIsAdding(false)}
+                className="text-neutral-500 hover:text-white"
+              >
+                <X size={20}/>
+              </button>
             </div>
 
             <div className="space-y-4">

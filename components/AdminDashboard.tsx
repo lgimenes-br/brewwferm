@@ -28,6 +28,10 @@ const MarketingTab = () => {
                     fetch(`${baseUrl}/admin/health-radar`, { headers }),
                     fetch(`${baseUrl}/admin/push-stats`, { headers })
                 ]);
+                if ((resHealth.status === 401 || resPush.status === 401) && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                    return;
+                }
                 if (resHealth.ok) {
                     const hData = await resHealth.json();
                     setHealth(Array.isArray(hData) ? hData : []);
@@ -196,29 +200,29 @@ export const AdminDashboard = () => {
                     
                     <div className="flex items-center gap-2 min-w-0">
                         {/* Tab Buttons as Icons */}
-                        <div className="flex items-center gap-2 mr-2 overflow-x-auto max-w-[65vw] md:max-w-none py-1">
-                            <button onClick={() => setActiveTab('overview')} title="Visão Geral" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'overview' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                        <div role="tablist" aria-label="Abas do Painel Admin" className="flex items-center gap-2 mr-2 overflow-x-auto max-w-[65vw] md:max-w-none py-1">
+                            <button type="button" role="tab" aria-selected={activeTab === 'overview'} aria-label="Visão Geral" onClick={() => setActiveTab('overview')} title="Visão Geral" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'overview' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Activity size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('telemetry')} title="Telemetria" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'telemetry' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'telemetry'} aria-label="Telemetria" onClick={() => setActiveTab('telemetry')} title="Telemetria" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'telemetry' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Zap size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('users')} title="Contas e Dispositivos" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'users'} aria-label="Contas e Dispositivos" onClick={() => setActiveTab('users')} title="Contas e Dispositivos" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Users size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('security')} title="Segurança e Avisos" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'security' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'security'} aria-label="Segurança e Avisos" onClick={() => setActiveTab('security')} title="Segurança e Avisos" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'security' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Shield size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('firmware')} title="Firmware (OTA)" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'firmware' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'firmware'} aria-label="Firmware (OTA)" onClick={() => setActiveTab('firmware')} title="Firmware (OTA)" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'firmware' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Download size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'ingredients'} aria-label="Banco de Ingredientes" onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <TestTube size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('terminal')} title="Terminal do Servidor" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'terminal' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'terminal'} aria-label="Terminal do Servidor" onClick={() => setActiveTab('terminal')} title="Terminal do Servidor" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'terminal' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Terminal size={18} />
                             </button>
-                            <button onClick={() => setActiveTab('marketing')} title="Marketing e Saúde" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'marketing' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                            <button type="button" role="tab" aria-selected={activeTab === 'marketing'} aria-label="Marketing e Saúde" onClick={() => setActiveTab('marketing')} title="Marketing e Saúde" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'marketing' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <HeartPulse size={18} />
                             </button>
                         </div>
@@ -231,6 +235,8 @@ export const AdminDashboard = () => {
                         </div>
                         
                         <button 
+                            type="button"
+                            aria-label="Sair"
                             onClick={handleLogout}
                             title="Sair"
                             className="w-10 h-10 flex items-center justify-center text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors border border-neutral-800 hover:border-red-500/20"
@@ -287,6 +293,10 @@ const OverviewTab = () => {
                     fetch(`${baseUrl}/admin/batch-stats`, { headers }),
                     fetch(`${baseUrl}/admin/community-trends`, { headers })
                 ]);
+                if (resStats.status === 401 && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                    return;
+                }
                 
                 if (resStats.ok) setStats(await resStats.json());
                 if (resAnalytics.ok) setAnalytics(await resAnalytics.json());

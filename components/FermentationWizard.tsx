@@ -367,7 +367,11 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
         setProfile(profile.filter(s => s.id !== id));
     };
 
+    const [isStarting, setIsStarting] = useState(false);
+
     const handleStart = () => {
+        if (isStarting) return;
+        setIsStarting(true);
         const sanitizedProfile = profile.map((s, idx) => {
             const parsedTrigger = normalizeGravity(s.triggerGravity, 0);
             const { triggerGravity, ...restStep } = s;
@@ -647,7 +651,13 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             />
                                         </div>
                                         {profile.length > 1 && (
-                                            <button onClick={() => handleRemoveStep(p.id)} className="w-10 h-10 mt-5 rounded-lg flex items-center justify-center text-neutral-600 hover:text-red-500 hover:bg-neutral-800 transition-colors shrink-0">
+                                            <button
+                                                type="button"
+                                                aria-label={`Remover etapa ${p.name}`}
+                                                title="Remover etapa"
+                                                onClick={() => handleRemoveStep(p.id)}
+                                                className="w-10 h-10 mt-5 rounded-lg flex items-center justify-center text-neutral-600 hover:text-red-500 hover:bg-neutral-800 transition-colors shrink-0"
+                                            >
                                                 <Trash2 size={18} />
                                             </button>
                                         )}
@@ -688,10 +698,12 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                     </button>
                 ) : (
                     <button 
+                        type="button"
                         onClick={handleStart}
-                        className="px-10 py-4 bg-green-500 text-black font-bold text-lg rounded-2xl flex items-center gap-3 hover:bg-green-400 hover:scale-105 transition-all shadow-[0_0_40px_rgba(34,197,94,0.3)]"
+                        disabled={isStarting}
+                        className="px-10 py-4 bg-green-500 text-black font-bold text-lg rounded-2xl flex items-center gap-3 hover:bg-green-400 hover:scale-105 transition-all shadow-[0_0_40px_rgba(34,197,94,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <CheckCircle2 size={24} /> INICIAR FERMENTAÇÃO
+                        <CheckCircle2 size={24} /> {isStarting ? 'INICIANDO...' : 'INICIAR FERMENTAÇÃO'}
                     </button>
                 )}
             </div>

@@ -106,6 +106,8 @@ export const BrewingCalculators: React.FC = () => {
                     return (
                         <div key={calc.id} className="w-full flex flex-col">
                             <button 
+                                type="button"
+                                aria-expanded={isActive}
                                 className={`w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left ${isActive ? 'bg-neutral-800/30' : ''}`}
                                 onClick={() => {
                                     if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation', 'ispindel'].includes(calc.id)) {

@@ -79,6 +79,20 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         setEditFG(fermenter.fg);
     }, [fermenter.beerName, fermenter.og, fermenter.fg]);
 
+    useEffect(() => {
+        if (!isEditingBatch) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setEditBeerName(fermenter.beerName || '');
+                setEditOG(fermenter.og);
+                setEditFG(fermenter.fg);
+                setIsEditingBatch(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isEditingBatch, fermenter.beerName, fermenter.og, fermenter.fg]);
+
     // pendingMode: what the user selected but hasn't activated yet
     const [pendingMode, setPendingMode] = useState<DeviceMode | null>(null);
 
@@ -458,8 +472,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 <h1 className="text-6xl md:text-7xl font-black text-white tracking-tighter leading-tight">{fermenter.beerName || 'Sem Produção'}</h1>
                                 {fermenter.batchId && (
                                     <button
+                                        type="button"
+                                        aria-label="Editar lote"
                                         onClick={() => setIsEditingBatch(true)}
-                                        className="p-2 opacity-60 md:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 rounded-lg transition-all text-neutral-500 hover:text-white"
+                                        className="p-2 opacity-60 md:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-neutral-800 rounded-lg transition-all text-neutral-500 hover:text-white"
                                         title="Editar Batch"
                                     >
                                         <Edit2 size={24} />
@@ -497,12 +513,16 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <div className="flex items-center gap-6 bg-black/40 p-2 pr-6 rounded-2xl border border-neutral-800">
                                 <div className="flex items-center gap-1">
                                     <button
+                                        type="button"
+                                        aria-label="Diminuir temperatura alvo"
                                         onClick={() => handleSetPointChange(-0.5)}
                                         className="w-12 h-12 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-colors border border-neutral-700 active:scale-95"
                                     >
                                         <Minus size={20} />
                                     </button>
                                     <button
+                                        type="button"
+                                        aria-label="Aumentar temperatura alvo"
                                         onClick={() => handleSetPointChange(0.5)}
                                         className="w-12 h-12 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-colors border border-neutral-700 active:scale-95"
                                     >

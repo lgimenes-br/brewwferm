@@ -981,7 +981,7 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
         `, [req.user.id]);
         
         res.json(devices);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/discovery', authenticateToken, async (req, res) => {
@@ -994,7 +994,7 @@ app.get('/api/discovery', authenticateToken, async (req, res) => {
             if (now - discoveredUnknowns[k].lastSeen > 300000) delete discoveredUnknowns[k];
         }
         res.json(Object.values(discoveredUnknowns));
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/devices', authenticateToken, async (req, res) => {
@@ -1018,7 +1018,7 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip || null]);
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
-    } catch (err) { res.status(500).json({ error: 'Erro interno' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno' }); }
 });
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
@@ -1027,7 +1027,7 @@ app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
         await pool.execute('UPDATE devices SET device_name = ? WHERE serial_code = ? AND user_id = ?', [name ?? null, req.params.serial, req.user.id]);
         notifyUpdate(req.params.serial);
         res.json({ message: 'Dispositivo atualizado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
@@ -1037,7 +1037,7 @@ app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
             [choppName ?? null, req.params.id, req.user.id]);
         notifyUpdate(req.params.id);
         res.json({ message: 'Chopp name atualizado' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro' }); }
 });
 
 app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
@@ -1048,7 +1048,8 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
         notifyUpdate(req.params.id);
         res.json({ message: 'Sensores atualizados no backend' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
 
@@ -1060,7 +1061,7 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
         notifyUpdate(req.params.serial);
         res.json({ message: 'Excluído' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/devices/:serial/command', authenticateToken, async (req, res) => {
@@ -1175,7 +1176,7 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
         notifyUpdate(normalizedSerial);
         res.json({ message: 'Iniciado!', batchId: result.insertId });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/batch/update', authenticateToken, async (req, res) => {
@@ -1208,7 +1209,7 @@ app.put('/api/batch/update', authenticateToken, async (req, res) => {
         res.json({ message: 'Atualizado' });
     } catch (err) {
         console.error(`❌ [API] Erro ao atualizar batch:`, err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
 
@@ -1227,7 +1228,7 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
         if (stoppedBatchId) delete alertState[`magic_${stoppedBatchId}`];
         notifyUpdate(normalizedSerial);
         res.json({ message: 'Finalizado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/events', authenticateToken, async (req, res) => {
@@ -1238,7 +1239,7 @@ app.post('/api/events', authenticateToken, async (req, res) => {
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         await pool.execute('INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, ?)', [batchId, type, description ?? null, date || new Date()]);
         res.status(201).json({ message: 'Registrado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/batch/:id/events', authenticateToken, async (req, res) => {
@@ -1247,7 +1248,7 @@ app.get('/api/batch/:id/events', authenticateToken, async (req, res) => {
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         const [rows] = await pool.execute('SELECT * FROM batch_events WHERE batch_id = ? ORDER BY recorded_at ASC', [req.params.id]);
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.delete('/api/events/:id', authenticateToken, async (req, res) => {
@@ -1256,7 +1257,7 @@ app.delete('/api/events/:id', authenticateToken, async (req, res) => {
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
         await pool.execute('DELETE FROM batch_events WHERE id = ?', [req.params.id]);
         res.json({ message: 'Apagado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/recipes', authenticateToken, async (req, res) => {
@@ -1280,7 +1281,7 @@ app.get('/api/recipes', authenticateToken, async (req, res) => {
             }
         }
         res.json(recipes);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/recipes', authenticateToken, async (req, res) => {
@@ -1305,7 +1306,7 @@ app.post('/api/recipes', authenticateToken, async (req, res) => {
         }
         await conn.commit();
         res.status(201).json({ message: 'Salva', id: recipeId });
-    } catch (err) { await conn.rollback(); res.status(500).json({ error: err.message }); } finally { conn.release(); }
+    } catch (err) { await conn.rollback(); console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); } finally { conn.release(); }
 });
 
 app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
@@ -1314,7 +1315,7 @@ app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
         const [result] = await pool.execute('DELETE FROM recipes WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
         if (result.affectedRows === 0) return res.status(404).json({ error: 'Receita não encontrada' });
         res.json({ message: 'Apagada' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/user/integrations', authenticateToken, async (req, res) => {
@@ -1326,7 +1327,7 @@ app.get('/api/user/integrations', authenticateToken, async (req, res) => {
             brewfatherWebhookUrl: rows?.[0]?.brewfather_webhook_url || '',
             alertConfig: { ...DEFAULT_ALERT_CONFIG, ...(parsedCfg && typeof parsedCfg === 'object' ? parsedCfg : {}) }
         });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/user/integrations', authenticateToken, async (req, res) => {
@@ -1376,7 +1377,7 @@ app.put('/api/user/integrations', authenticateToken, async (req, res) => {
             ...(hasUrl ? { brewfatherWebhookUrl: rawUrl } : {}),
             ...(normalizedAlertCfg ? { alertConfig: normalizedAlertCfg } : {})
         });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/user/integrations/test-telegram', authenticateToken, async (req, res) => {
@@ -1399,7 +1400,7 @@ app.post('/api/user/integrations/test-telegram', authenticateToken, async (req, 
             return res.status(400).json({ success: false, status: tgRes.status, error: 'Falha ao enviar para o Telegram. Verifique o Bot Token e o Chat ID.' });
         }
         res.json({ success: true, status: tgRes.status });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/user/integrations/test-brewfather', authenticateToken, async (req, res) => {
@@ -1431,7 +1432,7 @@ app.post('/api/user/integrations/test-brewfather', authenticateToken, async (req
             return res.status(400).json({ success: false, status: bfRes.status, error: `O Brewfather recusou o pacote (HTTP ${bfRes.status}). Verifique a URL do Custom Stream.` });
         }
         res.json({ success: true, status: bfRes.status });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => {
@@ -1453,7 +1454,7 @@ app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => 
         res.json({ message: 'Inscrição salva com sucesso!' });
     } catch (err) {
         console.error('Erro ao salvar inscrição Push:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
 
@@ -1464,7 +1465,7 @@ app.get('/api/history/batches', authenticateToken, async (req, res) => {
             [req.user.id]
         );
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.delete('/api/history/:serial', authenticateToken, async (req, res) => {
@@ -1473,7 +1474,7 @@ app.delete('/api/history/:serial', authenticateToken, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [rows[0].id]);
         res.json({ message: 'Apagado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/export/:serial', authenticateToken, async (req, res) => {
@@ -1499,7 +1500,7 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
         const esc = (s) => String(s ?? '').replace(/"/g, '""');
         rows.forEach(r => { csv += `"${new Date(r.recorded_at).toLocaleString('pt-BR')}","${esc(r.batch_name)}",${f(r.temp_ferm)},${f(r.temp_amb)},${f(r.target_temp)},${fs(r.gravity)},${f(r.battery)},"${esc(r.status_op)}","${esc(r.step_name)}"\n`; });
         res.header('Content-Type', 'text/csv'); res.attachment(`${fileName}.csv`); res.send(csv);
-    } catch (err) { res.status(500).send('Erro ao exportar'); }
+    } catch (err) { console.error(err); res.status(500).send('Erro ao exportar'); }
 });
 
 app.get('/api/batches/compare', authenticateToken, async (req, res) => {
@@ -1542,12 +1543,13 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
         const result = Object.values(combined).sort((a, b) => a.hour - b.hour);
         res.json(result);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
 
 app.get('/api/batches', authenticateToken, async (req, res) => {
-    try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id, (SELECT gravity FROM telemetry t WHERE t.batch_id = b.id AND t.gravity IS NOT NULL AND t.gravity > 0 ORDER BY t.recorded_at DESC LIMIT 1) as last_gravity FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { const [rows] = await pool.execute(`SELECT b.id, b.name, b.style, b.og, b.fg, b.profile, b.started_at, b.ended_at, b.is_active, b.ingredients, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, b.device_id as device_id, (SELECT gravity FROM telemetry t WHERE t.batch_id = b.id AND t.gravity IS NOT NULL AND t.gravity > 0 ORDER BY t.recorded_at DESC LIMIT 1) as last_gravity FROM batches b JOIN devices d ON b.device_id = d.id WHERE d.user_id = ? ORDER BY b.started_at DESC`, [req.user.id]); res.json(rows); } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // Update batch ingredients
@@ -1559,7 +1561,7 @@ app.put('/api/batches/:id/ingredients', authenticateToken, async (req, res) => {
         const { ingredients } = req.body || {};
         await pool.execute('UPDATE batches SET ingredients = ? WHERE id = ?', [ingredients !== undefined ? JSON.stringify(ingredients) : null, req.params.id]);
         res.json({ message: 'Ingredientes atualizados com sucesso' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
@@ -1572,7 +1574,7 @@ app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
         delete alertState[`magic_${req.params.id}`];
         await loadActiveBatches();
         res.json({ message: 'Batch deletado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // Public Live Spectator Share Token Generation / Retrieval
@@ -1595,7 +1597,7 @@ app.post('/api/batches/:id/share-token', authenticateToken, async (req, res) => 
             await pool.execute('UPDATE batches SET public_token = ? WHERE id = ?', [token, req.params.id]);
         }
         res.json({ publicToken: token });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // Public Read-Only Live Spectator Endpoint (No Auth Required)
@@ -1649,7 +1651,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
             telemetry: finalTelemetry,
             events
         });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // AI Brewing Advisor Endpoint (keeps Gemini API key server-side)
@@ -1811,7 +1813,7 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
         }
         
         res.json(finalRows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // ==========================================
@@ -1821,28 +1823,28 @@ app.get('/api/ingredients/fermentables', authenticateToken, async (req, res) => 
     try {
         const [rows] = await ingredientsPool.execute('SELECT * FROM fermentables ORDER BY name ASC');
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/ingredients/hops', authenticateToken, async (req, res) => {
     try {
         const [rows] = await ingredientsPool.execute('SELECT * FROM hops ORDER BY name ASC');
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/ingredients/yeasts', authenticateToken, async (req, res) => {
     try {
         const [rows] = await ingredientsPool.execute('SELECT * FROM yeasts ORDER BY name ASC');
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
     try {
         const [rows] = await ingredientsPool.execute('SELECT * FROM miscs ORDER BY name ASC');
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // ==========================================
@@ -1856,7 +1858,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
             GROUP BY u.id ORDER BY u.id DESC
         `);
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/admin/users/:id/plan', authenticateToken, requireAdmin, async (req, res) => {
@@ -1865,7 +1867,7 @@ app.put('/api/admin/users/:id/plan', authenticateToken, requireAdmin, async (req
         const max_devices = plan_type === 'premium' ? 9999 : 1;
         await pool.execute('UPDATE users SET plan_type = ?, max_devices = ? WHERE id = ?', [plan_type, max_devices, req.params.id]);
         res.json({ message: 'Plano atualizado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
@@ -1876,7 +1878,7 @@ app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) 
             ORDER BY d.id DESC
         `);
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
@@ -1886,7 +1888,7 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
         const hashedPassword = await bcrypt.hash(String(password), 10);
         await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hashedPassword, role || 'user']);
         res.status(201).json({ message: 'User created' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -1902,7 +1904,7 @@ app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res
             await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [name, email, safeRole, id]);
         }
         res.json({ message: 'User updated' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -1932,7 +1934,7 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
         await loadActiveBatches();
         
         res.json({ message: 'User and all related data deleted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
@@ -1941,7 +1943,7 @@ app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res)
         if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
         await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name || null, user_id]);
         res.status(201).json({ message: 'Device created' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -1952,7 +1954,7 @@ app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, r
         await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code.trim().toUpperCase(), device_name || null, user_id, id]);
         await loadActiveBatches();
         res.json({ message: 'Device updated' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -1962,7 +1964,7 @@ app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req
         await deleteDeviceCascade(id, devs[0]?.serial_code);
         await loadActiveBatches();
         res.json({ message: 'Device deleted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/admin/ingredients/:table', authenticateToken, requireAdmin, async (req, res) => {
@@ -1975,7 +1977,7 @@ app.post('/api/admin/ingredients/:table', authenticateToken, requireAdmin, async
         if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
         const [result] = await ingredientsPool.execute(`INSERT INTO ${table} (name, name_pt) VALUES (?, ?)`, [name, name_pt ?? null]);
         res.json({ id: result.insertId, message: 'Ingrediente criado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -1988,7 +1990,7 @@ app.put('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, as
         if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
         await ingredientsPool.execute(`UPDATE ${table} SET name = ?, name_pt = ? WHERE id = ?`, [name, name_pt ?? null, id]);
         res.json({ message: 'Ingrediente atualizado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -1999,7 +2001,7 @@ app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin,
         
         await ingredientsPool.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
         res.json({ message: 'Ingrediente deletado' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/firmware/version.json', (req, res) => {
@@ -2039,7 +2041,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
         const [[{ active_batches }]] = await pool.execute('SELECT COUNT(*) as active_batches FROM batches WHERE is_active = 1');
         const [[{ online_devices }]] = await pool.execute('SELECT COUNT(*) as online_devices FROM devices WHERE last_seen > NOW() - INTERVAL 1 HOUR');
         res.json({ total_users, total_devices, active_batches, online_devices });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res) => {
@@ -2055,7 +2057,7 @@ app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res
             ORDER BY d.last_seen DESC
         `);
         res.json(devices);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 // SERVER TERMINAL & BACKLOG
@@ -2065,7 +2067,8 @@ app.get('/api/admin/server/status', authenticateToken, requireAdmin, async (req,
         const jsonStart = stdout.indexOf('[');
         res.json(JSON.parse(jsonStart >= 0 ? stdout.slice(jsonStart) : stdout));
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error(e);
+        res.status(500).json({ error: 'Erro interno ao consultar status do servidor' });
     }
 });
 
@@ -2079,7 +2082,7 @@ app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req, res
         const [growth] = await pool.execute("SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as users FROM users GROUP BY month ORDER BY month ASC LIMIT 12");
         const [firmwares] = await pool.execute('SELECT firmware_version as name, COUNT(*) as count FROM devices WHERE firmware_version IS NOT NULL GROUP BY firmware_version');
         res.json({ mau, zombies, growth, firmwares });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/financials', authenticateToken, requireAdmin, async (req, res) => {
@@ -2092,7 +2095,7 @@ app.get('/api/admin/financials', authenticateToken, requireAdmin, async (req, re
         });
         const mrr = premium * 29.90; // Exemplo: R$ 29,90 por premium
         res.json({ free, premium, mrr });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/batch-stats', authenticateToken, requireAdmin, async (req, res) => {
@@ -2100,7 +2103,7 @@ app.get('/api/admin/batch-stats', authenticateToken, requireAdmin, async (req, r
         const [[{ total }]] = await pool.execute('SELECT COUNT(*) as total FROM batches WHERE is_active = 0');
         const [[{ success }]] = await pool.execute('SELECT COUNT(*) as success FROM batches WHERE is_active = 0 AND DATEDIFF(ended_at, started_at) > 1');
         res.json({ total, success, abandoned: total - success });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/health-radar', authenticateToken, requireAdmin, async (req, res) => {
@@ -2115,7 +2118,7 @@ app.get('/api/admin/health-radar', authenticateToken, requireAdmin, async (req, 
             LIMIT 5
         `);
         res.json(devices);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/push-stats', authenticateToken, requireAdmin, async (req, res) => {
@@ -2123,7 +2126,7 @@ app.get('/api/admin/push-stats', authenticateToken, requireAdmin, async (req, re
         const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) as total_users FROM users');
         const [[{ opt_in }]] = await pool.execute('SELECT COUNT(DISTINCT user_id) as opt_in FROM push_subscriptions');
         res.json({ total_users, opt_in });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/admin/broadcast-push', authenticateToken, requireAdmin, async (req, res) => {
@@ -2136,7 +2139,7 @@ app.post('/api/admin/broadcast-push', authenticateToken, requireAdmin, async (re
             sent++;
         }
         res.json({ success: true, sent });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/community-trends', authenticateToken, requireAdmin, async (req, res) => {
@@ -2163,7 +2166,7 @@ app.get('/api/admin/community-trends', authenticateToken, requireAdmin, async (r
             return { ...s, abv: abv > 0 ? abv.toFixed(1) : '-' };
         });
         res.json(enriched);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/trends', authenticateToken, requireAdmin, async (req, res) => {
@@ -2171,7 +2174,7 @@ app.get('/api/admin/trends', authenticateToken, requireAdmin, async (req, res) =
         const [[{ total_batches }]] = await pool.execute('SELECT COUNT(*) as total_batches FROM batches');
         const [styles] = await pool.execute('SELECT style as name, COUNT(*) as count FROM batches WHERE style IS NOT NULL AND style != "" GROUP BY style ORDER BY count DESC LIMIT 5');
         res.json({ total_batches, styles });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/map', authenticateToken, requireAdmin, async (req, res) => {
@@ -2179,7 +2182,7 @@ app.get('/api/admin/map', authenticateToken, requireAdmin, async (req, res) => {
         // Fallback para quem não tem localização (Média Brasil)
         const [locations] = await pool.execute('SELECT u.name, IFNULL(u.lat, -23.5505) as lat, IFNULL(u.lon, -46.6333) as lon, MAX(d.last_seen) as last_seen FROM users u JOIN devices d ON u.id = d.user_id GROUP BY u.id');
         res.json(locations);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, res) => {
@@ -2187,7 +2190,8 @@ app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, r
         const { stdout, stderr } = await execPromise('pm2 logs breww-server --nostream --lines 100');
         res.send(stdout + '\n' + stderr);
     } catch (e) {
-        res.status(500).send(e.message);
+        console.error(e);
+        res.status(500).send('Erro interno ao consultar logs do servidor');
     }
 });
 
@@ -2197,14 +2201,14 @@ app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) =>
         const safeLimit = 100;
         const [logs] = await pool.execute(`SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT ${safeLimit}`);
         res.json(logs);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const [broadcasts] = await pool.execute('SELECT * FROM system_broadcasts ORDER BY created_at DESC');
         res.json(broadcasts);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.post('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
@@ -2222,7 +2226,7 @@ app.post('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, r
             }
         }
         res.status(201).json({ message: 'Enviado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.put('/api/admin/broadcasts/:id', authenticateToken, requireAdmin, async (req, res) => {
@@ -2230,14 +2234,14 @@ app.put('/api/admin/broadcasts/:id', authenticateToken, requireAdmin, async (req
         const { is_active } = req.body;
         await pool.execute('UPDATE system_broadcasts SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, req.params.id]);
         res.json({ message: 'Atualizado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/broadcasts/active', async (req, res) => {
     try {
         const [broadcasts] = await pool.execute('SELECT * FROM system_broadcasts WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1');
         res.json(broadcasts[0] || null);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint de API não encontrado' }));

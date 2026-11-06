@@ -1,9 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Brain, Sparkles, Loader2, MessageSquare, Download, X, Maximize2, Activity, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Fermenter } from '../types';
 import { getBrewingInsights, AIAnalysis } from '../services/geminiService';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface GeminiAdvisorProps {
@@ -16,6 +14,15 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const modalContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
 
   const handleAskAI = async () => {
     setLoading(true);
@@ -32,6 +39,11 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
     const content = modalContentRef.current;
     const originalStyle = content.style.cssText;
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
+
       content.style.backgroundColor = '#0a0a0a';
       content.style.color = '#ffffff';
       content.style.padding = '40px';
@@ -184,7 +196,12 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
       {/* Analysis Modal */}
       {isModalOpen && insight && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="breww-ai-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+        >
           <div className="bg-neutral-950 border border-neutral-800 w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col relative overflow-hidden">
 
             {/* Modal Header */}
@@ -194,12 +211,13 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                   <Sparkles className="text-indigo-400" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Análise Breww.AI</h2>
+                  <h2 id="breww-ai-modal-title" className="text-xl font-bold text-white">Análise Breww.AI</h2>
                   <p className="text-neutral-500 text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={handleDownloadPDF}
                   className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-neutral-200 rounded-lg font-medium text-sm transition-colors"
                 >
@@ -207,6 +225,8 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                   Baixar PDF
                 </button>
                 <button
+                  type="button"
+                  aria-label="Fechar análise"
                   onClick={() => setIsModalOpen(false)}
                   className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
                 >
