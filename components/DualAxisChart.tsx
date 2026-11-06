@@ -23,6 +23,8 @@ interface DualAxisChartProps {
 }
 
 export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, og, fg, events = [], sensor1Name = 'Temperatura', sensorSgName = 'Gravidade (SG)' }) => {
+  const rawUid = React.useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const gradId = `colorGravityDual-${rawUid}`;
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     
@@ -49,8 +51,8 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
   const safeFG = (fg !== undefined && fg !== null) ? parseFloat(String(fg)) : undefined;
 
   const validGravities = safeData.map(d => d.gravity).filter((g): g is number => g !== null && !isNaN(g));
-  let minGravity = validGravities.length > 0 ? Math.min(...validGravities) : 1.000;
-  let maxGravity = validGravities.length > 0 ? Math.max(...validGravities) : 1.100;
+  let minGravity = validGravities.length > 0 ? validGravities.reduce((a, b) => (b < a ? b : a), validGravities[0]) : 1.000;
+  let maxGravity = validGravities.length > 0 ? validGravities.reduce((a, b) => (b > a ? b : a), validGravities[0]) : 1.100;
 
   if (safeOG !== undefined && !isNaN(safeOG)) maxGravity = Math.max(maxGravity, safeOG);
   if (safeFG !== undefined && !isNaN(safeFG)) minGravity = Math.min(minGravity, safeFG);
@@ -73,7 +75,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={safeData.length > 0 ? safeData : mockData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorGravityDual" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
                   <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                 </linearGradient>
@@ -143,7 +145,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 connectNulls
                 stroke={safeData.length > 0 ? "#8b5cf6" : "none"}
                 fillOpacity={safeData.length > 0 ? 1 : 0}
-                fill="url(#colorGravityDual)"
+                fill={`url(#${gradId})`}
                 strokeWidth={1.5}
                 activeDot={safeData.length > 0 ? { r: 4, strokeWidth: 0, fill: '#8b5cf6' } : false}
               />

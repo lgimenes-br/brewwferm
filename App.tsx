@@ -280,7 +280,7 @@ const NavConfig = () => {
 
             {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
-                <div className="fixed inset-0 z-50 bg-black/95 flex flex-col md:hidden animate-in fade-in zoom-in-95 duration-200">
+                <div role="dialog" aria-modal="true" aria-label="Menu de navegação" className="fixed inset-0 z-50 bg-black/95 flex flex-col md:hidden animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex items-center justify-between p-6 border-b border-neutral-900 bg-black">
                         <div className="flex items-baseline">
                             <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
