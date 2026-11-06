@@ -17,6 +17,7 @@ import { sendPushToUser } from './pushService.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
+import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,6 +94,8 @@ const initDb = async () => {
         await runMigration('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL');
         await runMigration('ALTER TABLE users ADD COLUMN brewfather_webhook_url VARCHAR(255) DEFAULT NULL');
         await runMigration('ALTER TABLE users ADD COLUMN alert_config JSON DEFAULT NULL');
+        await runMigration('ALTER TABLE users ADD COLUMN reset_token_hash VARCHAR(64) DEFAULT NULL');
+        await runMigration('ALTER TABLE users ADD COLUMN reset_token_expires DATETIME DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN ingredients JSON');
         await runMigration(`ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
@@ -824,6 +827,9 @@ app.post('/api/register', authRateLimiter, async (req, res) => {
         res.status(500).json({ error: 'Erro interno ao criar conta' });
     }
 });
+
+// Password Recovery & Reset Routes (/api/auth/forgot-password & /api/auth/reset-password)
+registerAuthRecoveryRoutes(app, pool, authRateLimiter, sendPushToUser);
 
 app.post('/api/auth/google', authRateLimiter, async (req, res) => {
     try {

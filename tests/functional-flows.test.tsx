@@ -33,6 +33,7 @@ import { CompareBatches } from '../components/CompareBatches';
 import { BrewingCalculators } from '../components/BrewingCalculators';
 import { Settings } from '../components/Settings';
 import { AdminDashboard } from '../components/AdminDashboard';
+import { Login } from '../components/Login';
 import { clearLiveDeviceState } from '../hooks/useFermenters';
 import { DeviceMode, BeerStyle } from '../types';
 
@@ -1363,5 +1364,74 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('1.028');
         expect(container.textContent).toContain('96%'); // RSSI -52 dBm -> 2 * (-52 + 100) = 96%
         expect(container.textContent).toContain('192.168.1.120');
+    });
+
+    it('Fluxo 8: Recuperação de Senha ("Esqueci minha senha" -> Solicitar Código de 6 dígitos -> Confirmar Nova Senha)', async () => {
+        const authCalls: { url: string; method: string; body?: any }[] = [];
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
+            const url = String(input);
+            const method = (init?.method || 'GET').toUpperCase();
+            const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+            authCalls.push({ url, method, body });
+
+            if (url.endsWith('/auth/forgot-password') && method === 'POST') {
+                return new Response(JSON.stringify({ message: 'Código enviado!' }), { status: 200 });
+            }
+            if (url.endsWith('/auth/reset-password') && method === 'POST') {
+                return new Response(JSON.stringify({ message: 'Senha redefinida com sucesso!' }), { status: 200 });
+            }
+            return new Response(JSON.stringify({}), { status: 200 });
+        });
+
+        renderWithProviders(<Login />, ['/login']);
+        await act(async () => {
+            await new Promise(r => setTimeout(r, 30));
+        });
+
+        // 1. Clica em "Esqueci minha senha"
+        const forgotBtn = findButtonByText('Esqueci minha senha');
+        expect(forgotBtn).toBeTruthy();
+        clickElement(forgotBtn);
+        expect(container.textContent).toContain('Recuperar Senha');
+
+        // 2. Preenche o e-mail e solicita o código
+        const recEmailInput = container.querySelector('#recovery-email') as HTMLInputElement;
+        expect(recEmailInput).toBeTruthy();
+        setInputValue(recEmailInput, 'cervejeiro@breww.live');
+
+        await act(async () => {
+            findButtonByText('Enviar Código')!.click();
+            await new Promise(r => setTimeout(r, 40));
+        });
+
+        expect(authCalls.some(c => c.url.endsWith('/auth/forgot-password') && c.body?.email === 'cervejeiro@breww.live')).toBe(true);
+        expect(container.textContent).toContain('Código de 6 Dígitos');
+
+        // 3. Preenche o código de 6 dígitos + Nova Senha + Confirmação
+        const codeInput = container.querySelector('#recovery-code') as HTMLInputElement;
+        const newPassInput = container.querySelector('#recovery-new-password') as HTMLInputElement;
+        const confirmPassInput = container.querySelector('#recovery-confirm-password') as HTMLInputElement;
+
+        setInputValue(codeInput, '482910');
+        setInputValue(newPassInput, 'novaSenhaSegura123');
+        setInputValue(confirmPassInput, 'novaSenhaSegura123');
+
+        await act(async () => {
+            findButtonByText('Redefinir Senha')!.click();
+            await new Promise(r => setTimeout(r, 40));
+        });
+
+        const resetCall = authCalls.find(c => c.url.endsWith('/auth/reset-password'));
+        expect(resetCall).toBeTruthy();
+        expect(resetCall?.body).toEqual({
+            email: 'cervejeiro@breww.live',
+            code: '482910',
+            newPassword: 'novaSenhaSegura123'
+        });
+
+        // Modal fechou e preencheu o e-mail no formulário principal
+        expect(container.querySelector('#recovery-code')).toBeNull();
+        const loginEmailInput = container.querySelector('#login-email') as HTMLInputElement;
+        expect(loginEmailInput.value).toBe('cervejeiro@breww.live');
     });
 });

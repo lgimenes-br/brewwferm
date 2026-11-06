@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2, KeyRound, X, CheckCircle2 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
+import { requestPasswordReset, confirmPasswordReset } from '../services/api';
 import toast from 'react-hot-toast';
 
 export const Login: React.FC = () => {
@@ -13,6 +13,15 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Password Recovery Modal State
+  const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify'>('request');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -37,7 +46,6 @@ export const Login: React.FC = () => {
       const params = new URLSearchParams(hash.substring(1));
       const token = params.get('access_token');
       if (token) {
-        // clear hash to prevent loops
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
         setLoading(true);
         loginWithGoogle(token)
@@ -49,6 +57,21 @@ export const Login: React.FC = () => {
             setLoading(false);
             toast.error(err.message || 'Falha ao autenticar com o Google via Redirecionamento');
           });
+      }
+    }
+
+    // Deep-link support for password reset links (/#/login?reset=1&email=...&code=...)
+    const queryIdx = hash.indexOf('?');
+    const queryStr = queryIdx >= 0 ? hash.slice(queryIdx + 1) : window.location.search.slice(1);
+    if (queryStr) {
+      const qParams = new URLSearchParams(queryStr);
+      if (qParams.get('reset') === '1') {
+        const qEmail = qParams.get('email') || '';
+        const qCode = qParams.get('code') || '';
+        if (qEmail) setRecoveryEmail(qEmail);
+        if (qCode) setRecoveryCode(qCode);
+        setRecoveryStep(qCode ? 'verify' : 'request');
+        setIsRecoveryOpen(true);
       }
     }
   }, [loginWithGoogle, navigate]);
@@ -65,6 +88,61 @@ export const Login: React.FC = () => {
       if (success) navigate('/');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openRecoveryModal = () => {
+    setRecoveryEmail(email.trim());
+    setRecoveryCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setRecoveryStep('request');
+    setIsRecoveryOpen(true);
+  };
+
+  const handleRequestCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryEmail.trim() || !recoveryEmail.includes('@')) {
+      toast.error('Informe um e-mail válido');
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      const res = await requestPasswordReset(recoveryEmail.trim());
+      toast.success(res.message || 'Código enviado!');
+      setRecoveryStep('verify');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao solicitar código');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const handleConfirmReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryEmail.trim() || !recoveryCode.trim() || !newPassword) {
+      toast.error('Preencha todos os campos');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('A nova senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error('As senhas não coincidem');
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      const res = await confirmPasswordReset(recoveryEmail.trim(), recoveryCode.trim(), newPassword);
+      toast.success(res.message || 'Senha redefinida com sucesso!');
+      setEmail(recoveryEmail.trim());
+      setPassword('');
+      setIsRecoveryOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Código inválido ou expirado');
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -110,7 +188,16 @@ export const Login: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="login-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Senha</label>
+            <div className="flex items-center justify-between ml-1">
+              <label htmlFor="login-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Senha</label>
+              <button
+                type="button"
+                onClick={openRecoveryModal}
+                className="text-[11px] font-medium text-neutral-400 hover:text-white underline underline-offset-4 transition-colors"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                 <Lock size={18} />
@@ -183,11 +270,172 @@ export const Login: React.FC = () => {
         </div>
 
         <div className="mt-8 text-center pt-6 border-t border-neutral-800/50">
-            <p className="text-neutral-500 text-sm">
-              Novo por aqui? <button onClick={() => navigate('/register')} className="text-neutral-300 hover:text-white font-medium underline underline-offset-4 transition-colors">Criar conta</button>
-            </p>
+          <p className="text-neutral-500 text-sm">
+            Novo por aqui? <button type="button" onClick={() => navigate('/register')} className="text-neutral-300 hover:text-white font-medium underline underline-offset-4 transition-colors">Criar conta</button>
+          </p>
         </div>
       </div>
+
+      {/* Password Recovery Modal */}
+      {isRecoveryOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="recovery-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsRecoveryOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setIsRecoveryOpen(false); }}
+        >
+          <div
+            className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-neutral-900 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-neutral-900 border border-neutral-800 text-white">
+                  <KeyRound size={18} />
+                </div>
+                <div>
+                  <h2 id="recovery-modal-title" className="text-base font-bold text-white">Recuperar Senha</h2>
+                  <p className="text-xs text-neutral-500">
+                    {recoveryStep === 'request'
+                      ? 'Enviaremos um código de 6 dígitos para sua conta'
+                      : 'Digite o código de 6 dígitos e sua nova senha'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar modal de recuperação"
+                onClick={() => setIsRecoveryOpen(false)}
+                className="text-neutral-500 hover:text-white p-1 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {recoveryStep === 'request' ? (
+              <form onSubmit={handleRequestCode} className="space-y-4">
+                <div>
+                  <label htmlFor="recovery-email" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                    E-mail da Conta
+                  </label>
+                  <input
+                    id="recovery-email"
+                    type="email"
+                    required
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-neutral-500"
+                  />
+                </div>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  O código de 6 dígitos será enviado por e-mail e também entregue instantaneamente via WebPush e Bot do Telegram (caso configurados na sua conta).
+                </p>
+                <div className="flex items-center justify-between pt-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRecoveryStep('verify')}
+                    className="text-xs text-neutral-400 hover:text-white underline underline-offset-4"
+                  >
+                    Já tenho um código
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={recoveryLoading}
+                    className="px-5 py-2.5 bg-white hover:bg-neutral-200 text-black font-bold text-sm rounded-xl transition-colors flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {recoveryLoading ? <Loader2 size={16} className="animate-spin" /> : 'Enviar Código'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleConfirmReset} className="space-y-4">
+                <div>
+                  <label htmlFor="recovery-verify-email" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                    E-mail
+                  </label>
+                  <input
+                    id="recovery-verify-email"
+                    type="email"
+                    required
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="recovery-code" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                    Código de 6 Dígitos
+                  </label>
+                  <input
+                    id="recovery-code"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={recoveryCode}
+                    onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-3 text-center font-mono text-lg tracking-[0.35em] focus:outline-none focus:border-neutral-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="recovery-new-password" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                    Nova Senha (mín. 6 caracteres)
+                  </label>
+                  <input
+                    id="recovery-new-password"
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="recovery-confirm-password" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                    Confirmar Nova Senha
+                  </label>
+                  <input
+                    id="recovery-confirm-password"
+                    type="password"
+                    required
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500"
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRecoveryStep('request')}
+                    className="text-xs text-neutral-400 hover:text-white underline underline-offset-4"
+                  >
+                    Reenviar código
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={recoveryLoading}
+                    className="px-5 py-2.5 bg-white hover:bg-neutral-200 text-black font-bold text-sm rounded-xl transition-colors flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {recoveryLoading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 size={16} /> Redefinir Senha
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

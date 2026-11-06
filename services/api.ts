@@ -375,3 +375,25 @@ export const fetchActiveBroadcast = async () => {
   if (!res.ok) return null;
   return res.json();
 };
+
+export const requestPasswordReset = async (email: string) => {
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim() })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Falha ao solicitar recuperação de senha');
+  return body as { message: string };
+};
+
+export const confirmPasswordReset = async (email: string, code: string, newPassword: string) => {
+  const res = await fetch(`${API_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), code: code.trim(), newPassword })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Falha ao redefinir senha');
+  return body as { message: string };
+};
