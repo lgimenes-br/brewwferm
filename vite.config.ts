@@ -1,11 +1,10 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
+export default defineConfig(() => {
   return {
     server: {
       port: 3000,
@@ -71,9 +70,25 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas')) {
+              return 'pdf-export';
+            }
+            if (id.includes('node_modules/react-simple-maps') || id.includes('node_modules/d3-geo')) {
+              return 'admin-maps';
+            }
+            if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
+              return 'charts';
+            }
+            if (id.includes('node_modules/mqtt')) {
+              return 'mqtt-client';
+            }
+          }
+        }
+      }
     },
     resolve: {
       alias: {

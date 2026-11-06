@@ -17,6 +17,25 @@ const safeNum = (val: any, fallback: number): number => {
     return !isNaN(n) && isFinite(n) ? n : fallback;
 };
 
+const parseBackendProfileSteps = (rawProfile: any): any[] => {
+    let parsed = rawProfile;
+    if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch (e) { parsed = null; }
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) return [];
+    return parsed.map((step: any, index: number) => {
+        const parsedTemp = parseFloat(step.temperature ?? step.t);
+        const trigGrav = normalizeGravity(step.triggerGravity ?? step.g, 0);
+        return {
+            id: step.id || `step_${index}`,
+            name: step.name || step.n || `Etapa ${index + 1}`,
+            temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
+            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1),
+            ...(trigGrav > 0 ? { triggerGravity: trigGrav } : {})
+        };
+    });
+};
+
 const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appendReading = true): Fermenter => {
     const rest = { ...updates };
 
@@ -168,33 +187,13 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             currentDevice: safeCurrentDevice,
             currentFridgeTemp: (hasLiveDeviceData && prevDev?.currentFridgeTemp !== undefined) ? prevDev.currentFridgeTemp : safeNum(d.last_temp2, 20),
             profile: (() => {
-                // If backend profile is a string, parse it
-                let backendProfile = d.active_batch_profile || d.profile;
-                if (typeof backendProfile === 'string') {
-                    try { backendProfile = JSON.parse(backendProfile); } catch (e) { backendProfile = null; }
-                }
-                
-                // If it's a valid array from backend, we map it
-                if (Array.isArray(backendProfile) && backendProfile.length > 0) {
-                    const newProfile = backendProfile.map((step: any, index: number) => {
-                        const parsedTemp = parseFloat(step.temperature ?? step.t);
-                        const trigGrav = normalizeGravity(step.triggerGravity ?? step.g, 0);
-                        return {
-                            id: step.id || `step_${index}`,
-                            name: step.name || step.n || `Etapa ${index + 1}`,
-                            temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
-                            duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1),
-                            ...(trigGrav > 0 ? { triggerGravity: trigGrav } : {})
-                        };
-                    });
-
-                    // Deep compare to avoid breaking reference
+                const newProfile = parseBackendProfileSteps(d.active_batch_profile || d.profile);
+                if (newProfile.length > 0) {
                     if (prevDev?.profile && JSON.stringify(prevDev.profile) === JSON.stringify(newProfile)) {
                         return prevDev.profile;
                     }
                     return newProfile;
                 }
-                
                 return d.active_batch_id ? (prevDev?.profile || []) : [];
             })(),
             currentStepIndex: d.active_batch_current_step !== null && d.active_batch_current_step !== undefined
@@ -222,13 +221,6 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                     return parsedBackendEvents;
                 }
                 if (prevDev?.batchId === d.active_batch_id && prevDev?.events && prevDev.events.length > 0) return prevDev.events;
-                try {
-                    const stored = localStorage.getItem(`events_${serialKey}`) || localStorage.getItem(`events_${d.serial_code}`);
-                    if (stored) {
-                        const parsed = JSON.parse(stored);
-                        if (Array.isArray(parsed)) return parsed;
-                    }
-                } catch (e) {}
                 return [];
             })()
         };
@@ -249,92 +241,82 @@ export const useFermenters = () => {
             const latestFermenters = queryClient.getQueryData<Fermenter[]>(['fermenters']) || [];
             let mapped = mapDevices(apiData, latestFermenters);
 
-            // Fetch batches to supplement metadata
-            try {
-                const batchesRes = await api.fetchBatches(token);
-                if (Array.isArray(batchesRes)) {
-                    mapped = mapped.map(f => {
-                        if (f.batchId) {
-                            const batchData = batchesRes.find((b: any) => b.id === f.batchId);
-                            if (batchData) {
-                                let parsedBatchProfile = f.profile;
-                                if ((!parsedBatchProfile || parsedBatchProfile.length === 0) && batchData.profile) {
-                                    try {
-                                        const rawProf = typeof batchData.profile === 'string' ? JSON.parse(batchData.profile) : batchData.profile;
-                                        if (Array.isArray(rawProf)) {
-                                            parsedBatchProfile = rawProf.map((step: any, index: number) => {
-                                                const parsedTemp = parseFloat(step.t ?? step.temperature);
-                                                const trigGrav = normalizeGravity(step.triggerGravity ?? step.g, 0);
-                                                return {
-                                                    id: step.id || `step_${index}`,
-                                                    name: step.n || step.name || `Etapa ${index + 1}`,
-                                                    temperature: !isNaN(parsedTemp) ? parsedTemp : 18,
-                                                    duration: step.duration !== undefined ? parseFloat(step.duration) : (step.d !== undefined ? parseFloat(step.d) / 24 : 1),
-                                                    ...(trigGrav > 0 ? { triggerGravity: trigGrav } : {})
-                                                };
-                                            });
-                                        }
-                                    } catch (e) {}
+            // Fetch batches to supplement metadata if any active batch lacks startDate/profile
+            const needsBatchSupplement = mapped.some(f => f.batchId && (!f.startDate || !f.profile || f.profile.length === 0));
+            if (needsBatchSupplement) {
+                try {
+                    const batchesRes = await api.fetchBatches(token);
+                    if (Array.isArray(batchesRes)) {
+                        mapped = mapped.map(f => {
+                            if (f.batchId) {
+                                const batchData = batchesRes.find((b: any) => b.id === f.batchId);
+                                if (batchData) {
+                                    let parsedBatchProfile = f.profile;
+                                    if ((!parsedBatchProfile || parsedBatchProfile.length === 0) && batchData.profile) {
+                                        const steps = parseBackendProfileSteps(batchData.profile);
+                                        if (steps.length > 0) parsedBatchProfile = steps;
+                                    }
+                                    return {
+                                        ...f,
+                                        startDate: batchData.start_date || batchData.started_at || f.startDate,
+                                        profile: parsedBatchProfile
+                                    };
                                 }
-                                return {
-                                    ...f,
-                                    startDate: batchData.start_date || batchData.started_at || f.startDate,
-                                    profile: parsedBatchProfile
-                                };
                             }
-                        }
-                        return f;
-                    });
+                            return f;
+                        });
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch batches metadata', err);
                 }
-            } catch (err) {
-                console.error('Failed to fetch batches metadata', err);
             }
 
             const devicesWithBatches = (Array.isArray(apiData) ? apiData : []).filter((d: any) => d.active_batch_id);
-            for (const device of devicesWithBatches) {
+            const batchSupplements = await Promise.all(devicesWithBatches.map(async (device: any) => {
+                let mappedEvents: any[] | null = null;
+                let mappedReadings: any[] | null = null;
                 try {
-                    const backendEvents = await api.fetchEvents(device.active_batch_id);
-                    const mappedEvents = (Array.isArray(backendEvents) ? backendEvents : []).map((e: any) => ({
-                        id: e.id?.toString() || Math.random().toString(36).substr(2, 9),
-                        type: e.event_type,
-                        description: e.description,
-                        timestamp: e.recorded_at
-                    }));
-
-                    let hasNewReadings = false;
-                    let mappedReadings: any[] = [];
-                    try {
-                        const backendData = await api.fetchBatchData(device.active_batch_id);
-                        if (Array.isArray(backendData)) {
-                            const prevDev = mapped.find(f => f.id === device.serial_code);
-                            if (!prevDev?.readings || prevDev.readings.length === 0 || backendData.length !== prevDev.readings.length) {
-                                 // Downsample to max 300 points to prevent browser freeze with Recharts
-                                 const step = Math.max(1, Math.floor(backendData.length / 300));
-                                 const sampledData = backendData.filter((_: any, i: number) => i % step === 0 || i === backendData.length - 1);
-
-                                 mappedReadings = sampledData.map((d: any) => ({
-                                    id: d.id,
-                                    beerTemp: parseFloat(d.temp_ferm ?? d.beerTemp ?? d.temperature ?? d.beer_temp ?? d.ferm ?? 0),
-                                    fridgeTemp: parseFloat(d.temp_amb ?? d.fridgeTemp ?? d.ambient_temp ?? d.fridge_temp ?? d.amb ?? 0),
-                                    targetTemp: parseFloat(d.target_temp ?? d.targetTemp ?? d.setpoint ?? 20),
-                                    gravity: parseFloat(d.gravity ?? d.is_sg ?? 0),
-                                    timestamp: d.recorded_at ?? d.timestamp,
-                                    extra_sensors: d.extra_sensors
-                                }));
-                                hasNewReadings = true;
-                            }
-                        }
-                    } catch (dErr) {
-                        console.error(`Failed to fetch basic readings for ${device.active_batch_id}`, dErr);
+                    const [backendEvents, backendData] = await Promise.all([
+                        api.fetchEvents(device.active_batch_id).catch(() => null),
+                        api.fetchBatchData(device.active_batch_id).catch(() => null)
+                    ]);
+                    if (Array.isArray(backendEvents)) {
+                        mappedEvents = backendEvents.map((e: any) => ({
+                            id: e.id?.toString() || Math.random().toString(36).substr(2, 9),
+                            type: e.event_type,
+                            description: e.description,
+                            timestamp: e.recorded_at
+                        }));
                     }
-
-                    mapped = mapped.map(f => f.id === device.serial_code ? { 
-                        ...f, 
-                        events: mappedEvents,
-                        ...(hasNewReadings ? { readings: mappedReadings } : {})
-                    } : f);
+                    if (Array.isArray(backendData)) {
+                        const prevDev = mapped.find(f => f.id === device.serial_code);
+                        if (!prevDev?.readings || prevDev.readings.length === 0 || backendData.length !== prevDev.readings.length) {
+                            const step = Math.max(1, Math.floor(backendData.length / 300));
+                            const sampledData = backendData.filter((_: any, i: number) => i % step === 0 || i === backendData.length - 1);
+                            mappedReadings = sampledData.map((d: any) => ({
+                                id: d.id,
+                                beerTemp: parseFloat(d.temp_ferm ?? d.beerTemp ?? d.temperature ?? d.beer_temp ?? d.ferm ?? 0),
+                                fridgeTemp: parseFloat(d.temp_amb ?? d.fridgeTemp ?? d.ambient_temp ?? d.fridge_temp ?? d.amb ?? 0),
+                                targetTemp: parseFloat(d.target_temp ?? d.targetTemp ?? d.setpoint ?? 20),
+                                gravity: parseFloat(d.gravity ?? d.is_sg ?? 0),
+                                timestamp: d.recorded_at ?? d.timestamp,
+                                extra_sensors: d.extra_sensors
+                            }));
+                        }
+                    }
                 } catch (err) {
-                    console.error(`Failed to fetch events for ${device.active_batch_id}`);
+                    console.error(`Failed to fetch batch data/events for ${device.active_batch_id}`);
+                }
+                return { serialCode: device.serial_code, mappedEvents, mappedReadings };
+            }));
+
+            for (const sup of batchSupplements) {
+                if (sup.mappedEvents || sup.mappedReadings) {
+                    mapped = mapped.map(f => f.id === sup.serialCode ? {
+                        ...f,
+                        ...(sup.mappedEvents ? { events: sup.mappedEvents } : {}),
+                        ...(sup.mappedReadings ? { readings: sup.mappedReadings } : {})
+                    } : f);
                 }
             }
 
@@ -507,12 +489,6 @@ export const useFermenters = () => {
     // Local manual update for instant UI feedback (or when MQTT message arrives)
     const updateFermenterLocal = useCallback((serialCode: string, updates: Partial<Fermenter> ) => {
         const norm = (serialCode || '').trim().toUpperCase();
-        if (updates.events !== undefined) {
-            try {
-                localStorage.setItem(`events_${norm}`, JSON.stringify(updates.events));
-                localStorage.setItem(`events_${serialCode}`, JSON.stringify(updates.events));
-            } catch (e) {}
-        }
 
         // Persist in liveDeviceState so in-flight HTTP queries never drop or overwrite this MQTT update
         const prevLive = liveDeviceState.get(norm) || liveDeviceState.get(serialCode) || {};

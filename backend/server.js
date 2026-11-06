@@ -52,62 +52,56 @@ const ingredientsPool = mysql.createPool({
     queueLimit: 0
 });
 
-// Inicialização de Tabelas
+// Inicialização de Tabelas (Base Schema + Migrações Seguras)
+const runMigration = async (sql) => {
+    try {
+        await pool.execute(sql);
+    } catch (e) {
+        if (e.code !== 'ER_DUP_FIELDNAME' && e.code !== 'ER_DUP_KEYNAME' && e.code !== 'ER_DUP_ENTRY') {
+            console.error(`⚠️ [DB Migration] (${sql}):`, e.message);
+        }
+    }
+};
+
 const initDb = async () => {
     try {
+        await pool.execute(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', plan_type ENUM('free', 'premium') DEFAULT 'free', max_devices INT DEFAULT 1, lat FLOAT DEFAULT NULL, lon FLOAT DEFAULT NULL, brewfather_webhook_url VARCHAR(255) DEFAULT NULL, alert_config JSON DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS devices (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, serial_code VARCHAR(100) NOT NULL UNIQUE, device_name VARCHAR(100), sensor1_name VARCHAR(50) DEFAULT 'Fermentador', sensor2_name VARCHAR(50) DEFAULT 'Geladeira', sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade', chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp', firmware_version VARCHAR(20) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS batches (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, name VARCHAR(150) NOT NULL, style VARCHAR(100), og VARCHAR(20), fg VARCHAR(20), volume FLOAT DEFAULT 20, profile JSON, ingredients JSON, public_token VARCHAR(64) DEFAULT NULL, current_step_index INT DEFAULT 0, step_started_at DATETIME DEFAULT NULL, started_at DATETIME DEFAULT NOW(), ended_at DATETIME DEFAULT NULL, is_active BOOLEAN DEFAULT 1, FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS telemetry (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, batch_id INT DEFAULT NULL, temp_ferm FLOAT, temp_amb FLOAT, target_temp FLOAT, gravity FLOAT, battery FLOAT, status_op VARCHAR(50), step_name VARCHAR(100), rssi INT DEFAULT NULL, extra_sensors JSON, recorded_at DATETIME DEFAULT NOW(), FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS batch_events (id INT AUTO_INCREMENT PRIMARY KEY, batch_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, description TEXT, recorded_at DATETIME NOT NULL, FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL, style VARCHAR(100), est_og VARCHAR(10), est_fg VARCHAR(10), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
-        await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, trigger_gravity FLOAT DEFAULT NULL, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, endpoint TEXT NOT NULL, p256dh VARCHAR(255), auth VARCHAR(255), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
-        
         await pool.execute(`CREATE TABLE IF NOT EXISTS system_broadcasts (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255), message TEXT NOT NULL, type VARCHAR(50) DEFAULT 'info', is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT NOW())`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS audit_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action VARCHAR(100) NOT NULL, details TEXT, ip_address VARCHAR(45), created_at DATETIME DEFAULT NOW())`);
 
-        // Migrations (Ignoring errors if columns already exist)
-        try { await pool.execute('ALTER TABLE telemetry ADD COLUMN extra_sensors JSON'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE users ADD COLUMN plan_type ENUM("free", "premium") DEFAULT "free"'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE users ADD COLUMN max_devices INT DEFAULT 1'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE telemetry ADD COLUMN rssi INT DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE users ADD COLUMN lat FLOAT DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE users ADD COLUMN lon FLOAT DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE users ADD COLUMN brewfather_webhook_url VARCHAR(255) DEFAULT NULL'); } catch (e) { }
-        try { await pool.execute('ALTER TABLE users ADD COLUMN alert_config JSON DEFAULT NULL'); } catch (e) { }
-        
-        console.log('Main DB tables initialized');
-        
-        // Add ingredients column safely
-        try {
-            await pool.execute(`ALTER TABLE batches ADD COLUMN ingredients JSON`);
-            console.log('✅ [DB] Coluna ingredients adicionada em batches.');
-        } catch (e) {
-            if (e.code !== 'ER_DUP_FIELDNAME') {
-                console.error('Erro ao adicionar coluna ingredients:', e);
-            }
-        }
+        // Migrations for existing installations
+        await runMigration('ALTER TABLE telemetry ADD COLUMN extra_sensors JSON');
+        await runMigration('ALTER TABLE users ADD COLUMN plan_type ENUM("free", "premium") DEFAULT "free"');
+        await runMigration('ALTER TABLE users ADD COLUMN max_devices INT DEFAULT 1');
+        await runMigration('ALTER TABLE telemetry ADD COLUMN rssi INT DEFAULT NULL');
+        await runMigration('ALTER TABLE users ADD COLUMN lat FLOAT DEFAULT NULL');
+        await runMigration('ALTER TABLE users ADD COLUMN lon FLOAT DEFAULT NULL');
+        await runMigration('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL');
+        await runMigration('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL');
+        await runMigration('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20');
+        await runMigration('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL');
+        await runMigration('ALTER TABLE users ADD COLUMN brewfather_webhook_url VARCHAR(255) DEFAULT NULL');
+        await runMigration('ALTER TABLE users ADD COLUMN alert_config JSON DEFAULT NULL');
+        await runMigration('ALTER TABLE batches ADD COLUMN ingredients JSON');
+        await runMigration(`ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'`);
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`);
+        await runMigration(`ALTER TABLE devices ADD COLUMN chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp'`);
+        await runMigration(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`);
+        await runMigration(`ALTER TABLE batches ADD COLUMN step_started_at DATETIME`);
+        await runMigration(`CREATE INDEX idx_telemetry_batch ON telemetry(batch_id)`);
+        await runMigration(`CREATE INDEX idx_telemetry_device ON telemetry(device_id)`);
+        await runMigration(`CREATE UNIQUE INDEX idx_devices_serial_unique ON devices(serial_code)`);
 
-        try { await pool.execute(`ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-
-        try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        try { await pool.execute(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        try { await pool.execute(`ALTER TABLE devices ADD COLUMN chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp'`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        
-        // Smart Scheduling columns
-        try { await pool.execute(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        try { await pool.execute(`ALTER TABLE batches ADD COLUMN step_started_at DATETIME`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
-        
-        // Performance Indexes & Uniqueness
-        try { await pool.execute(`CREATE INDEX idx_telemetry_batch ON telemetry(batch_id)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME') console.error(e); }
-        try { await pool.execute(`CREATE INDEX idx_telemetry_device ON telemetry(device_id)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME') console.error(e); }
-        try { await pool.execute(`CREATE UNIQUE INDEX idx_devices_serial_unique ON devices(serial_code)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME' && e.code !== 'ER_DUP_ENTRY') console.error(e); }
-        
-        console.log('✅ [DB] Verificacao de colunas de sensores e scheduling concluida.');
-        
-        console.log('✅ [DB] Tabelas verificadas.');
+        console.log('✅ [DB] Schema base e migrações verificados.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
 initDb();
@@ -168,6 +162,59 @@ const sanitizeNum = (val, precision) => {
     const num = parseFloat(val);
     if (val === null || val === undefined || val === '' || isNaN(num) || !isFinite(num)) return null;
     return num.toFixed(precision);
+};
+
+// Shared Gravity Normalizer (converts > 500 e.g. 1050 -> 1.050)
+const normalizeGravityVal = (val) => {
+    const n = parseFloat(val);
+    if (isNaN(n) || !isFinite(n) || n <= 0) return 0;
+    return n > 500 ? n / 1000 : n;
+};
+
+// Shared Profile -> ESP32 Steps Converter ({ n, t, d: days * 24 })
+const toEsp32Steps = (profile) => (Array.isArray(profile) ? profile : []).map(step => ({
+    n: step.name || step.n,
+    t: step.temperature ?? step.t,
+    d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24 // ESP32 expects hours
+}));
+
+// Shared Batch Step Advancement Helper (used by Smart Scheduler & live SG Trigger)
+const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex, gravityTriggered, liveSgNorm, trigNorm }) => {
+    const nextStep = profile[newIndex] || {};
+    await pool.execute(
+        'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?',
+        [newIndex, batchId]
+    );
+    if (serialCode) {
+        const payloadSteps = toEsp32Steps(profile);
+        const msg = JSON.stringify({
+            cmd: 'setProfile',
+            type: 'setProfile',
+            steps: payloadSteps,
+            currentStep: newIndex,
+            currStep: newIndex,
+            stepTime: 0
+        });
+        mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
+        mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
+    }
+    const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
+    const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
+    if (serialCode) {
+        const normSer = String(serialCode).trim().toUpperCase();
+        alertState[normSer] = { ...(alertState[normSer] || {}), lastStep: nextName, lastStepIndex: newIndex, lastStepAdvanceTs: Date.now() };
+    }
+    const desc = gravityTriggered
+        ? `Avançou automaticamente por densidade (SG ${Number(liveSgNorm || 0).toFixed(3)} <= ${Number(trigNorm || 0).toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`
+        : `Avançou automaticamente para a etapa: ${nextName} (${nextTemp}°C)`;
+    await pool.execute(
+        'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
+        [batchId, 'SYSTEM_ACTION', desc]
+    );
+    if (userId) {
+        sendPushToUser(pool, userId, gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
+    }
+    notifyUpdate(serialCode);
 };
 
 // SSRF guard: rejects loopback, link-local, private RFC1918 and non-HTTP(S) URLs
@@ -247,18 +294,14 @@ setInterval(async () => {
                 // Check Gravity Trigger (optional per-step target SG)
                 let gravityTriggered = false;
                 let latestGravNorm = 0;
-                const rawTriggerGrav = parseFloat(currentStep.triggerGravity ?? currentStep.g);
-                const triggerGravNorm = !isNaN(rawTriggerGrav) && rawTriggerGrav > 0
-                    ? (rawTriggerGrav > 500 ? rawTriggerGrav / 1000 : rawTriggerGrav)
-                    : 0;
+                const triggerGravNorm = normalizeGravityVal(currentStep.triggerGravity ?? currentStep.g);
                 if (triggerGravNorm > 0) {
                     const [gRows] = await pool.execute(
                         'SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 ORDER BY id DESC LIMIT 1',
                         [batch.id]
                     );
                     if (gRows.length > 0) {
-                        const rawLastG = parseFloat(gRows[0].gravity);
-                        latestGravNorm = rawLastG > 500 ? rawLastG / 1000 : rawLastG;
+                        latestGravNorm = normalizeGravityVal(gRows[0].gravity);
                         if (latestGravNorm > 0.980 && latestGravNorm <= triggerGravNorm) {
                             gravityTriggered = true;
                         }
@@ -267,55 +310,16 @@ setInterval(async () => {
 
                 if (elapsedMs >= durationMs || gravityTriggered) {
                     const newIndex = batch.current_step_index + 1;
-                    const nextStep = profile[newIndex] || {};
-                    
-                    // Update DB
-                    await pool.execute(
-                        'UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?', 
-                        [newIndex, batch.id]
-                    );
-
-                    // Publish to ESP32!
-                    if (batch.serial_code) {
-                        const payloadSteps = profile.map(step => ({
-                            n: step.name || step.n,
-                            t: step.temperature ?? step.t,
-                            d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24 // ESP32 expects hours
-                        }));
-
-                        const msg = JSON.stringify({
-                            cmd: 'setProfile',
-                            type: 'setProfile',
-                            steps: payloadSteps,
-                            currentStep: newIndex,
-                            currStep: newIndex,
-                            stepTime: 0
-                        });
-
-                        mqttClient.publish(`brewbrother/${batch.serial_code}/command`, msg);
-                        mqttClient.publish(`brewbrother/${batch.serial_code}/comando`, msg);
-                    }
-
-                    // Log Event
-                    const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
-                    const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
-                    if (batch.serial_code) {
-                        const normSer = String(batch.serial_code).trim().toUpperCase();
-                        alertState[normSer] = { ...(alertState[normSer] || {}), lastStep: nextName, lastStepIndex: newIndex, lastStepAdvanceTs: Date.now() };
-                    }
-                    const desc = gravityTriggered
-                        ? `Avançou automaticamente por densidade (SG ${latestGravNorm.toFixed(3)} <= ${triggerGravNorm.toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`
-                        : `Avançou automaticamente para a etapa: ${nextName} (${nextTemp}°C)`;
-                    await pool.execute(
-                        'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
-                        [batch.id, 'SYSTEM_ACTION', desc]
-                    );
-
-                    // Send Push Notification
-                    if (batch.user_id) {
-                        sendPushToUser(pool, batch.user_id, gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
-                    }
-                    notifyUpdate(batch.serial_code);
+                    await advanceBatchStep({
+                        batchId: batch.id,
+                        serialCode: batch.serial_code,
+                        userId: batch.user_id,
+                        profile,
+                        newIndex,
+                        gravityTriggered,
+                        liveSgNorm: latestGravNorm,
+                        trigNorm: triggerGravNorm
+                    });
                     console.log(`🤖 [Smart Scheduler] Lote ${batch.id} avançou para etapa ${newIndex} (${gravityTriggered ? 'SG Trigger' : 'Tempo'})`);
                 }
             }
@@ -524,8 +528,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                 // Instant Gravity-Triggered Step Advancement on live SG reading
                 if (currentBatchId && !stepSyncedInThisMessage && payload.is_sg && parseFloat(payload.is_sg) > 0) {
                     try {
-                        const rawLiveSg = parseFloat(payload.is_sg);
-                        const liveSgNorm = rawLiveSg > 500 ? rawLiveSg / 1000 : rawLiveSg;
+                        const liveSgNorm = normalizeGravityVal(payload.is_sg);
                         if (liveSgNorm > 0.980) {
                             const [bProfRows] = await pool.execute('SELECT profile, current_step_index FROM batches WHERE id = ?', [currentBatchId]);
                             if (bProfRows.length > 0 && bProfRows[0].profile) {
@@ -533,41 +536,20 @@ mqttClient.on('message', async (topic, message, packet) => {
                                 const curIdx = Number(bProfRows[0].current_step_index) || 0;
                                 if (Array.isArray(prof) && curIdx < prof.length - 1) {
                                     const curStepObj = prof[curIdx];
-                                    const rawTrig = parseFloat(curStepObj?.triggerGravity ?? curStepObj?.g);
-                                    const trigNorm = !isNaN(rawTrig) && rawTrig > 0 ? (rawTrig > 500 ? rawTrig / 1000 : rawTrig) : 0;
+                                    const trigNorm = normalizeGravityVal(curStepObj?.triggerGravity ?? curStepObj?.g);
                                     if (trigNorm > 0 && liveSgNorm <= trigNorm) {
                                         const nextIdx = curIdx + 1;
-                                        const nextStepObj = prof[nextIdx] || {};
-                                        await pool.execute('UPDATE batches SET current_step_index = ?, step_started_at = NOW() WHERE id = ?', [nextIdx, currentBatchId]);
-                                        const payloadSteps = prof.map(step => ({
-                                            n: step.name || step.n,
-                                            t: step.temperature ?? step.t,
-                                            d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24
-                                        }));
-                                        const msg = JSON.stringify({
-                                            cmd: 'setProfile',
-                                            type: 'setProfile',
-                                            steps: payloadSteps,
-                                            currentStep: nextIdx,
-                                            currStep: nextIdx,
-                                            stepTime: 0
+                                        await advanceBatchStep({
+                                            batchId: currentBatchId,
+                                            serialCode: parts[1],
+                                            userId: activeBatchesUserId[serialCode],
+                                            profile: prof,
+                                            newIndex: nextIdx,
+                                            gravityTriggered: true,
+                                            liveSgNorm,
+                                            trigNorm
                                         });
-                                        mqttClient.publish(`brewbrother/${parts[1]}/command`, msg);
-                                        mqttClient.publish(`brewbrother/${parts[1]}/comando`, msg);
-                                        const nextName = nextStepObj.name || nextStepObj.n || `Etapa ${nextIdx + 1}`;
-                                        const nextTemp = nextStepObj.temperature ?? nextStepObj.t ?? 0;
-                                        alertState[serialCode] = { ...(alertState[serialCode] || {}), lastStep: nextName, lastStepIndex: nextIdx, lastStepAdvanceTs: Date.now() };
-                                        const desc = `Avançou automaticamente por densidade (SG ${liveSgNorm.toFixed(3)} <= ${trigNorm.toFixed(3)}) para a etapa: ${nextName} (${nextTemp}°C)`;
-                                        await pool.execute(
-                                            'INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, NOW())',
-                                            [currentBatchId, 'SYSTEM_ACTION', desc]
-                                        );
-                                        const ownerId = activeBatchesUserId[serialCode];
-                                        if (ownerId) {
-                                            sendPushToUser(pool, ownerId, 'Avanço por Densidade Atingida 🎯', desc);
-                                        }
                                         stepSyncedInThisMessage = true;
-                                        notifyUpdate(serialCode);
                                     }
                                 }
                             }
@@ -917,14 +899,31 @@ const deleteDeviceCascade = async (devId, serialCode) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        const [devices] = await pool.execute(`SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style, b.started_at as active_batch_start, b.step_started_at as active_batch_step_start, b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg, b.volume as active_batch_volume, b.current_step_index as active_batch_current_step FROM devices d LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1 WHERE d.user_id = ?`, [req.user.id]);
-        
-        for (let d of devices) {
-            const [tRows] = await pool.execute(`SELECT temp_ferm as last_temp, temp_amb as last_temp2, target_temp as last_target, status_op as last_status, battery as last_battery, rssi as last_rssi, gravity as last_gravity, extra_sensors as last_extra_sensors FROM telemetry WHERE device_id = ? ORDER BY id DESC LIMIT 1`, [d.id]);
-            if (tRows.length > 0) {
-                Object.assign(d, tRows[0]);
-            }
-        }
+        const [devices] = await pool.execute(`
+            SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online,
+                   b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style,
+                   b.started_at as active_batch_start, b.step_started_at as active_batch_step_start,
+                   b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg,
+                   b.volume as active_batch_volume, b.current_step_index as active_batch_current_step,
+                   lt.last_temp, lt.last_temp2, lt.last_target, lt.last_status, lt.last_battery,
+                   lt.last_rssi, lt.last_gravity, lt.last_extra_sensors
+            FROM devices d
+            LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1
+            LEFT JOIN (
+                SELECT device_id,
+                       temp_ferm as last_temp,
+                       temp_amb as last_temp2,
+                       target_temp as last_target,
+                       status_op as last_status,
+                       battery as last_battery,
+                       rssi as last_rssi,
+                       gravity as last_gravity,
+                       extra_sensors as last_extra_sensors
+                FROM telemetry
+                WHERE id IN (SELECT MAX(id) FROM telemetry GROUP BY device_id)
+            ) lt ON lt.device_id = d.id
+            WHERE d.user_id = ?
+        `, [req.user.id]);
         
         res.json(devices);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1034,11 +1033,7 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
         activeBatchesUserId[normalizedSerial] = req.user.id;
 
         if (Array.isArray(profile) && profile.length > 0) {
-            const payloadSteps = profile.map(step => ({
-                n: step.name || step.n,
-                t: step.temperature ?? step.t,
-                d: (step.duration !== undefined ? step.duration : (step.d || 1)) * 24
-            }));
+            const payloadSteps = toEsp32Steps(profile);
             const msg = JSON.stringify({
                 cmd: 'setProfile',
                 type: 'setProfile',
@@ -1140,12 +1135,22 @@ app.delete('/api/events/:id', authenticateToken, async (req, res) => {
 app.get('/api/recipes', authenticateToken, async (req, res) => {
     try {
         const [recipes] = await pool.execute('SELECT * FROM recipes WHERE user_id = ? ORDER BY id DESC', [req.user.id]);
-        for (const r of recipes) {
-            const [steps] = await pool.execute(
-                'SELECT step_order, name, temperature, days as duration, trigger_gravity as triggerGravity FROM recipe_steps WHERE recipe_id = ? ORDER BY step_order ASC',
-                [r.id]
+        if (recipes.length > 0) {
+            const recipeIds = recipes.map(r => r.id);
+            const placeholders = recipeIds.map(() => '?').join(',');
+            const [allSteps] = await pool.execute(
+                `SELECT recipe_id, step_order, name, temperature, days as duration, trigger_gravity as triggerGravity FROM recipe_steps WHERE recipe_id IN (${placeholders}) ORDER BY step_order ASC`,
+                recipeIds
             );
-            r.steps = steps;
+            const stepsByRecipe = new Map();
+            for (const s of allSteps) {
+                const { recipe_id, ...stepRest } = s;
+                if (!stepsByRecipe.has(recipe_id)) stepsByRecipe.set(recipe_id, []);
+                stepsByRecipe.get(recipe_id).push(stepRest);
+            }
+            for (const r of recipes) {
+                r.steps = stepsByRecipe.get(r.id) || [];
+            }
         }
         res.json(recipes);
     } catch (err) { res.status(500).json({ error: err.message }); }

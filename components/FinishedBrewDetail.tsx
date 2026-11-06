@@ -4,8 +4,6 @@ import { FinishedBrew, Reading, normalizeGravity } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { Award, Share2, FileDown, Quote, CheckCircle, Loader2, Save } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
@@ -166,6 +164,10 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       // Temporary hide UI elements not for PDF
       noPrintElements.forEach(el => (el as HTMLElement).style.display = 'none');
       
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' });
 
       const imgData = canvas.toDataURL('image/png');

@@ -240,13 +240,6 @@ export const Settings: React.FC = () => {
       
       // Update the database with the new names
       try {
-          try {
-              localStorage.setItem(`sensors_${selectedDeviceId}`, JSON.stringify({
-                  s1: s1Name,
-                  s2: sensor2Name,
-                  sg: settings.sensorSgName
-              }));
-          } catch (e) {}
           setSettings(prev => ({ ...prev, sensor1Name: s1Name, sensor2Name }));
           updateFermenterLocal(selectedDeviceId, {
               sensor1_name: s1Name,
@@ -389,13 +382,6 @@ export const Settings: React.FC = () => {
   const handleSaveSensorNames = async () => {
     if (!selectedDeviceId) return toast.error('Selecione um controlador primeiro.');
     sendCommand(selectedDeviceId, 'setNames', { field: 'sgn', val: settings.sensorSgName });
-    try {
-        localStorage.setItem(`sensors_${selectedDeviceId}`, JSON.stringify({
-            s1: settings.sensor1Name,
-            s2: settings.sensor2Name,
-            sg: settings.sensorSgName
-        }));
-    } catch (e) {}
     updateFermenterLocal(selectedDeviceId, {
         sensor1_name: settings.sensor1Name,
         sensor2_name: settings.sensor2Name,
