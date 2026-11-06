@@ -90,13 +90,16 @@ export const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Email</label>
+            <label htmlFor="login-email" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Email</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                 <Mail size={18} />
               </div>
               <input
+                id="login-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -107,13 +110,16 @@ export const Login: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Senha</label>
+            <label htmlFor="login-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Senha</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                 <Lock size={18} />
               </div>
               <input
+                id="login-password"
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

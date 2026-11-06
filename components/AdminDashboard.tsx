@@ -1395,7 +1395,11 @@ const TerminalTab = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000); // Auto refresh every 10s
+        const interval = setInterval(() => {
+            if (typeof document === 'undefined' || !document.hidden) {
+                fetchData();
+            }
+        }, 10000); // Auto refresh every 10s when tab is visible
         return () => clearInterval(interval);
     }, [token]);
 

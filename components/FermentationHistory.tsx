@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { Calendar, ChevronRight, Loader2, Trash2 } from 'lucide-react';
-import { deleteBatch } from '../services/api';
+import { deleteBatch, fetchBatches } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 export const FermentationHistory: React.FC = () => {
@@ -35,39 +35,17 @@ export const FermentationHistory: React.FC = () => {
                 return;
             }
             try {
-                // Try the dedicated history endpoint first
-                const [historyRes, batchesRes] = await Promise.all([
-                    fetch(`${API_URL}/history/batches`, {
+                const batchesData = await fetchBatches(token).catch(() => []);
+                let allBatches: any[] = Array.isArray(batchesData) ? [...batchesData] : [];
+                if (allBatches.length === 0) {
+                    const historyRes = await fetch(`${API_URL}/history/batches`, {
                         headers: { 'Authorization': `Bearer ${token}` }
-                    }),
-                    fetch(`${API_URL}/batches`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    })
-                ]);
-
-                let allBatches: any[] = [];
-
-                // Combine results from both endpoints
-                if (historyRes.ok) {
-                    const historyData = await historyRes.json();
-                    if (Array.isArray(historyData)) {
-                        allBatches.push(...historyData);
+                    }).catch(() => null);
+                    if (historyRes && historyRes.ok) {
+                        const historyData = await historyRes.json().catch(() => []);
+                        if (Array.isArray(historyData)) allBatches.push(...historyData);
                     }
                 }
-
-                if (batchesRes.ok) {
-                    const batchesData = await batchesRes.json();
-                    if (Array.isArray(batchesData)) {
-                        // Add all batches that aren't already in the list (including active ones)
-                        for (const b of batchesData) {
-                            if (!allBatches.find((x: any) => x.id === b.id)) {
-                                allBatches.push(b);
-                            }
-                        }
-                    }
-                }
-
-                // Map backend data to FinishedBrew
                 setHistory(allBatches.map(mapBatchToFinishedBrew));
             } catch (e) {
                 console.error("Failed to fetch history", e);

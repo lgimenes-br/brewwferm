@@ -57,13 +57,16 @@ export const Register: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Nome Completo</label>
+            <label htmlFor="register-name" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Nome Completo</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                 <User size={16} />
               </div>
               <input
+                id="register-name"
+                name="name"
                 type="text"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -74,13 +77,16 @@ export const Register: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Email</label>
+            <label htmlFor="register-email" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Email</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                 <Mail size={16} />
               </div>
               <input
+                id="register-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -92,13 +98,16 @@ export const Register: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Senha</label>
+              <label htmlFor="register-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Senha</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                   <Lock size={16} />
                 </div>
                 <input
+                  id="register-password"
+                  name="password"
                   type="password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -109,13 +118,16 @@ export const Register: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Confirmar</label>
+              <label htmlFor="register-confirm-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Confirmar</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
                   <CheckCircle size={16} />
                 </div>
                 <input
+                  id="register-confirm-password"
+                  name="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

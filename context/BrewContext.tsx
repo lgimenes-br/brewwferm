@@ -19,7 +19,7 @@ interface BrewContextType {
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
 
 export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { token } = useAuth();
+    const { token, role } = useAuth();
     const { fermenters, updateFermenterLocal, refetch } = useFermenters();
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
     const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(true);
@@ -337,8 +337,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sendCommand = useCallback((serialCode: string, type: string, payload: any) => {
         if (!serialCode) return;
         const normalizedSerial = serialCode.trim().toUpperCase();
-        // Ownership guard on client side when fermenter list is loaded
-        if (fermentersRef.current.length > 0) {
+        // Ownership guard on client side when fermenter list is loaded (admins can send OTA/commands to any device)
+        if (role !== 'admin' && fermentersRef.current.length > 0) {
             const ownsDevice = fermentersRef.current.some(f => (f.id || '').trim().toUpperCase() === normalizedSerial);
             if (!ownsDevice) return;
         }
@@ -356,7 +356,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (token && type !== 'request_status') {
             sendDeviceCommand(serialCode, type, payload, token).catch(() => {});
         }
-    }, [token]);
+    }, [token, role]);
 
     const clearOtaProgress = useCallback(() => {
         setOtaProgress({});

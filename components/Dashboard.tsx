@@ -53,7 +53,11 @@ export const Dashboard: React.FC = () => {
 
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 5000);
+        const interval = setInterval(() => {
+            if (typeof document === 'undefined' || !document.hidden) {
+                setNow(Date.now());
+            }
+        }, 5000);
         return () => clearInterval(interval);
     }, []);
 
@@ -354,12 +358,15 @@ export const Dashboard: React.FC = () => {
 
                             <div className="mb-8">
                                 {/* Beer Name */}
-                                <h2 className={`text-2xl font-bold transition-colors truncate mb-3 tracking-tight ${f.mode === DeviceMode.FRIDGE ? 'invisible' : 'text-white group-hover:text-white'}`}>
+                                <h2
+                                    title={f.mode === DeviceMode.FRIDGE ? undefined : (f.mode === DeviceMode.KEGERATOR ? (f.kegeratorConfig?.line1 || f.chopp_name || f.beerName || 'Barril de Chopp') : (f.beerName || 'Vazio'))}
+                                    className={`text-2xl font-bold transition-colors truncate mb-3 tracking-tight ${f.mode === DeviceMode.FRIDGE ? 'invisible' : 'text-white group-hover:text-white'}`}
+                                >
                                     {f.mode === DeviceMode.FRIDGE ? 'GELADEIRA' : f.mode === DeviceMode.KEGERATOR ? (f.kegeratorConfig?.line1 || f.chopp_name || f.beerName || 'Barril de Chopp') : (f.beerName || 'Vazio')}
                                 </h2>
 
                                 {/* Smart Status Badge: Reflete o modo e a rampa atual */}
-                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${containerClass} backdrop-blur-sm transition-all max-w-full`}>
+                                <div title={statusLabel} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${containerClass} backdrop-blur-sm transition-all max-w-full`}>
                                     <span className={`w-2 h-2 shrink-0 rounded-full ${dotColor} animate-pulse`}></span>
                                     <span className={`text-[10px] font-bold uppercase tracking-widest ${textColor} truncate`}>
                                         {statusLabel}

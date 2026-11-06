@@ -36,9 +36,30 @@ const NavConfig = () => {
     const [now, setNow] = useState(Date.now());
 
     React.useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 5000);
+        const interval = setInterval(() => {
+            if (typeof document === 'undefined' || !document.hidden) {
+                setNow(Date.now());
+            }
+        }, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    React.useEffect(() => {
+        const path = location.pathname;
+        let pageTitle = 'BREWW';
+        if (path === '/login') pageTitle = 'Entrar — BREWW';
+        else if (path === '/register') pageTitle = 'Criar Conta — BREWW';
+        else if (path === '/history') pageTitle = 'Logs de Produção — BREWW';
+        else if (path.startsWith('/history/')) pageTitle = 'Detalhes do Lote — BREWW';
+        else if (path === '/calculators') pageTitle = 'Calculadoras — BREWW';
+        else if (path === '/compare') pageTitle = 'Comparar Lotes — BREWW';
+        else if (path === '/settings') pageTitle = 'Configurações — BREWW';
+        else if (path.startsWith('/admin')) pageTitle = 'Painel Admin — BREWW';
+        else if (path.startsWith('/fermenter/')) pageTitle = 'Controle de Fermentação — BREWW';
+        else if (path.startsWith('/live/')) pageTitle = 'Acompanhamento Ao Vivo — BREWW';
+        else pageTitle = 'Dispositivos — BREWW';
+        document.title = pageTitle;
+    }, [location.pathname]);
 
     React.useEffect(() => {
         fetchFirmwareVersion().then(data => {
@@ -97,6 +118,12 @@ const NavConfig = () => {
 
     return (
         <div className="no-print mb-6">
+        <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200] focus:px-4 focus:py-2 focus:bg-amber-400 focus:text-black focus:font-bold focus:rounded-lg"
+        >
+            Pular para o conteúdo principal
+        </a>
         <nav className="bg-black py-4 md:py-6 border-b border-neutral-900">
             <div className="w-full mx-auto px-6 md:px-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 
@@ -404,7 +431,7 @@ const NavConfig = () => {
 const AppRoutes = () => {
     const { role } = useAuth();
     return (
-        <div className="min-h-screen bg-black">
+        <div className="min-h-screen min-h-[100dvh] bg-black">
             <Toaster 
                 position="top-right"
                 toastOptions={{
@@ -416,7 +443,7 @@ const AppRoutes = () => {
                 }}
             />
             <SystemBanner />
-            <Suspense fallback={<div className="min-h-screen bg-black" />}>
+            <Suspense fallback={<div className="min-h-screen min-h-[100dvh] bg-black" />}>
                 <Routes>
                     {/* Public Auth Routes */}
                     <Route path="/login" element={
@@ -436,7 +463,7 @@ const AppRoutes = () => {
                     <Route path="/*" element={
                         <ProtectedRoute>
                             <NavConfig />
-                            <main className="mt-0">
+                            <main id="main-content" className="mt-0">
                                 <ErrorBoundary name="Rotas Principais">
                                     <Suspense fallback={<div className="min-h-[50vh] bg-black" />}>
                                         <Routes>

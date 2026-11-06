@@ -96,8 +96,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 toast.error('Sessão expirada. Faça login novamente.');
             }
         };
+        const handleStorageSync = (e: StorageEvent) => {
+            if (e.key === 'token' && !e.newValue) {
+                clearLiveDeviceState();
+                queryClient.clear();
+                setToken(null);
+                setUser(null);
+                setRole(null);
+            }
+        };
         window.addEventListener('auth:unauthorized', handleUnauthorized);
-        return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+        window.addEventListener('storage', handleStorageSync);
+        return () => {
+            window.removeEventListener('auth:unauthorized', handleUnauthorized);
+            window.removeEventListener('storage', handleStorageSync);
+        };
     }, []);
 
     return (
