@@ -22,6 +22,9 @@ interface GravityChartProps {
 }
 
 export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og, fg, events = [], sensorSgName = 'Gravidade (SG)' }) => {
+  const rawId = React.useId();
+  const gradId = `colorGravity-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
   const safeData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     
@@ -46,8 +49,8 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
 
   // Extend domain to include targets if they exist
   // Initialize with [1.000, 1.100] as default range if no data
-  let minDomain = safeData.length > 0 ? Math.min(...safeData.map(d => d.gravity)) : 1.000;
-  let maxDomain = safeData.length > 0 ? Math.max(...safeData.map(d => d.gravity)) : 1.100;
+  let minDomain = safeData.length > 0 ? safeData.reduce((min, d) => (d.gravity < min ? d.gravity : min), safeData[0].gravity) : 1.000;
+  let maxDomain = safeData.length > 0 ? safeData.reduce((max, d) => (d.gravity > max ? d.gravity : max), safeData[0].gravity) : 1.100;
 
   if (safeOG !== undefined && !isNaN(safeOG)) maxDomain = Math.max(maxDomain, safeOG);
   if (safeFG !== undefined && !isNaN(safeFG)) minDomain = Math.min(minDomain, safeFG);
@@ -77,7 +80,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={safeData.length > 0 ? safeData : mockData} margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorGravity" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
                   <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                 </linearGradient>
@@ -125,7 +128,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                 name={sensorSgName}
                 stroke={safeData.length > 0 ? "#8b5cf6" : "none"}
                 fillOpacity={safeData.length > 0 ? 1 : 0}
-                fill="url(#colorGravity)"
+                fill={`url(#${gradId})`}
                 strokeWidth={1.5}
                 activeDot={safeData.length > 0 ? { r: 4, strokeWidth: 0, fill: '#8b5cf6' } : false}
               />

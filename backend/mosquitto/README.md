@@ -4,7 +4,15 @@ Com a **Fase 2**, todos os comandos enviados pelo painel web (`setMode`, `setPro
 
 - `POST /api/devices/:serial/command` (valida o JWT e garante que o `serial` pertence ao `req.user.id` ou que o usuário é `admin` no banco).
 
-## Como aplicar o isolamento no Broker Mosquitto da VPS
+## Aplicação Automatizada na VPS (1 Comando)
+
+O repositório inclui o script idempotente `backend/mosquitto/setup-vps-mosquitto.sh` (copiado automaticamente no deploy para `/var/www/breww-backend/mosquitto/setup-vps-mosquitto.sh`). Para provisionar a conta exclusiva `breww_server`, instalar o `/etc/mosquitto/acl.conf`, atualizar o `.env` do backend e recarregar o Mosquitto + PM2 sem derrubar os controladores ESP32 existentes, basta rodar na VPS:
+
+```bash
+sudo bash /var/www/breww-backend/mosquitto/setup-vps-mosquitto.sh
+```
+
+## Passo a Passo Manual (Referência)
 
 1. Crie a credencial exclusiva do backend no Mosquitto:
    ```bash

@@ -14,6 +14,9 @@ import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
 
 const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
+import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
+import { registerVoiceRoutes } from './routes/voiceRoutes.js';
+import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,15 +33,7 @@ if (!process.env.DB_PASS || !process.env.JWT_SECRET) {
 
 app.use(cors({ exposedHeaders: ['Content-Disposition'] }));
 app.use(express.json({ limit: '512kb' }));
-
-// Security Headers (nosniff, clickjacking protection, referrer policy, permissions policy)
-app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    next();
-});
+app.use(securityHeadersMiddleware);
 
 // --- 1. BANCO DE DADOS (SEGURO) ---
 const pool = mysql.createPool({
@@ -263,52 +258,6 @@ const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex
         sendPushToUser(pool, userId, gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
     }
     notifyUpdate(serialCode);
-};
-
-// SSRF guard: rejects loopback, link-local, private RFC1918 and non-HTTP(S) URLs
-const isSafeExternalWebhookUrl = (urlStr) => {
-    try {
-        const parsed = new URL(String(urlStr || '').trim());
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
-        const host = (parsed.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
-        if (!host) return false;
-        if (
-            host === 'localhost' ||
-            host === '0.0.0.0' ||
-            host === '::1' ||
-            host.endsWith('.local') ||
-            host.endsWith('.internal') ||
-            /^127\./.test(host) ||
-            /^10\./.test(host) ||
-            /^192\.168\./.test(host) ||
-            /^169\.254\./.test(host) ||
-            /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
-        ) {
-            return false;
-        }
-        return true;
-    } catch (e) {
-        return false;
-    }
-};
-
-// Simple in-memory rate limiter for auth endpoints (max 15 requests / 15 min per IP)
-const authAttemptsByIp = new Map();
-const authRateLimiter = (req, res, next) => {
-    const rawIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || 'unknown';
-    const ip = String(rawIp).split(',')[0].trim();
-    const now = Date.now();
-    const windowMs = 15 * 60 * 1000;
-    const entry = authAttemptsByIp.get(ip);
-    if (!entry || now - entry.start > windowMs) {
-        authAttemptsByIp.set(ip, { count: 1, start: now });
-        return next();
-    }
-    entry.count += 1;
-    if (entry.count > 15) {
-        return res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
-    }
-    next();
 };
 
 
@@ -1705,86 +1654,8 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
     }
 });
 
-// Shared helper for Voice Assistant Endpoints (Alexa / Google Home)
-const buildVoiceStatusText = async (userIdFilter) => {
-    const userClause = userIdFilter ? 'AND d.user_id = ?' : '';
-    const params = userIdFilter ? [userIdFilter] : [];
-    const [batches] = await pool.execute(
-        `SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name
-         FROM batches b JOIN devices d ON b.device_id = d.id
-         WHERE b.is_active = 1 ${userClause} ORDER BY b.id DESC LIMIT 1`,
-        params
-    );
-    if (batches.length === 0) {
-        return 'Não há nenhum lote ativo no momento no seu painel Breww.';
-    }
-    const batch = batches[0];
-    const [telemetry] = await pool.execute(
-        `SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1`,
-        [batch.id]
-    );
-    if (telemetry.length === 0) {
-        return `O lote ${batch.name} está ativo, mas ainda não recebi dados de telemetria.`;
-    }
-    const t = telemetry[0];
-    const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-    const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-    const s3 = batch.sensor_sg_name || 'Gravidade';
-    let gravText = '';
-    if (t.gravity && parseFloat(t.gravity) > 0) {
-        const parts = parseFloat(t.gravity).toFixed(3).split('.');
-        if (parts.length === 2) {
-            gravText = `e o sensor ${s3} está em ${parts[0]} ponto ${parts[1].split('').join(' ')}`;
-        }
-    }
-    const s1 = batch.sensor1_name || 'Fermentador';
-    const s2 = batch.sensor2_name || 'Geladeira';
-    return `O lote ${batch.name} está ativo. A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
-};
-
-app.get('/api/voice/status', async (req, res) => {
-    try {
-        const token = req.query.token;
-        const voiceToken = process.env.VOICE_TOKEN;
-        if (!voiceToken || token !== voiceToken) return res.status(403).send('Acesso negado. Token inválido.');
-        const text = await buildVoiceStatusText(req.query.user_id);
-        res.send(text);
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Ocorreu um erro ao consultar o servidor.');
-    }
-});
-
-// Native Alexa Custom Skill Endpoint
-app.post('/api/voice/alexa', async (req, res) => {
-    try {
-        if (req.body && req.body.request && req.body.request.type === 'SessionEndedRequest') {
-            return res.json({ version: "1.0", response: { shouldEndSession: true } });
-        }
-        const token = req.query.token;
-        const voiceToken = process.env.VOICE_TOKEN;
-        if (!voiceToken || token !== voiceToken) {
-            return res.json({
-                version: "1.0",
-                response: {
-                    outputSpeech: { type: "PlainText", text: "Acesso negado. Verifique o token de segurança no aplicativo." },
-                    shouldEndSession: true
-                }
-            });
-        }
-        const text = await buildVoiceStatusText(req.query.user_id);
-        res.json({
-            version: "1.0",
-            response: {
-                outputSpeech: { type: "PlainText", text },
-                shouldEndSession: true
-            }
-        });
-    } catch (err) {
-        console.error("Alexa Endpoint Error:", err);
-        res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Ocorreu um erro interno ao consultar o servidor Breww." }, shouldEndSession: true } });
-    }
-});
+// Voice Assistant Endpoints (Alexa / Google Home)
+registerVoiceRoutes(app, pool);
 
 // Get batch telemetry data
 app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
@@ -1817,35 +1688,9 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// INGREDIENTS API (BeerJSON)
+// INGREDIENTS API (BeerJSON) & ADMIN INGREDIENTS
 // ==========================================
-app.get('/api/ingredients/fermentables', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM fermentables ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/ingredients/hops', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM hops ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/ingredients/yeasts', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM yeasts ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/ingredients/miscs', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await ingredientsPool.execute('SELECT * FROM miscs ORDER BY name ASC');
-        res.json(rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
+registerIngredientRoutes(app, ingredientsPool, authenticateToken, requireAdmin);
 
 // ==========================================
 // ADMIN API
@@ -1964,43 +1809,6 @@ app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req
         await deleteDeviceCascade(id, devs[0]?.serial_code);
         await loadActiveBatches();
         res.json({ message: 'Device deleted' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/admin/ingredients/:table', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { table } = req.params;
-        const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
-        if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
-        
-        const { name, name_pt } = req.body || {};
-        if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
-        const [result] = await ingredientsPool.execute(`INSERT INTO ${table} (name, name_pt) VALUES (?, ?)`, [name, name_pt ?? null]);
-        res.json({ id: result.insertId, message: 'Ingrediente criado' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.put('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { table, id } = req.params;
-        const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
-        if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
-        
-        const { name, name_pt } = req.body || {};
-        if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
-        await ingredientsPool.execute(`UPDATE ${table} SET name = ?, name_pt = ? WHERE id = ?`, [name, name_pt ?? null, id]);
-        res.json({ message: 'Ingrediente atualizado' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.delete('/api/admin/ingredients/:table/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { table, id } = req.params;
-        const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
-        if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
-        
-        await ingredientsPool.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
-        res.json({ message: 'Ingrediente deletado' });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
