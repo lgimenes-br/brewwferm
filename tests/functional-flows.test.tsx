@@ -834,6 +834,12 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             if (url.includes('/admin/push-stats')) {
                 return new Response(JSON.stringify({ total_users: 10, opt_in: 6 }), { status: 200 });
             }
+            if (url.includes('/user/integrations/test-brewfather') && method === 'POST') {
+                return new Response(JSON.stringify({ success: true, status: 200 }), { status: 200 });
+            }
+            if (url.includes('/user/integrations')) {
+                return new Response(JSON.stringify({ brewfatherWebhookUrl: '' }), { status: 200 });
+            }
             return new Response(JSON.stringify([]), { status: 200 });
         });
 
@@ -842,6 +848,18 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         await act(async () => {
             await new Promise(r => setTimeout(r, 60));
         });
+
+        // 0. Integrações Externas (Brewfather Custom Stream)
+        const bfInput = container.querySelector('input[placeholder*="http://log.brewfather.net/stream"]') as HTMLInputElement;
+        expect(bfInput).toBeTruthy();
+        setInputValue(bfInput, 'http://log.brewfather.net/stream?id=breww123');
+        await act(async () => {
+            findButtonByText('Salvar Integração')!.click();
+            findButtonByText('Testar Brewfather')!.click();
+            await new Promise(r => setTimeout(r, 30));
+        });
+        expect(apiCalls.some(c => c.url.includes('/user/integrations') && c.method === 'PUT' && c.body?.brewfatherWebhookUrl === 'http://log.brewfather.net/stream?id=breww123')).toBe(true);
+        expect(apiCalls.some(c => c.url.includes('/user/integrations/test-brewfather') && c.method === 'POST')).toBe(true);
 
         // 1. Configurações Gerais ("Salvar Gerais")
         clickElement(findButtonByText('Salvar Gerais'));

@@ -165,6 +165,37 @@ export const deleteRecipe = async (id: string | number, token?: string | null) =
   return res.json();
 };
 
+// --- External Integrations (Brewfather Custom Stream) ---
+export const fetchIntegrations = async (token?: string | null) => {
+  const res = await fetch(`${API_URL}/user/integrations`, {
+    headers: getHeaders(token)
+  });
+  if (!res.ok) throw new Error('Failed to fetch integrations');
+  return res.json();
+};
+
+export const updateIntegrations = async (data: { brewfatherWebhookUrl: string }, token?: string | null) => {
+  const res = await fetch(`${API_URL}/user/integrations`, {
+    method: 'PUT',
+    headers: getHeaders(token),
+    body: JSON.stringify(data)
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Failed to save integrations');
+  return body;
+};
+
+export const testBrewfatherWebhook = async (brewfatherWebhookUrl: string, deviceName?: string, token?: string | null) => {
+  const res = await fetch(`${API_URL}/user/integrations/test-brewfather`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify({ brewfatherWebhookUrl, deviceName })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Failed to test Brewfather webhook');
+  return body;
+};
+
 export const stopBatch = async (serialCode: string) => {
   const res = await fetch(`${API_URL}/batch/stop`, {
     method: 'POST',

@@ -73,6 +73,7 @@ const initDb = async () => {
         try { await pool.execute('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL'); } catch (e) { }
         try { await pool.execute('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20'); } catch (e) { }
         try { await pool.execute('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL'); } catch (e) { }
+        try { await pool.execute('ALTER TABLE users ADD COLUMN brewfather_webhook_url VARCHAR(255) DEFAULT NULL'); } catch (e) { }
         
         console.log('Main DB tables initialized');
         
@@ -132,6 +133,7 @@ const loadActiveBatches = async () => {
 loadActiveBatches();
 
 const lastLogTimes = {};
+const lastBrewfatherPushTimes = {};
 const discoveredUnknowns = {}; // Cache for unknown devices detected via MQTT 
 const sanitizeNum = (val, precision) => {
     const num = parseFloat(val);
@@ -505,6 +507,33 @@ mqttClient.on('message', async (topic, message, packet) => {
                     console.error("❌ Telemetry Insert Error:", err.message); 
                 });
                 lastLogTimes[serialCode] = now;
+
+                // Forward to Brewfather Custom Stream if user configured a webhook URL (every 15 mins per Brewfather rate limit)
+                const bfOwnerId = activeBatchesUserId[serialCode];
+                if (bfOwnerId && currentBatchId && (now - (lastBrewfatherPushTimes[serialCode] || 0) >= 15 * 60 * 1000)) {
+                    lastBrewfatherPushTimes[serialCode] = now;
+                    pool.execute('SELECT brewfather_webhook_url FROM users WHERE id = ?', [bfOwnerId])
+                        .then(([uRows]) => {
+                            const webhookUrl = uRows?.[0]?.brewfather_webhook_url;
+                            if (webhookUrl && /^https?:\/\//i.test(webhookUrl)) {
+                                const bfPayload = {
+                                    name: `Breww-${serialCode}`,
+                                    temp: parseFloat(sanitizeNum(payload.ferm, 1)) || 0,
+                                    aux_temp: parseFloat(sanitizeNum(payload.amb, 1)) || 0,
+                                    temp_unit: 'C',
+                                    ...(finalGravity && parseFloat(finalGravity) > 0 ? { gravity: parseFloat(finalGravity), gravity_unit: 'G' } : {}),
+                                    ...(payload.is_bat && parseFloat(payload.is_bat) > 0 ? { battery: parseFloat(sanitizeNum(payload.is_bat, 2)) } : {}),
+                                    comment: payload.profStat || 'Breww Dashboard'
+                                };
+                                fetch(webhookUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(bfPayload)
+                                }).catch(err => console.error('Brewfather webhook forward error:', err.message));
+                            }
+                        })
+                        .catch(() => {});
+                }
             }
 
             // --- Lógica de Alertas Push ---
@@ -993,6 +1022,55 @@ app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
         const [result] = await pool.execute('DELETE FROM recipes WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
         if (result.affectedRows === 0) return res.status(404).json({ error: 'Receita não encontrada' });
         res.json({ message: 'Apagada' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/user/integrations', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT brewfather_webhook_url FROM users WHERE id = ?', [req.user.id]);
+        res.json({
+            brewfatherWebhookUrl: rows?.[0]?.brewfather_webhook_url || ''
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/user/integrations', authenticateToken, async (req, res) => {
+    try {
+        const rawUrl = String(req.body?.brewfatherWebhookUrl || '').trim();
+        if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
+            return res.status(400).json({ error: 'A URL do webhook deve iniciar com http:// ou https://' });
+        }
+        await pool.execute('UPDATE users SET brewfather_webhook_url = ? WHERE id = ?', [rawUrl || null, req.user.id]);
+        res.json({ message: 'Integração atualizada com sucesso', brewfatherWebhookUrl: rawUrl });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/user/integrations/test-brewfather', authenticateToken, async (req, res) => {
+    try {
+        let targetUrl = String(req.body?.brewfatherWebhookUrl || '').trim();
+        if (!targetUrl) {
+            const [rows] = await pool.execute('SELECT brewfather_webhook_url FROM users WHERE id = ?', [req.user.id]);
+            targetUrl = rows?.[0]?.brewfather_webhook_url || '';
+        }
+        if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+            return res.status(400).json({ error: 'Informe uma URL válida do Custom Stream do Brewfather' });
+        }
+        const samplePayload = {
+            name: req.body?.deviceName ? `Breww-${req.body.deviceName}` : 'Breww-Controller',
+            temp: 19.5,
+            aux_temp: 15.0,
+            temp_unit: 'C',
+            gravity: 1.042,
+            gravity_unit: 'G',
+            battery: 4.05,
+            comment: 'Teste de Conexão Breww Dashboard'
+        };
+        const bfRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(samplePayload)
+        });
+        res.json({ success: bfRes.ok, status: bfRes.status });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

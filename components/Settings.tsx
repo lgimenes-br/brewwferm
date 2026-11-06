@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search } from 'lucide-react';
+import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Link2, Send } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { updateSensors } from '../services/api';
+import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 interface PIDParams {
@@ -133,6 +133,8 @@ export const Settings: React.FC = () => {
   
   const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [brewfatherUrl, setBrewfatherUrl] = useState('');
+  const [isTestingBrewfather, setIsTestingBrewfather] = useState(false);
   const [macSensorControle, setMacSensorControle] = useState('');
   const [nameSensorControle, setNameSensorControle] = useState('');
   const [extraSensors, setExtraSensors] = useState<{mac: string, name: string}[]>([]);
@@ -243,6 +245,41 @@ export const Settings: React.FC = () => {
       };
       fetchFirmwareVersion();
   }, []);
+
+  useEffect(() => {
+      if (!token) return;
+      fetchIntegrations(token)
+          .then(data => {
+              if (data && typeof data.brewfatherWebhookUrl === 'string') {
+                  setBrewfatherUrl(data.brewfatherWebhookUrl);
+              }
+          })
+          .catch(() => {});
+  }, [token]);
+
+  const handleSaveBrewfather = async () => {
+      try {
+          await updateIntegrations({ brewfatherWebhookUrl: brewfatherUrl.trim() }, token);
+          toast.success('Integração com Brewfather salva!');
+      } catch (err: any) {
+          toast.error(err?.message || 'Erro ao salvar integração.');
+      }
+  };
+
+  const handleTestBrewfather = async () => {
+      if (!brewfatherUrl.trim()) {
+          return toast.error('Informe a URL do Custom Stream do Brewfather primeiro.');
+      }
+      setIsTestingBrewfather(true);
+      try {
+          await testBrewfatherWebhook(brewfatherUrl.trim(), selectedDeviceId || 'ESP32', token);
+          toast.success('Pacote de teste enviado para o Brewfather com sucesso!');
+      } catch (err: any) {
+          toast.error(err?.message || 'Falha ao testar envio para o Brewfather.');
+      } finally {
+          setIsTestingBrewfather(false);
+      }
+  };
 
   const handleChange = (field: keyof SystemSettings, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -511,6 +548,41 @@ export const Settings: React.FC = () => {
             >
                 <Bell size={14} /> {isSubscribed ? 'Alertas Ativos' : 'Ativar Alertas'}
             </button>
+        </div>
+      </section>
+
+      {/* 0.5 Integrações Externas (Brewfather Custom Stream) */}
+      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+        <SectionHeader icon={Link2} title="Integrações Externas (Brewfather Custom Stream)" />
+        <p className="text-neutral-400 text-xs mb-4 -mt-3">
+          Espelhe automaticamente a temperatura do mosto, geladeira, densidade (SG) e bateria do seu controlador para o seu lote no <strong>Brewfather</strong> a cada 15 minutos.
+        </p>
+        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4">
+          <div className="flex-1">
+            <InputField
+              label="URL do Custom Stream (Brewfather)"
+              value={brewfatherUrl}
+              onChange={(v: string) => setBrewfatherUrl(v)}
+              placeholder="http://log.brewfather.net/stream?id=..."
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleTestBrewfather}
+              disabled={isTestingBrewfather}
+              className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+            >
+              <Send size={14} /> Testar Brewfather
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveBrewfather}
+              className="px-5 py-3 bg-neutral-100 hover:bg-white text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
+              <Save size={14} /> Salvar Integração
+            </button>
+          </div>
         </div>
       </section>
 
