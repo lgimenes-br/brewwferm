@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Info, X } from 'lucide-react';
-import { API_URL } from '../config';
+import { fetchActiveBroadcast } from '../services/api';
 
 export const SystemBanner = () => {
     const [broadcast, setBroadcast] = useState<any>(null);
@@ -8,8 +8,7 @@ export const SystemBanner = () => {
 
     useEffect(() => {
         // Fetch active broadcast
-        fetch(`${API_URL}/broadcasts/active`)
-            .then(res => res.ok ? res.json() : null)
+        fetchActiveBroadcast()
             .then(data => {
                 if (data && data.id && data.message) {
                     // Check if user already closed this specific broadcast
@@ -49,6 +48,7 @@ export const SystemBanner = () => {
                 </div>
                 <button 
                     onClick={handleClose} 
+                    aria-label="Fechar aviso"
                     className={`shrink-0 p-1 rounded-md transition-colors ${isWarning ? 'hover:bg-amber-600' : 'hover:bg-indigo-700'}`}
                 >
                     <X size={18} />

@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, isDeviceOnline as checkDeviceOnline } from '../types';
 import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
-import { API_URL } from '../config';
+import { fetchDiscoveryDevices } from '../services/api';
 
 export const Dashboard: React.FC = () => {
     const { fermenters, addDevice, updateDevice, deleteDevice } = useFermenters();
@@ -49,12 +49,29 @@ export const Dashboard: React.FC = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [scannedDevices, setScannedDevices] = useState<ScannedDevice[]>([]);
     const [deviceToAddFromScan, setDeviceToAddFromScan] = useState<ScannedDevice | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
         const interval = setInterval(() => setNow(Date.now()), 5000);
         return () => clearInterval(interval);
     }, []);
+
+    // WCAG 2.1.1 Close active modal on Escape key
+    useEffect(() => {
+        if (!editingId && !deletingId && !isAddModalOpen && !isScanModalOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setEditingId(null);
+                setDeletingId(null);
+                setIsAddModalOpen(false);
+                setIsScanModalOpen(false);
+                setDeviceToAddFromScan(null);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [editingId, deletingId, isAddModalOpen, isScanModalOpen]);
 
     // Edit Handlers (Update needs to be handled via API now, but dashboard only updates Name/IP)
     // To keep it simple, we'll wait for the FermenterDetail refactor or create a specific update hook
@@ -70,25 +87,31 @@ export const Dashboard: React.FC = () => {
     };
 
     const confirmDelete = async () => {
-        if (deletingId) {
+        if (deletingId && !isSubmitting) {
+            setIsSubmitting(true);
             try {
                 await deleteDevice(deletingId);
                 toast.success('Dispositivo removido com sucesso!');
             } catch (err) {
                 toast.error('Erro ao remover dispositivo.');
+            } finally {
+                setIsSubmitting(false);
+                setDeletingId(null);
             }
-            setDeletingId(null);
         }
     };
 
     const handleSaveEdit = async () => {
-        if (editingId && editName.trim()) {
+        if (editingId && editName.trim() && !isSubmitting) {
+            setIsSubmitting(true);
             try {
                 await updateDevice({ serialCode: editingId, name: editName.trim() });
                 toast.success('Dispositivo atualizado com sucesso!');
                 setEditingId(null);
             } catch (err) {
                 toast.error('Erro ao atualizar dispositivo.');
+            } finally {
+                setIsSubmitting(false);
             }
         }
     };
@@ -97,7 +120,8 @@ export const Dashboard: React.FC = () => {
     const handleManualAdd = async () => {
         const cleanName = newDeviceName.trim();
         const cleanIp = newDeviceIp.trim();
-        if (cleanName && cleanIp) {
+        if (cleanName && cleanIp && !isSubmitting) {
+            setIsSubmitting(true);
             try {
                 await addDevice({
                     name: cleanName,
@@ -109,6 +133,8 @@ export const Dashboard: React.FC = () => {
                 setNewDeviceIp('');
             } catch (err: any) {
                 toast.error(err?.message || 'Erro ao adicionar dispositivo.');
+            } finally {
+                setIsSubmitting(false);
             }
         }
     };
@@ -119,25 +145,10 @@ export const Dashboard: React.FC = () => {
         setScannedDevices([]);
 
         try {
-            const token = localStorage.getItem('token');
-
-            // Try to fetch real devices first
-            const res = await fetch(`${API_URL}/discovery`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (res.ok) {
-                const devs = await res.json();
-                setScannedDevices(Array.isArray(devs) ? devs : []);
-            } else {
-                console.error("Discovery failed:", res.status, res.statusText);
-                if (res.status === 401) {
-                    toast.error("Você precisa estar logado para buscar dispositivos.");
-                }
-            }
+            const devs = await fetchDiscoveryDevices();
+            setScannedDevices(Array.isArray(devs) ? devs : []);
         } catch (e) {
             console.error("Scan error", e);
-            // No fallback to mocks anymore
         } finally {
             setIsScanning(false);
         }
@@ -150,7 +161,8 @@ export const Dashboard: React.FC = () => {
 
     const handleSaveScanned = async () => {
         const cleanName = newDeviceName.trim();
-        if (deviceToAddFromScan && cleanName) {
+        if (deviceToAddFromScan && cleanName && !isSubmitting) {
+            setIsSubmitting(true);
             try {
                 await addDevice({
                     name: cleanName,
@@ -162,14 +174,13 @@ export const Dashboard: React.FC = () => {
                 setScannedDevices([]);
             } catch (err: any) {
                 toast.error(err?.message || 'Erro ao adicionar dispositivo.');
+            } finally {
+                setIsSubmitting(false);
             }
         }
     };
 
-    const isDeviceOnline = (f: Fermenter) => {
-        const lastUpdate = f.currentDevice?.lastUpdate ? new Date(f.currentDevice.lastUpdate).getTime() : 0;
-        return !isNaN(lastUpdate) && lastUpdate > 0 && (now - lastUpdate) < 30 * 1000;
-    };
+    const isDeviceOnline = (f: Fermenter) => checkDeviceOnline(f, now);
     const onlineCount = fermenters.filter(isDeviceOnline).length;
 
     return (
@@ -324,6 +335,7 @@ export const Dashboard: React.FC = () => {
                                             onClick={(e) => handleDeleteClick(e, f.id)}
                                             className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-md transition-all"
                                             title="Excluir Dispositivo"
+                                            aria-label={`Excluir ${f.name}`}
                                         >
                                             <Trash2 size={14} />
                                         </button>
@@ -332,6 +344,7 @@ export const Dashboard: React.FC = () => {
                                             onClick={(e) => handleEditClick(e, f)}
                                             className="text-neutral-500 hover:text-white hover:bg-neutral-700 p-1.5 rounded-md transition-all"
                                             title="Configurações"
+                                            aria-label={`Editar ${f.name}`}
                                         >
                                             <Settings size={14} />
                                         </button>
@@ -450,11 +463,11 @@ export const Dashboard: React.FC = () => {
             {/* MODAL 1: Edit Existing Device */}
             {
                 editingId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div role="dialog" aria-modal="true" aria-labelledby="edit-device-modal-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-medium text-white">Editar Dispositivo</h3>
-                                <button onClick={() => setEditingId(null)} className="text-neutral-500 hover:text-white">
+                                <h3 id="edit-device-modal-title" className="text-lg font-medium text-white">Editar Dispositivo</h3>
+                                <button aria-label="Fechar modal" onClick={() => setEditingId(null)} className="text-neutral-500 hover:text-white">
                                     <X size={20} />
                                 </button>
                             </div>
@@ -472,7 +485,8 @@ export const Dashboard: React.FC = () => {
 
                                 <button
                                     onClick={handleSaveEdit}
-                                    className="w-full bg-white text-black font-medium py-3 rounded-xl mt-4 hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2"
+                                    disabled={isSubmitting || !editName.trim()}
+                                    className="w-full bg-white text-black font-medium py-3 rounded-xl mt-4 hover:bg-neutral-200 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <Save size={18} /> Salvar Alterações
                                 </button>
@@ -485,13 +499,13 @@ export const Dashboard: React.FC = () => {
             {/* MODAL 4: Delete Confirmation */}
             {
                 deletingId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div role="dialog" aria-modal="true" aria-labelledby="delete-device-modal-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-neutral-900 border border-red-900/50 p-6 rounded-2xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
                             <div className="flex flex-col items-center text-center">
                                 <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-4">
                                     <AlertTriangle size={24} />
                                 </div>
-                                <h3 className="text-xl font-medium text-white mb-2">Excluir Dispositivo?</h3>
+                                <h3 id="delete-device-modal-title" className="text-xl font-medium text-white mb-2">Excluir Dispositivo?</h3>
                                 <p className="text-neutral-400 text-sm mb-6">
                                     Essa ação não pode ser desfeita. Todos os dados e logs deste fermentador serão perdidos permanentemente.
                                 </p>
@@ -499,13 +513,15 @@ export const Dashboard: React.FC = () => {
                                 <div className="flex w-full gap-3">
                                     <button
                                         onClick={() => setDeletingId(null)}
-                                        className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white py-3 rounded-xl font-medium transition-colors"
+                                        disabled={isSubmitting}
+                                        className="flex-1 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white py-3 rounded-xl font-medium transition-colors"
                                     >
                                         Cancelar
                                     </button>
                                     <button
                                         onClick={confirmDelete}
-                                        className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-medium transition-colors shadow-[0_0_15px_rgba(220,38,38,0.4)]"
+                                        disabled={isSubmitting}
+                                        className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white py-3 rounded-xl font-medium transition-colors shadow-[0_0_15px_rgba(220,38,38,0.4)]"
                                     >
                                         Sim, Excluir
                                     </button>
@@ -519,11 +535,11 @@ export const Dashboard: React.FC = () => {
             {/* MODAL 2: Add Manual Device */}
             {
                 isAddModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div role="dialog" aria-modal="true" aria-labelledby="add-device-modal-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-medium text-white">Adicionar Manualmente</h3>
-                                <button onClick={() => setIsAddModalOpen(false)} className="text-neutral-500 hover:text-white">
+                                <h3 id="add-device-modal-title" className="text-lg font-medium text-white">Adicionar Manualmente</h3>
+                                <button aria-label="Fechar modal" onClick={() => setIsAddModalOpen(false)} className="text-neutral-500 hover:text-white">
                                     <X size={20} />
                                 </button>
                             </div>
@@ -552,7 +568,7 @@ export const Dashboard: React.FC = () => {
 
                                 <button
                                     onClick={handleManualAdd}
-                                    disabled={!newDeviceName || !newDeviceIp}
+                                    disabled={isSubmitting || !newDeviceName || !newDeviceIp}
                                     className="w-full bg-white text-black font-medium py-3 rounded-xl mt-4 hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Plus size={18} /> Adicionar Dispositivo
@@ -566,11 +582,11 @@ export const Dashboard: React.FC = () => {
             {/* MODAL 3: Scan Network */}
             {
                 isScanModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div role="dialog" aria-modal="true" aria-labelledby="scan-device-modal-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl w-full max-w-md shadow-2xl scale-100 animate-in zoom-in-95 duration-200 relative">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-medium text-white">Procurar na Rede</h3>
-                                <button onClick={() => {
+                                <h3 id="scan-device-modal-title" className="text-lg font-medium text-white">Procurar na Rede</h3>
+                                <button aria-label="Fechar modal" onClick={() => {
                                     setIsScanModalOpen(false);
                                     setDeviceToAddFromScan(null);
                                     setScannedDevices([]);

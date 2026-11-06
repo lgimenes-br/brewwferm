@@ -1,27 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
-import { FermenterDetailWrapper } from './components/FermenterDetailWrapper';
 import { Toaster, toast } from 'react-hot-toast';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
-import { FermentationHistory } from './components/FermentationHistory';
-import { FinishedBrewDetailWrapper } from './components/FinishedBrewDetailWrapper';
-import { Settings } from './components/Settings';
-import { BrewingCalculators } from './components/BrewingCalculators';
-import { CompareBatches } from './components/CompareBatches';
-import { PublicLiveBatch } from './components/PublicLiveBatch';
 import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode, isDeviceOnline } from './types';
 import { fetchFirmwareVersion } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { AdminDashboard } from './components/AdminDashboard';
 import { useFermenters } from './hooks/useFermenters';
 import { useBrew } from './context/BrewContext';
 import { useLocation } from 'react-router-dom';
 import { SystemBanner } from './components/SystemBanner';
+
+const FermenterDetailWrapper = React.lazy(() => import('./components/FermenterDetailWrapper').then(m => ({ default: m.FermenterDetailWrapper })));
+const FermentationHistory = React.lazy(() => import('./components/FermentationHistory').then(m => ({ default: m.FermentationHistory })));
+const FinishedBrewDetailWrapper = React.lazy(() => import('./components/FinishedBrewDetailWrapper').then(m => ({ default: m.FinishedBrewDetailWrapper })));
+const Settings = React.lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
+const BrewingCalculators = React.lazy(() => import('./components/BrewingCalculators').then(m => ({ default: m.BrewingCalculators })));
+const CompareBatches = React.lazy(() => import('./components/CompareBatches').then(m => ({ default: m.CompareBatches })));
+const PublicLiveBatch = React.lazy(() => import('./components/PublicLiveBatch').then(m => ({ default: m.PublicLiveBatch })));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 
 const NavConfig = () => {
     const navigate = useNavigate();
@@ -114,6 +115,8 @@ const NavConfig = () => {
 
                     {/* Mobile Hamburger Button */}
                     <button 
+                        aria-label={isMobileMenuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação"}
+                        aria-expanded={isMobileMenuOpen}
                         className="md:hidden flex items-center justify-center w-10 h-10 text-neutral-400 hover:text-white transition-colors border border-neutral-800 rounded-md"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     >
@@ -216,31 +219,31 @@ const NavConfig = () => {
 
                     {/* Navigation Icons (Desktop only) */}
                     <div className="hidden md:flex items-center gap-2">
-                        <button title="Visão Geral" onClick={() => navigate('/')} className={iconOnlyBase} >
+                        <button title="Visão Geral" aria-label="Visão Geral" aria-current={location.pathname === '/' ? 'page' : undefined} onClick={() => navigate('/')} className={iconOnlyBase} >
                             <LayoutGrid size={18} />
                         </button>
-                        <button title="Logs" onClick={() => navigate('/history')} className={iconOnlyBase} >
+                        <button title="Logs" aria-label="Logs" aria-current={location.pathname.startsWith('/history') ? 'page' : undefined} onClick={() => navigate('/history')} className={iconOnlyBase} >
                             <History size={18} />
                         </button>
-                        <button title="Calculadoras" onClick={() => navigate('/calculators')} className={iconOnlyBase} >
+                        <button title="Calculadoras" aria-label="Calculadoras" aria-current={location.pathname === '/calculators' ? 'page' : undefined} onClick={() => navigate('/calculators')} className={iconOnlyBase} >
                             <Calculator size={18} />
                         </button>
-                        <button title="Comparador" onClick={() => navigate('/compare')} className={iconOnlyBase} >
+                        <button title="Comparador" aria-label="Comparador" aria-current={location.pathname === '/compare' ? 'page' : undefined} onClick={() => navigate('/compare')} className={iconOnlyBase} >
                             <GitCompare size={18} />
                         </button>
-                        <button title="Settings" onClick={() => navigate('/settings')} className={iconOnlyBase}>
+                        <button title="Settings" aria-label="Configurações" aria-current={location.pathname === '/settings' ? 'page' : undefined} onClick={() => navigate('/settings')} className={iconOnlyBase}>
                             <SettingsIcon size={18} />
                         </button>
 
                         {/* Voltar Button - moved to the right corner */}
                         {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
-                            <button title="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
+                            <button title="Voltar" aria-label="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
                                 <ArrowLeft size={18} />
                             </button>
                         )}
 
                         {location.pathname === '/' && (
-                            <button onClick={() => logout()} className="ml-2 p-2 text-neutral-700 hover:text-red-500 transition-colors" title="Sair">
+                            <button onClick={() => logout()} aria-label="Sair" className="ml-2 p-2 text-neutral-700 hover:text-red-500 transition-colors" title="Sair">
                                 <LogOut size={18} />
                             </button>
                         )}
@@ -260,6 +263,7 @@ const NavConfig = () => {
                             </div>
                         </div>
                         <button 
+                            aria-label="Fechar menu de navegação"
                             className="flex items-center justify-center w-10 h-10 text-neutral-400 hover:text-white transition-colors border border-neutral-800 rounded-md"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
@@ -333,7 +337,7 @@ const NavConfig = () => {
                 </div>
 
                 {isUpdating && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                    <div role="dialog" aria-modal="true" aria-labelledby="ota-dialog-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                         <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl shadow-2xl max-w-md w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
                             {maxProgress === 100 ? (
                                 <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
@@ -345,7 +349,7 @@ const NavConfig = () => {
                                 </div>
                             )}
                             
-                            <h2 className="text-2xl font-bold text-white mb-2 text-center">
+                            <h2 id="ota-dialog-title" className="text-2xl font-bold text-white mb-2 text-center">
                                 {maxProgress === 100 ? 'Atualização Concluída' : 'Atualizando Firmware'}
                             </h2>
                             <p className="text-neutral-400 text-sm text-center mb-8">
@@ -412,43 +416,47 @@ const AppRoutes = () => {
                 }}
             />
             <SystemBanner />
-            <Routes>
-                {/* Public Auth Routes */}
-                <Route path="/login" element={
-                    <PublicRoute>
-                        <Login />
-                        {/* We will let AuthContext handle the actual login state in Login component directly now */}
-                    </PublicRoute>
-                } />
-                <Route path="/register" element={
-                    <PublicRoute>
-                        <Register />
-                    </PublicRoute>
-                } />
-                <Route path="/live/:token" element={<PublicLiveBatch />} />
+            <Suspense fallback={<div className="min-h-screen bg-black" />}>
+                <Routes>
+                    {/* Public Auth Routes */}
+                    <Route path="/login" element={
+                        <PublicRoute>
+                            <Login />
+                            {/* We will let AuthContext handle the actual login state in Login component directly now */}
+                        </PublicRoute>
+                    } />
+                    <Route path="/register" element={
+                        <PublicRoute>
+                            <Register />
+                        </PublicRoute>
+                    } />
+                    <Route path="/live/:token" element={<PublicLiveBatch />} />
 
-                {/* Protected App Routes */}
-                <Route path="/*" element={
-                    <ProtectedRoute>
-                        <NavConfig />
-                        <main className="mt-0">
-                            <ErrorBoundary name="Rotas Principais">
-                                <Routes>
-                                    <Route path="/" element={role === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />} />
-                                    <Route path="/fermenter/:id" element={<FermenterDetailWrapper />} />
-                                    <Route path="/history" element={<FermentationHistory />} />
-                                    <Route path="/history/:id" element={<FinishedBrewDetailWrapper />} />
-                                    <Route path="/calculators" element={<BrewingCalculators />} />
-                                    <Route path="/compare" element={<CompareBatches />} />
-                                    <Route path="/settings" element={<Settings />} />
-                                    <Route path="/admin/*" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                                    <Route path="*" element={<Navigate to="/" replace />} />
-                                </Routes>
-                            </ErrorBoundary>
-                        </main>
-                    </ProtectedRoute>
-                } />
-            </Routes>
+                    {/* Protected App Routes */}
+                    <Route path="/*" element={
+                        <ProtectedRoute>
+                            <NavConfig />
+                            <main className="mt-0">
+                                <ErrorBoundary name="Rotas Principais">
+                                    <Suspense fallback={<div className="min-h-[50vh] bg-black" />}>
+                                        <Routes>
+                                            <Route path="/" element={role === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />} />
+                                            <Route path="/fermenter/:id" element={<FermenterDetailWrapper />} />
+                                            <Route path="/history" element={<FermentationHistory />} />
+                                            <Route path="/history/:id" element={<FinishedBrewDetailWrapper />} />
+                                            <Route path="/calculators" element={<BrewingCalculators />} />
+                                            <Route path="/compare" element={<CompareBatches />} />
+                                            <Route path="/settings" element={<Settings />} />
+                                            <Route path="/admin/*" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                                            <Route path="*" element={<Navigate to="/" replace />} />
+                                        </Routes>
+                                    </Suspense>
+                                </ErrorBoundary>
+                            </main>
+                        </ProtectedRoute>
+                    } />
+                </Routes>
+            </Suspense>
         </div>
     );
 };

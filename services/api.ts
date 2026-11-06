@@ -232,6 +232,7 @@ export const fetchIntegrations = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/user/integrations`, {
     headers: getHeaders(token)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to fetch integrations');
   return res.json();
 };
@@ -242,6 +243,7 @@ export const updateIntegrations = async (data: { brewfatherWebhookUrl?: string; 
     headers: getHeaders(token),
     body: JSON.stringify(data)
   });
+  checkUnauthorized(res);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Failed to save integrations');
   return body;
@@ -253,6 +255,7 @@ export const testBrewfatherWebhook = async (brewfatherWebhookUrl: string, device
     headers: getHeaders(token),
     body: JSON.stringify({ brewfatherWebhookUrl, deviceName })
   });
+  checkUnauthorized(res);
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) throw new Error(body.error || 'Falha ao testar envio para o Brewfather');
   return body;
@@ -264,6 +267,7 @@ export const testTelegramWebhook = async (telegramBotToken: string, telegramChat
     headers: getHeaders(token),
     body: JSON.stringify({ telegramBotToken, telegramChatId })
   });
+  checkUnauthorized(res);
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) throw new Error(body.error || 'Falha ao testar envio para o Telegram');
   return body;
@@ -275,6 +279,7 @@ export const stopBatch = async (serialCode: string) => {
     headers: getHeaders(),
     body: JSON.stringify({ serialCode })
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to stop batch');
   return true;
 };
@@ -286,6 +291,7 @@ export const updateBatch = async (serialCode: string, updates: { og?: number, fg
     headers: getHeaders(),
     body: JSON.stringify(body)
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to update batch');
   return true;
 };
@@ -295,6 +301,7 @@ export const fetchEvents = async (batchId: number) => {
   const res = await fetch(`${API_URL}/batch/${batchId}/events`, {
     headers: getHeaders()
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to fetch events');
   return res.json();
 };
@@ -303,6 +310,7 @@ export const fetchBatchData = async (batchId: number) => {
   const res = await fetch(`${API_URL}/batch/${batchId}/data`, {
     headers: getHeaders()
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to fetch batch data');
   return res.json();
 };
@@ -318,6 +326,7 @@ export const saveEvent = async (batchId: number, type: string, description: stri
     headers: getHeaders(),
     body: JSON.stringify({ batchId, type, description, date: sqlDate })
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to save event');
   return true;
 };
@@ -327,6 +336,7 @@ export const deleteEvent = async (eventId: string) => {
     method: 'DELETE',
     headers: getHeaders()
   });
+  checkUnauthorized(res);
   if (!res.ok) throw new Error('Failed to delete event');
   return true;
 };
@@ -338,6 +348,7 @@ export const generateBatchShareToken = async (batchId: number | string, options?
     headers: getHeaders(token),
     body: JSON.stringify(options || {})
   });
+  checkUnauthorized(res);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Failed to generate share link');
   return body as { publicToken: string | null };
@@ -348,4 +359,19 @@ export const fetchPublicBatch = async (publicToken: string) => {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Lote público não encontrado');
   return body;
+};
+
+export const fetchDiscoveryDevices = async (token?: string | null) => {
+  const res = await fetch(`${API_URL}/discovery`, {
+    headers: getHeaders(token)
+  });
+  checkUnauthorized(res);
+  if (!res.ok) throw new Error('Falha ao buscar dispositivos na rede');
+  return res.json();
+};
+
+export const fetchActiveBroadcast = async () => {
+  const res = await fetch(`${API_URL}/broadcasts/active`);
+  if (!res.ok) return null;
+  return res.json();
 };

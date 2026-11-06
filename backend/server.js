@@ -29,7 +29,16 @@ if (!process.env.DB_PASS || !process.env.JWT_SECRET) {
 }
 
 app.use(cors({ exposedHeaders: ['Content-Disposition'] }));
-app.use(express.json());
+app.use(express.json({ limit: '512kb' }));
+
+// Security Headers (nosniff, clickjacking protection, referrer policy, permissions policy)
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+});
 
 // --- 1. BANCO DE DADOS (SEGURO) ---
 const pool = mysql.createPool({
@@ -99,6 +108,10 @@ const initDb = async () => {
         await runMigration(`ALTER TABLE batches ADD COLUMN step_started_at DATETIME`);
         await runMigration(`CREATE INDEX idx_telemetry_batch ON telemetry(batch_id)`);
         await runMigration(`CREATE INDEX idx_telemetry_device ON telemetry(device_id)`);
+        await runMigration(`CREATE INDEX idx_telemetry_device_id_desc ON telemetry(device_id, id)`);
+        await runMigration(`CREATE INDEX idx_batches_device_active ON batches(device_id, is_active)`);
+        await runMigration(`CREATE INDEX idx_batches_public_token ON batches(public_token)`);
+        await runMigration(`CREATE INDEX idx_batch_events_batch_recorded ON batch_events(batch_id, recorded_at)`);
         await runMigration(`CREATE UNIQUE INDEX idx_devices_serial_unique ON devices(serial_code)`);
 
         console.log('✅ [DB] Schema base e migrações verificados.');
@@ -2298,4 +2311,18 @@ setInterval(async () => {
     }
 }, MAGIC_PREDICTION_INTERVAL);
 
-app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
+const serverInstance = app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
+
+// Graceful shutdown for PM2 / Docker / OS signals
+const gracefulShutdown = (signal) => {
+    console.log(`🛑 [${signal}] Encerrando servidor com segurança...`);
+    serverInstance.close(() => {
+        try { mqttClient.end(true); } catch (e) {}
+        Promise.allSettled([pool.end(), ingredientsPool.end()]).finally(() => {
+            process.exit(0);
+        });
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
+};
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -30,6 +30,7 @@ jobs:
           VITE_MQTT_BROKER: ${{ secrets.VITE_MQTT_BROKER }}
         run: |
           npm install --legacy-peer-deps
+          npx tsc --noEmit
           npm test
           npm run build
 
