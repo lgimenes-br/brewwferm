@@ -28,9 +28,9 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_MQTT_BROKER: ${{ secrets.VITE_MQTT_BROKER }}
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
         run: |
           npm install --legacy-peer-deps
+          npm test
           npm run build
 
       - name: 3.5. Limpando lixo e verificando disco (SSH)

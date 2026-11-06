@@ -100,9 +100,10 @@ const initDb = async () => {
         try { await pool.execute(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         try { await pool.execute(`ALTER TABLE batches ADD COLUMN step_started_at DATETIME`); } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
         
-        // Performance Indexes
+        // Performance Indexes & Uniqueness
         try { await pool.execute(`CREATE INDEX idx_telemetry_batch ON telemetry(batch_id)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME') console.error(e); }
         try { await pool.execute(`CREATE INDEX idx_telemetry_device ON telemetry(device_id)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME') console.error(e); }
+        try { await pool.execute(`CREATE UNIQUE INDEX idx_devices_serial_unique ON devices(serial_code)`); } catch(e) { if(e.code !== 'ER_DUP_KEYNAME' && e.code !== 'ER_DUP_ENTRY') console.error(e); }
         
         console.log('✅ [DB] Verificacao de colunas de sensores e scheduling concluida.');
         
@@ -166,6 +167,52 @@ const sanitizeNum = (val, precision) => {
     const num = parseFloat(val);
     if (val === null || val === undefined || val === '' || isNaN(num) || !isFinite(num)) return null;
     return num.toFixed(precision);
+};
+
+// SSRF guard: rejects loopback, link-local, private RFC1918 and non-HTTP(S) URLs
+const isSafeExternalWebhookUrl = (urlStr) => {
+    try {
+        const parsed = new URL(String(urlStr || '').trim());
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+        const host = (parsed.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+        if (!host) return false;
+        if (
+            host === 'localhost' ||
+            host === '0.0.0.0' ||
+            host === '::1' ||
+            host.endsWith('.local') ||
+            host.endsWith('.internal') ||
+            /^127\./.test(host) ||
+            /^10\./.test(host) ||
+            /^192\.168\./.test(host) ||
+            /^169\.254\./.test(host) ||
+            /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+        ) {
+            return false;
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
+};
+
+// Simple in-memory rate limiter for auth endpoints (max 15 requests / 15 min per IP)
+const authAttemptsByIp = new Map();
+const authRateLimiter = (req, res, next) => {
+    const rawIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || 'unknown';
+    const ip = String(rawIp).split(',')[0].trim();
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const entry = authAttemptsByIp.get(ip);
+    if (!entry || now - entry.start > windowMs) {
+        authAttemptsByIp.set(ip, { count: 1, start: now });
+        return next();
+    }
+    entry.count += 1;
+    if (entry.count > 15) {
+        return res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+    }
+    next();
 };
 
 
@@ -542,7 +589,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                     pool.execute('SELECT brewfather_webhook_url FROM users WHERE id = ?', [bfOwnerId])
                         .then(([uRows]) => {
                             const webhookUrl = uRows?.[0]?.brewfather_webhook_url;
-                            if (webhookUrl && /^https?:\/\//i.test(webhookUrl)) {
+                            if (webhookUrl && isSafeExternalWebhookUrl(webhookUrl)) {
                                 const bfPayload = {
                                     name: `Breww-${serialCode}`,
                                     temp: parseFloat(sanitizeNum(payload.ferm, 1)) || 0,
@@ -685,11 +732,20 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-const requireAdmin = (req, res, next) => {
-    if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Acesso negado: Administrador necessário' });
+const requireAdmin = async (req, res, next) => {
+    try {
+        if (!req.user || !req.user.id) {
+            return res.status(403).json({ error: 'Acesso negado: Administrador necessário' });
+        }
+        const [rows] = await pool.execute('SELECT role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        if (rows.length === 0 || rows[0].role !== 'admin') {
+            return res.status(403).json({ error: 'Acesso negado: Administrador necessário' });
+        }
+        req.user.role = 'admin';
+        next();
+    } catch (e) {
+        return res.status(500).json({ error: 'Erro interno ao validar permissões' });
     }
-    next();
 };
 
 const updateUserLocation = async (userId, req) => {
@@ -706,14 +762,16 @@ const updateUserLocation = async (userId, req) => {
     } catch (e) { console.error('Location fetch error:', e.message); }
 };
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body || {};
         if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
         const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
-        if (users.length === 0) return res.status(400).json({ error: 'Usuário não encontrado' });
+        if (users.length === 0) {
+            return res.status(401).json({ error: 'E-mail ou senha incorretos' });
+        }
         if (users[0].password_hash && await bcrypt.compare(String(password), users[0].password_hash)) {
-            const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET);
+            const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET, { expiresIn: '7d' });
             
             // Log successful login
             const userIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || null;
@@ -723,11 +781,11 @@ app.post('/api/login', async (req, res) => {
             res.json({ token, name: users[0].name, role: users[0].role });
         } else { 
             await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_FAILED', 'Invalid password attempt', req.ip || null]);
-            res.status(403).json({ error: 'Senha incorreta' }); 
+            res.status(401).json({ error: 'E-mail ou senha incorretos' }); 
         }
     } catch (err) {
         console.error('Login Error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno ao realizar login' });
     }
 });
 
@@ -748,7 +806,7 @@ setInterval(() => {
     }
 }, 60000);
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authRateLimiter, async (req, res) => {
     try {
         const { name, email, password } = req.body || {};
         if (!name || !email || !password) return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
@@ -757,14 +815,27 @@ app.post('/api/register', async (req, res) => {
         res.status(201).json({ message: 'Sucesso' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email já existe' });
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno ao criar conta' });
     }
 });
 
-app.post('/api/auth/google', async (req, res) => {
+app.post('/api/auth/google', authRateLimiter, async (req, res) => {
     try {
         const { idToken } = req.body || {}; // Actually this is the access_token now from useGoogleLogin
         if (!idToken) return res.status(400).json({ error: 'Token é obrigatório' });
+
+        // Validar audiência do access_token caso GOOGLE_CLIENT_ID esteja definido
+        const expectedClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+        if (expectedClientId) {
+            const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(String(idToken))}`);
+            if (!tokenInfoRes.ok) {
+                throw new Error('Token Google inválido');
+            }
+            const tokenInfo = await tokenInfoRes.json();
+            if (tokenInfo.aud !== expectedClientId && tokenInfo.azp !== expectedClientId) {
+                return res.status(403).json({ error: 'Token Google não pertence a este aplicativo' });
+            }
+        }
         
         // Obter dados do usuário no Google usando o access_token
         const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -798,7 +869,7 @@ app.post('/api/auth/google', async (req, res) => {
             userRole = users[0].role;
         }
 
-        const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET);
+        const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
         updateUserLocation(userId, req);
         res.json({ token, name: userName, role: userRole });
     } catch (err) { 
@@ -865,6 +936,10 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
 
         const serialCode = String(req.body?.serialCode || '').trim().toUpperCase();
         if (!serialCode) return res.status(400).json({ error: 'Código serial é obrigatório' });
+        const [existingDev] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? LIMIT 1', [serialCode]);
+        if (existingDev.length > 0) {
+            return res.status(409).json({ error: 'Este código serial já está vinculado a uma conta.' });
+        }
         await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body?.name ?? null]);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip || null]);
         notifyUpdate();
@@ -1112,8 +1187,8 @@ app.put('/api/user/integrations', authenticateToken, async (req, res) => {
         let rawUrl = '';
         if (hasUrl) {
             rawUrl = String(req.body.brewfatherWebhookUrl || '').trim();
-            if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
-                return res.status(400).json({ error: 'A URL do webhook deve iniciar com http:// ou https://' });
+            if (rawUrl && !isSafeExternalWebhookUrl(rawUrl)) {
+                return res.status(400).json({ error: 'Informe uma URL externa pública válida (http:// ou https://)' });
             }
             updates.push('brewfather_webhook_url = ?');
             params.push(rawUrl || null);
@@ -1179,8 +1254,8 @@ app.post('/api/user/integrations/test-brewfather', authenticateToken, async (req
             const [rows] = await pool.execute('SELECT brewfather_webhook_url FROM users WHERE id = ?', [req.user.id]);
             targetUrl = rows?.[0]?.brewfather_webhook_url || '';
         }
-        if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
-            return res.status(400).json({ error: 'Informe uma URL válida do Custom Stream do Brewfather' });
+        if (!targetUrl || !isSafeExternalWebhookUrl(targetUrl)) {
+            return res.status(400).json({ error: 'Informe uma URL pública válida do Custom Stream do Brewfather' });
         }
         const samplePayload = {
             name: req.body?.deviceName ? `Breww-${req.body.deviceName}` : 'Breww-Controller',
@@ -1418,43 +1493,100 @@ app.get('/api/public/batch/:token', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Voice Assistant Endpoint (Alexa / Google Home)
-app.get('/api/voice/status', async (req, res) => {
+// AI Brewing Advisor Endpoint (keeps Gemini API key server-side)
+app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
     try {
-        const token = req.query.token;
-        const voiceToken = process.env.VOICE_TOKEN || 'breww123';
-        if (token !== voiceToken) return res.status(403).send('Acesso negado. Token inválido.');
+        const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) {
+            return res.status(503).json({ error: 'Chave de API do Gemini não configurada no servidor.' });
+        }
+        const { beerName, style, status, og, volume, targetTemp, beerTemp, fridgeTemp, gravity, readings } = req.body || {};
+        const promptText = `
+Aja como um Mestre Cervejeiro experiente e técnico. Analise os seguintes dados de fermentação para a cerveja "${beerName || 'Lote'}" (Estilo: ${style || 'Ale'}).
+Estado Atual: ${status || 'Fermentando'} | OG: ${og || 1.050} | Volume: ${volume || 20}L | Setpoint: ${targetTemp || 18}°C
+Sensores Atuais: Temp Mosto ${beerTemp || 0}°C, Temp Geladeira ${fridgeTemp || 0}°C, Gravidade Atual ${gravity || 0}
+Histórico recente: ${JSON.stringify(Array.isArray(readings) ? readings.slice(-15) : [])}
+Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score" (0-100), "estimated_completion_days" (number), "risk_level" ("low"|"medium"|"high"), "insights" (array de strings), "ideal_curve" (array de { "hours": number, "gravity": number }). Responda em Português do Brasil.`;
 
-        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 LIMIT 1`);
-        if (batches.length === 0) {
-            return res.send('Não há nenhum lote ativo no momento no Breww Dashboard.');
-        }
-        
-        const batch = batches[0];
-        const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY recorded_at DESC LIMIT 1`, [batch.id]);
-        
-        if (telemetry.length === 0) {
-            return res.send(`O lote ${batch.name} está ativo, mas ainda não recebi dados de temperatura.`);
-        }
-        
-        const t = telemetry[0];
-        const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-        const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-        
-        const s3 = batch.sensor_sg_name || 'Gravidade';
-        let gravText = '';
-        if (t.gravity && parseFloat(t.gravity) > 0) {
-            const parts = parseFloat(t.gravity).toFixed(3).split('.');
-            if (parts.length === 2) {
-                // e.g., 1.015 -> "um ponto zero quinze"
-                gravText = `e o ${s3} é ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
+        const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+        let parsedResult = null;
+        let lastErr = 'Falha ao consultar Gemini';
+
+        for (const model of modelsToTry) {
+            const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: { responseMimeType: 'application/json' }
+                })
+            });
+            const gData = await gRes.json().catch(() => ({}));
+            if (!gRes.ok) {
+                lastErr = gData?.error?.message || `HTTP ${gRes.status}`;
+                continue;
+            }
+            const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (typeof text === 'string' && text.trim()) {
+                const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                parsedResult = JSON.parse(cleanText);
+                break;
             }
         }
 
-        const s1 = batch.sensor1_name || 'Fermentador';
-        const s2 = batch.sensor2_name || 'Geladeira';
-        const text = `O lote ${batch.name} está ativo. A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
-        
+        if (!parsedResult) {
+            return res.status(502).json({ error: lastErr });
+        }
+        res.json(parsedResult);
+    } catch (err) {
+        console.error('AI Analyze Error:', err.message);
+        res.status(500).json({ error: 'Erro interno ao processar análise de IA' });
+    }
+});
+
+// Shared helper for Voice Assistant Endpoints (Alexa / Google Home)
+const buildVoiceStatusText = async (userIdFilter) => {
+    const userClause = userIdFilter ? 'AND d.user_id = ?' : '';
+    const params = userIdFilter ? [userIdFilter] : [];
+    const [batches] = await pool.execute(
+        `SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name
+         FROM batches b JOIN devices d ON b.device_id = d.id
+         WHERE b.is_active = 1 ${userClause} ORDER BY b.id DESC LIMIT 1`,
+        params
+    );
+    if (batches.length === 0) {
+        return 'Não há nenhum lote ativo no momento no seu painel Breww.';
+    }
+    const batch = batches[0];
+    const [telemetry] = await pool.execute(
+        `SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1`,
+        [batch.id]
+    );
+    if (telemetry.length === 0) {
+        return `O lote ${batch.name} está ativo, mas ainda não recebi dados de telemetria.`;
+    }
+    const t = telemetry[0];
+    const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+    const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+    const s3 = batch.sensor_sg_name || 'Gravidade';
+    let gravText = '';
+    if (t.gravity && parseFloat(t.gravity) > 0) {
+        const parts = parseFloat(t.gravity).toFixed(3).split('.');
+        if (parts.length === 2) {
+            gravText = `e o sensor ${s3} está em ${parts[0]} ponto ${parts[1].split('').join(' ')}`;
+        }
+    }
+    const s1 = batch.sensor1_name || 'Fermentador';
+    const s2 = batch.sensor2_name || 'Geladeira';
+    return `O lote ${batch.name} está ativo. A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
+};
+
+app.get('/api/voice/status', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const voiceToken = process.env.VOICE_TOKEN;
+        if (!voiceToken || token !== voiceToken) return res.status(403).send('Acesso negado. Token inválido.');
+        const text = await buildVoiceStatusText(req.query.user_id);
         res.send(text);
     } catch (err) {
         console.error(err);
@@ -1465,62 +1597,25 @@ app.get('/api/voice/status', async (req, res) => {
 // Native Alexa Custom Skill Endpoint
 app.post('/api/voice/alexa', async (req, res) => {
     try {
-        // Handle SessionEndedRequest (Alexa requires an empty response or it fails)
         if (req.body && req.body.request && req.body.request.type === 'SessionEndedRequest') {
             return res.json({ version: "1.0", response: { shouldEndSession: true } });
         }
-
         const token = req.query.token;
-        const voiceToken = process.env.VOICE_TOKEN || 'breww123';
-        
-        // Return 200 with Alexa format even for auth errors, so Alexa reads the error aloud
-        if (token !== voiceToken) {
-            return res.json({ 
-                version: "1.0", 
-                response: { 
-                    outputSpeech: { type: "PlainText", text: "Acesso negado. Verifique o token de segurança no aplicativo." }, 
-                    shouldEndSession: true 
-                } 
+        const voiceToken = process.env.VOICE_TOKEN;
+        if (!voiceToken || token !== voiceToken) {
+            return res.json({
+                version: "1.0",
+                response: {
+                    outputSpeech: { type: "PlainText", text: "Acesso negado. Verifique o token de segurança no aplicativo." },
+                    shouldEndSession: true
+                }
             });
         }
-
-        const [batches] = await pool.execute(`SELECT b.id, b.name, b.style, d.id as device_id, d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1 ORDER BY b.id DESC LIMIT 1`);
-        if (batches.length === 0) {
-            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Não há nenhum lote ativo no momento no seu painel Breww." }, shouldEndSession: true } });
-        }
-        
-        const batch = batches[0];
-        const [telemetry] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1`, [batch.id]);
-        
-        if (telemetry.length === 0) {
-            return res.json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: `O lote ${batch.name} está ativo, mas ainda não recebi dados de telemetria.` }, shouldEndSession: true } });
-        }
-        
-        const t = telemetry[0];
-        const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-        const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-        
-        const s3 = batch.sensor_sg_name || 'Gravidade';
-        let gravText = '';
-        if (t.gravity && parseFloat(t.gravity) > 0) {
-            const gravFormatted = parseFloat(t.gravity).toFixed(3);
-            const parts = gravFormatted.split('.');
-            if (parts.length === 2) {
-                gravText = `e o sensor ${s3} está em ${parts[0]} ponto ${parts[1].split('').join(' ')}`; 
-            }
-        }
-
-        const s1 = batch.sensor1_name || 'Fermentador';
-        const s2 = batch.sensor2_name || 'Geladeira';
-        const text = `A temperatura do sensor ${s1} é de ${tempFerm} graus, do sensor ${s2} é ${tempAmb} graus, ${gravText}.`;
-        
+        const text = await buildVoiceStatusText(req.query.user_id);
         res.json({
             version: "1.0",
             response: {
-                outputSpeech: {
-                    type: "PlainText",
-                    text: text
-                },
+                outputSpeech: { type: "PlainText", text },
                 shouldEndSession: true
             }
         });
@@ -1757,7 +1852,7 @@ app.get('/firmware/version.json', (req, res) => {
             res.status(404).json({ version: "0.0.0" });
         }
     } catch (error) {
-        res.status(500).json({ error: error.message, stack: error.stack });
+        res.status(500).json({ error: 'Erro interno ao consultar versão do firmware' });
     }
 });
 
@@ -1770,7 +1865,7 @@ app.get('/firmware/update.bin', (req, res) => {
             res.status(404).send('Firmware update not found');
         }
     } catch (error) {
-        res.status(500).send(`Error: ${error.message}`);
+        res.status(500).send('Erro interno ao baixar firmware');
     }
 });
 

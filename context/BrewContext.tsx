@@ -28,24 +28,43 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const commandCooldownRef = useRef<Record<string, number>>({});
     const fermentersRef = useRef(fermenters);
     const initialPingedDevicesRef = useRef<Set<string>>(new Set());
+    const subscribedSerialsRef = useRef<Set<string>>(new Set());
+
+    const subscribeUserDevices = useCallback((client: MqttClient | null, list: typeof fermenters) => {
+        if (!client || !client.connected) return;
+        const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
+        list.forEach(f => {
+            if (!f.id) return;
+            const rawId = f.id.trim();
+            const upperId = rawId.toUpperCase();
+            if (!subscribedSerialsRef.current.has(upperId)) {
+                subscribedSerialsRef.current.add(upperId);
+                client.subscribe(`brewbrother/${rawId}/data`);
+                client.subscribe(`brewbrother/${rawId}/ota`);
+                client.subscribe(`brewbrother/${rawId}/response`);
+                if (upperId !== rawId) {
+                    client.subscribe(`brewbrother/${upperId}/data`);
+                    client.subscribe(`brewbrother/${upperId}/ota`);
+                    client.subscribe(`brewbrother/${upperId}/response`);
+                }
+            }
+            if (!initialPingedDevicesRef.current.has(upperId)) {
+                initialPingedDevicesRef.current.add(upperId);
+                client.publish(`brewbrother/${rawId}/comando`, statusMsg);
+                client.publish(`brewbrother/${rawId}/command`, statusMsg);
+            }
+        });
+    }, []);
 
     useEffect(() => {
         fermentersRef.current = fermenters;
-        if (clientRef.current?.connected && fermenters.length > 0) {
-            const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
-            fermenters.forEach(f => {
-                if (f.id && !initialPingedDevicesRef.current.has(f.id)) {
-                    initialPingedDevicesRef.current.add(f.id);
-                    clientRef.current?.publish(`brewbrother/${f.id}/comando`, statusMsg);
-                    clientRef.current?.publish(`brewbrother/${f.id}/command`, statusMsg);
-                }
-            });
-        }
-    }, [fermenters]);
+        subscribeUserDevices(clientRef.current, fermenters);
+    }, [fermenters, subscribeUserDevices]);
 
     // --- MQTT ---
     useEffect(() => {
         initialPingedDevicesRef.current.clear();
+        subscribedSerialsRef.current.clear();
         if (!token) {
             setConnectionStatus('disconnected');
             setIsInitialSyncing(false);
@@ -77,8 +96,6 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const broadcastRequestStatus = () => {
             if (!client.connected) return;
             const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
-            client.publish('brewbrother/all/command', statusMsg);
-            client.publish('brewbrother/all/comando', statusMsg);
             fermentersRef.current.forEach(f => {
                 if (f.id) {
                     client.publish(`brewbrother/${f.id}/comando`, statusMsg);
@@ -89,28 +106,36 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         client.on('connect', () => {
             setConnectionStatus('connected');
-            client.subscribe('brewbrother/+/ota'); // OTA Progress
             client.subscribe('brewbrother/global/update'); // Global refresh trigger
             client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)
-            client.subscribe('brewbrother/+/data', () => {
-                // Immediately request live status from all connected ESP32 devices once subscription is active
-                broadcastRequestStatus();
-                if (syncTimer) clearTimeout(syncTimer);
-                syncTimer = setTimeout(() => {
-                    setIsInitialSyncing(false);
-                }, 1800);
-            });
+            subscribeUserDevices(client, fermentersRef.current);
+            broadcastRequestStatus();
+            if (syncTimer) clearTimeout(syncTimer);
+            syncTimer = setTimeout(() => {
+                setIsInitialSyncing(false);
+            }, 1800);
 
             if (heartbeatInterval) clearInterval(heartbeatInterval);
-            heartbeatInterval = setInterval(broadcastRequestStatus, 10000);
+            heartbeatInterval = setInterval(broadcastRequestStatus, 30000);
         });
 
         client.on('message', (topic, message, packet) => {
             const msgStr = message.toString();
             const isRetained = Boolean(packet?.retain);
+            const ownsSerial = (serialCandidate: string) => {
+                const norm = (serialCandidate || '').trim().toUpperCase();
+                return Boolean(norm) && fermentersRef.current.some(f => (f.id || '').trim().toUpperCase() === norm);
+            };
 
             if (topic === 'brewbrother/global/update') {
-                if (!isRetained) refetch();
+                if (!isRetained) {
+                    try {
+                        const parsed = JSON.parse(msgStr);
+                        // If scoped to a specific serial or user, only refetch when relevant
+                        if (parsed?.serial && !ownsSerial(parsed.serial)) return;
+                    } catch (e) {}
+                    refetch();
+                }
                 return;
             }
 
@@ -119,19 +144,20 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                     const payload = JSON.parse(msgStr);
                     const serial = (topic.split('/')[1] || '').trim().toUpperCase();
-                    if (serial && payload?.progress !== undefined) {
+                    if (serial && ownsSerial(serial) && payload?.progress !== undefined) {
                         setOtaProgress(prev => ({ ...prev, [serial]: payload.progress }));
                     }
                 } catch (e) {}
                 return;
             }
 
-            if (topic === 'brewbrother/global/response') {
+            if (topic === 'brewbrother/global/response' || topic.endsWith('/response')) {
                 if (isRetained) return;
                 try {
                     const payload = JSON.parse(msgStr);
-                    if (payload?.type === 'scan_sensors_response' && payload.id) {
-                        setScanResponses(prev => ({ ...prev, [payload.id]: Array.isArray(payload.macs) ? payload.macs : [] }));
+                    const respId = payload?.id || topic.split('/')[1];
+                    if (payload?.type === 'scan_sensors_response' && respId && ownsSerial(respId)) {
+                        setScanResponses(prev => ({ ...prev, [respId]: Array.isArray(payload.macs) ? payload.macs : [] }));
                     }
                 } catch (e) {}
                 return;
@@ -143,6 +169,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const rawSerial = topic.split('/')[1]; // brewbrother/SERIAL/data
                 if (!rawSerial) return;
                 const serial = rawSerial.trim().toUpperCase();
+                if (!ownsSerial(serial)) return;
 
                 // Se recebeu telemetria ao vivo (não retida), significa que reiniciou e já está vivo. Remove o progresso OTA.
                 if (!isRetained) {

@@ -1,7 +1,7 @@
 import webpush from 'web-push';
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BL4hVT-vi0XvI2r0Lm91LlaxwNtrqf7gK56y4EjjckSURXsBxSj8EqqyoqZiZggjVLP7o2EhGnEk4ihB7A0VkFs';
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'Z2BN640CrZ6wD2cVbSL4Ext1bA9h7LrXVzJMc1Okrv8';
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
 
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(
@@ -55,13 +55,14 @@ export const sendPushToUser = async (pool, userId, title, body, url = '/') => {
       const botToken = String(cfg?.telegramBotToken || '').trim();
       const chatId = String(cfg?.telegramChatId || '').trim();
       if (botToken && chatId) {
+        const escapeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         await fetch(`https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
-            text: `🍺 *${title}*\n${body}`,
-            parse_mode: 'Markdown'
+            text: `🍺 <b>${escapeHtml(title)}</b>\n${escapeHtml(body)}`,
+            parse_mode: 'HTML'
           })
         }).catch(err => console.error('Telegram alert error:', err.message));
       }
