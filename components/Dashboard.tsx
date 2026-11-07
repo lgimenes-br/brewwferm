@@ -154,6 +154,7 @@ export const Dashboard: React.FC = () => {
                     name: cleanName,
                     serialCode: cleanIp
                 });
+                sendCommand(cleanIp, 'setMode', { value: 1 });
                 toast.success('Dispositivo adicionado com sucesso!');
                 setIsAddModalOpen(false);
                 setNewDeviceName('');
@@ -191,10 +192,12 @@ export const Dashboard: React.FC = () => {
         if (deviceToAddFromScan && cleanName && !isSubmitting) {
             setIsSubmitting(true);
             try {
+                const scannedSerial = (deviceToAddFromScan.ip || '').trim();
                 await addDevice({
                     name: cleanName,
-                    serialCode: (deviceToAddFromScan.ip || '').trim()
+                    serialCode: scannedSerial
                 });
+                sendCommand(scannedSerial, 'setMode', { value: 1 });
                 toast.success('Dispositivo adicionado com sucesso!');
                 setIsScanModalOpen(false);
                 setDeviceToAddFromScan(null);

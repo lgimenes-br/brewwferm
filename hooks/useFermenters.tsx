@@ -171,7 +171,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
                 if (saved === DeviceMode.FRIDGE) return DeviceMode.FRIDGE;
                 if (saved === DeviceMode.KEGERATOR) return DeviceMode.KEGERATOR;
                 if (saved === DeviceMode.FERMENTER) return DeviceMode.FERMENTER;
-                return DeviceMode.FERMENTER;
+                if (d.active_batch_id) return DeviceMode.FERMENTER;
+                return DeviceMode.FRIDGE;
             })(),
             status: status,
             beerName: d.active_batch_name || '',
@@ -341,7 +342,14 @@ export const useFermenters = () => {
     // Mutations
     const addDeviceMutation = useMutation({
         mutationFn: (data: { serialCode: string, name: string }) => api.addDevice(data.serialCode, data.name),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fermenters'] })
+        onSuccess: (_, variables) => {
+            const norm = (variables.serialCode || '').trim().toUpperCase();
+            try {
+                localStorage.setItem(`device_mode_${variables.serialCode}`, DeviceMode.FRIDGE);
+                localStorage.setItem(`device_mode_${norm}`, DeviceMode.FRIDGE);
+            } catch (e) {}
+            queryClient.invalidateQueries({ queryKey: ['fermenters'] });
+        }
     });
 
     const updateDeviceMutation = useMutation({

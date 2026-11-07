@@ -268,7 +268,23 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             await new Promise(r => setTimeout(r, 60));
         });
 
-        // 1. Verifica que abriu na tela do Wizard ("Nova Fermentação") pois o equipamento está IDLE
+        // 1. Verifica que por padrão um novo equipamento inicia no Modo Geladeira (Set-Point / Umidade Relativa)
+        expect(container.textContent).toContain('Temperatura Atual');
+        expect(container.textContent).toContain('Set-Point');
+        expect(container.textContent).toContain('Umidade Relativa');
+
+        // Troca para o Modo Fermentador para iniciar uma nova brassagem
+        await act(async () => {
+            window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FERMENTER } }));
+            await new Promise(r => setTimeout(r, 20));
+        });
+        expect(container.textContent).toContain('Modo selecionado: Fermentador');
+        await act(async () => {
+            findButtonByText('Ativar Modo')!.click();
+            await new Promise(r => setTimeout(r, 40));
+        });
+
+        // Verifica que abriu na tela do Wizard ("Nova Fermentação") pois o equipamento está IDLE no modo Fermentador
         expect(container.textContent).toContain('Nova Fermentação');
         expect(container.textContent).toContain('O que vamos produzir hoje?');
 
