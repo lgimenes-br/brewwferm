@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "simulator": "node backend/simulator/cli.js"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",

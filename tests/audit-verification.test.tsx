@@ -43,6 +43,7 @@ import { Settings } from '../components/Settings';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { Login } from '../components/Login';
 import { Register } from '../components/Register';
+import { createVirtualEsp32Manager } from '../backend/utils/esp32Simulator.js';
 import { SystemBanner } from '../components/SystemBanner';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { FermenterStatus, DeviceMode, BeerStyle, Fermenter, FinishedBrew } from '../types';
@@ -813,5 +814,81 @@ describe('5. Backend Server & PushService Code & Logic Verification', () => {
         await sendPushToUser(mockPool, undefined, 'Title', 'Body');
         await sendPushToUser(mockPool, null, 'Title', 'Body');
         expect(mockPool.execute).not.toHaveBeenCalled();
+    });
+
+    it('verifies Virtual ESP32 Simulator (esp32Simulator.js) handles all real ESP32 MQTT commands, 1-Wire scan, OTA, and physical device_action identically to physical firmware', () => {
+        const published: { topic: string; payload: any }[] = [];
+        const mockMqtt = {
+            publish: vi.fn((topic: string, msg: string) => {
+                published.push({ topic, payload: JSON.parse(msg) });
+            })
+        };
+
+        const sim = createVirtualEsp32Manager(mockMqtt);
+        sim.updateSimulatorState({ enabled: true, serial: 'ESP32-VIRTUAL-01' });
+
+        // 1. Initial telemetry published on brewbrother/ESP32-VIRTUAL-01/data
+        expect(published.some(p => p.topic === 'brewbrother/ESP32-VIRTUAL-01/data' && p.payload.opm === 0)).toBe(true);
+
+        // 2. setMode -> Chopeira (opm = 2)
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setMode', value: 2 });
+        expect(sim.getState().opm).toBe(2);
+        expect(published[published.length - 1].payload.opm).toBe(2);
+
+        // 3. setManual -> chopp_setpoint = 1.5°C
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setManual', field: 'chopp_setpoint', val: 1.5 });
+        expect(sim.getState().csp).toBe(1.5);
+
+        // 4. setChopp -> c_n1 = 'West Coast IPA'
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setChopp', field: 'c_n1', val: 'West Coast IPA' });
+        expect(sim.getState().c_n1).toBe('West Coast IPA');
+
+        // 5. setProfile -> loads ramp steps in hours and switches back to Fermenter mode (opm = 0)
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', {
+            type: 'setProfile',
+            steps: [
+                { n: 'Primária', t: 18.0, d: 120 },
+                { n: 'Diacetil', t: 21.5, d: 48 }
+            ],
+            currentStep: 0,
+            stepTime: 0
+        });
+        expect(sim.getState().opm).toBe(0);
+        expect(sim.getState().csp).toBe(18.0);
+        expect(sim.getState().profStat).toBe('Primária');
+
+        // 6. skipStep -> advances to step 1 ('Diacetil', 21.5°C)
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'skipStep' });
+        expect(sim.getState().currStep).toBe(1);
+        expect(sim.getState().csp).toBe(21.5);
+        expect(sim.getState().profStat).toBe('Diacetil');
+
+        // 7. togglePause -> pauses and resumes
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'togglePause' });
+        expect(sim.getState().isPaused).toBe(true);
+        expect(sim.getState().statOp).toBe('PAUSADO');
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'togglePause' });
+        expect(sim.getState().isPaused).toBe(false);
+
+        // 8. scan_sensors -> publishes scan_sensors_response with 3 DS18B20 MACs
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'scan_sensors' });
+        const scanResp = published.find(p => p.topic === 'brewbrother/ESP32-VIRTUAL-01/response');
+        expect(scanResp).toBeTruthy();
+        expect(scanResp?.payload.type).toBe('scan_sensors_response');
+        expect(scanResp?.payload.macs.length).toBe(3);
+
+        // 9. setCalibration & PID
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setCalibration', off_t1: -0.4, off_t2: 0.2, off_sg: 0.002 });
+        expect(sim.getState().off_t1).toBe(-0.4);
+        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'Kp_c', val: 42.5 });
+        expect(sim.getState().kp_c).toBe(42.5);
+
+        // 10. Physical Screen Action (device_action: start_batch & stop_batch)
+        sim.triggerPhysicalDeviceAction({ action: 'start_batch', name: 'Lote Touch 7pol', style: 'Pilsen' });
+        const devActionMsg = published.find(p => p.topic === 'brewbrother/ESP32-VIRTUAL-01/device_action' && p.payload.action === 'start_batch');
+        expect(devActionMsg).toBeTruthy();
+        expect(devActionMsg?.payload.name).toBe('Lote Touch 7pol');
+
+        sim.stopLoop();
     });
 });

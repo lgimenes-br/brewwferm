@@ -397,3 +397,57 @@ export const confirmPasswordReset = async (email: string, code: string, newPassw
   if (!res.ok) throw new Error(body.error || 'Falha ao redefinir senha');
   return body as { message: string };
 };
+
+// --- Virtual ESP32 Simulator API ---
+export const fetchSimulatorStatus = async (token?: string | null) => {
+  const res = await fetch(`${API_URL}/simulator/status`, {
+    headers: getHeaders(token)
+  });
+  checkUnauthorized(res);
+  if (!res.ok) throw new Error('Falha ao consultar estado do ESP32 Virtual');
+  return res.json();
+};
+
+export const updateSimulatorState = async (patch: Record<string, any>, token?: string | null) => {
+  const res = await fetch(`${API_URL}/simulator/update`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify(patch)
+  });
+  checkUnauthorized(res);
+  if (!res.ok) throw new Error('Falha ao atualizar ESP32 Virtual');
+  return res.json();
+};
+
+export const triggerSimulatorDeviceAction = async (payload: { action: 'start_batch' | 'stop_batch'; name?: string; style?: string; profile?: any[] }, token?: string | null) => {
+  const res = await fetch(`${API_URL}/simulator/device-action`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify(payload)
+  });
+  checkUnauthorized(res);
+  if (!res.ok) throw new Error('Falha ao disparar ação física do ESP32 Virtual');
+  return res.json();
+};
+
+export const clearSimulatorCommandLog = async (token?: string | null) => {
+  const res = await fetch(`${API_URL}/simulator/clear-log`, {
+    method: 'POST',
+    headers: getHeaders(token)
+  });
+  checkUnauthorized(res);
+  if (!res.ok) throw new Error('Falha ao limpar log de comandos');
+  return res.json();
+};
+
+export const linkSimulatorDevice = async (options?: { serial?: string; unlink?: boolean }, token?: string | null) => {
+  const res = await fetch(`${API_URL}/simulator/link-device`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify(options || {})
+  });
+  checkUnauthorized(res);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Falha ao vincular ESP32 Virtual');
+  return body as { linked: boolean; serial: string; message: string };
+};

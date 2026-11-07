@@ -18,6 +18,8 @@ import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } 
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
+import { createVirtualEsp32Manager } from './utils/esp32Simulator.js';
+import { registerSimulatorRoutes } from './routes/simulatorRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -233,16 +235,18 @@ const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex
     );
     if (serialCode) {
         const payloadSteps = toEsp32Steps(profile);
-        const msg = JSON.stringify({
+        const stepCmd = {
             cmd: 'setProfile',
             type: 'setProfile',
             steps: payloadSteps,
             currentStep: newIndex,
             currStep: newIndex,
             stepTime: 0
-        });
+        };
+        const msg = JSON.stringify(stepCmd);
         mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
         mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
+        virtualEsp32.handleIncomingCommand(serialCode, stepCmd, { source: 'http' });
     }
     const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
     const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
@@ -352,6 +356,8 @@ const notifyUpdate = (serialCode) => {
     }));
 };
 
+const virtualEsp32 = createVirtualEsp32Manager(mqttClient);
+
 mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/status');
     mqttClient.subscribe('brewbrother/+/data'); // NOVO: as novas placas enviam para data
@@ -434,6 +440,7 @@ mqttClient.on('message', async (topic, message, packet) => {
         if (topic.endsWith('/comando')) {
             const serialCode = topic.split('/')[1];
             const normSerial = String(serialCode || '').trim().toUpperCase();
+            virtualEsp32.handleIncomingCommand(normSerial, payload, { source: 'mqtt' });
             if (payload.type === 'setProfile' && payload.currentStep !== undefined) {
                 // Find active batch and update step_started_at only when the step actually changes
                 const [batches] = await pool.execute(`
@@ -831,6 +838,9 @@ app.post('/api/register', authRateLimiter, async (req, res) => {
 // Password Recovery & Reset Routes (/api/auth/forgot-password & /api/auth/reset-password)
 registerAuthRecoveryRoutes(app, pool, authRateLimiter, sendPushToUser);
 
+// Virtual ESP32 Simulator Routes (/api/simulator/*)
+registerSimulatorRoutes(app, pool, authenticateToken, virtualEsp32, notifyUpdate);
+
 app.post('/api/auth/google', authRateLimiter, async (req, res) => {
     try {
         const { idToken } = req.body || {}; // Actually this is the access_token now from useGoogleLogin
@@ -1053,9 +1063,11 @@ app.post('/api/devices/:serial/command', authenticateToken, async (req, res) => 
         }
 
         const targetSerial = devs[0].serial_code || rawSerial;
-        const msg = JSON.stringify({ ...payload, type, cmd: type });
+        const cmdPayload = { ...payload, type, cmd: type };
+        const msg = JSON.stringify(cmdPayload);
         mqttClient.publish(`brewbrother/${targetSerial}/comando`, msg);
         mqttClient.publish(`brewbrother/${targetSerial}/command`, msg);
+        virtualEsp32.handleIncomingCommand(targetSerial, cmdPayload, { source: 'http' });
 
         // Keep step_started_at / current_step_index synchronized on manual step overrides
         if (type === 'setProfile' && payload.currentStep !== undefined) {
@@ -1117,16 +1129,18 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
         if (Array.isArray(profile) && profile.length > 0) {
             const payloadSteps = toEsp32Steps(profile);
-            const msg = JSON.stringify({
+            const startCmd = {
                 cmd: 'setProfile',
                 type: 'setProfile',
                 steps: payloadSteps,
                 currentStep: 0,
                 currStep: 0,
                 stepTime: 0
-            });
+            };
+            const msg = JSON.stringify(startCmd);
             mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
             mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
+            virtualEsp32.handleIncomingCommand(serialCode, startCmd, { source: 'http' });
         }
 
         notifyUpdate(normalizedSerial);
