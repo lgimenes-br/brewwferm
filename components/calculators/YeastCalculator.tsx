@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface StarterStage {
@@ -18,6 +18,10 @@ interface StageResult {
     lmeGrams: number;
 }
 
+const sgToPlato = (sg: number) => {
+    return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
+};
+
 export const YeastCalculator: React.FC = () => {
     const [ogSgInput, setOgSgInput] = useState<string>('1.051');
     const [volumeInput, setVolumeInput] = useState<string>('20');
@@ -29,7 +33,11 @@ export const YeastCalculator: React.FC = () => {
     
     const [calcViability, setCalcViability] = useState(true);
     const [purePitch, setPurePitch] = useState(false);
-    const [mfgDate, setMfgDate] = useState<string>('');
+    const [mfgDate, setMfgDate] = useState<string>(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 19);
+        return d.toISOString().split('T')[0];
+    });
     const [viability, setViability] = useState<string>('87');
 
     const [starterPacks, setStarterPacks] = useState<string>('1');
@@ -37,31 +45,6 @@ export const YeastCalculator: React.FC = () => {
     const [stages, setStages] = useState<StarterStage[]>([
         { id: 'stage-1', sg: '1.036', vol: '0.8', auto: true }
     ]);
-
-    const [results, setResults] = useState({
-        targetCells: 0,
-        cellsAvailable: 0,
-        packsToUse: 0,
-        packsToUseDecimal: 0,
-        pitchRateMml: 0,
-        difference: 0,
-        
-        starterNeeded: false,
-        starterFinalCells: 0,
-        starterDiff: 0,
-        starterFinalPitchRate: 0,
-        stageResults: [] as StageResult[]
-    });
-
-    const sgToPlato = (sg: number) => {
-        return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
-    };
-
-    useEffect(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 19);
-        setMfgDate(d.toISOString().split('T')[0]);
-    }, []);
 
     useEffect(() => {
         if (!calcViability || !mfgDate || yeastType === 'Seca') {
@@ -80,7 +63,7 @@ export const YeastCalculator: React.FC = () => {
         setViability(v.toFixed(0));
     }, [calcViability, mfgDate, purePitch, yeastType]);
 
-    useEffect(() => {
+    const results = useMemo(() => {
         const rawOg = parseFloat(ogSgInput.replace(',', '.'));
         const og = rawOg > 200 ? rawOg / 1000 : rawOg;
         const volL = parseFloat(volumeInput.replace(',', '.'));
@@ -89,7 +72,21 @@ export const YeastCalculator: React.FC = () => {
         const viab = parseFloat(viability.replace(',', '.')) / 100;
         const sPacks = parseFloat(starterPacks.replace(',', '.'));
         
-        if (isNaN(og) || isNaN(volL) || isNaN(cpp) || isNaN(viab) || isNaN(sPacks) || volL <= 0 || og <= 1) return;
+        if (isNaN(og) || isNaN(volL) || isNaN(cpp) || isNaN(viab) || isNaN(sPacks) || volL <= 0 || og <= 1) {
+            return {
+                targetCells: 0,
+                cellsAvailable: 0,
+                packsToUse: 0,
+                packsToUseDecimal: 0,
+                pitchRateMml: 0,
+                difference: 0,
+                starterNeeded: false,
+                starterFinalCells: 0,
+                starterDiff: 0,
+                starterFinalPitchRate: 0,
+                stageResults: [] as StageResult[]
+            };
+        }
 
         const plato = Math.max(0, sgToPlato(og));
         const targetCells = pr * (volL * 1000) * plato / 1000;
@@ -182,7 +179,7 @@ export const YeastCalculator: React.FC = () => {
         const starterDiff = currentCells - targetCells;
         const starterFinalPitchRate = (currentCells * 1000) / (volL * 1000);
 
-        setResults({
+        return {
             targetCells,
             cellsAvailable,
             packsToUse: totalPacksNeeded,
@@ -195,8 +192,7 @@ export const YeastCalculator: React.FC = () => {
             starterDiff,
             starterFinalPitchRate,
             stageResults: newStageResults
-        });
-
+        };
     }, [ogSgInput, volumeInput, pitchRateSlider, cellsPerPack, viability, starterPacks, propagationModel, stages]);
 
     const addStage = () => {
@@ -225,9 +221,10 @@ export const YeastCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* OG SG */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Gravity</label>
+                            <label htmlFor="yeast-og" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Gravity</label>
                             <div className="relative">
                                 <input 
+                                    id="yeast-og"
                                     type="number" step="0.001" value={ogSgInput} onChange={(e) => setOgSgInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-amber-500 transition-colors"
                                 />
@@ -237,9 +234,10 @@ export const YeastCalculator: React.FC = () => {
 
                         {/* Volume */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Volume do Lote</label>
+                            <label htmlFor="yeast-vol" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Volume do Lote</label>
                             <div className="relative">
                                 <input 
+                                    id="yeast-vol"
                                     type="number" step="1" value={volumeInput} onChange={(e) => setVolumeInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-amber-500 transition-colors"
                                 />
@@ -252,12 +250,14 @@ export const YeastCalculator: React.FC = () => {
                     <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
                         <div className="flex justify-between items-end">
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Taxa de Inoculação</span>
+                                <label htmlFor="yeast-pitch-rate" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Taxa de Inoculação</label>
                                 <span className="text-sm text-amber-400 font-bold">{pitchRateSlider.toFixed(2)} <span className="text-neutral-500 font-normal ml-1">(M/ml/°P)</span></span>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
                             <input 
+                                id="yeast-pitch-rate"
+                                aria-label="Taxa de Inoculação"
                                 type="range" min="0.35" max="2.00" step="0.01" 
                                 value={pitchRateSlider} onChange={(e) => setPitchRateSlider(parseFloat(e.target.value))}
                                 className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
@@ -271,8 +271,9 @@ export const YeastCalculator: React.FC = () => {
                         
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tipo</span>
+                                <label htmlFor="yeast-type" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tipo</label>
                                 <select 
+                                    id="yeast-type"
                                     value={yeastType} onChange={(e) => setYeastType(e.target.value as any)} 
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 appearance-none cursor-pointer"
                                 >
@@ -281,8 +282,9 @@ export const YeastCalculator: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Bilhões/pct</span>
+                                <label htmlFor="yeast-cells-per-pack" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Bilhões/pct</label>
                                 <input 
+                                    id="yeast-cells-per-pack"
                                     type="number" step="1" 
                                     value={cellsPerPack} onChange={(e) => setCellsPerPack(e.target.value)} 
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" 
@@ -305,12 +307,12 @@ export const YeastCalculator: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Fabricação</span>
-                                    <input type="date" value={mfgDate} onChange={(e) => setMfgDate(e.target.value)} disabled={!calcViability} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500" />
+                                    <label htmlFor="yeast-mfg-date" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Fabricação</label>
+                                    <input id="yeast-mfg-date" type="date" value={mfgDate} onChange={(e) => setMfgDate(e.target.value)} disabled={!calcViability} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500" />
                                 </div>
                                 <div className="relative">
-                                    <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Viabilidade</span>
-                                    <input type="number" value={viability} onChange={(e) => setViability(e.target.value)} disabled={calcViability} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" />
+                                    <label htmlFor="yeast-viability" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Viabilidade</label>
+                                    <input id="yeast-viability" type="number" value={viability} onChange={(e) => setViability(e.target.value)} disabled={calcViability} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" />
                                     <span className="absolute right-4 top-10 text-neutral-500 font-bold">%</span>
                                 </div>
                             </div>
@@ -356,15 +358,16 @@ export const YeastCalculator: React.FC = () => {
                         {/* Propagação Config Inicial */}
                         <div className="grid grid-cols-2 gap-4 border-b border-neutral-800/50 pb-6">
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Pct. Iniciais</span>
+                                <label htmlFor="yeast-starter-packs" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Pct. Iniciais</label>
                                 <div className="relative">
-                                    <input type="number" step="1" value={starterPacks} onChange={(e) => setStarterPacks(e.target.value)} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" />
+                                    <input id="yeast-starter-packs" type="number" step="1" value={starterPacks} onChange={(e) => setStarterPacks(e.target.value)} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">pct</span>
                                 </div>
                             </div>
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Modelo de Propagação</span>
+                                <label htmlFor="yeast-prop-model" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Modelo de Propagação</label>
                                 <select
+                                    id="yeast-prop-model"
                                     value={propagationModel}
                                     onChange={(e) => setPropagationModel(e.target.value as 'stirred' | 'non-stirred')}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 appearance-none cursor-pointer"
@@ -385,6 +388,8 @@ export const YeastCalculator: React.FC = () => {
                                             <span className="text-amber-500 font-bold text-sm tracking-widest uppercase">Etapa {index + 1}</span>
                                             {stages.length > 1 && (
                                                 <button 
+                                                    type="button"
+                                                    aria-label={`Remover etapa ${index + 1}`}
                                                     onClick={() => removeStage(stage.id)}
                                                     className="text-neutral-500 hover:text-red-400 transition-colors"
                                                 >
@@ -400,16 +405,17 @@ export const YeastCalculator: React.FC = () => {
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade</span>
+                                                <label htmlFor={`yeast-stage-sg-${stage.id}`} className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade</label>
                                                 <div className="relative">
-                                                    <input type="number" step="0.001" value={stage.sg} onChange={(e) => updateStage(stage.id, 'sg', e.target.value)} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" />
+                                                    <input id={`yeast-stage-sg-${stage.id}`} type="number" step="0.001" value={stage.sg} onChange={(e) => updateStage(stage.id, 'sg', e.target.value)} className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500" />
                                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">SG</span>
                                                 </div>
                                             </div>
                                             <div>
-                                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tamanho</span>
+                                                <label htmlFor={`yeast-stage-vol-${stage.id}`} className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tamanho</label>
                                                 <div className="relative">
                                                     <input 
+                                                        id={`yeast-stage-vol-${stage.id}`}
                                                         type="number" step="0.1" 
                                                         value={stage.auto ? (stageResult ? stageResult.vol.toFixed(1) : '0.0') : stage.vol} 
                                                         onChange={(e) => { if (!stage.auto) updateStage(stage.id, 'vol', e.target.value); }} 
@@ -442,6 +448,7 @@ export const YeastCalculator: React.FC = () => {
                         {/* Botão Adicionar Etapa */}
                         <div className="pt-4 border-t border-neutral-800/50">
                             <button 
+                                type="button"
                                 onClick={addStage}
                                 className="w-full flex items-center justify-center gap-2 bg-neutral-900 text-amber-500 border border-neutral-700/50 px-4 py-3 text-xs font-bold rounded-xl hover:bg-neutral-800 transition-colors uppercase tracking-wider"
                             >

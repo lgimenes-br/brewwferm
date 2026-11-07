@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Brain, Sparkles, Loader2, MessageSquare, Download, X, Maximize2, Activity, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { Fermenter } from '../types';
 import { getBrewingInsights, AIAnalysis } from '../services/geminiService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -71,6 +72,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
       pdf.save(`Analise_BrewwAI_${(fermenter.beerName || 'Lote').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast.error('Erro ao gerar relatório PDF');
     } finally {
       content.style.cssText = originalStyle;
     }
@@ -156,6 +158,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
             </div>
             {!insight ? (
               <button
+                type="button"
                 onClick={handleAskAI}
                 disabled={loading}
                 className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-all disabled:opacity-50 text-sm font-medium border border-neutral-700"
@@ -165,6 +168,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
               </button>
             ) : (
               <button
+                type="button"
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-300 px-3 py-1.5 rounded-lg transition-all text-xs font-medium border border-indigo-500/30"
               >

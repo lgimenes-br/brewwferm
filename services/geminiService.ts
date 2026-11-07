@@ -22,6 +22,8 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
       }))
     : [];
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
   try {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_URL}/ai/analyze`, {
@@ -41,8 +43,14 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
         fridgeTemp: fermenter.currentFridgeTemp || 0,
         gravity: fermenter.currentDevice?.gravity || 0,
         readings: filteredReadings
-      })
+      }),
+      signal: controller.signal
     });
+
+    if (response.status === 401) {
+      window.dispatchEvent(new Event('auth:unauthorized'));
+      throw new Error('Sessão expirada');
+    }
 
     const rawData = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -67,5 +75,7 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     return `Erro técnico: ${error.message || "Falha desconhecida"}`;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };

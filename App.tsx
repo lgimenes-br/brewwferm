@@ -14,6 +14,7 @@ import { useFermenters } from './hooks/useFermenters';
 import { useBrew } from './context/BrewContext';
 import { useLocation } from 'react-router-dom';
 import { SystemBanner } from './components/SystemBanner';
+import { ConfirmDialog } from './components/ConfirmDialog';
 
 const FermenterDetailWrapper = React.lazy(() => import('./components/FermenterDetailWrapper').then(m => ({ default: m.FermenterDetailWrapper })));
 const FermentationHistory = React.lazy(() => import('./components/FermentationHistory').then(m => ({ default: m.FermentationHistory })));
@@ -33,6 +34,7 @@ const NavConfig = () => {
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
     const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isOtaConfirmOpen, setIsOtaConfirmOpen] = useState(false);
     const [now, setNow] = useState(Date.now());
 
     React.useEffect(() => {
@@ -106,14 +108,17 @@ const NavConfig = () => {
     const handleUpdateAll = () => {
         if (!latestFirmware) return;
         if (devicesNeedingUpdate.length === 0) return;
-        
-        if (confirm(`ATENÇÃO: Deseja iniciar a atualização para a versão ${latestFirmware.version} em ${devicesNeedingUpdate.length} equipamento(s)? Eles serão reiniciados.`)) {
-            const finalUrl = latestFirmware.url || `${window.location.origin}/firmware/update.bin`;
-            devicesNeedingUpdate.forEach(device => {
-                sendCommand(device.id, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
-            });
-            toast.success(`Atualização enviada para ${devicesNeedingUpdate.length} dispositivo(s)!`);
-        }
+        setIsOtaConfirmOpen(true);
+    };
+
+    const confirmUpdateAll = () => {
+        setIsOtaConfirmOpen(false);
+        if (!latestFirmware || devicesNeedingUpdate.length === 0) return;
+        const finalUrl = latestFirmware.url || `${window.location.origin}/firmware/update.bin`;
+        devicesNeedingUpdate.forEach(device => {
+            sendCommand(device.id, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
+        });
+        toast.success(`Atualização enviada para ${devicesNeedingUpdate.length} dispositivo(s)!`);
     };
 
     return (
@@ -436,6 +441,15 @@ const NavConfig = () => {
                 </>
             );
         })()}
+        <ConfirmDialog
+            open={isOtaConfirmOpen}
+            title="Atualizar Firmware"
+            description={`Deseja iniciar a atualização para a versão ${latestFirmware?.version || ''} em ${devicesNeedingUpdate.length} equipamento(s)? Eles serão reiniciados automaticamente.`}
+            confirmLabel="Atualizar Agora"
+            variant="warning"
+            onConfirm={confirmUpdateAll}
+            onCancel={() => setIsOtaConfirmOpen(false)}
+        />
         </div>
     );
 };

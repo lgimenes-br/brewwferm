@@ -1,40 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+
+const sgToPlato = (sg: number) => {
+    return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
+};
+const platoToSg = (p: number) => {
+    const denom = 258.6 - ((p / 258.2) * 227.1);
+    return denom > 0 ? 1 + (p / denom) : 1.000;
+};
 
 export const AbvCalculator: React.FC = () => {
     const [unit, setUnit] = useState<'SG' | 'Plato' | 'Brix'>('SG');
     const [ogInput, setOgInput] = useState<string>('1.045');
     const [fgInput, setFgInput] = useState<string>('1.007');
 
-    const [results, setResults] = useState({
-        abv: 0,
-        abw: 0,
-        kcalPer100ml: 0,
-        kjPer100ml: 0,
-        carbsPer100ml: 0,
-        appAttenuation: 0,
-        realAttenuation: 0,
-        oe: 0,
-        ae: 0,
-        re: 0
-    });
-
-    // Helper conversions
-    const sgToPlato = (sg: number) => {
-        return (-616.868) + (1111.14 * sg) - (630.272 * Math.pow(sg, 2)) + (135.997 * Math.pow(sg, 3));
-    };
-    const platoToSg = (p: number) => {
-        const denom = 258.6 - ((p / 258.2) * 227.1);
-        return denom > 0 ? 1 + (p / denom) : 1.000;
-    };
-
-    useEffect(() => {
+    const results = useMemo(() => {
         let ogSg = 1.000;
         let fgSg = 1.000;
 
         const ogVal = parseFloat(ogInput.replace(',', '.'));
         const fgVal = parseFloat(fgInput.replace(',', '.'));
 
-        if (isNaN(ogVal) || isNaN(fgVal)) return;
+        if (isNaN(ogVal) || isNaN(fgVal)) {
+            return {
+                abv: 0, abw: 0, kcalPer100ml: 0, kjPer100ml: 0, carbsPer100ml: 0,
+                appAttenuation: 0, realAttenuation: 0, oe: 0, ae: 0, re: 0
+            };
+        }
 
         if (unit === 'SG') {
             ogSg = ogVal > 200 ? ogVal / 1000 : ogVal;
@@ -75,7 +66,7 @@ export const AbvCalculator: React.FC = () => {
             }
         }
 
-        setResults({
+        return {
             abv: Math.max(0, abv),
             abw: Math.max(0, abw),
             kcalPer100ml: Math.max(0, kcalPer100ml),
@@ -86,8 +77,7 @@ export const AbvCalculator: React.FC = () => {
             oe: Math.max(0, oe),
             ae: Math.max(0, ae),
             re: Math.max(0, re)
-        });
-
+        };
     }, [ogInput, fgInput, unit]);
 
     const handleUnitToggle = (selectedUnit: 'SG' | 'Plato' | 'Brix') => {
@@ -123,21 +113,24 @@ export const AbvCalculator: React.FC = () => {
                 <div className="space-y-6">
                     {/* Unit Toggle */}
                     <div>
-                        <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Unidade de Medida</label>
-                        <div className="flex bg-neutral-950 rounded-xl p-1 border border-neutral-800">
+                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Unidade de Medida</span>
+                        <div className="flex bg-neutral-950 rounded-xl p-1 border border-neutral-800" role="group" aria-label="Unidade de medida">
                             <button 
+                                type="button"
                                 onClick={() => handleUnitToggle('SG')}
                                 className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'SG' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
                             >
                                 Gravidade (SG)
                             </button>
                             <button 
+                                type="button"
                                 onClick={() => handleUnitToggle('Plato')}
                                 className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Plato' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
                             >
                                 Graus Plato (°P)
                             </button>
                             <button 
+                                type="button"
                                 onClick={() => handleUnitToggle('Brix')}
                                 className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Brix' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
                             >
@@ -149,9 +142,10 @@ export const AbvCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* OG */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Gravity (OG)</label>
+                            <label htmlFor="abv-og-input" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Gravity (OG)</label>
                             <div className="relative">
                                 <input 
+                                    id="abv-og-input"
                                     type="number" 
                                     step={unit === 'SG' ? "0.001" : "0.1"}
                                     value={ogInput}
@@ -164,9 +158,10 @@ export const AbvCalculator: React.FC = () => {
 
                         {/* FG */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Final Gravity (FG)</label>
+                            <label htmlFor="abv-fg-input" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Final Gravity (FG)</label>
                             <div className="relative">
                                 <input 
+                                    id="abv-fg-input"
                                     type="number" 
                                     step={unit === 'SG' ? "0.001" : "0.1"}
                                     value={fgInput}

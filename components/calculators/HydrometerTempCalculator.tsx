@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+
+const calcHydrometerFactor = (f: number) => {
+    return 1.00130346 - (0.000134722124 * f) + (0.00000204052596 * Math.pow(f, 2)) - (0.00000000232820948 * Math.pow(f, 3));
+};
 
 export const HydrometerTempCalculator: React.FC = () => {
     const [measuredGravInput, setMeasuredGravInput] = useState<string>('1.010');
     const [tempInput, setTempInput] = useState<string>('23');
     const [calibTempInput, setCalibTempInput] = useState<string>('20');
     
-    const [results, setResults] = useState({
-        correctedGrav: 1.010,
-        isPointsFormat: false
-    });
-
-    useEffect(() => {
+    const results = useMemo(() => {
         let mGrav = parseFloat(measuredGravInput.replace(',', '.'));
         const tempC = parseFloat(tempInput.replace(',', '.'));
         const calibC = parseFloat(calibTempInput.replace(',', '.'));
 
-        if (isNaN(mGrav) || isNaN(tempC) || isNaN(calibC) || mGrav <= 0) return;
+        if (isNaN(mGrav) || isNaN(tempC) || isNaN(calibC) || mGrav <= 0) {
+            return { correctedGrav: 1.010, isPointsFormat: false };
+        }
 
         let isPoints = false;
         if (mGrav > 200) {
@@ -27,20 +28,15 @@ export const HydrometerTempCalculator: React.FC = () => {
         const tempF = (tempC * 9/5) + 32;
         const calibF = (calibC * 9/5) + 32;
 
-        const calcFactor = (f: number) => {
-            return 1.00130346 - (0.000134722124 * f) + (0.00000204052596 * Math.pow(f, 2)) - (0.00000000232820948 * Math.pow(f, 3));
-        };
+        const num = calcHydrometerFactor(tempF);
+        const den = calcHydrometerFactor(calibF);
 
-        const num = calcFactor(tempF);
-        const den = calcFactor(calibF);
+        const correctedSg = den > 0 ? mGrav * (num / den) : mGrav;
 
-        let correctedSg = mGrav * (num / den);
-
-        setResults({
+        return {
             correctedGrav: correctedSg,
             isPointsFormat: isPoints
-        });
-
+        };
     }, [measuredGravInput, tempInput, calibTempInput]);
 
     return (
@@ -53,9 +49,10 @@ export const HydrometerTempCalculator: React.FC = () => {
                     <div className="grid grid-cols-1 gap-6">
                         
                         <div>
-                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Mensurada</label>
+                            <label htmlFor="hydro-measured-grav" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Mensurada</label>
                             <div className="relative">
                                 <input 
+                                    id="hydro-measured-grav"
                                     type="number" step="0.001" value={measuredGravInput} onChange={(e) => setMeasuredGravInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
                                 />
@@ -66,9 +63,10 @@ export const HydrometerTempCalculator: React.FC = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temperatura</label>
+                                <label htmlFor="hydro-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temperatura</label>
                                 <div className="relative">
                                     <input 
+                                        id="hydro-temp"
                                         type="number" step="0.1" value={tempInput} onChange={(e) => setTempInput(e.target.value)}
                                         className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
                                     />
@@ -77,9 +75,10 @@ export const HydrometerTempCalculator: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. de Calibração</label>
+                                <label htmlFor="hydro-calib-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. de Calibração</label>
                                 <div className="relative">
                                     <input 
+                                        id="hydro-calib-temp"
                                         type="number" step="0.1" value={calibTempInput} onChange={(e) => setCalibTempInput(e.target.value)}
                                         className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
                                     />

@@ -1,6 +1,13 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
+const escapeHtml = (str) => String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 export const registerAuthRecoveryRoutes = (app, pool, authRateLimiter, sendPushToUser) => {
     // 1. Solicitar código de recuperação de senha (6 dígitos, válido por 15 min)
     app.post('/api/auth/forgot-password', authRateLimiter, async (req, res) => {
@@ -43,6 +50,7 @@ export const registerAuthRecoveryRoutes = (app, pool, authRateLimiter, sendPushT
                 } catch (e) {}
 
                 // Canal 2: Bot do Telegram (se configurado nas preferências de alerta do usuário)
+                const safeUserName = escapeHtml(user.name || 'Cervejeiro');
                 try {
                     const cfg = typeof user.alert_config === 'string'
                         ? JSON.parse(user.alert_config)
@@ -53,8 +61,8 @@ export const registerAuthRecoveryRoutes = (app, pool, authRateLimiter, sendPushT
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 chat_id: String(cfg.telegramChatId),
-                                text: `🍺 *Breww — Recuperação de Senha*\n\nOlá, ${user.name || 'Cervejeiro'}!\nSeu código de verificação é: *${recoveryCode}*\n\nEle expira em 15 minutos.`,
-                                parse_mode: 'Markdown'
+                                text: `🍺 <b>Breww — Recuperação de Senha</b>\n\nOlá, ${safeUserName}!\nSeu código de verificação é: <b>${escapeHtml(recoveryCode)}</b>\n\nEle expira em 15 minutos.`,
+                                parse_mode: 'HTML'
                             })
                         });
                     }
@@ -79,10 +87,10 @@ export const registerAuthRecoveryRoutes = (app, pool, authRateLimiter, sendPushT
                             html: `
                                 <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a0a; color: #f5f5f5; padding: 32px; border-radius: 16px; border: 1px solid #262626;">
                                     <h2 style="margin-top: 0; color: #ffffff; letter-spacing: -0.03em;">BREWW Smart Brewing</h2>
-                                    <p style="color: #a3a3a3; font-size: 14px;">Olá, <strong>${user.name || 'Cervejeiro'}</strong>!</p>
+                                    <p style="color: #a3a3a3; font-size: 14px;">Olá, <strong>${safeUserName}</strong>!</p>
                                     <p style="color: #a3a3a3; font-size: 14px;">Use o código de 6 dígitos abaixo para redefinir sua senha (válido por 15 minutos):</p>
                                     <div style="background: #171717; border: 1px solid #404040; border-radius: 12px; padding: 16px; text-align: center; font-size: 28px; font-weight: 900; letter-spacing: 0.25em; color: #ffffff; margin: 24px 0;">
-                                        ${recoveryCode}
+                                        ${escapeHtml(recoveryCode)}
                                     </div>
                                     <p style="text-align: center; margin: 24px 0;">
                                         <a href="${directLink}" style="background: #ffffff; color: #000000; text-decoration: none; font-weight: bold; padding: 12px 24px; border-radius: 8px; display: inline-block; font-size: 14px;">Redefinir Senha Agora</a>

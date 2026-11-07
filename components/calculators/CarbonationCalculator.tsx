@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 
 export const CarbonationCalculator: React.FC = () => {
     const [styleInput, setStyleInput] = useState<string>('American IPA');
@@ -8,13 +8,6 @@ export const CarbonationCalculator: React.FC = () => {
     
     const [batchVolInput, setBatchVolInput] = useState<string>('20');
     const [fermTempInput, setFermTempInput] = useState<string>('20');
-
-    const [results, setResults] = useState({
-        pressureBar: 0,
-        pressurePsi: 0,
-        sugarGrams: 0,
-        residualCo2: 0
-    });
 
     const beerStyles = [
         { name: 'Altbier', min: 2.2, max: 2.6 },
@@ -123,11 +116,13 @@ export const CarbonationCalculator: React.FC = () => {
 
     const currentStyle = beerStyles.find(s => s.name === styleInput) || beerStyles[0];
 
-    useEffect(() => {
+    const results = useMemo(() => {
         const co2Vol = parseFloat(co2VolInput.replace(',', '.'));
         const tempC = parseFloat(tempInput.replace(',', '.'));
         
-        if (isNaN(co2Vol) || co2Vol < 0) return;
+        if (isNaN(co2Vol) || co2Vol < 0) {
+            return { pressureBar: 0, pressurePsi: 0, sugarGrams: 0, residualCo2: 0 };
+        }
 
         let pressureBar = 0;
         let pressurePsi = 0;
@@ -135,12 +130,13 @@ export const CarbonationCalculator: React.FC = () => {
         let residualCo2 = 0;
 
         if (typeInput === 'Keg (Forçado)') {
-            if (isNaN(tempC)) return;
-            const tempF = (tempC * 9/5) + 32;
-            const denom = 0.01821 + 0.09011 * Math.exp(-(tempF - 32) / 43.11);
-            if (denom > 0) {
-                pressurePsi = (co2Vol + 0.003342) / denom - 14.695;
-                pressureBar = pressurePsi * 0.0689476;
+            if (!isNaN(tempC)) {
+                const tempF = (tempC * 9/5) + 32;
+                const denom = 0.01821 + 0.09011 * Math.exp(-(tempF - 32) / 43.11);
+                if (denom > 0) {
+                    pressurePsi = (co2Vol + 0.003342) / denom - 14.695;
+                    pressureBar = pressurePsi * 0.0689476;
+                }
             }
         } else {
             const volL = parseFloat(batchVolInput.replace(',', '.'));
@@ -158,13 +154,12 @@ export const CarbonationCalculator: React.FC = () => {
             }
         }
 
-        setResults({
+        return {
             pressureBar: Math.max(0, pressureBar),
             pressurePsi: Math.max(0, pressurePsi),
             sugarGrams: Math.max(0, sugarGrams),
             residualCo2: Math.max(0, residualCo2)
-        });
-
+        };
     }, [co2VolInput, tempInput, typeInput, batchVolInput, fermTempInput]);
 
     return (
@@ -177,8 +172,9 @@ export const CarbonationCalculator: React.FC = () => {
                     
                     <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
                         <div>
-                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Estilo da Cerveja</span>
+                            <label htmlFor="carb-style" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Estilo da Cerveja</label>
                             <select 
+                                id="carb-style"
                                 value={styleInput} onChange={(e) => {
                                     setStyleInput(e.target.value);
                                     const style = beerStyles.find(s => s.name === e.target.value);
@@ -201,9 +197,10 @@ export const CarbonationCalculator: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Carbonatação</span>
+                            <label htmlFor="carb-co2-vol" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Carbonatação</label>
                             <div className="relative">
                                 <input 
+                                    id="carb-co2-vol"
                                     type="number" step="0.1" value={co2VolInput} onChange={(e) => setCo2VolInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-yellow-500 transition-colors"
                                 />
@@ -211,9 +208,10 @@ export const CarbonationCalculator: React.FC = () => {
                             </div>
                         </div>
                         <div>
-                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. de Carb.</span>
+                            <label htmlFor="carb-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. de Carb.</label>
                             <div className="relative">
                                 <input 
+                                    id="carb-temp"
                                     type="number" step="1" value={tempInput} onChange={(e) => setTempInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-yellow-500 transition-colors"
                                 />
@@ -224,8 +222,9 @@ export const CarbonationCalculator: React.FC = () => {
 
                     <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
                         <div>
-                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tipo de Carbonatação</span>
+                            <label htmlFor="carb-type" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tipo de Carbonatação</label>
                             <select 
+                                id="carb-type"
                                 value={typeInput} onChange={(e) => setTypeInput(e.target.value as any)} 
                                 className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-yellow-500 appearance-none cursor-pointer"
                             >
@@ -238,9 +237,10 @@ export const CarbonationCalculator: React.FC = () => {
                     {typeInput === 'Priming (Açúcar)' && (
                         <div className="grid grid-cols-2 gap-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume do Lote</span>
+                                <label htmlFor="carb-batch-vol" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume do Lote</label>
                                 <div className="relative">
                                     <input 
+                                        id="carb-batch-vol"
                                         type="number" step="1" value={batchVolInput} onChange={(e) => setBatchVolInput(e.target.value)}
                                         className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-yellow-500 transition-colors"
                                     />
@@ -248,9 +248,10 @@ export const CarbonationCalculator: React.FC = () => {
                                 </div>
                             </div>
                             <div>
-                                <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. Fermentação</span>
+                                <label htmlFor="carb-ferm-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. Fermentação</label>
                                 <div className="relative">
                                     <input 
+                                        id="carb-ferm-temp"
                                         type="number" step="1" value={fermTempInput} onChange={(e) => setFermTempInput(e.target.value)}
                                         className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-yellow-500 transition-colors"
                                     />

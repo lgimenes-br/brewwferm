@@ -1,4 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+
+const EXTRACT_PPG: Record<'DME' | 'LME' | 'Sugar', number> = {
+    'DME': 44,
+    'LME': 36,
+    'Sugar': 46
+};
 
 export const BoilOffCalculator: React.FC = () => {
     const [currentGravInput, setCurrentGravInput] = useState<string>('1.042');
@@ -10,21 +16,7 @@ export const BoilOffCalculator: React.FC = () => {
     const [calcBoil, setCalcBoil] = useState(true);
     const [boilOffRateInput, setBoilOffRateInput] = useState<string>('10');
 
-    const [results, setResults] = useState({
-        extractNeeded: 0,
-        evapNeeded: 0,
-        diluteNeeded: 0,
-        boilTimeMins: 0,
-        isDilution: false
-    });
-
-    const extractPpg = {
-        'DME': 44,
-        'LME': 36,
-        'Sugar': 46
-    };
-
-    useEffect(() => {
+    const results = useMemo(() => {
         const rawCGrav = parseFloat(currentGravInput.replace(',', '.'));
         const rawTGrav = parseFloat(targetGravInput.replace(',', '.'));
         const cGrav = rawCGrav > 200 ? rawCGrav / 1000 : rawCGrav;
@@ -32,7 +24,15 @@ export const BoilOffCalculator: React.FC = () => {
         const cVol = parseFloat(currentVolInput.replace(',', '.'));
         const boilRate = parseFloat(boilOffRateInput.replace(',', '.'));
 
-        if (isNaN(cGrav) || isNaN(tGrav) || isNaN(cVol) || cVol <= 0 || cGrav <= 1 || tGrav <= 1) return;
+        if (isNaN(cGrav) || isNaN(tGrav) || isNaN(cVol) || cVol <= 0 || cGrav <= 1 || tGrav <= 1) {
+            return {
+                extractNeeded: 0,
+                evapNeeded: 0,
+                diluteNeeded: 0,
+                boilTimeMins: 0,
+                isDilution: false
+            };
+        }
 
         const currentPoints = (cGrav - 1) * 1000;
         const targetPoints = (tGrav - 1) * 1000;
@@ -49,7 +49,7 @@ export const BoilOffCalculator: React.FC = () => {
             const pointsDeficit = targetPoints - currentPoints; 
             const totalPointsNeeded = pointsDeficit * cVol; 
             
-            const ppg = extractPpg[extractType];
+            const ppg = EXTRACT_PPG[extractType];
             const pointsPerKgL = ppg * 8.345404; 
             extractNeeded = (totalPointsNeeded / pointsPerKgL) * 1000; 
 
@@ -65,14 +65,13 @@ export const BoilOffCalculator: React.FC = () => {
             diluteNeeded = targetVolForDilute - cVol;
         }
 
-        setResults({
+        return {
             extractNeeded: Math.max(0, extractNeeded),
             evapNeeded: Math.max(0, evapNeeded),
             diluteNeeded: Math.max(0, diluteNeeded),
             boilTimeMins: Math.max(0, boilTimeMins),
             isDilution
-        });
-
+        };
     }, [currentGravInput, targetGravInput, currentVolInput, extractType, calcBoil, boilOffRateInput]);
 
 
@@ -86,9 +85,10 @@ export const BoilOffCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* Current Grav */}
                         <div>
-                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</label>
+                            <label htmlFor="boil-current-grav" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</label>
                             <div className="relative">
                                 <input 
+                                    id="boil-current-grav"
                                     type="number" step="0.001" value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
@@ -98,9 +98,10 @@ export const BoilOffCalculator: React.FC = () => {
 
                         {/* Target Grav */}
                         <div>
-                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Alvo</label>
+                            <label htmlFor="boil-target-grav" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Alvo</label>
                             <div className="relative">
                                 <input 
+                                    id="boil-target-grav"
                                     type="number" step="0.001" value={targetGravInput} onChange={(e) => setTargetGravInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
@@ -110,9 +111,10 @@ export const BoilOffCalculator: React.FC = () => {
 
                         {/* Current Vol */}
                         <div>
-                            <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual</label>
+                            <label htmlFor="boil-current-vol" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual</label>
                             <div className="relative">
                                 <input 
+                                    id="boil-current-vol"
                                     type="number" step="1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
@@ -123,8 +125,9 @@ export const BoilOffCalculator: React.FC = () => {
 
                     <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
                         <div>
-                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Qual Adição Usar?</span>
+                            <label htmlFor="boil-extract-type" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Qual Adição Usar?</label>
                             <select 
+                                id="boil-extract-type"
                                 value={extractType} onChange={(e) => setExtractType(e.target.value as any)} 
                                 className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
                             >
@@ -145,9 +148,10 @@ export const BoilOffCalculator: React.FC = () => {
                         </label>
 
                         <div>
-                            <span className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Evaporação do Equipamento</span>
+                            <label htmlFor="boil-off-rate" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Evaporação do Equipamento</label>
                             <div className="relative">
                                 <input 
+                                    id="boil-off-rate"
                                     type="number" step="1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)} disabled={!calcBoil}
                                     className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
                                 />

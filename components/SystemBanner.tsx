@@ -37,7 +37,10 @@ export const SystemBanner = () => {
     const isWarning = broadcast.type === 'warning';
 
     return (
-        <div className={`w-full ${isWarning ? 'bg-amber-500' : 'bg-indigo-600'} text-white px-4 py-3 relative z-[100] shadow-md animate-in slide-in-from-top duration-300`}>
+        <div
+            role={isWarning ? 'alert' : 'status'}
+            className={`w-full ${isWarning ? 'bg-amber-500' : 'bg-indigo-600'} text-white px-4 py-3 relative z-[100] shadow-md animate-in slide-in-from-top duration-300`}
+        >
             <div className="max-w-7xl mx-auto flex items-start sm:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-3">
                     {isWarning ? <AlertTriangle className="shrink-0" size={20} /> : <Info className="shrink-0" size={20} />}
@@ -47,6 +50,7 @@ export const SystemBanner = () => {
                     </div>
                 </div>
                 <button 
+                    type="button"
                     onClick={handleClose} 
                     aria-label="Fechar aviso"
                     className={`shrink-0 p-1 rounded-md transition-colors ${isWarning ? 'hover:bg-amber-600' : 'hover:bg-indigo-700'}`}

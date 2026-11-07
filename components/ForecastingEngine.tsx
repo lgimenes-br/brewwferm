@@ -77,7 +77,14 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
             <span className="text-xl font-mono text-white font-bold">{progress.toFixed(1)}<span className="text-sm text-neutral-500">%</span></span>
           </div>
           
-          <div className="h-3 w-full bg-neutral-950 rounded-full overflow-hidden border border-neutral-800">
+          <div
+            role="progressbar"
+            aria-label="Progresso de atenuação aparente"
+            aria-valuenow={Math.round(progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-3 w-full bg-neutral-950 rounded-full overflow-hidden border border-neutral-800"
+          >
             <div 
               className="h-full bg-gradient-to-r from-purple-600 to-blue-500 rounded-full relative transition-all duration-1000 ease-out"
               style={{ width: `${progress}%` }}

@@ -180,8 +180,9 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                                     {idx + 1}
                                 </span>
                                 <div className="flex-1">
-                                    <label className="block text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Ângulo (Tilt °)</label>
+                                    <label htmlFor={`ispindel-angle-${pt.id}`} className="block text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Ângulo (Tilt °)</label>
                                     <input
+                                        id={`ispindel-angle-${pt.id}`}
                                         type="number"
                                         step="0.1"
                                         value={pt.angle}
@@ -190,8 +191,9 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Densidade (SG)</label>
+                                    <label htmlFor={`ispindel-grav-${pt.id}`} className="block text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Densidade (SG)</label>
                                     <input
+                                        id={`ispindel-grav-${pt.id}`}
                                         type="number"
                                         step="0.001"
                                         value={pt.gravity}
@@ -202,6 +204,7 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                                 {points.length > 3 && (
                                     <button
                                         type="button"
+                                        aria-label={`Remover ponto ${idx + 1}`}
                                         onClick={() => handleRemovePoint(pt.id)}
                                         className="mt-4 p-2 text-neutral-500 hover:text-red-400 transition-colors"
                                         title="Remover ponto"
@@ -261,8 +264,9 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4 items-center">
                             <div>
-                                <label className="block text-[10px] text-neutral-500 uppercase font-bold mb-1">Ângulo de Teste (°)</label>
+                                <label htmlFor="ispindel-test-tilt" className="block text-[10px] text-neutral-500 uppercase font-bold mb-1">Ângulo de Teste (°)</label>
                                 <input
+                                    id="ispindel-test-tilt"
                                     type="number"
                                     step="0.5"
                                     value={testTilt}

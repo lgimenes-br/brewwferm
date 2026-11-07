@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import * as api from '../services/api';
@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<string | null>(() => getCleanStorage('user'));
     const [role, setRole] = useState<string | null>(() => getCleanStorage('role'));
 
-    const login = async (email: string, password: string) => {
+    const login = useCallback(async (email: string, password: string) => {
         try {
             const data = await api.login(email, password);
             if (!data?.token) throw new Error('Token inválido recebido do servidor');
@@ -45,9 +45,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             toast.error(err?.message || 'E-mail ou senha inválidos');
             return false;
         }
-    };
+    }, []);
 
-    const loginWithGoogle = async (idToken: string) => {
+    const loginWithGoogle = useCallback(async (idToken: string) => {
         try {
             const data = await api.loginWithGoogle(idToken);
             if (!data?.token) throw new Error('Token inválido recebido do servidor');
@@ -65,9 +65,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             toast.error(err?.message || 'Falha no login com Google');
             return false;
         }
-    };
+    }, []);
 
-    const register = async (name: string, email: string, password: string) => {
+    const register = useCallback(async (name: string, email: string, password: string) => {
         try {
             await api.register(name, email, password);
             return true;
@@ -76,9 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             toast.error(err?.message || 'Erro ao criar conta');
             return false;
         }
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         clearLiveDeviceState();
         queryClient.clear();
         localStorage.removeItem('token');
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(null);
         setUser(null);
         setRole(null);
-    };
+    }, [queryClient]);
 
     React.useEffect(() => {
         const handleUnauthorized = () => {
@@ -111,10 +111,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             window.removeEventListener('auth:unauthorized', handleUnauthorized);
             window.removeEventListener('storage', handleStorageSync);
         };
-    }, []);
+    }, [logout, queryClient]);
+
+    const contextValue = useMemo(
+        () => ({ token, user, role, login, loginWithGoogle, logout, register }),
+        [token, user, role, login, loginWithGoogle, logout, register]
+    );
 
     return (
-        <AuthContext.Provider value={{ token, user, role, login, loginWithGoogle, logout, register }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

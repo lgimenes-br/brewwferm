@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+
+const sgToBrix = (sg: number) => {
+    return (((135.997 * sg - 630.272) * sg + 1111.14) * sg - 616.868);
+};
 
 export const RefractometerCalculator: React.FC = () => {
     const [isFermented, setIsFermented] = useState(true);
@@ -6,23 +10,15 @@ export const RefractometerCalculator: React.FC = () => {
     const [ogSgInput, setOgSgInput] = useState<string>('1.045');
     const [brixWriInput, setBrixWriInput] = useState<string>('5.3');
 
-    const [results, setResults] = useState({
-        sg: 1.000,
-        abv: 0,
-        abw: 0
-    });
-
-    const sgToBrix = (sg: number) => {
-        return (((135.997 * sg - 630.272) * sg + 1111.14) * sg - 616.868);
-    };
-
-    useEffect(() => {
+    const results = useMemo(() => {
         let ogSg = parseFloat(ogSgInput.replace(',', '.'));
         if (ogSg > 200) ogSg = ogSg / 1000;
         const brixWri = parseFloat(brixWriInput.replace(',', '.'));
         const wcf = parseFloat(wcfInput.replace(',', '.'));
 
-        if (isNaN(brixWri) || isNaN(wcf) || wcf <= 0 || brixWri < 0) return;
+        if (isNaN(brixWri) || isNaN(wcf) || wcf <= 0 || brixWri < 0) {
+            return { sg: 1.000, abv: 0, abw: 0 };
+        }
 
         let currentSg = 1.000;
         let abv = 0;
@@ -32,11 +28,11 @@ export const RefractometerCalculator: React.FC = () => {
             // Unfermented wort
             const brix = brixWri / wcf;
             const denom = 258.6 - ((brix / 258.2) * 227.1);
-            if (denom <= 0) return;
+            if (denom <= 0) return { sg: 1.000, abv: 0, abw: 0 };
             currentSg = 1 + (brix / denom);
         } else {
             // Fermented wort
-            if (isNaN(ogSg) || ogSg < 1 || ogSg >= 1.775) return;
+            if (isNaN(ogSg) || ogSg < 1 || ogSg >= 1.775) return { sg: 1.000, abv: 0, abw: 0 };
 
             const ogBrix = sgToBrix(ogSg) / wcf;
             const fgBrix = brixWri / wcf;
@@ -55,12 +51,11 @@ export const RefractometerCalculator: React.FC = () => {
             }
         }
 
-        setResults({
+        return {
             sg: Math.max(1.000, currentSg),
             abv: Math.max(0, abv),
             abw: Math.max(0, abw)
-        });
-
+        };
     }, [isFermented, ogSgInput, brixWriInput, wcfInput]);
 
     return (
@@ -71,23 +66,30 @@ export const RefractometerCalculator: React.FC = () => {
                 {/* Left Column: Inputs */}
                 <div className="space-y-6">
                     {/* Toggle Fermentado */}
-                    <div className="flex items-center justify-between p-4 bg-neutral-950 border border-neutral-800 rounded-xl cursor-pointer select-none" onClick={() => setIsFermented(!isFermented)}>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isFermented}
+                        onClick={() => setIsFermented(!isFermented)}
+                        className="w-full flex items-center justify-between p-4 bg-neutral-950 border border-neutral-800 rounded-xl cursor-pointer select-none text-left focus:outline-none focus:border-emerald-500 transition-colors"
+                    >
                         <div>
                             <span className="block text-sm font-bold text-white">Mosto Fermentado?</span>
                             <span className="text-xs text-neutral-500">Ative se a fermentação já começou</span>
                         </div>
-                        <div className={`w-12 h-6 rounded-full transition-colors relative ${isFermented ? 'bg-emerald-500' : 'bg-neutral-800'}`}>
+                        <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isFermented ? 'bg-emerald-500' : 'bg-neutral-800'}`}>
                             <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isFermented ? 'translate-x-6' : 'translate-x-0'}`} />
                         </div>
-                    </div>
+                    </button>
 
                     <div className="grid grid-cols-2 gap-4">
                         {/* OG SG - Only if Fermented */}
                         {isFermented && (
                             <div className="col-span-2">
-                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Original (OG)</label>
+                                <label htmlFor="refract-og-sg" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Original (OG)</label>
                                 <div className="relative">
                                     <input 
+                                        id="refract-og-sg"
                                         type="number" 
                                         step="0.001"
                                         value={ogSgInput}
@@ -101,9 +103,10 @@ export const RefractometerCalculator: React.FC = () => {
 
                         {/* Current/FG Brix */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Brix WRI</label>
+                            <label htmlFor="refract-brix-wri" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Brix WRI</label>
                             <div className="relative">
                                 <input 
+                                    id="refract-brix-wri"
                                     type="number" 
                                     step="0.1"
                                     value={brixWriInput}
@@ -116,9 +119,10 @@ export const RefractometerCalculator: React.FC = () => {
 
                         {/* WCF */}
                         <div>
-                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Fator de Correção</label>
+                            <label htmlFor="refract-wcf" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Fator de Correção</label>
                             <div className="relative">
                                 <input 
+                                    id="refract-wcf"
                                     type="number" 
                                     step="0.01"
                                     value={wcfInput}

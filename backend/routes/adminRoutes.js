@@ -47,9 +47,12 @@ export const registerAdminRoutes = ({
     app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
         try {
             const { name, email, password, role } = req.body || {};
-            if (!name || !email || !password) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
+            const cleanName = String(name || '').trim();
+            const cleanEmail = String(email || '').trim().toLowerCase();
+            if (!cleanName || !cleanEmail || !password) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
+            const safeRole = role === 'admin' ? 'admin' : 'user';
             const hashedPassword = await bcrypt.hash(String(password), 10);
-            await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hashedPassword, role || 'user']);
+            await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [cleanName, cleanEmail, hashedPassword, safeRole]);
             res.status(201).json({ message: 'User created' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -58,13 +61,15 @@ export const registerAdminRoutes = ({
         try {
             const { id } = req.params;
             const { name, email, role, password } = req.body || {};
-            if (!name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios' });
-            const safeRole = role || 'user';
+            const cleanName = String(name || '').trim();
+            const cleanEmail = String(email || '').trim().toLowerCase();
+            if (!cleanName || !cleanEmail) return res.status(400).json({ error: 'Nome e email são obrigatórios' });
+            const safeRole = role === 'admin' ? 'admin' : 'user';
             if (password) {
                 const hashedPassword = await bcrypt.hash(String(password), 10);
-                await pool.execute('UPDATE users SET name=?, email=?, role=?, password_hash=? WHERE id=?', [name, email, safeRole, hashedPassword, id]);
+                await pool.execute('UPDATE users SET name=?, email=?, role=?, password_hash=? WHERE id=?', [cleanName, cleanEmail, safeRole, hashedPassword, id]);
             } else {
-                await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [name, email, safeRole, id]);
+                await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [cleanName, cleanEmail, safeRole, id]);
             }
             res.json({ message: 'User updated' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
@@ -249,13 +254,13 @@ export const registerAdminRoutes = ({
 
     app.post('/api/admin/broadcast-push', authenticateToken, requireAdmin, async (req, res) => {
         try {
-            const { title, message } = req.body;
-            const [subs] = await pool.execute('SELECT user_id FROM push_subscriptions GROUP BY user_id');
-            let sent = 0;
-            for (const sub of subs) {
-                await sendPushToUser(pool, sub.user_id, title, message);
-                sent++;
-            }
+            const { title, message } = req.body || {};
+            if (!title || !message) return res.status(400).json({ error: 'Título e mensagem são obrigatórios' });
+            const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
+            const results = await Promise.allSettled(
+                subs.map(sub => sendPushToUser(pool, sub.user_id, title, message))
+            );
+            const sent = results.filter(r => r.status === 'fulfilled').length;
             res.json({ success: true, sent });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -342,9 +347,9 @@ export const registerAdminRoutes = ({
 
             if (send_push) {
                 const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
-                for (const sub of subs) {
-                    sendPushToUser(pool, sub.user_id, title || 'Aviso da Plataforma', message);
-                }
+                await Promise.allSettled(
+                    subs.map(sub => sendPushToUser(pool, sub.user_id, title || 'Aviso da Plataforma', message))
+                );
             }
             res.status(201).json({ message: 'Enviado' });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
