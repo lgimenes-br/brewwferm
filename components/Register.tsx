@@ -46,21 +46,24 @@ export const Register: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-neutral-800/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 p-8 rounded-2xl shadow-2xl w-full max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-white text-black border border-white rounded-2xl flex items-center justify-center shadow-lg mb-4 font-black text-3xl">
-            B
+      <div className="bg-neutral-900/30 backdrop-blur-sm border border-neutral-800 p-8 rounded-3xl shadow-2xl w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        <div className="flex flex-col items-center mb-10">
+          <div className="flex items-baseline mb-2">
+            <span className="text-5xl font-black text-white tracking-tighter">BREW</span>
+            <div className="relative">
+              <span className="text-5xl font-black text-white tracking-tighter">W</span>
+              <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Criar Nova Conta</h1>
-          <p className="text-neutral-400 text-sm mt-2 text-center">Junte-se à revolução da fermentação inteligente no <span className="text-white font-bold">BREWW</span></p>
+          <h1 className="text-neutral-400 text-xs mt-1 uppercase tracking-widest font-bold">Criar Nova Conta • Smart Brewing</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
             <label htmlFor="register-name" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Nome Completo</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
-                <User size={16} />
+                <User size={18} />
               </div>
               <input
                 id="register-name"
@@ -70,17 +73,17 @@ export const Register: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
-                placeholder="Seu nome"
+                className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3.5 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
+                placeholder="Seu nome ou cervejaria"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label htmlFor="register-email" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Email</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
-                <Mail size={16} />
+                <Mail size={18} />
               </div>
               <input
                 id="register-email"
@@ -90,14 +93,14 @@ export const Register: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
+                className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3.5 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
                 placeholder="seu@email.com"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label htmlFor="register-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Senha</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
@@ -111,13 +114,13 @@ export const Register: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
+                  className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3.5 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
                   placeholder="••••••"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label htmlFor="register-confirm-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Confirmar</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
@@ -131,7 +134,7 @@ export const Register: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
+                  className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3.5 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700 text-sm"
                   placeholder="••••••"
                 />
               </div>
@@ -141,7 +144,7 @@ export const Register: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-neutral-100 hover:bg-white text-black font-bold py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed mt-6"
+            className="w-full bg-white hover:bg-neutral-200 text-black font-bold py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed mt-6"
           >
             {loading ? (
               <Loader2 className="animate-spin" size={20} />
@@ -154,14 +157,17 @@ export const Register: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center pt-6 border-t border-neutral-800">
-          <p className="text-neutral-500 text-sm mb-2">Já possui uma conta?</p>
-          <button
-            onClick={() => navigate('/login')}
-            className="text-neutral-300 hover:text-white font-medium text-sm underline underline-offset-4 transition-colors"
-          >
-            Entrar com suas credenciais
-          </button>
+        <div className="mt-6 text-center pt-6 border-t border-neutral-800/80">
+          <p className="text-neutral-500 text-xs">
+            Já possui uma conta?{' '}
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="text-white hover:text-neutral-300 font-bold underline underline-offset-4 transition-colors ml-1"
+            >
+              Fazer Login
+            </button>
+          </p>
         </div>
       </div>
     </div>

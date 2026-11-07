@@ -245,80 +245,80 @@ export const Dashboard: React.FC = () => {
             </header>
 
             {fermenters.length === 0 && !isInitialSyncing ? (
-                <div className="bg-neutral-900/30 border border-neutral-800 border-dashed rounded-3xl p-8 md:p-12 text-center max-w-4xl mx-auto my-6">
-                    <div className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto mb-5 text-white">
-                        <Thermometer size={28} />
-                    </div>
-                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Bem-vindo ao Breww! Vamos conectar seu aparelho?</h2>
-                    <p className="text-neutral-400 text-sm mb-8 max-w-lg mx-auto">
-                        Siga os 3 passos rápidos abaixo para colocar seu equipamento na sua conta e começar a controlar sua temperatura:
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-8">
-                        <div className="bg-emerald-950/20 border border-emerald-900/40 rounded-2xl p-5 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                                        Passo 1 • Concluído
-                                    </span>
-                                    <CheckCircle2 size={18} className="text-emerald-400" />
-                                </div>
-                                <h3 className="text-white font-bold text-base mb-1">1. Conta Criada</h3>
-                                <p className="text-neutral-400 text-xs leading-relaxed">
-                                    Sua conta Breww já está pronta e ativa para receber seu primeiro equipamento.
-                                </p>
-                            </div>
+                <div className="bg-neutral-900/30 border border-neutral-800 rounded-2xl p-6 md:p-8 my-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-neutral-800/80">
+                        <div>
+                            <h2 className="text-lg font-bold text-white tracking-tight">Nenhum equipamento conectado</h2>
+                            <p className="text-neutral-500 text-xs mt-1">
+                                Conecte seu controlador Breww em 3 etapas simples para iniciar no Modo Geladeira (4.0°C):
+                            </p>
                         </div>
-
-                        <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-800 px-2.5 py-1 rounded-full">
-                                        Passo 2 • Na Tomada
-                                    </span>
-                                    <Wifi size={18} className="text-neutral-400" />
-                                </div>
-                                <h3 className="text-white font-bold text-base mb-1">2. Conecte no Wi-Fi</h3>
-                                <p className="text-neutral-400 text-xs leading-relaxed">
-                                    Ligue seu Breww na tomada e escolha o Wi-Fi da sua casa na telinha do aparelho.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-neutral-900/60 border border-neutral-700 rounded-2xl p-5 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-                                        Passo 3 • Pareamento
-                                    </span>
-                                    <QrCode size={18} className="text-amber-400" />
-                                </div>
-                                <h3 className="text-white font-bold text-base mb-1">3. Cadastre o Código</h3>
-                                <p className="text-neutral-400 text-xs leading-relaxed">
-                                    Aponte a câmera do celular para o QR Code da telinha ou digite o código <span className="font-mono text-neutral-300">ESP32_...</span> abaixo.
-                                </p>
-                            </div>
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsScanModalOpen(true);
+                                    startScan();
+                                }}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-neutral-800"
+                            >
+                                <Search size={14} /> Procurar no Mesmo Wi-Fi
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsAddModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                            >
+                                <Plus size={14} /> Digitar Código do Aparelho
+                            </button>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(255,255,255,0.15)]"
-                        >
-                            <Plus size={16} /> Digitar Código do Aparelho
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsScanModalOpen(true);
-                                startScan();
-                            }}
-                            className="flex items-center gap-2 px-5 py-3.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-neutral-700"
-                        >
-                            <Search size={15} /> Procurar no Mesmo Wi-Fi
-                        </button>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-black/40 border border-neutral-800/80 rounded-xl p-4 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="font-mono text-[11px] font-bold text-neutral-400 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded-md">
+                                        01
+                                    </span>
+                                    <CheckCircle2 size={15} className="text-neutral-500" />
+                                                                </div>
+                                <h3 className="text-white font-bold text-sm mb-1">Conta Ativa</h3>
+                                <p className="text-neutral-500 text-xs leading-relaxed">
+                                    Sua conta já está pronta para vincular controladores e sincronizar telemetria.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-black/40 border border-neutral-800/80 rounded-xl p-4 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="font-mono text-[11px] font-bold text-neutral-400 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded-md">
+                                        02
+                                    </span>
+                                    <Wifi size={15} className="text-neutral-500" />
+                                </div>
+                                <h3 className="text-white font-bold text-sm mb-1">Wi-Fi do Aparelho</h3>
+                                <p className="text-neutral-500 text-xs leading-relaxed">
+                                    Ligue o controlador na tomada e conecte ao Wi-Fi pela tela touch do equipamento.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-black/40 border border-neutral-800/80 rounded-xl p-4 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="font-mono text-[11px] font-bold text-neutral-400 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded-md">
+                                        03
+                                    </span>
+                                    <QrCode size={15} className="text-neutral-500" />
+                                </div>
+                                <h3 className="text-white font-bold text-sm mb-1">Vincular Serial / IP</h3>
+                                <p className="text-neutral-500 text-xs leading-relaxed">
+                                    Escaneie o QR Code na tela do aparelho ou adicione o código <span className="font-mono text-neutral-400">ESP32_...</span> manualmente.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : null}
