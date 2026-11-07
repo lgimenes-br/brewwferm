@@ -40,5 +40,8 @@
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.0",
     "web-push": "^3.6.7"
+  },
+  "overrides": {
+    "d3-color": "^3.1.0"
   }
 }
