@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
-import { MQTT_BROKER } from '../config';
+import { MQTT_BROKER, MQTT_USER, MQTT_PASSWORD } from '../config';
 import { useAuth } from './AuthContext';
 import { useFermenters } from '../hooks/useFermenters';
 import { FermenterStatus, DeviceMode } from '../types';
@@ -79,8 +79,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const client = mqtt.connect(MQTT_BROKER, {
             clientId,
             protocol: 'wss',
-            username: 'esp32user',
-            password: 'esp32',
+            username: MQTT_USER,
+            password: MQTT_PASSWORD,
             keepalive: 60,
             reconnectPeriod: 5000,
             clean: true

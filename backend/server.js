@@ -20,12 +20,14 @@ import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { createVirtualEsp32Manager } from './utils/esp32Simulator.js';
 import { registerSimulatorRoutes } from './routes/simulatorRoutes.js';
+import { registerAdminRoutes } from './routes/adminRoutes.js';
+import { startSmartScheduler } from './services/smartScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET; // <--- Lê do .env
 
@@ -268,75 +270,6 @@ const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex
 };
 
 
-// ==========================================
-// WEBPUSH SUBSCRIPTION
-// ==========================================
-
-// --- 11. SMART SCHEDULING (Autonomous Profile Advancement) ---
-setInterval(async () => {
-    try {
-        const [activeBatches] = await pool.execute(`
-            SELECT b.id, b.profile, b.current_step_index, b.step_started_at, d.serial_code, d.user_id 
-            FROM batches b 
-            JOIN devices d ON b.device_id = d.id 
-            WHERE b.is_active = 1 AND b.profile IS NOT NULL
-        `);
-
-        for (let batch of activeBatches) {
-            if (!batch.profile || !batch.step_started_at) continue;
-            let profile = [];
-            try { profile = typeof batch.profile === 'string' ? JSON.parse(batch.profile) : batch.profile; } catch(e) { continue; }
-            
-            if (Array.isArray(profile) && batch.current_step_index < profile.length - 1) {
-                const currentStep = profile[batch.current_step_index];
-                const stepDuration = currentStep ? (currentStep.duration ?? currentStep.d) : null;
-                if (!currentStep || !stepDuration) continue;
-
-                const elapsedMs = Date.now() - new Date(batch.step_started_at).getTime();
-                // If step only has .d (ESP32 raw format), it was sent in hours; .duration is stored in days
-                const durationDays = currentStep.duration !== undefined
-                    ? parseFloat(stepDuration)
-                    : (parseFloat(stepDuration) / 24);
-                const durationMs = durationDays * 24 * 60 * 60 * 1000;
-
-                // Check Gravity Trigger (optional per-step target SG)
-                let gravityTriggered = false;
-                let latestGravNorm = 0;
-                const triggerGravNorm = normalizeGravityVal(currentStep.triggerGravity ?? currentStep.g);
-                if (triggerGravNorm > 0) {
-                    const [gRows] = await pool.execute(
-                        'SELECT gravity FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 ORDER BY id DESC LIMIT 1',
-                        [batch.id]
-                    );
-                    if (gRows.length > 0) {
-                        latestGravNorm = normalizeGravityVal(gRows[0].gravity);
-                        if (latestGravNorm > 0.980 && latestGravNorm <= triggerGravNorm) {
-                            gravityTriggered = true;
-                        }
-                    }
-                }
-
-                if (elapsedMs >= durationMs || gravityTriggered) {
-                    const newIndex = batch.current_step_index + 1;
-                    await advanceBatchStep({
-                        batchId: batch.id,
-                        serialCode: batch.serial_code,
-                        userId: batch.user_id,
-                        profile,
-                        newIndex,
-                        gravityTriggered,
-                        liveSgNorm: latestGravNorm,
-                        trigNorm: triggerGravNorm
-                    });
-                    console.log(`🤖 [Smart Scheduler] Lote ${batch.id} avançou para etapa ${newIndex} (${gravityTriggered ? 'SG Trigger' : 'Tempo'})`);
-                }
-            }
-        }
-    } catch (e) {
-        console.error('Erro no Smart Scheduler:', e);
-    }
-}, 5 * 60 * 1000); // Roda a cada 5 minutos
-
 // --- 2. MQTT ---
 const brokerUrl = process.env.VITE_MQTT_BROKER || 'mqtt://localhost:1883';
 console.log(`🔌 [MQTT] Conectando a ${brokerUrl}...`);
@@ -358,6 +291,15 @@ const notifyUpdate = (serialCode) => {
 
 const virtualEsp32 = createVirtualEsp32Manager(mqttClient);
 virtualEsp32.updateSimulatorState({ enabled: true });
+
+// --- SMART SCHEDULING & MAGIC PREDICTION ---
+const smartScheduler = startSmartScheduler({
+    pool,
+    advanceBatchStep,
+    normalizeGravityVal,
+    alertState,
+    sendPushToUser
+});
 
 mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/status');
@@ -742,7 +684,7 @@ const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, (err, user) => {
         if (err) return res.sendStatus(403);
         req.user = user;
         next();
@@ -905,9 +847,9 @@ const deleteDeviceCascade = async (devId, serialCode) => {
     await pool.execute('DELETE FROM telemetry WHERE device_id = ?', [devId]);
     const [batches] = await pool.execute('SELECT id FROM batches WHERE device_id = ?', [devId]);
     for (const b of batches) {
-        await pool.execute('DELETE FROM batch_events WHERE batch_id = ?', [b.id]);
         delete alertState[`magic_${b.id}`];
     }
+    await pool.execute('DELETE FROM batch_events WHERE batch_id IN (SELECT id FROM batches WHERE device_id = ?)', [devId]);
     await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
     await pool.execute('DELETE FROM devices WHERE id = ?', [devId]);
     if (serialCode) {
@@ -975,7 +917,7 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
         }
 
         const [devices] = await pool.execute(`
-            SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online,
+            SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 30 SECOND) as is_online,
                    b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style,
                    b.started_at as active_batch_start, b.step_started_at as active_batch_step_start,
                    b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg,
@@ -999,8 +941,33 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             ) lt ON lt.device_id = d.id
             WHERE d.user_id = ?
         `, [req.user.id]);
-        
-        res.json(devices);
+
+        const enrichedDevices = devices.map(dev => {
+            if (
+                simState.enabled &&
+                !simState.unlinkedForDiscovery &&
+                simState.serial &&
+                String(dev.serial_code || '').trim().toUpperCase() === String(simState.serial).trim().toUpperCase()
+            ) {
+                return {
+                    ...dev,
+                    is_online: 1,
+                    is_virtual: 1,
+                    ip: simState.ip || dev.ip,
+                    firmware_version: simState.ver || dev.firmware_version || 'V2.5.0-VIRTUAL',
+                    last_temp: simState.ferm ?? dev.last_temp,
+                    last_temp2: simState.amb ?? dev.last_temp2,
+                    last_target: simState.csp ?? dev.last_target,
+                    last_status: simState.statOp ?? dev.last_status,
+                    last_gravity: simState.is_sg ?? dev.last_gravity,
+                    last_battery: simState.is_bat ?? dev.last_battery,
+                    last_rssi: simState.rssi ?? dev.last_rssi
+                };
+            }
+            return dev;
+        });
+
+        res.json(enrichedDevices);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
@@ -1784,123 +1751,16 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
 registerIngredientRoutes(app, ingredientsPool, authenticateToken, requireAdmin);
 
 // ==========================================
-// ADMIN API
+// ADMIN API & BI ANALYTICS
 // ==========================================
-app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [rows] = await pool.execute(`
-            SELECT u.id, u.name, u.email, u.role, u.plan_type, u.max_devices, u.created_at, COUNT(d.id) as device_count 
-            FROM users u LEFT JOIN devices d ON u.id = d.user_id 
-            GROUP BY u.id ORDER BY u.id DESC
-        `);
-        res.json(rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.put('/api/admin/users/:id/plan', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const plan_type = req.body?.plan_type === 'premium' ? 'premium' : 'free';
-        const max_devices = plan_type === 'premium' ? 9999 : 1;
-        await pool.execute('UPDATE users SET plan_type = ?, max_devices = ? WHERE id = ?', [plan_type, max_devices, req.params.id]);
-        res.json({ message: 'Plano atualizado' });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [rows] = await pool.execute(`
-            SELECT d.id, d.serial_code, d.device_name, d.last_seen, d.user_id, u.name as owner_name, u.email as owner_email 
-            FROM devices d JOIN users u ON d.user_id = u.id 
-            ORDER BY d.id DESC
-        `);
-        res.json(rows);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body || {};
-        if (!name || !email || !password) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
-        const hashedPassword = await bcrypt.hash(String(password), 10);
-        await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, email, hashedPassword, role || 'user']);
-        res.status(201).json({ message: 'User created' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, email, role, password } = req.body || {};
-        if (!name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios' });
-        const safeRole = role || 'user';
-        if (password) {
-            const hashedPassword = await bcrypt.hash(String(password), 10);
-            await pool.execute('UPDATE users SET name=?, email=?, role=?, password_hash=? WHERE id=?', [name, email, safeRole, hashedPassword, id]);
-        } else {
-            await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [name, email, safeRole, id]);
-        }
-        res.json({ message: 'User updated' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        // 1. Delete recipe_steps
-        const [recipes] = await pool.execute('SELECT id FROM recipes WHERE user_id = ?', [id]);
-        for (let r of recipes) {
-            await pool.execute('DELETE FROM recipe_steps WHERE recipe_id = ?', [r.id]);
-        }
-        
-        // 2. Delete recipes
-        await pool.execute('DELETE FROM recipes WHERE user_id = ?', [id]);
-        
-        // 3. Delete push_subscriptions
-        await pool.execute('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
-        
-        // 4. Delete devices, batches, batch_events and readings
-        const [devices] = await pool.execute('SELECT id, serial_code FROM devices WHERE user_id = ?', [id]);
-        for (let dev of devices) {
-            await deleteDeviceCascade(dev.id, dev.serial_code);
-        }
-        
-        // 5. Finally delete the user
-        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
-        await loadActiveBatches();
-        
-        res.json({ message: 'User and all related data deleted' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/admin/devices', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { serial_code, device_name, user_id } = req.body;
-        if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
-        await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name || null, user_id]);
-        res.status(201).json({ message: 'Device created' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.put('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { serial_code, device_name, user_id } = req.body;
-        if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
-        await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code.trim().toUpperCase(), device_name || null, user_id, id]);
-        await loadActiveBatches();
-        res.json({ message: 'Device updated' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.delete('/api/admin/devices/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const [devs] = await pool.execute('SELECT serial_code FROM devices WHERE id = ?', [id]);
-        await deleteDeviceCascade(id, devs[0]?.serial_code);
-        await loadActiveBatches();
-        res.json({ message: 'Device deleted' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
+registerAdminRoutes({
+    app,
+    pool,
+    authenticateToken,
+    requireAdmin,
+    deleteDeviceCascade,
+    loadActiveBatches,
+    sendPushToUser
 });
 
 app.get('/firmware/version.json', (req, res) => {
@@ -1929,213 +1789,6 @@ app.get('/firmware/update.bin', (req, res) => {
     }
 });
 
-// ==========================================
-// ADMIN E ESTATÍSTICAS
-// ==========================================
-
-app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) as total_users FROM users');
-        const [[{ total_devices }]] = await pool.execute('SELECT COUNT(*) as total_devices FROM devices');
-        const [[{ active_batches }]] = await pool.execute('SELECT COUNT(*) as active_batches FROM batches WHERE is_active = 1');
-        const [[{ online_devices }]] = await pool.execute('SELECT COUNT(*) as online_devices FROM devices WHERE last_seen > NOW() - INTERVAL 1 HOUR');
-        res.json({ total_users, total_devices, active_batches, online_devices });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/telemetry', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [devices] = await pool.execute(`
-            SELECT d.id, d.serial_code, d.device_name, d.last_seen, u.name as owner_name,
-            (d.last_seen > NOW() - INTERVAL 1 HOUR) as is_online,
-            (SELECT temp_ferm FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_temp,
-            (SELECT battery FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_battery,
-            (SELECT rssi FROM telemetry t WHERE t.device_id = d.id ORDER BY recorded_at DESC LIMIT 1) as last_rssi
-            FROM devices d
-            JOIN users u ON d.user_id = u.id
-            ORDER BY d.last_seen DESC
-        `);
-        res.json(devices);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-// SERVER TERMINAL & BACKLOG
-app.get('/api/admin/server/status', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { stdout } = await execPromise('pm2 jlist');
-        const jsonStart = stdout.indexOf('[');
-        res.json(JSON.parse(jsonStart >= 0 ? stdout.slice(jsonStart) : stdout));
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Erro interno ao consultar status do servidor' });
-    }
-});
-
-// ==========================================
-// BI & ANALYTICS
-// ==========================================
-app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [[{ mau }]] = await pool.execute('SELECT COUNT(DISTINCT user_id) as mau FROM devices WHERE last_seen > NOW() - INTERVAL 30 DAY');
-        const [[{ zombies }]] = await pool.execute('SELECT COUNT(*) as zombies FROM devices WHERE last_seen < NOW() - INTERVAL 30 DAY OR last_seen IS NULL');
-        const [growth] = await pool.execute("SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as users FROM users GROUP BY month ORDER BY month ASC LIMIT 12");
-        const [firmwares] = await pool.execute('SELECT firmware_version as name, COUNT(*) as count FROM devices WHERE firmware_version IS NOT NULL GROUP BY firmware_version');
-        res.json({ mau, zombies, growth, firmwares });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/financials', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [users] = await pool.execute('SELECT plan_type, COUNT(*) as count FROM users GROUP BY plan_type');
-        let free = 0; let premium = 0;
-        users.forEach(u => {
-            if (u.plan_type === 'premium') premium += Number(u.count) || 0;
-            else free += Number(u.count) || 0;
-        });
-        const mrr = premium * 29.90; // Exemplo: R$ 29,90 por premium
-        res.json({ free, premium, mrr });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/batch-stats', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [[{ total }]] = await pool.execute('SELECT COUNT(*) as total FROM batches WHERE is_active = 0');
-        const [[{ success }]] = await pool.execute('SELECT COUNT(*) as success FROM batches WHERE is_active = 0 AND DATEDIFF(ended_at, started_at) > 1');
-        res.json({ total, success, abandoned: total - success });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/health-radar', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [devices] = await pool.execute(`
-            SELECT d.serial_code, d.device_name, u.name as user_name, t.rssi, t.battery, t.recorded_at, d.last_seen 
-            FROM devices d 
-            JOIN users u ON d.user_id = u.id
-            LEFT JOIN (SELECT device_id, rssi, battery, recorded_at FROM telemetry WHERE id IN (SELECT MAX(id) FROM telemetry GROUP BY device_id)) t ON t.device_id = d.id
-            WHERE d.last_seen > NOW() - INTERVAL 7 DAY
-            ORDER BY t.rssi ASC, t.battery ASC
-            LIMIT 5
-        `);
-        res.json(devices);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/push-stats', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) as total_users FROM users');
-        const [[{ opt_in }]] = await pool.execute('SELECT COUNT(DISTINCT user_id) as opt_in FROM push_subscriptions');
-        res.json({ total_users, opt_in });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/admin/broadcast-push', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { title, message } = req.body;
-        const [subs] = await pool.execute('SELECT user_id FROM push_subscriptions GROUP BY user_id');
-        let sent = 0;
-        for (const sub of subs) {
-            await sendPushToUser(pool, sub.user_id, title, message);
-            sent++;
-        }
-        res.json({ success: true, sent });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/community-trends', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [styles] = await pool.execute(`
-            SELECT style as name, 
-                   COUNT(*) as count, 
-                   AVG(DATEDIFF(IFNULL(ended_at, NOW()), started_at)) as avg_days,
-                   AVG(CASE WHEN CAST(og AS DECIMAL(10,4)) > 500 THEN CAST(og AS DECIMAL(10,4)) / 1000 ELSE CAST(og AS DECIMAL(10,4)) END) as avg_og,
-                   AVG(CASE WHEN CAST(fg AS DECIMAL(10,4)) > 500 THEN CAST(fg AS DECIMAL(10,4)) / 1000 ELSE CAST(fg AS DECIMAL(10,4)) END) as avg_fg
-            FROM batches 
-            WHERE style IS NOT NULL AND style != "" 
-            GROUP BY style 
-            ORDER BY count DESC 
-            LIMIT 10
-        `);
-        const enriched = styles.map(s => {
-            let og = parseFloat(s.avg_og);
-            let fg = parseFloat(s.avg_fg);
-            if (og > 500) og /= 1000;
-            if (fg > 500) fg /= 1000;
-            let abv = 0;
-            if (og > 1 && fg > 0.99 && og > fg) abv = (og - fg) * 131.25;
-            return { ...s, abv: abv > 0 ? abv.toFixed(1) : '-' };
-        });
-        res.json(enriched);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/trends', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [[{ total_batches }]] = await pool.execute('SELECT COUNT(*) as total_batches FROM batches');
-        const [styles] = await pool.execute('SELECT style as name, COUNT(*) as count FROM batches WHERE style IS NOT NULL AND style != "" GROUP BY style ORDER BY count DESC LIMIT 5');
-        res.json({ total_batches, styles });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/map', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        // Fallback para quem não tem localização (Média Brasil)
-        const [locations] = await pool.execute('SELECT u.name, IFNULL(u.lat, -23.5505) as lat, IFNULL(u.lon, -46.6333) as lon, MAX(d.last_seen) as last_seen FROM users u JOIN devices d ON u.id = d.user_id GROUP BY u.id');
-        res.json(locations);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { stdout, stderr } = await execPromise('pm2 logs breww-server --nostream --lines 100');
-        res.send(stdout + '\n' + stderr);
-    } catch (e) {
-        console.error(e);
-        res.status(500).send('Erro interno ao consultar logs do servidor');
-    }
-});
-
-// BROADCASTS & LOGS
-app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const safeLimit = 100;
-        const [logs] = await pool.execute(`SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT ${safeLimit}`);
-        res.json(logs);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.get('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [broadcasts] = await pool.execute('SELECT * FROM system_broadcasts ORDER BY created_at DESC');
-        res.json(broadcasts);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/admin/broadcasts', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { title, message, type, is_active, send_push } = req.body || {};
-        if (!message) return res.status(400).json({ error: 'Mensagem é obrigatória' });
-        await pool.execute('INSERT INTO system_broadcasts (title, message, type, is_active) VALUES (?, ?, ?, ?)', [title ?? null, message, type || 'info', is_active ? 1 : 0]);
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_BROADCAST', `Title: ${title || ''}`, req.ip || null]);
-        
-        if (send_push) {
-            // Find all active subscriptions and push
-            const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
-            for (const sub of subs) {
-                sendPushToUser(pool, sub.user_id, title || 'Aviso da Plataforma', message);
-            }
-        }
-        res.status(201).json({ message: 'Enviado' });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.put('/api/admin/broadcasts/:id', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { is_active } = req.body;
-        await pool.execute('UPDATE system_broadcasts SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, req.params.id]);
-        res.json({ message: 'Atualizado' });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
 app.get('/api/broadcasts/active', async (req, res) => {
     try {
         const [broadcasts] = await pool.execute('SELECT * FROM system_broadcasts WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1');
@@ -2147,78 +1800,12 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint de API nã
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
-// --- MAGIC PREDICTION (Fim da Fermentação) ---
-const MAGIC_PREDICTION_INTERVAL = 60 * 60 * 1000; // Roda a cada 1 hora
-setInterval(async () => {
-    try {
-        const [batches] = await pool.execute(`SELECT b.id, b.name, d.user_id, b.fg FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.is_active = 1`);
-        
-        for (const batch of batches) {
-            if (!batch.fg) continue; // Sem FG esperado
-            let targetFg = parseFloat(batch.fg);
-            if (isNaN(targetFg) || targetFg <= 0) continue;
-            if (targetFg > 500) targetFg = targetFg / 1000;
-            
-            // Já alertou em memória ou no histórico de eventos do lote?
-            if (alertState[`magic_${batch.id}`]) continue;
-            const [existingMagic] = await pool.execute(
-                `SELECT id FROM batch_events WHERE batch_id = ? AND event_type = 'MAGIC_PREDICTION' LIMIT 1`,
-                [batch.id]
-            );
-            if (existingMagic.length > 0) {
-                alertState[`magic_${batch.id}`] = true;
-                continue;
-            }
-            
-            // Pega dados das últimas 48h
-            const [rows] = await pool.execute(`SELECT gravity, recorded_at FROM telemetry WHERE batch_id = ? AND gravity IS NOT NULL AND gravity > 0 AND recorded_at > DATE_SUB(NOW(), INTERVAL 48 HOUR) ORDER BY recorded_at ASC`, [batch.id]);
-            
-            if (rows.length < 5) continue;
-            
-            const first = rows[0];
-            const last = rows[rows.length - 1];
-            
-            const hoursDiff = (new Date(last.recorded_at).getTime() - new Date(first.recorded_at).getTime()) / (1000 * 60 * 60);
-            if (hoursDiff < 6) continue; // Precisa de pelo menos 6 horas de dados
-            
-            let firstGrav = parseFloat(first.gravity);
-            let lastGrav = parseFloat(last.gravity);
-            if (isNaN(firstGrav) || isNaN(lastGrav)) continue;
-            if (firstGrav > 500) firstGrav = firstGrav / 1000;
-            if (lastGrav > 500) lastGrav = lastGrav / 1000;
-
-            const sgDrop = firstGrav - lastGrav;
-            if (sgDrop <= 0.001) continue; // Queda insignificante
-            
-            const dropRatePerHour = sgDrop / hoursDiff;
-            const remainingDrop = lastGrav - targetFg;
-            
-            if (remainingDrop > 0 && dropRatePerHour > 0) {
-                const hoursRemaining = remainingDrop / dropRatePerHour;
-                
-                // Se faltar 24h ou menos, avisa o usuário e grava no banco para não repetir após restart
-                if (hoursRemaining > 0 && hoursRemaining <= 24) {
-                    alertState[`magic_${batch.id}`] = true;
-                    const msgText = `Atenção! Sua ${batch.name} deve atingir o FG esperado (${batch.fg}) nas próximas ${Math.round(hoursRemaining)} horas!`;
-                    await pool.execute(
-                        `INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, 'MAGIC_PREDICTION', ?, NOW())`,
-                        [batch.id, msgText]
-                    ).catch(() => {});
-                    await sendPushToUser(pool, batch.user_id, 'Previsão Mágica 🔮', msgText);
-                    console.log(`[Magic Prediction] Alerta enviado para lote ${batch.id} (${batch.name}) - ETA: ${hoursRemaining}h`);
-                }
-            }
-        }
-    } catch (e) {
-        console.error('Magic Prediction Error:', e);
-    }
-}, MAGIC_PREDICTION_INTERVAL);
-
 const serverInstance = app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
 
 // Graceful shutdown for PM2 / Docker / OS signals
 const gracefulShutdown = (signal) => {
     console.log(`🛑 [${signal}] Encerrando servidor com segurança...`);
+    try { smartScheduler.stop(); } catch (e) {}
     serverInstance.close(() => {
         try { mqttClient.end(true); } catch (e) {}
         Promise.allSettled([pool.end(), ingredientsPool.end()]).finally(() => {

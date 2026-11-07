@@ -135,7 +135,7 @@ export const buildTelemetryPayload = (state) => {
     };
 };
 
-export const createVirtualEsp32Manager = (mqttClient) => {
+export const createVirtualEsp32Manager = (mqttClient, onPublish) => {
     const state = createInitialEsp32State(DEFAULT_SERIAL);
     let loopTimer = null;
     let otaTimer = null;
@@ -156,10 +156,14 @@ export const createVirtualEsp32Manager = (mqttClient) => {
     };
 
     const publishTelemetry = () => {
-        if (!mqttClient) return null;
         const payload = buildTelemetryPayload(state);
         state.lastPublishedAt = new Date().toISOString();
-        mqttClient.publish(`brewbrother/${state.serial}/data`, JSON.stringify(payload));
+        if (mqttClient) {
+            mqttClient.publish(`brewbrother/${state.serial}/data`, JSON.stringify(payload));
+        }
+        if (typeof onPublish === 'function') {
+            try { onPublish(state.serial, payload); } catch (e) {}
+        }
         return payload;
     };
 

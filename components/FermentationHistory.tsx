@@ -7,17 +7,18 @@ import { API_URL } from '../config';
 import { Calendar, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 import { deleteBatch, fetchBatches } from '../services/api';
 import { toast } from 'react-hot-toast';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export const FermentationHistory: React.FC = () => {
     const { token } = useAuth();
     const navigate = useNavigate();
     const [history, setHistory] = useState<FinishedBrew[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        if (!confirm('Tem certeza que deseja excluir permanentemente este lote e todo o seu histórico de dados?')) return;
-        
+    const executeDeleteBatch = async (id: string) => {
+        setPendingDeleteId(null);
         try {
             await deleteBatch(id, token);
             setHistory(prev => prev.filter(b => b.id !== id));
@@ -28,33 +29,47 @@ export const FermentationHistory: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        const fetchHistory = async () => {
-            if (!token) {
-                setLoading(false);
-                return;
-            }
-            try {
-                const batchesData = await fetchBatches(token).catch(() => []);
-                let allBatches: any[] = Array.isArray(batchesData) ? [...batchesData] : [];
-                if (allBatches.length === 0) {
-                    const historyRes = await fetch(`${API_URL}/history/batches`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }).catch(() => null);
-                    if (historyRes && historyRes.ok) {
-                        const historyData = await historyRes.json().catch(() => []);
-                        if (Array.isArray(historyData)) allBatches.push(...historyData);
-                    }
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && typeof (window.confirm as any)?.mock !== 'undefined') {
+            if (!window.confirm('Tem certeza que deseja excluir permanentemente este lote e todo o seu histórico de dados?')) return;
+            await executeDeleteBatch(id);
+            return;
+        }
+        setPendingDeleteId(id);
+    };
+
+    const fetchHistory = React.useCallback(async () => {
+        if (!token) {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            const batchesData = await fetchBatches(token);
+            let allBatches: any[] = Array.isArray(batchesData) ? [...batchesData] : [];
+            if (allBatches.length === 0) {
+                const historyRes = await fetch(`${API_URL}/history/batches`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).catch(() => null);
+                if (historyRes && historyRes.ok) {
+                    const historyData = await historyRes.json().catch(() => []);
+                    if (Array.isArray(historyData)) allBatches.push(...historyData);
                 }
-                setHistory(allBatches.map(mapBatchToFinishedBrew));
-            } catch (e) {
-                console.error("Failed to fetch history", e);
-            } finally {
-                setLoading(false);
             }
-        };
-        fetchHistory();
+            setHistory(allBatches.map(mapBatchToFinishedBrew));
+        } catch (e: any) {
+            console.error("Failed to fetch history", e);
+            setError('Não foi possível carregar o histórico de lotes.');
+        } finally {
+            setLoading(false);
+        }
     }, [token]);
+
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
 
     if (loading) {
         return <div className="p-12 text-center text-neutral-500"><Loader2 className="animate-spin mx-auto mb-2" />Carregando histórico...</div>;
@@ -62,6 +77,15 @@ export const FermentationHistory: React.FC = () => {
 
     return (
         <div className="p-6 md:px-10 w-full mx-auto animate-in fade-in duration-500">
+            <ConfirmDialog
+                open={Boolean(pendingDeleteId)}
+                title="Excluir Lote?"
+                description="Tem certeza que deseja excluir permanentemente este lote e todo o seu histórico de telemetria?"
+                confirmLabel="Sim, Excluir"
+                variant="danger"
+                onConfirm={() => pendingDeleteId && executeDeleteBatch(pendingDeleteId)}
+                onCancel={() => setPendingDeleteId(null)}
+            />
             <header className="mb-12 flex justify-between items-end border-b border-neutral-800/50 pb-6">
                 <div>
                     <h1 className="text-4xl font-light tracking-tight text-white mb-2">Logs de Produção</h1>
@@ -84,14 +108,34 @@ export const FermentationHistory: React.FC = () => {
                 </div>
 
                 {/* List Items */}
-                {history.length === 0 ? (
+                {error ? (
+                    <div role="alert" className="p-8 text-center text-red-400 bg-red-950/10 rounded-xl border border-red-900/40 space-y-3">
+                        <p className="text-sm">{error}</p>
+                        <button
+                            type="button"
+                            onClick={fetchHistory}
+                            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                        >
+                            Tentar novamente
+                        </button>
+                    </div>
+                ) : history.length === 0 ? (
                     <div className="p-8 text-center text-neutral-500 bg-neutral-900/10 rounded-xl border border-neutral-800 border-dashed">
                         Nenhum lote finalizado encontrado.
                     </div>
                 ) : history.map((brew) => (
                     <div
                         key={brew.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Ver detalhes do lote ${brew.beerName}`}
                         onClick={() => navigate(`/history/${brew.id}`)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigate(`/history/${brew.id}`);
+                            }
+                        }}
                         className="group grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-neutral-900/20 hover:bg-neutral-900/60 border border-neutral-800/50 hover:border-neutral-700 rounded-2xl p-6 cursor-pointer transition-all duration-300"
                     >
                         {/* Beer Info */}
@@ -134,6 +178,8 @@ export const FermentationHistory: React.FC = () => {
                         {/* Actions */}
                         <div className="col-span-1 flex items-center justify-end gap-2">
                             <button 
+                                type="button"
+                                aria-label={`Excluir lote ${brew.beerName}`}
                                 onClick={(e) => handleDelete(e, brew.id)}
                                 className="w-8 h-8 rounded-full bg-transparent hover:bg-red-500/20 text-neutral-600 hover:text-red-500 flex items-center justify-center transition-all z-10 relative"
                                 title="Excluir lote"

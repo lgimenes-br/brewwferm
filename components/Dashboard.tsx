@@ -218,6 +218,37 @@ export const Dashboard: React.FC = () => {
                 </div>
             </header>
 
+            {fermenters.length === 0 && !isInitialSyncing ? (
+                <div className="bg-neutral-900/30 border border-neutral-800 border-dashed rounded-3xl p-10 md:p-16 text-center max-w-2xl mx-auto my-6">
+                    <div className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto mb-5 text-neutral-400">
+                        <Thermometer size={28} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Nenhum controlador conectado ainda</h2>
+                    <p className="text-neutral-400 text-sm mb-8 max-w-md mx-auto">
+                        Adicione sua placa ESP32 pelo código serial, escaneie sua rede local ou utilize o ESP32 Virtual no canto inferior direito para simular uma fermentação completa.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsScanModalOpen(true);
+                                startScan();
+                            }}
+                            className="flex items-center gap-2 px-5 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-neutral-700"
+                        >
+                            <Search size={15} /> Procurar na Rede
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                        >
+                            <Plus size={15} /> Adicionar Dispositivo
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {fermenters.map((f) => {
                     // Check connectivity (30s window backed by 10s MQTT request_status heartbeats)
@@ -309,7 +340,16 @@ export const Dashboard: React.FC = () => {
                                 </div>
                             )}
                         <div
+                            role={isOnline ? "button" : undefined}
+                            tabIndex={isOnline ? 0 : undefined}
+                            aria-label={isOnline ? `Abrir controle de ${f.name}` : `${f.name} (Offline)`}
                             onClick={() => isOnline && navigate(`/fermenter/${encodeURIComponent(f.id)}`)}
+                            onKeyDown={(e) => {
+                                if (isOnline && (e.key === 'Enter' || e.key === ' ')) {
+                                    e.preventDefault();
+                                    navigate(`/fermenter/${encodeURIComponent(f.id)}`);
+                                }
+                            }}
                             className={`group relative rounded-3xl p-8 transition-all duration-300 overflow-hidden border ${
                                 isOnline 
                                 ? 'bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 cursor-pointer hover:shadow-2xl hover:shadow-black/50' 
@@ -481,8 +521,9 @@ export const Dashboard: React.FC = () => {
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Nome do Equipamento</label>
+                                    <label htmlFor="edit-device-name-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Nome do Equipamento</label>
                                     <input
+                                        id="edit-device-name-input"
                                         type="text"
                                         value={editName}
                                         onChange={(e) => setEditName(e.target.value)}
@@ -553,8 +594,9 @@ export const Dashboard: React.FC = () => {
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Nome do Equipamento</label>
+                                    <label htmlFor="add-device-name-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Nome do Equipamento</label>
                                     <input
+                                        id="add-device-name-input"
                                         type="text"
                                         value={newDeviceName}
                                         onChange={(e) => setNewDeviceName(e.target.value)}
@@ -563,8 +605,9 @@ export const Dashboard: React.FC = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">IP / Serial</label>
+                                    <label htmlFor="add-device-serial-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">IP / Serial</label>
                                     <input
+                                        id="add-device-serial-input"
                                         type="text"
                                         value={newDeviceIp}
                                         onChange={(e) => setNewDeviceIp(e.target.value)}

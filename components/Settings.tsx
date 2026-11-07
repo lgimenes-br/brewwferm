@@ -36,6 +36,7 @@ const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
 );
 
 const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => {
+  const inputId = React.useId();
   const [rawText, setRawText] = useState<string>(
     type === 'number' ? (value === undefined || value === null || isNaN(Number(value)) ? '' : String(value)) : String(value ?? '')
   );
@@ -56,8 +57,9 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 
   return (
     <div className="space-y-2">
-      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
+      <label htmlFor={inputId} className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
       <input 
+        id={inputId}
         type={type === 'number' ? 'text' : type}
         inputMode={type === 'number' ? 'decimal' : undefined}
         value={type === 'number' ? rawText : (value ?? '')}
@@ -72,7 +74,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
           }
         }}
         placeholder={placeholder}
-        className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors font-mono text-sm"
+        className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 focus-visible:ring-2 focus-visible:ring-amber-500/60 transition-colors font-mono text-sm"
       />
     </div>
   );

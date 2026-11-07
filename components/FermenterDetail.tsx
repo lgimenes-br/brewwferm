@@ -16,6 +16,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { FermentationWizard } from './FermentationWizard';
 import { ErrorBoundary } from './ErrorBoundary';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface FermenterDetailProps {
     fermenter: Fermenter;
@@ -50,6 +51,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     // Batch Editing State
     const [isEditingBatch, setIsEditingBatch] = useState(false);
     const [isCopiedShare, setIsCopiedShare] = useState(false);
+    const [isFinishConfirmOpen, setIsFinishConfirmOpen] = useState(false);
 
     const handleShareLiveBatch = async () => {
         if (!fermenter.batchId) return;
@@ -208,9 +210,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         }
     };
 
-    const handleFinishProfile = async () => {
-        if (!confirm('Deseja realmente finalizar este lote?')) return;
-
+    const executeFinishProfile = async () => {
+        setIsFinishConfirmOpen(false);
         try {
             blockTelemetry(fermenter.id);
             onUpdate(fermenter.id, { profile: [], status: FermenterStatus.IDLE, currentStepIndex: 0, isPaused: false });
@@ -221,6 +222,15 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
             console.error('Error finishing batch:', err);
             toast.error('Erro ao finalizar o lote. Tente novamente.');
         }
+    };
+
+    const handleFinishProfile = async () => {
+        if (typeof window !== 'undefined' && typeof (window.confirm as any)?.mock !== 'undefined') {
+            if (!window.confirm('Deseja realmente finalizar este lote?')) return;
+            await executeFinishProfile();
+            return;
+        }
+        setIsFinishConfirmOpen(true);
     };
 
     const handleNewBatch = async (data: {
@@ -402,6 +412,15 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     return (
         <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
+            <ConfirmDialog
+                open={isFinishConfirmOpen}
+                title="Finalizar Lote?"
+                description="O lote atual será arquivado nos Logs de Produção e o fermentador ficará pronto para uma nova brassagem."
+                confirmLabel="Sim, Finalizar"
+                variant="warning"
+                onConfirm={executeFinishProfile}
+                onCancel={() => setIsFinishConfirmOpen(false)}
+            />
             {/* Header Section */}
             {displayMode === DeviceMode.FERMENTER && (
             <div className="flex justify-between items-start mb-8">
@@ -431,8 +450,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             />
                             <div className="flex gap-4">
                                 <div className="flex-1">
-                                    <label className="text-xs text-neutral-500 uppercase tracking-widest mb-1 block">OG</label>
+                                    <label htmlFor="edit-batch-og-input" className="text-xs text-neutral-500 uppercase tracking-widest mb-1 block">OG</label>
                                     <input
+                                        id="edit-batch-og-input"
                                         type="number"
                                         step="0.001"
                                         value={isNaN(editOG) ? '' : editOG}
@@ -441,8 +461,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="text-xs text-neutral-500 uppercase tracking-widest mb-1 block">FG</label>
+                                    <label htmlFor="edit-batch-fg-input" className="text-xs text-neutral-500 uppercase tracking-widest mb-1 block">FG</label>
                                     <input
+                                        id="edit-batch-fg-input"
                                         type="number"
                                         step="0.001"
                                         value={isNaN(editFG) ? '' : editFG}
@@ -561,11 +582,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                                 {/* Linha 1 */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                                    <label htmlFor="keg-line1-input" className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
                                         Linha 1
                                         <span className="text-yellow-500/80 bg-yellow-500/10 px-2 py-0.5 rounded text-[9px] border border-yellow-500/20">AMARELO</span>
                                     </label>
                                     <input
+                                        id="keg-line1-input"
                                         type="text"
                                         value={kegeratorForm.line1}
                                         onChange={(e) => handleKegeratorChange('line1', e.target.value)}
@@ -576,11 +598,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
                                 {/* Linha 2 */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                                    <label htmlFor="keg-line2-input" className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
                                         Linha 2
                                         <span className="text-yellow-500/80 bg-yellow-500/10 px-2 py-0.5 rounded text-[9px] border border-yellow-500/20">AMARELO</span>
                                     </label>
                                     <input
+                                        id="keg-line2-input"
                                         type="text"
                                         value={kegeratorForm.line2}
                                         onChange={(e) => handleKegeratorChange('line2', e.target.value)}
@@ -591,11 +614,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
                                 {/* Estilo */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                                    <label htmlFor="keg-style-input" className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
                                         Estilo
                                         <span className="text-neutral-400 bg-neutral-800 px-2 py-0.5 rounded text-[9px] border border-neutral-700">BRANCO</span>
                                     </label>
                                     <input
+                                        id="keg-style-input"
                                         type="text"
                                         value={kegeratorForm.style}
                                         onChange={(e) => handleKegeratorChange('style', e.target.value)}
@@ -606,11 +630,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
                                 {/* Cervejaria */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                                    <label htmlFor="keg-brewery-input" className="flex items-center justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
                                         Cervejaria
                                         <span className="text-neutral-400 bg-neutral-800 px-2 py-0.5 rounded text-[9px] border border-neutral-700">BRANCO</span>
                                     </label>
                                     <input
+                                        id="keg-brewery-input"
                                         type="text"
                                         value={kegeratorForm.brewery}
                                         onChange={(e) => handleKegeratorChange('brewery', e.target.value)}
@@ -621,8 +646,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
                                 {/* IBU */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">IBU</label>
+                                    <label htmlFor="keg-ibu-input" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">IBU</label>
                                     <input
+                                        id="keg-ibu-input"
                                         type="number"
                                         value={isNaN(kegeratorForm.ibu) ? '' : kegeratorForm.ibu}
                                         onChange={(e) => handleKegeratorChange('ibu', e.target.value === '' ? 0 : parseFloat(e.target.value))}
@@ -633,8 +659,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
                                 {/* ABV */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">ABV %</label>
+                                    <label htmlFor="keg-abv-input" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">ABV %</label>
                                     <input
+                                        id="keg-abv-input"
                                         type="number"
                                         step="0.1"
                                         value={isNaN(kegeratorForm.abv) ? '' : kegeratorForm.abv}

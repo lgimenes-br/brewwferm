@@ -775,8 +775,13 @@ describe('4. Static HTML Launchers DOM & Script Execution', () => {
 });
 
 describe('5. Backend Server & PushService Code & Logic Verification', () => {
-    it('verifies backend/server.js has all SQL bind guards, migrations, Smart Scheduler compatibility, and PM2 JSON extraction', () => {
-        const serverCode = fs.readFileSync(path.resolve(__dirname, '../backend/server.js'), 'utf-8');
+    it('verifies backend/server.js, adminRoutes.js, and smartScheduler.js have all SQL bind guards, migrations, Smart Scheduler compatibility, and PM2 JSON extraction', () => {
+        const serverCode = [
+            fs.readFileSync(path.resolve(__dirname, '../backend/server.js'), 'utf-8'),
+            fs.readFileSync(path.resolve(__dirname, '../backend/routes/adminRoutes.js'), 'utf-8'),
+            fs.readFileSync(path.resolve(__dirname, '../backend/services/smartScheduler.js'), 'utf-8'),
+            fs.readFileSync(path.resolve(__dirname, '../backend/utils/securityHelpers.js'), 'utf-8')
+        ].join('\n');
 
         // 1. No unguarded LIMIT ? in pool.execute
         expect(serverCode).not.toMatch(/LIMIT\s+\?/i);
@@ -803,6 +808,12 @@ describe('5. Backend Server & PushService Code & Logic Verification', () => {
         // 6. PM2 JSON extraction strips banner lines before JSON.parse
         expect(serverCode).toContain("stdout.indexOf('[')");
         expect(serverCode).toContain("stdout.slice(jsonStart)");
+
+        // 7. Security & Performance Audit checks (CSP, JWT HS256, Promise.all, 30 SECOND online window)
+        expect(serverCode).toContain('Content-Security-Policy');
+        expect(serverCode).toContain("algorithms: ['HS256']");
+        expect(serverCode).toContain('Promise.all([');
+        expect(serverCode).toContain('INTERVAL 30 SECOND');
     });
 
     it('verifies backend/pushService.js guards undefined userId and safely checks err?.statusCode', async () => {

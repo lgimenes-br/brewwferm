@@ -12,28 +12,34 @@ export const CompareBatches: React.FC = () => {
     const [batch2, setBatch2] = useState<string>('');
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    const fetchBatches = React.useCallback(async () => {
+        setLoadError(null);
+        try {
+            const res = await fetch(`${API_URL}/batches`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.status === 401 && typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                return;
+            }
+            if (res.ok) {
+                const data = await res.json();
+                const completed = (Array.isArray(data) ? data : []).filter((b: any) => !b.is_active);
+                setBatches(completed);
+            } else {
+                setLoadError('Falha ao carregar lista de lotes para comparação.');
+            }
+        } catch (err) {
+            console.error(err);
+            setLoadError('Erro de conexão ao carregar lotes.');
+        }
+    }, [token]);
 
     useEffect(() => {
-        const fetchBatches = async () => {
-            try {
-                const res = await fetch(`${API_URL}/batches`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.status === 401 && typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-                    return;
-                }
-                if (res.ok) {
-                    const data = await res.json();
-                    const completed = (Array.isArray(data) ? data : []).filter((b: any) => !b.is_active);
-                    setBatches(completed);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        };
         fetchBatches();
-    }, [token]);
+    }, [fetchBatches]);
 
     const handleCompare = async () => {
         if (!batch1 || !batch2) return toast.error('Selecione dois lotes para comparar');
@@ -81,6 +87,18 @@ export const CompareBatches: React.FC = () => {
             </header>
 
             <div className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-6 md:p-8 mb-8">
+                {loadError && (
+                    <div role="alert" className="mb-4 p-4 rounded-xl bg-red-950/20 border border-red-900/40 flex items-center justify-between gap-4 text-xs text-red-300">
+                        <span>{loadError}</span>
+                        <button
+                            type="button"
+                            onClick={fetchBatches}
+                            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-bold uppercase tracking-wider shrink-0"
+                        >
+                            Tentar novamente
+                        </button>
+                    </div>
+                )}
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                     <div className="flex-1 w-full">
                         <label htmlFor="compare-batch-1" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2">Lote 1</label>

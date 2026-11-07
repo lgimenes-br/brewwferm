@@ -132,7 +132,19 @@ const NavConfig = () => {
                 {/* Top Row for Mobile (Logo + Hamburger) */}
                 <div className="flex items-center justify-between w-full md:w-auto">
                     {/* Left Side: Logo Only */}
-                    <div className="flex items-center cursor-pointer select-none" onClick={() => navigate('/')}>
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Ir para a página inicial"
+                        className="flex items-center cursor-pointer select-none rounded-lg"
+                        onClick={() => navigate('/')}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigate('/');
+                            }
+                        }}
+                    >
                         <div className="flex items-baseline">
                             <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
                             <div className="relative">

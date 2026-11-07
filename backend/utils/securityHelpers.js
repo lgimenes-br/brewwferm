@@ -44,11 +44,15 @@ export const authRateLimiter = (req, res, next) => {
     next();
 };
 
-// Security Headers (nosniff, clickjacking protection, referrer policy, permissions policy)
+// Security Headers (nosniff, clickjacking protection, referrer policy, permissions policy, CSP)
 export const securityHeadersMiddleware = (req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' wss: https:; frame-src 'self' https://accounts.google.com;"
+    );
     next();
 };

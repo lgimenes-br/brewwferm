@@ -137,7 +137,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             return undefined;
         })();
 
-        const hasLiveDeviceData = Boolean(prevDev?.currentDevice?.lastUpdate);
+        const hasLiveDeviceData = Boolean(prevDev?.currentDevice?.lastUpdate) && !d.is_virtual;
+        const isBackendOnline = Boolean(d.is_online);
         const parsedSavedStepTime = savedStepTime !== null ? parseFloat(savedStepTime) : NaN;
         const safeCurrentDevice = hasLiveDeviceData ? prevDev!.currentDevice : {
             gravity: safeNum(d.last_gravity, 0),
@@ -145,7 +146,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             battery: safeNum(d.last_battery, 0),
             angle: 0,
             rssi: d.last_rssi !== null && d.last_rssi !== undefined ? (parseInt(String(d.last_rssi), 10) || 0) : 0,
-            lastUpdate: '',
+            lastUpdate: isBackendOnline ? new Date().toISOString() : '',
             statOp: d.last_status || d.status_op || d.stat_op || 'INATIVO',
             logInterval: d.wi ? d.wi / 1000 : 30, // Default 30s
             compressorDelay: d.cds ?? 310,

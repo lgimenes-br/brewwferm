@@ -74,8 +74,11 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas')) {
-              return 'pdf-export';
+            if (id.includes('node_modules/jspdf')) {
+              return 'jspdf';
+            }
+            if (id.includes('node_modules/html2canvas')) {
+              return 'html2canvas';
             }
             if (id.includes('node_modules/react-simple-maps') || id.includes('node_modules/d3-geo')) {
               return 'admin-maps';
