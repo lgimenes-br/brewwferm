@@ -4,7 +4,18 @@ import { useAuth } from '../context/AuthContext';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
     const { token } = useAuth();
-    if (!token) return <Navigate to="/login" replace />;
+    if (!token) {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const pairCode = params.get('pair');
+            if (pairCode && pairCode.trim()) {
+                try {
+                    sessionStorage.setItem('breww_pending_pair', pairCode.trim());
+                } catch {}
+            }
+        }
+        return <Navigate to="/login" replace />;
+    }
     return <>{children}</>;
 };
 

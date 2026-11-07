@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, isDeviceOnline as checkDeviceOnline } from '../types';
-import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode } from 'lucide-react';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { fetchDiscoveryDevices } from '../services/api';
@@ -32,6 +32,7 @@ export const Dashboard: React.FC = () => {
         }
     }, [connectionStatus, fermenters, sendCommand]);
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     // Edit States
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
@@ -43,6 +44,28 @@ export const Dashboard: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newDeviceName, setNewDeviceName] = useState('');
     const [newDeviceIp, setNewDeviceIp] = useState('');
+
+    // Auto-pair via QR Code / URL (?pair=ESP32_...) or pending sessionStorage pair code
+    useEffect(() => {
+        let pairCode = searchParams.get('pair')?.trim() || '';
+        if (!pairCode && typeof window !== 'undefined') {
+            try {
+                pairCode = sessionStorage.getItem('breww_pending_pair')?.trim() || '';
+                if (pairCode) sessionStorage.removeItem('breww_pending_pair');
+            } catch {}
+        }
+        if (pairCode) {
+            setNewDeviceIp(pairCode.toUpperCase());
+            setNewDeviceName(prev => prev.trim() ? prev : 'Meu Breww');
+            setIsAddModalOpen(true);
+            toast.success('Código do aparelho preenchido automaticamente!');
+            if (searchParams.has('pair')) {
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.delete('pair');
+                setSearchParams(nextParams, { replace: true });
+            }
+        }
+    }, [searchParams, setSearchParams]);
 
     // Scan States
     const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -219,31 +242,79 @@ export const Dashboard: React.FC = () => {
             </header>
 
             {fermenters.length === 0 && !isInitialSyncing ? (
-                <div className="bg-neutral-900/30 border border-neutral-800 border-dashed rounded-3xl p-10 md:p-16 text-center max-w-2xl mx-auto my-6">
-                    <div className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto mb-5 text-neutral-400">
+                <div className="bg-neutral-900/30 border border-neutral-800 border-dashed rounded-3xl p-8 md:p-12 text-center max-w-4xl mx-auto my-6">
+                    <div className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto mb-5 text-white">
                         <Thermometer size={28} />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Nenhum controlador conectado ainda</h2>
-                    <p className="text-neutral-400 text-sm mb-8 max-w-md mx-auto">
-                        Adicione sua placa ESP32 pelo código serial, escaneie sua rede local ou utilize o ESP32 Virtual no canto inferior direito para simular uma fermentação completa.
+                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Bem-vindo ao Breww! Vamos conectar seu aparelho?</h2>
+                    <p className="text-neutral-400 text-sm mb-8 max-w-lg mx-auto">
+                        Siga os 3 passos rápidos abaixo para colocar seu equipamento na sua conta e começar a controlar sua temperatura:
                     </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-8">
+                        <div className="bg-emerald-950/20 border border-emerald-900/40 rounded-2xl p-5 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                                        Passo 1 • Concluído
+                                    </span>
+                                    <CheckCircle2 size={18} className="text-emerald-400" />
+                                </div>
+                                <h3 className="text-white font-bold text-base mb-1">1. Conta Criada</h3>
+                                <p className="text-neutral-400 text-xs leading-relaxed">
+                                    Sua conta Breww já está pronta e ativa para receber seu primeiro equipamento.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-800 px-2.5 py-1 rounded-full">
+                                        Passo 2 • Na Tomada
+                                    </span>
+                                    <Wifi size={18} className="text-neutral-400" />
+                                </div>
+                                <h3 className="text-white font-bold text-base mb-1">2. Conecte no Wi-Fi</h3>
+                                <p className="text-neutral-400 text-xs leading-relaxed">
+                                    Ligue seu Breww na tomada e escolha o Wi-Fi da sua casa na telinha do aparelho.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-neutral-900/60 border border-neutral-700 rounded-2xl p-5 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                                        Passo 3 • Pareamento
+                                    </span>
+                                    <QrCode size={18} className="text-amber-400" />
+                                </div>
+                                <h3 className="text-white font-bold text-base mb-1">3. Cadastre o Código</h3>
+                                <p className="text-neutral-400 text-xs leading-relaxed">
+                                    Aponte a câmera do celular para o QR Code da telinha ou digite o código <span className="font-mono text-neutral-300">ESP32_...</span> abaixo.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="flex flex-wrap items-center justify-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+                        >
+                            <Plus size={16} /> Digitar Código do Aparelho
+                        </button>
                         <button
                             type="button"
                             onClick={() => {
                                 setIsScanModalOpen(true);
                                 startScan();
                             }}
-                            className="flex items-center gap-2 px-5 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-neutral-700"
+                            className="flex items-center gap-2 px-5 py-3.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-neutral-700"
                         >
-                            <Search size={15} /> Procurar na Rede
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-neutral-200 text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                        >
-                            <Plus size={15} /> Adicionar Dispositivo
+                            <Search size={15} /> Procurar no Mesmo Wi-Fi
                         </button>
                     </div>
                 </div>
@@ -605,15 +676,18 @@ export const Dashboard: React.FC = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label htmlFor="add-device-serial-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">IP / Serial</label>
+                                    <label htmlFor="add-device-serial-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Código do Aparelho (Serial / IP)</label>
                                     <input
                                         id="add-device-serial-input"
                                         type="text"
                                         value={newDeviceIp}
-                                        onChange={(e) => setNewDeviceIp(e.target.value)}
+                                        onChange={(e) => setNewDeviceIp(e.target.value.toUpperCase())}
                                         placeholder="Ex: 192.168.1.50 ou SERIAL_123"
                                         className="w-full bg-black border border-neutral-800 text-white font-mono text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
                                     />
+                                    <p className="text-[11px] text-neutral-500">
+                                        Digite o código exibido na telinha do seu Breww (ex: ESP32_4CC4EC4CEE78) ou na etiqueta do aparelho.
+                                    </p>
                                 </div>
 
                                 <button

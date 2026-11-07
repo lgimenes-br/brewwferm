@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity } from '../types';
-import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X, Share2, Check } from 'lucide-react';
+import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X, Share2, Check, Thermometer } from 'lucide-react';
 import { generateBatchShareToken } from '../services/api';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
@@ -372,6 +372,35 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         return 'text-red-500';
     };
     const isIdleFermenter = displayMode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
+    const hasMappedSensors = Boolean((fermenter.currentDevice as any)?.macCtrl);
+    const hasInvalidTemp = safeCurrentTemp <= -100 || safeCurrentTemp === 85;
+    const shouldSuggestSensorScan = !hasMappedSensors || hasInvalidTemp;
+
+    const sensorSetupBanner = shouldSuggestSensorScan ? (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 px-6 py-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl animate-in fade-in duration-300">
+            <div className="flex items-start md:items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5 md:mt-0">
+                    <Thermometer size={18} />
+                </div>
+                <div>
+                    <h3 className="text-sm font-bold text-white">
+                        Primeiro Passo: Vamos identificar seus sensores de temperatura?
+                    </h3>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                        Identifique automaticamente qual fio de sensor está na cerveja e qual está na geladeira para garantir a medição correta.
+                    </p>
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={() => navigate(`/settings?device=${encodeURIComponent(fermenter.id)}&scan=1`)}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shrink-0 shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+            >
+                <Thermometer size={14} />
+                Identificar Sensores Automaticamente
+            </button>
+        </div>
+    ) : null;
 
     const pendingModeBanner = hasPendingChange ? (
         <div className="flex items-center justify-between mb-8 px-5 py-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
@@ -405,6 +434,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         return (
             <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
                 {pendingModeBanner}
+                {sensorSetupBanner}
                 <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />
             </div>
         );
@@ -511,6 +541,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
             {/* ATIVAR MODO Banner */}
             {pendingModeBanner}
+            {sensorSetupBanner}
 
             {(displayMode === DeviceMode.KEGERATOR || displayMode === DeviceMode.FRIDGE) ? (
                 // === KEGERATOR & FRIDGE MODE LAYOUT ===

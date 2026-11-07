@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Link2, Send } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
@@ -84,11 +85,21 @@ export const Settings: React.FC = () => {
   const { fermenters, updateFermenterLocal } = useFermenters();
   const { sendCommand, otaProgress, scanResponses } = useBrew();
   const { token } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const autoScannedRef = React.useRef<string | null>(null);
   
   // Set default device or fallback if selected device was removed
   useEffect(() => {
+    const paramDevice = searchParams.get('device');
+    if (paramDevice && fermenters.some(f => f.id.toUpperCase() === paramDevice.toUpperCase())) {
+        const matched = fermenters.find(f => f.id.toUpperCase() === paramDevice.toUpperCase());
+        if (matched && selectedDeviceId !== matched.id) {
+            setSelectedDeviceId(matched.id);
+        }
+        return;
+    }
     if (fermenters.length > 0) {
         const exists = fermenters.some(f => f.id === selectedDeviceId);
         if (!selectedDeviceId || !exists) {
@@ -97,7 +108,26 @@ export const Settings: React.FC = () => {
     } else if (selectedDeviceId) {
         setSelectedDeviceId('');
     }
-  }, [fermenters, selectedDeviceId]);
+  }, [fermenters, selectedDeviceId, searchParams]);
+
+  // Auto-trigger 1-Wire sensor scan when arriving with ?scan=1
+  useEffect(() => {
+    const shouldScan = searchParams.get('scan') === '1';
+    if (shouldScan && selectedDeviceId && autoScannedRef.current !== selectedDeviceId) {
+        autoScannedRef.current = selectedDeviceId;
+        sendCommand(selectedDeviceId, 'scan_sensors', {});
+        toast.success('Buscando sensores de temperatura conectados no seu aparelho...');
+        setTimeout(() => {
+            const el = document.getElementById('sensor-mapping-section');
+            if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 250);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('scan');
+        setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, selectedDeviceId, sendCommand, setSearchParams]);
 
   const activeDevice = fermenters.find(f => f.id === selectedDeviceId);
 
@@ -946,7 +976,7 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 5.5 Mapeamento de Sensores */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
+      <section id="sensor-mapping-section" className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
         <SectionHeader icon={Thermometer} title="Mapeamento de Sensores (1-Wire)" />
         <div className="flex items-center gap-4 mb-6">
             <button 

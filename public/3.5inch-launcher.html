@@ -401,9 +401,23 @@
           <!-- W4: PAIRING -->
           <div class="view">
             <div class="wizard-title">Vincule seu Equipamento</div>
-            <div class="wizard-desc">Abra o site <b>breww.live</b>, vá em "Novo Equipamento" e digite o código de pareamento abaixo.</div>
-            <div class="pin-display">B74-9X2</div>
-            <div class="wizard-desc" style="font-size: 14px; margin-bottom: 32px;"><div class="spinner" style="width: 20px; height: 20px; border-width: 2px; margin: 0 auto 12px auto;"></div>Aguardando aprovação no site...</div>
+            <div class="wizard-desc" style="margin-bottom: 24px;">Aponte a câmera do celular para o QR Code ou acesse <b>breww.live</b>, clique em <b>+ ADICIONAR</b> e digite o código do aparelho:</div>
+            <div style="display: flex; align-items: center; gap: 32px; margin-bottom: 28px; background: var(--card-bg); border: 1px solid var(--border-color); padding: 24px 36px; border-radius: 24px;">
+              <div style="background: #FFF; padding: 12px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <svg viewBox="0 0 29 29" style="width: 120px; height: 120px; shape-rendering: crispEdges;">
+                  <path fill="#000" d="M0,0h7v7h-7zM1,1v5h5v-5zM2,2h3v3h-3zM22,0h7v7h-7zM23,1v5h5v-5zM24,2h3v3h-3zM0,22h7v7h-7zM1,23v5h5v-5zM2,24h3v3h-3zM9,0h2v2h-2zM13,0h3v1h-3zM18,0h2v3h-2zM8,3h3v2h-3zM13,3h4v2h-4zM9,6h2v2h-2zM15,6h5v2h-5zM0,9h3v2h-3zM5,9h4v2h-4zM11,9h3v3h-3zM16,9h4v2h-4zM22,9h3v2h-3zM26,9h3v3h-3zM2,13h4v2h-4zM8,13h2v3h-2zM12,13h5v2h-5zM19,13h3v3h-3zM24,13h4v2h-4zM0,17h2v3h-2zM4,17h3v2h-3zM10,17h4v3h-4zM16,17h2v2h-2zM20,16h5v5h-5zM21,17v3h3v-3zM22,18h1v1h-1zM27,17h2v4h-2zM9,22h3v2h-3zM14,22h4v2h-4zM20,22h2v3h-2zM24,22h5v2h-5zM8,26h4v3h-4zM14,25h3v4h-3zM19,26h4v3h-4zM25,25h4v4h-4z" />
+                </svg>
+                <span style="font-size: 10px; font-weight: 800; color: #000; letter-spacing: 1px;">LER QR CODE</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 2px; text-transform: uppercase;">CÓDIGO DO APARELHO (SERIAL)</div>
+                <div style="font-size: 36px; font-weight: 900; letter-spacing: 2px; font-family: monospace; color: #FFF;">ESP32_4CC4EC4CEE78</div>
+                <div style="font-size: 13px; color: #10b981; display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                  <div class="spinner" style="width: 16px; height: 16px; border-width: 2px; border-top-color: #10b981;"></div>
+                  Pronto para conectar na sua conta em breww.live
+                </div>
+              </div>
+            </div>
             <button class="btn-primary" style="background: #1A1A1A; color: var(--text-secondary);" onclick="setWizView(4)">PULAR POR ENQUANTO</button>
           </div>
           <!-- W5: DONE -->
