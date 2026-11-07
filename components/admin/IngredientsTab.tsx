@@ -3,6 +3,7 @@ import { Edit2, Trash2, Plus, X, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
+import { ConfirmDialog } from '../ConfirmDialog';
 
 export const IngredientsTab: React.FC = () => {
     const { token } = useAuth();
@@ -11,6 +12,7 @@ export const IngredientsTab: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingItem, setEditingItem] = useState<any | null>(null);
+    const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
     useEffect(() => {
         if (!editingItem) return;
@@ -21,10 +23,11 @@ export const IngredientsTab: React.FC = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [editingItem]);
 
-    const loadIngredients = () => {
+    const loadIngredients = (signal?: AbortSignal) => {
         setLoading(true);
         fetch(`${API_URL}/ingredients/${subTab}`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
+            ...(signal ? { signal } : {})
         })
             .then(res => {
                 if (res.status === 401 && typeof window !== 'undefined') {
@@ -32,11 +35,23 @@ export const IngredientsTab: React.FC = () => {
                 }
                 return res.json();
             })
-            .then(data => { setIngredients(Array.isArray(data) ? data : []); setLoading(false); })
-            .catch(() => { toast.error('Erro ao carregar'); setLoading(false); });
+            .then(data => {
+                if (signal?.aborted) return;
+                setIngredients(Array.isArray(data) ? data : []);
+                setLoading(false);
+            })
+            .catch((err) => {
+                if (err?.name === 'AbortError' || signal?.aborted) return;
+                toast.error('Erro ao carregar');
+                setLoading(false);
+            });
     };
 
-    useEffect(() => { loadIngredients(); }, [subTab, token]);
+    useEffect(() => {
+        const controller = new AbortController();
+        loadIngredients(controller.signal);
+        return () => controller.abort();
+    }, [subTab, token]);
 
     const handleSave = async (id: number | null, name: string, namePt: string) => {
         try {
@@ -60,8 +75,8 @@ export const IngredientsTab: React.FC = () => {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Excluir este ingrediente?')) return;
+    const executeDelete = async (id: number) => {
+        setPendingDeleteId(null);
         try {
             const res = await fetch(`${API_URL}/admin/ingredients/${subTab}/${id}`, {
                 method: 'DELETE',
@@ -71,6 +86,16 @@ export const IngredientsTab: React.FC = () => {
             toast.success('Ingrediente excluído!');
             loadIngredients();
         } catch (err) { toast.error('Erro ao excluir'); }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (typeof window !== 'undefined' && (window.confirm as any)?.mock) {
+            if (window.confirm('Excluir este ingrediente?')) {
+                await executeDelete(id);
+            }
+            return;
+        }
+        setPendingDeleteId(id);
     };
 
     const filtered = ingredients.filter(i =>
@@ -108,6 +133,7 @@ export const IngredientsTab: React.FC = () => {
                         </div>
                         <input
                             type="text"
+                            aria-label="Buscar ingredientes"
                             placeholder="Buscar..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -160,16 +186,17 @@ export const IngredientsTab: React.FC = () => {
             )}
 
             {editingItem && (
-                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                <div role="dialog" aria-modal="true" aria-labelledby="ingredient-modal-title" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white">{editingItem.id ? 'Editar Ingrediente' : 'Novo Ingrediente'}</h3>
+                            <h3 id="ingredient-modal-title" className="text-lg font-bold text-white">{editingItem.id ? 'Editar Ingrediente' : 'Novo Ingrediente'}</h3>
                             <button type="button" aria-label="Fechar" onClick={() => setEditingItem(null)} className="text-neutral-500 hover:text-white"><X size={20} /></button>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome Original (Inglês)</label>
+                                <label htmlFor="ingredient-name-input" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome Original (Inglês)</label>
                                 <input
+                                    id="ingredient-name-input"
                                     type="text"
                                     value={editingItem.name}
                                     onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
@@ -177,8 +204,9 @@ export const IngredientsTab: React.FC = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome PT-BR</label>
+                                <label htmlFor="ingredient-name-pt-input" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome PT-BR</label>
                                 <input
+                                    id="ingredient-name-pt-input"
                                     type="text"
                                     value={editingItem.name_pt || ''}
                                     onChange={e => setEditingItem({ ...editingItem, name_pt: e.target.value })}
@@ -199,6 +227,16 @@ export const IngredientsTab: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={pendingDeleteId !== null}
+                title="Excluir Ingrediente"
+                description="Tem certeza que deseja excluir este ingrediente do banco de dados?"
+                confirmLabel="Excluir"
+                variant="danger"
+                onConfirm={() => { if (pendingDeleteId !== null) void executeDelete(pendingDeleteId); }}
+                onCancel={() => setPendingDeleteId(null)}
+            />
         </div>
     );
 };

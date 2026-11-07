@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { Toaster, toast } from 'react-hot-toast';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare, Cpu } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode, isDeviceOnline } from './types';
 import { fetchFirmwareVersion } from './services/api';
 import { useAuth } from './context/AuthContext';
@@ -23,7 +23,6 @@ const BrewingCalculators = React.lazy(() => import('./components/BrewingCalculat
 const CompareBatches = React.lazy(() => import('./components/CompareBatches').then(m => ({ default: m.CompareBatches })));
 const PublicLiveBatch = React.lazy(() => import('./components/PublicLiveBatch').then(m => ({ default: m.PublicLiveBatch })));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const SimulatorTab = React.lazy(() => import('./components/admin/SimulatorTab').then(m => ({ default: m.SimulatorTab })));
 
 const NavConfig = () => {
     const navigate = useNavigate();
@@ -34,7 +33,6 @@ const NavConfig = () => {
     const [latestFirmware, setLatestFirmware] = useState<{version: string, md5?: string, url?: string} | null>(null);
     const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
     const [now, setNow] = useState(Date.now());
 
     React.useEffect(() => {
@@ -312,7 +310,7 @@ const NavConfig = () => {
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+                    <div className="flex-1 overflow-y-auto overscroll-contain p-6 flex flex-col gap-4">
                         <button onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
                             <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><LayoutGrid size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Visão Geral</span>
@@ -409,7 +407,7 @@ const NavConfig = () => {
                                 <span className="text-neutral-500">{devicesNeedingUpdate.length} equipamento(s)</span>
                             </div>
                             
-                            <div className="w-full text-left bg-black rounded-xl p-3 border border-neutral-800 max-h-32 overflow-y-auto font-mono text-[10px] text-neutral-500 space-y-1 mb-6">
+                            <div className="w-full text-left bg-black rounded-xl p-3 border border-neutral-800 max-h-32 overflow-y-auto overscroll-contain font-mono text-[10px] text-neutral-500 space-y-1 mb-6">
                                 <div className="text-neutral-400 mb-2 border-b border-neutral-800 pb-1">Debug MQTT:</div>
                                 {devicesNeedingUpdate.map(dev => {
                                     const prog = getDevProgress(dev.id);
@@ -438,48 +436,6 @@ const NavConfig = () => {
                 </>
             );
         })()}
-
-            {/* Botão Flutuante de Acesso Rápido à Bancada ESP32 Virtual */}
-            <button
-                type="button"
-                aria-label="Abrir Bancada ESP32 Virtual"
-                onClick={() => setIsSimulatorModalOpen(true)}
-                title="Bancada ESP32 Virtual (Simulador de Hardware)"
-                className="fixed bottom-5 right-5 z-40 px-3.5 py-2.5 rounded-2xl bg-neutral-900/95 hover:bg-neutral-800 text-neutral-200 border border-neutral-700/80 shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs font-bold transition-all hover:scale-105"
-            >
-                <Cpu size={16} className="text-emerald-400" />
-                <span className="hidden sm:inline">ESP32 Virtual</span>
-            </button>
-
-            {isSimulatorModalOpen && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Bancada ESP32 Virtual"
-                    className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-                    onClick={() => setIsSimulatorModalOpen(false)}
-                    onKeyDown={(e) => { if (e.key === 'Escape') setIsSimulatorModalOpen(false); }}
-                >
-                    <div
-                        className="bg-neutral-950 border border-neutral-800 rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-y-auto p-4 md:p-6 shadow-2xl relative"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex justify-end mb-2">
-                            <button
-                                type="button"
-                                aria-label="Fechar Bancada ESP32 Virtual"
-                                onClick={() => setIsSimulatorModalOpen(false)}
-                                className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-bold flex items-center gap-1.5 border border-neutral-800"
-                            >
-                                <X size={15} /> Fechar Bancada
-                            </button>
-                        </div>
-                        <Suspense fallback={<div className="py-12 text-center text-neutral-500 text-sm">Carregando simulador...</div>}>
-                            <SimulatorTab />
-                        </Suspense>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

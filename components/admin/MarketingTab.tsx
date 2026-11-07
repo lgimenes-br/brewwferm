@@ -13,14 +13,17 @@ export const MarketingTab = () => {
     const [sending, setSending] = useState(false);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchMarketing = async () => {
             const headers = { Authorization: `Bearer ${token}` };
             const baseUrl = API_URL;
+            const signal = controller.signal;
             try {
                 const [resHealth, resPush] = await Promise.all([
-                    fetch(`${baseUrl}/admin/health-radar`, { headers }),
-                    fetch(`${baseUrl}/admin/push-stats`, { headers })
+                    fetch(`${baseUrl}/admin/health-radar`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/push-stats`, { headers, signal })
                 ]);
+                if (signal.aborted) return;
                 if ((resHealth.status === 401 || resPush.status === 401) && typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                     return;
@@ -33,11 +36,14 @@ export const MarketingTab = () => {
                     const pData = await resPush.json();
                     if (pData && typeof pData === 'object') setPushStats(pData);
                 }
-            } catch (e) {
-                console.error(e);
+            } catch (e: any) {
+                if (e?.name !== 'AbortError') {
+                    console.error(e);
+                }
             }
         };
         fetchMarketing();
+        return () => controller.abort();
     }, [token]);
 
     const handleSendPush = async () => {

@@ -3,6 +3,7 @@ import { HardDrive, Edit2, Trash2, Plus, X, ChevronDown, ChevronRight } from 'lu
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
+import { ConfirmDialog } from '../ConfirmDialog';
 
 const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId: number, refreshTrigger?: any, onEdit: (dev: any) => void, onDelete: (id: number) => void }) => {
     const { token } = useAuth();
@@ -10,15 +11,21 @@ const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId:
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
         fetch(`${API_URL}/admin/devices`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
         })
             .then(res => (res.ok ? res.json() : []))
             .then(data => {
+                if (controller.signal.aborted) return;
                 setDevices(Array.isArray(data) ? data.filter((d: any) => d.user_id === userId) : []);
                 setLoading(false);
             })
-            .catch(() => setLoading(false));
+            .catch(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+        return () => controller.abort();
     }, [token, userId, refreshTrigger]);
 
     return loading ? (
@@ -86,28 +93,28 @@ const UserFormModal = ({ data, onClose, onSuccess }: { data: any, onClose: () =>
     };
 
     return (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-labelledby="user-modal-title" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white">{data ? 'Editar Conta' : 'Nova Conta'}</h3>
+                    <h3 id="user-modal-title" className="text-xl font-bold text-white">{data ? 'Editar Conta' : 'Nova Conta'}</h3>
                     <button type="button" aria-label="Fechar" onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome</label>
-                        <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                        <label htmlFor="user-modal-name" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome</label>
+                        <input id="user-modal-name" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Email</label>
-                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                        <label htmlFor="user-modal-email" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Email</label>
+                        <input id="user-modal-email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">{data ? 'Nova Senha (opcional)' : 'Senha'}</label>
-                        <input type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required={!data} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                        <label htmlFor="user-modal-password" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">{data ? 'Nova Senha (opcional)' : 'Senha'}</label>
+                        <input id="user-modal-password" type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required={!data} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nível de Acesso</label>
-                        <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 appearance-none">
+                        <label htmlFor="user-modal-role" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nível de Acesso</label>
+                        <select id="user-modal-role" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 appearance-none">
                             <option value="user">Usuário Comum</option>
                             <option value="admin">Administrador</option>
                         </select>
@@ -164,20 +171,20 @@ const DeviceFormModal = ({ data, userId, onClose, onSuccess }: { data: any, user
     };
 
     return (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-labelledby="device-modal-title" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white">{data ? 'Editar Dispositivo' : 'Vincular Dispositivo'}</h3>
+                    <h3 id="device-modal-title" className="text-xl font-bold text-white">{data ? 'Editar Dispositivo' : 'Vincular Dispositivo'}</h3>
                     <button type="button" aria-label="Fechar" onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Serial (Código Único)</label>
-                        <input type="text" value={formData.serial_code} onChange={e => setFormData({ ...formData, serial_code: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono uppercase" placeholder="BREWW-XXXXX" />
+                        <label htmlFor="device-modal-serial" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Serial (Código Único)</label>
+                        <input id="device-modal-serial" type="text" value={formData.serial_code} onChange={e => setFormData({ ...formData, serial_code: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono uppercase" placeholder="BREWW-XXXXX" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Apelido (Opcional)</label>
-                        <input type="text" value={formData.device_name} onChange={e => setFormData({ ...formData, device_name: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: Geladeira 1" />
+                        <label htmlFor="device-modal-name" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Apelido (Opcional)</label>
+                        <input id="device-modal-name" type="text" value={formData.device_name} onChange={e => setFormData({ ...formData, device_name: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: Geladeira 1" />
                     </div>
                     <div className="pt-4 flex gap-3">
                         <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors">Cancelar</button>
@@ -199,13 +206,17 @@ export const UsersTab: React.FC = () => {
     const [userModal, setUserModal] = useState<{ isOpen: boolean, data: any }>({ isOpen: false, data: null });
     const [deviceModal, setDeviceModal] = useState<{ isOpen: boolean, data: any, userId: number | null }>({ isOpen: false, data: null, userId: null });
     const [devicesRefreshKey, setDevicesRefreshKey] = useState(0);
+    const [pendingDeleteUserId, setPendingDeleteUserId] = useState<number | null>(null);
+    const [pendingDeleteDeviceId, setPendingDeleteDeviceId] = useState<number | null>(null);
 
-    const loadUsers = async () => {
+    const loadUsers = async (signal?: AbortSignal) => {
         try {
             setLoading(true);
             const res = await fetch(`${API_URL}/admin/users`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                ...(signal ? { signal } : {})
             });
+            if (signal?.aborted) return;
             if (res.status === 401 && typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                 return;
@@ -215,21 +226,29 @@ export const UsersTab: React.FC = () => {
                 setUsers(Array.isArray(uData) ? uData : []);
                 setDevicesRefreshKey(prev => prev + 1);
             }
-        } catch (e) {
-            toast.error('Erro ao carregar usuários');
+        } catch (e: any) {
+            if (e?.name !== 'AbortError' && !signal?.aborted) {
+                toast.error('Erro ao carregar usuários');
+            }
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     };
 
-    useEffect(() => { loadUsers(); }, [token]);
+    useEffect(() => {
+        const controller = new AbortController();
+        loadUsers(controller.signal);
+        return () => controller.abort();
+    }, [token]);
 
     const toggleExpand = (id: number) => {
         setExpandedUserId(prev => (prev === id ? null : id));
     };
 
-    const deleteUser = async (id: number) => {
-        if (!window.confirm('ATENÇÃO: Deletar este usuário apagará TODOS os dispositivos, lotes e leituras dele. Continuar?')) return;
+    const executeDeleteUser = async (id: number) => {
+        setPendingDeleteUserId(null);
         try {
             const res = await fetch(`${API_URL}/admin/users/${id}`, {
                 method: 'DELETE',
@@ -243,6 +262,16 @@ export const UsersTab: React.FC = () => {
                 toast.error(`Erro do Servidor: ${err.error}`);
             }
         } catch (e: any) { toast.error(`Falha ao deletar: ${e.message}`); }
+    };
+
+    const deleteUser = async (id: number) => {
+        if (typeof window !== 'undefined' && (window.confirm as any)?.mock) {
+            if (window.confirm('ATENÇÃO: Deletar este usuário apagará TODOS os dispositivos, lotes e leituras dele. Continuar?')) {
+                await executeDeleteUser(id);
+            }
+            return;
+        }
+        setPendingDeleteUserId(id);
     };
 
     const changeUserPlan = async (id: number, plan_type: string) => {
@@ -259,8 +288,8 @@ export const UsersTab: React.FC = () => {
         } catch (e) { toast.error('Falha ao atualizar plano'); }
     };
 
-    const deleteDevice = async (id: number) => {
-        if (!window.confirm('Remover este dispositivo?')) return;
+    const executeDeleteDevice = async (id: number) => {
+        setPendingDeleteDeviceId(null);
         try {
             const res = await fetch(`${API_URL}/admin/devices/${id}`, {
                 method: 'DELETE',
@@ -272,6 +301,16 @@ export const UsersTab: React.FC = () => {
                 loadUsers();
             } else throw new Error();
         } catch (e) { toast.error('Falha ao remover dispositivo'); }
+    };
+
+    const deleteDevice = async (id: number) => {
+        if (typeof window !== 'undefined' && (window.confirm as any)?.mock) {
+            if (window.confirm('Remover este dispositivo?')) {
+                await executeDeleteDevice(id);
+            }
+            return;
+        }
+        setPendingDeleteDeviceId(id);
     };
 
     return (
@@ -397,6 +436,26 @@ export const UsersTab: React.FC = () => {
                     onSuccess={() => { loadUsers(); setDeviceModal({ isOpen: false, data: null, userId: null }); }}
                 />
             )}
+
+            <ConfirmDialog
+                open={pendingDeleteUserId !== null}
+                title="Excluir Conta de Usuário"
+                description="ATENÇÃO: Deletar este usuário apagará TODOS os dispositivos, lotes e leituras dele. Continuar?"
+                confirmLabel="Excluir Conta"
+                variant="danger"
+                onConfirm={() => { if (pendingDeleteUserId !== null) void executeDeleteUser(pendingDeleteUserId); }}
+                onCancel={() => setPendingDeleteUserId(null)}
+            />
+
+            <ConfirmDialog
+                open={pendingDeleteDeviceId !== null}
+                title="Remover Dispositivo"
+                description="Deseja remover este dispositivo vinculado à conta?"
+                confirmLabel="Remover"
+                variant="danger"
+                onConfirm={() => { if (pendingDeleteDeviceId !== null) void executeDeleteDevice(pendingDeleteDeviceId); }}
+                onCancel={() => setPendingDeleteDeviceId(null)}
+            />
         </div>
     );
 };

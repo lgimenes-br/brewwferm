@@ -9,8 +9,10 @@ export const TelemetryTab: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
         fetch(`${API_URL}/admin/telemetry`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
         })
             .then(res => {
                 if (res.status === 401 && typeof window !== 'undefined') {
@@ -19,10 +21,15 @@ export const TelemetryTab: React.FC = () => {
                 return res.json();
             })
             .then(data => {
+                if (controller.signal.aborted) return;
                 setDevices(Array.isArray(data) ? data : []);
                 setLoading(false);
             })
-            .catch(() => setLoading(false));
+            .catch((err) => {
+                if (err?.name === 'AbortError' || controller.signal.aborted) return;
+                setLoading(false);
+            });
+        return () => controller.abort();
     }, [token]);
 
     if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;

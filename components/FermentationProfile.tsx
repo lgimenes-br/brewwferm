@@ -22,6 +22,113 @@ interface FermentationProfileProps {
     onFinishProfile: () => void;
 }
 
+interface StepCountdownProps {
+    stepIndex: number;
+    currentStepIndex: number;
+    localSteps: FermentationStep[];
+    startDate?: string;
+    stepStartDate?: string;
+    stepTime?: number;
+    lastUpdate?: string;
+}
+
+const StepCountdown: React.FC<StepCountdownProps> = ({
+    stepIndex,
+    currentStepIndex,
+    localSteps,
+    startDate,
+    stepStartDate,
+    stepTime,
+    lastUpdate
+}) => {
+    const [now, setNow] = useState(Date.now());
+    const stabilizedStepStartRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        stabilizedStepStartRef.current = null;
+    }, [currentStepIndex, stepStartDate]);
+
+    React.useEffect(() => {
+        if (startDate || stepStartDate || stepTime !== undefined) {
+            const interval = setInterval(() => {
+                if (typeof document === 'undefined' || !document.hidden) {
+                    setNow(Date.now());
+                }
+            }, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [startDate, stepStartDate, stepTime]);
+
+    if ((!startDate && !stepStartDate && stepTime === undefined) || localSteps.length === 0) return null;
+
+    let targetEndTime = 0;
+    const currentDuration = localSteps[stepIndex]?.duration || 0;
+
+    if (stepIndex === currentStepIndex) {
+        if (stepStartDate) {
+            const dbStart = new Date(stepStartDate).getTime();
+            if (!isNaN(dbStart)) {
+                let useDbStart = true;
+                if (stepTime !== undefined && lastUpdate) {
+                    const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+                    const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+                    if (!isNaN(absoluteStepStartTime) && Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
+                        useDbStart = false;
+                        if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
+                            stabilizedStepStartRef.current = absoluteStepStartTime;
+                        }
+                    }
+                }
+                const finalStart = useDbStart ? dbStart : (stabilizedStepStartRef.current || dbStart);
+                targetEndTime = finalStart + (currentDuration * 24 * 60 * 60 * 1000);
+            }
+        } else if (stepTime !== undefined && lastUpdate) {
+            const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
+            const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
+            if (!isNaN(absoluteStepStartTime)) {
+                if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
+                    stabilizedStepStartRef.current = absoluteStepStartTime;
+                }
+                const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
+                targetEndTime = stabilizedStepStartRef.current + totalDurationMs;
+            }
+        }
+    }
+
+    if ((targetEndTime === 0 || isNaN(targetEndTime)) && startDate) {
+        const start = new Date(startDate).getTime();
+        if (!isNaN(start)) {
+            let daysPrior = 0;
+            for (let i = 0; i < stepIndex; i++) {
+                daysPrior += localSteps[i]?.duration || 0;
+            }
+            targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
+        }
+    }
+
+    if (targetEndTime === 0 || isNaN(targetEndTime)) return null;
+
+    const diff = targetEndTime - now;
+    let formatted = '0s';
+    if (diff > 0) {
+        const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+        const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+        const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+        const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+
+        if (days > 0) formatted = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        else if (hours > 0) formatted = `${hours}h ${minutes}m ${seconds}s`;
+        else if (minutes > 0) formatted = `${minutes}m ${seconds}s`;
+        else formatted = `${seconds}s`;
+    }
+
+    return (
+        <div className="text-neutral-400 text-xs font-mono tabular-nums">
+            {formatted}
+        </div>
+    );
+};
+
 export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     steps = [],
     currentStepIndex = 0,
@@ -42,13 +149,6 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [localSteps, setLocalSteps] = useState<FermentationStep[]>(() => Array.isArray(steps) ? steps : []);
-    const [now, setNow] = useState(Date.now());
-    const stabilizedStepStartRef = React.useRef<number | null>(null);
-
-    // Reset stabilizedStepStartRef when step changes
-    React.useEffect(() => {
-        stabilizedStepStartRef.current = null;
-    }, [currentStepIndex, stepStartDate]);
 
     // Keep local steps synced when not editing
     React.useEffect(() => {
@@ -56,96 +156,6 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             setLocalSteps(Array.isArray(steps) ? steps : []);
         }
     }, [steps, isEditing]);
-
-    // Tick the timer every second if fermentation is active (paused while editing or tab hidden)
-    React.useEffect(() => {
-        if (!isPaused && !isEditing && (startDate || stepStartDate || stepTime !== undefined)) {
-            const interval = setInterval(() => {
-                if (typeof document === 'undefined' || !document.hidden) {
-                    setNow(Date.now());
-                }
-            }, 1000);
-            return () => clearInterval(interval);
-        }
-    }, [isPaused, isEditing, startDate, stepStartDate, stepTime]);
-
-    const getStepTimeRemaining = (stepIndex: number) => {
-        if ((!startDate && !stepStartDate && stepTime === undefined) || localSteps.length === 0) return null;
-
-        let targetEndTime = 0;
-        const currentDuration = localSteps[stepIndex]?.duration || 0;
-
-        if (stepIndex === currentStepIndex) {
-            if (stepStartDate) {
-                const dbStart = new Date(stepStartDate).getTime();
-                if (!isNaN(dbStart)) {
-                    let useDbStart = true;
-                    
-                    // Se o ESP32 enviou o stepTime (decorrido), usamos para calcular o início absoluto sob a ótica dele
-                    if (stepTime !== undefined && lastUpdate) {
-                        const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
-                        const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
-                        
-                        // Se a diferença entre a ótica do banco e a ótica do ESP32 for MAIOR que 1 hora,
-                        // Significa que o usuário pausou o ESP32 (o tempo parou de contar lá), mas o banco não sabe.
-                        // Nesses casos, abrimos mão da precisão do banco e confiamos na matemática (meio imprecisa) do ESP32.
-                        if (!isNaN(absoluteStepStartTime) && Math.abs(dbStart - absoluteStepStartTime) > 60 * 60 * 1000) {
-                            useDbStart = false;
-                            if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
-                                stabilizedStepStartRef.current = absoluteStepStartTime;
-                            }
-                        }
-                    }
-                    
-                    // Se a diferença for menor que 1h, usamos o dbStart, que tem precisão de milissegundos absoluta (sem jitter)
-                    const finalStart = useDbStart ? dbStart : (stabilizedStepStartRef.current || dbStart);
-                    targetEndTime = finalStart + (currentDuration * 24 * 60 * 60 * 1000);
-                }
-            } 
-            // Senão (lotes antigos ou recém iniciados que o DB ainda não pegou), cai pro cálculo normal do ESP32
-            else if (stepTime !== undefined && lastUpdate) {
-                const elapsedMsAtLastUpdate = stepTime * 60 * 60 * 1000;
-                const absoluteStepStartTime = new Date(lastUpdate).getTime() - elapsedMsAtLastUpdate;
-                
-                if (!isNaN(absoluteStepStartTime)) {
-                    if (!stabilizedStepStartRef.current || Math.abs(stabilizedStepStartRef.current - absoluteStepStartTime) > 10 * 60 * 1000) {
-                        stabilizedStepStartRef.current = absoluteStepStartTime;
-                    }
-
-                    const totalDurationMs = currentDuration * 24 * 60 * 60 * 1000;
-                    targetEndTime = stabilizedStepStartRef.current + totalDurationMs;
-                }
-            }
-        } 
-        
-        if ((targetEndTime === 0 || isNaN(targetEndTime)) && startDate) {
-            // Fallback for past/future steps (ou lotes antigos sem stepStartDate)
-            const start = new Date(startDate).getTime();
-            if (!isNaN(start)) {
-                let daysPrior = 0;
-                for (let i = 0; i < stepIndex; i++) {
-                    daysPrior += localSteps[i]?.duration || 0;
-                }
-                targetEndTime = start + ((daysPrior + currentDuration) * 24 * 60 * 60 * 1000);
-            }
-        }
-
-        if (targetEndTime === 0 || isNaN(targetEndTime)) return null;
-
-        const diff = targetEndTime - now;
-
-        if (diff <= 0) return '0s';
-
-        const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-        const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-        const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
-        const seconds = Math.floor((diff % (60 * 1000)) / 1000);
-
-        if (days > 0) return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-        if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-        if (minutes > 0) return `${minutes}m ${seconds}s`;
-        return `${seconds}s`;
-    };
 
     const handleAddStep = () => {
         const newStep: FermentationStep = {
@@ -260,6 +270,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                 {isEditing ? (
                                     <input
                                         type="text"
+                                        aria-label={`Nome da etapa ${index + 1}`}
                                         value={step.name}
                                         onChange={(e) => handleChangeStep(step.id, 'name', e.target.value)}
                                         className="bg-transparent border-b border-neutral-700 text-sm font-medium text-white w-full outline-none focus:border-neutral-500"
@@ -276,6 +287,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="number"
+                                                aria-label={`Temperatura da etapa ${step.name}`}
                                                 value={isNaN(step.temperature) ? '' : step.temperature}
                                                 onChange={(e) => handleChangeStep(step.id, 'temperature', parseFloat(e.target.value))}
                                                 className="bg-transparent text-xs font-mono text-neutral-300 w-10 border-b border-neutral-700 outline-none"
@@ -289,6 +301,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="number"
+                                                aria-label={`Duração em dias da etapa ${step.name}`}
                                                 value={isNaN(step.duration) ? '' : step.duration}
                                                 onChange={(e) => handleChangeStep(step.id, 'duration', parseFloat(e.target.value))}
                                                 className="bg-transparent text-xs font-mono text-neutral-300 w-8 border-b border-neutral-700 outline-none"
@@ -337,10 +350,16 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                     <div className={`${isPaused ? 'text-neutral-500' : 'text-white'} text-[10px] font-bold uppercase tracking-widest`}>
                                         {isPaused ? 'Pausado' : 'Ativo'}
                                     </div>
-                                    {!isPaused && getStepTimeRemaining(index) && (
-                                        <div className="text-neutral-400 text-xs font-mono">
-                                            {getStepTimeRemaining(index)}
-                                        </div>
+                                    {!isPaused && (
+                                        <StepCountdown
+                                            stepIndex={index}
+                                            currentStepIndex={currentStepIndex}
+                                            localSteps={localSteps}
+                                            startDate={startDate}
+                                            stepStartDate={stepStartDate}
+                                            stepTime={stepTime}
+                                            lastUpdate={lastUpdate}
+                                        />
                                     )}
                                 </div>
                             )}

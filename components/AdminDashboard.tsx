@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, TestTube, LogOut, Activity, Zap, Shield, Terminal, HeartPulse, Download, Cpu } from 'lucide-react';
+import { Users, TestTube, LogOut, Activity, Zap, Shield, Terminal, HeartPulse, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { OverviewTab } from './admin/OverviewTab';
@@ -10,12 +10,11 @@ import { FirmwareTab } from './admin/FirmwareTab';
 import { IngredientsTab } from './admin/IngredientsTab';
 import { TerminalTab } from './admin/TerminalTab';
 import { MarketingTab } from './admin/MarketingTab';
-import { SimulatorTab } from './admin/SimulatorTab';
 
 export const AdminDashboard = () => {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'firmware' | 'ingredients' | 'terminal' | 'marketing' | 'simulator'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'firmware' | 'ingredients' | 'terminal' | 'marketing'>('overview');
 
     const handleLogout = () => {
         logout();
@@ -67,9 +66,6 @@ export const AdminDashboard = () => {
                             <button type="button" role="tab" aria-selected={activeTab === 'marketing'} aria-label="Marketing e Saúde" onClick={() => setActiveTab('marketing')} title="Marketing e Saúde" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'marketing' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <HeartPulse size={18} />
                             </button>
-                            <button type="button" role="tab" aria-selected={activeTab === 'simulator'} aria-label="Bancada ESP32 Virtual" onClick={() => setActiveTab('simulator')} title="Bancada ESP32 Virtual" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'simulator' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
-                                <Cpu size={18} />
-                            </button>
                         </div>
 
                         <div className="hidden md:flex items-center gap-3 border-l border-neutral-800 pl-4 mr-2">
@@ -101,7 +97,6 @@ export const AdminDashboard = () => {
                 {activeTab === 'ingredients' && <IngredientsTab />}
                 {activeTab === 'terminal' && <TerminalTab />}
                 {activeTab === 'marketing' && <MarketingTab />}
-                {activeTab === 'simulator' && <SimulatorTab />}
             </div>
         </div>
     );

@@ -5,7 +5,6 @@ import { FinishedBrewDetail } from './FinishedBrewDetail';
 import * as api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FinishedBrew, mapBatchToFinishedBrew } from '../types';
-import { API_URL } from '../config';
 
 export const FinishedBrewDetailWrapper: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -22,16 +21,14 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
             const b = Array.isArray(batchesRes) ? batchesRes.find((x: any) => String(x.id) === id) : null;
             
             if(!b) {
-                // Try history dedicated endpoint
-                const historyRes = await fetch(`${API_URL}/history/batches`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if(historyRes.ok) {
-                    const hData = await historyRes.json();
+                try {
+                    const hData = await api.fetchHistoryBatches(token);
                     const hb = Array.isArray(hData) ? hData.find((x: any) => String(x.id) === id) : null;
                     if(hb) {
                         return mapBatchToFinishedBrew(hb);
                     }
+                } catch (e) {
+                    // Fallback to null if history endpoint also fails
                 }
                 return null;
             }

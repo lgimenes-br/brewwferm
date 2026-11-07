@@ -1,3 +1,14 @@
+import crypto from 'crypto';
+
+// Constant-time string comparison for voice tokens
+const isValidVoiceToken = (provided, expected) => {
+    if (!provided || !expected || typeof provided !== 'string' || typeof expected !== 'string') return false;
+    const bufA = Buffer.from(provided);
+    const bufB = Buffer.from(expected);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+};
+
 // Shared helper & routes for Voice Assistant Endpoints (Alexa / Google Home)
 export const registerVoiceRoutes = (app, pool) => {
     const buildVoiceStatusText = async (userIdFilter) => {
@@ -40,7 +51,7 @@ export const registerVoiceRoutes = (app, pool) => {
         try {
             const token = req.query.token;
             const voiceToken = process.env.VOICE_TOKEN;
-            if (!voiceToken || token !== voiceToken) return res.status(403).send('Acesso negado. Token inválido.');
+            if (!isValidVoiceToken(token, voiceToken)) return res.status(403).send('Acesso negado. Token inválido.');
             const text = await buildVoiceStatusText(req.query.user_id);
             res.send(text);
         } catch (err) {
@@ -57,7 +68,7 @@ export const registerVoiceRoutes = (app, pool) => {
             }
             const token = req.query.token;
             const voiceToken = process.env.VOICE_TOKEN;
-            if (!voiceToken || token !== voiceToken) {
+            if (!isValidVoiceToken(token, voiceToken)) {
                 return res.json({
                     version: "1.0",
                     response: {

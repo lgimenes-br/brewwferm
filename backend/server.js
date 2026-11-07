@@ -18,8 +18,6 @@ import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } 
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
-import { createVirtualEsp32Manager } from './utils/esp32Simulator.js';
-import { registerSimulatorRoutes } from './routes/simulatorRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
@@ -115,6 +113,7 @@ const initDb = async () => {
         await runMigration(`CREATE INDEX idx_batches_public_token ON batches(public_token)`);
         await runMigration(`CREATE INDEX idx_batch_events_batch_recorded ON batch_events(batch_id, recorded_at)`);
         await runMigration(`CREATE UNIQUE INDEX idx_devices_serial_unique ON devices(serial_code)`);
+        await runMigration(`DELETE FROM devices WHERE serial_code = 'ESP32-VIRTUAL-01'`);
 
         console.log('✅ [DB] Schema base e migrações verificados.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
@@ -248,7 +247,6 @@ const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex
         const msg = JSON.stringify(stepCmd);
         mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
         mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
-        virtualEsp32.handleIncomingCommand(serialCode, stepCmd, { source: 'http' });
     }
     const nextName = nextStep.name || nextStep.n || `Etapa ${newIndex + 1}`;
     const nextTemp = nextStep.temperature ?? nextStep.t ?? 0;
@@ -288,9 +286,6 @@ const notifyUpdate = (serialCode) => {
         ...(serialCode ? { serial: String(serialCode).trim().toUpperCase() } : {})
     }));
 };
-
-const virtualEsp32 = createVirtualEsp32Manager(mqttClient);
-virtualEsp32.updateSimulatorState({ enabled: true });
 
 // --- SMART SCHEDULING & MAGIC PREDICTION ---
 const smartScheduler = startSmartScheduler({
@@ -383,7 +378,6 @@ mqttClient.on('message', async (topic, message, packet) => {
         if (topic.endsWith('/comando')) {
             const serialCode = topic.split('/')[1];
             const normSerial = String(serialCode || '').trim().toUpperCase();
-            virtualEsp32.handleIncomingCommand(normSerial, payload, { source: 'mqtt' });
             if (payload.type === 'setProfile' && payload.currentStep !== undefined) {
                 // Find active batch and update step_started_at only when the step actually changes
                 const [batches] = await pool.execute(`
@@ -713,7 +707,7 @@ const updateUserLocation = async (userId, req) => {
     if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) return;
     try {
         const cleanIp = ip.includes('::ffff:') ? ip.split('::ffff:')[1] : ip;
-        const res = await fetch(`http://ip-api.com/json/${cleanIp}`);
+        const res = await fetch(`http://ip-api.com/json/${cleanIp}`, { signal: AbortSignal.timeout(4000) });
         const data = await res.json();
         if (data.status === 'success' && data.lat && data.lon) {
             await pool.execute('UPDATE users SET lat = ?, lon = ? WHERE id = ?', [data.lat, data.lon, userId]);
@@ -730,7 +724,7 @@ app.post('/api/login', authRateLimiter, async (req, res) => {
             return res.status(401).json({ error: 'E-mail ou senha incorretos' });
         }
         if (users[0].password_hash && await bcrypt.compare(String(password), users[0].password_hash)) {
-            const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET, { expiresIn: '7d' });
+            const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
             
             // Log successful login
             const userIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || null;
@@ -780,9 +774,6 @@ app.post('/api/register', authRateLimiter, async (req, res) => {
 
 // Password Recovery & Reset Routes (/api/auth/forgot-password & /api/auth/reset-password)
 registerAuthRecoveryRoutes(app, pool, authRateLimiter, sendPushToUser);
-
-// Virtual ESP32 Simulator Routes (/api/simulator/*)
-registerSimulatorRoutes(app, pool, authenticateToken, virtualEsp32, notifyUpdate);
 
 app.post('/api/auth/google', authRateLimiter, async (req, res) => {
     try {
@@ -834,7 +825,7 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
             userRole = users[0].role;
         }
 
-        const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
         updateUserLocation(userId, req);
         res.json({ token, name: userName, role: userRole });
     } catch (err) { 
@@ -862,60 +853,6 @@ const deleteDeviceCascade = async (devId, serialCode) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
-        // Garante que o ESP32 Virtual já apareça automaticamente nos Dispositivos e conectado quando habilitado
-        const simState = virtualEsp32.getState();
-        if (simState.enabled && !simState.unlinkedForDiscovery && simState.serial) {
-            try {
-                const [simDevs] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ? LIMIT 1', [simState.serial]);
-                let simDevId = null;
-                if (simDevs.length === 0) {
-                    const [ins] = await pool.execute(
-                        'INSERT INTO devices (serial_code, user_id, device_name, firmware_version, last_seen, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-                        [simState.serial, req.user.id, 'ESP32 Virtual', simState.ver || 'V2.5.0-VIRTUAL']
-                    );
-                    simDevId = ins.insertId;
-                } else {
-                    simDevId = simDevs[0].id;
-                    if (simState.serial === 'ESP32-VIRTUAL-01' && Number(simDevs[0].user_id) !== Number(req.user.id)) {
-                        const [uRows] = await pool.execute('SELECT role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
-                        if (uRows.length > 0 && uRows[0].role === 'admin') {
-                            await pool.execute('UPDATE devices SET user_id = ? WHERE id = ?', [req.user.id, simDevId]);
-                        }
-                    }
-                    await pool.execute(
-                        'UPDATE devices SET last_seen = NOW(), firmware_version = COALESCE(?, firmware_version) WHERE id = ?',
-                        [simState.ver || 'V2.5.0-VIRTUAL', simDevId]
-                    );
-                }
-
-                if (simDevId) {
-                    const [tCheck] = await pool.execute('SELECT id FROM telemetry WHERE device_id = ? LIMIT 1', [simDevId]);
-                    if (tCheck.length === 0) {
-                        const activeBatchId = activeBatches[simState.serial] || null;
-                        await pool.execute(
-                            `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, extra_sensors, recorded_at)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-                            [
-                                simDevId,
-                                activeBatchId,
-                                simState.ferm,
-                                simState.amb,
-                                simState.csp,
-                                simState.is_sg,
-                                simState.is_bat,
-                                simState.statOp,
-                                simState.profStat,
-                                simState.rssi,
-                                simState.ext_s ? JSON.stringify(simState.ext_s) : null
-                            ]
-                        );
-                    }
-                }
-            } catch (simErr) {
-                console.error('⚠️ [Virtual ESP32 Auto-Sync]:', simErr.message);
-            }
-        }
-
         const [devices] = await pool.execute(`
             SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 30 SECOND) as is_online,
                    b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style,
@@ -942,47 +879,13 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             WHERE d.user_id = ?
         `, [req.user.id]);
 
-        const enrichedDevices = devices.map(dev => {
-            if (
-                simState.enabled &&
-                !simState.unlinkedForDiscovery &&
-                simState.serial &&
-                String(dev.serial_code || '').trim().toUpperCase() === String(simState.serial).trim().toUpperCase()
-            ) {
-                return {
-                    ...dev,
-                    is_online: 1,
-                    is_virtual: 1,
-                    ip: simState.ip || dev.ip,
-                    firmware_version: simState.ver || dev.firmware_version || 'V2.5.0-VIRTUAL',
-                    last_temp: simState.ferm ?? dev.last_temp,
-                    last_temp2: simState.amb ?? dev.last_temp2,
-                    last_target: simState.csp ?? dev.last_target,
-                    last_status: simState.statOp ?? dev.last_status,
-                    last_gravity: simState.is_sg ?? dev.last_gravity,
-                    last_battery: simState.is_bat ?? dev.last_battery,
-                    last_rssi: simState.rssi ?? dev.last_rssi
-                };
-            }
-            return dev;
-        });
-
-        res.json(enrichedDevices);
+        res.json(devices);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
 app.get('/api/discovery', authenticateToken, async (req, res) => {
     try {
         const now = Date.now();
-        const simState = virtualEsp32.getState();
-        if (simState.enabled && simState.unlinkedForDiscovery && simState.serial) {
-            discoveredUnknowns[simState.serial] = {
-                serialCode: simState.serial,
-                lastSeen: now,
-                temp: simState.ferm,
-                ip: simState.ip || '192.168.1.250'
-            };
-        }
         console.log(`🔎 [API] /api/discovery solicitado. Cache atual: ${Object.keys(discoveredUnknowns).length} itens`);
 
         // Clean old
@@ -1011,10 +914,6 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
             return res.status(409).json({ error: 'Este código serial já está vinculado a uma conta.' });
         }
         await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body?.name ?? null]);
-        if (serialCode === virtualEsp32.getState().serial) {
-            virtualEsp32.updateSimulatorState({ unlinkedForDiscovery: false, enabled: true });
-            delete discoveredUnknowns[serialCode];
-        }
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip || null]);
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
@@ -1058,9 +957,6 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
         await deleteDeviceCascade(devs[0].id, req.params.serial);
-        if (String(req.params.serial || '').trim().toUpperCase() === virtualEsp32.getState().serial) {
-            virtualEsp32.updateSimulatorState({ unlinkedForDiscovery: true });
-        }
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
         notifyUpdate(req.params.serial);
         res.json({ message: 'Excluído' });
@@ -1105,7 +1001,6 @@ app.post('/api/devices/:serial/command', authenticateToken, async (req, res) => 
         const msg = JSON.stringify(cmdPayload);
         mqttClient.publish(`brewbrother/${targetSerial}/comando`, msg);
         mqttClient.publish(`brewbrother/${targetSerial}/command`, msg);
-        virtualEsp32.handleIncomingCommand(targetSerial, cmdPayload, { source: 'http' });
 
         // Keep step_started_at / current_step_index synchronized on manual step overrides
         if (type === 'setProfile' && payload.currentStep !== undefined) {
@@ -1178,7 +1073,6 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
             const msg = JSON.stringify(startCmd);
             mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
             mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
-            virtualEsp32.handleIncomingCommand(serialCode, startCmd, { source: 'http' });
         }
 
         notifyUpdate(normalizedSerial);
@@ -1519,8 +1413,10 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
         const [auth] = await pool.execute('SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id IN (?, ?) AND d.user_id = ?', [batch1, batch2, req.user.id]);
         if (auth.length !== 2) return res.status(403).json({ error: 'Acesso negado aos lotes' });
 
-        const [rows1] = await pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch1]);
-        const [rows2] = await pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch2]);
+        const [[rows1], [rows2]] = await Promise.all([
+            pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch1]),
+            pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch2])
+        ]);
 
         const normalize = (rows) => {
             if (rows.length === 0) return [];

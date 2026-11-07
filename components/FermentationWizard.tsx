@@ -400,7 +400,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
     return (
         <div className="max-w-3xl mx-auto px-4 py-8">
             <div className="flex items-center gap-4 mb-8">
-                <button onClick={handleBack} className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors">
+                <button type="button" aria-label="Voltar" onClick={handleBack} className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors">
                     <ArrowLeft size={20} />
                 </button>
                 <div>
@@ -464,8 +464,9 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Nome da Receita</label>
+                                <label htmlFor="wizard-recipe-name" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Nome da Receita</label>
                                 <input
+                                    id="wizard-recipe-name"
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
@@ -476,8 +477,9 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Estilo</label>
+                                    <label htmlFor="wizard-recipe-style" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Estilo</label>
                                     <select
+                                        id="wizard-recipe-style"
                                         value={style}
                                         onChange={(e) => setStyle(e.target.value)}
                                         className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neutral-500 transition-colors"
@@ -486,8 +488,9 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Volume Esperado (L)</label>
+                                    <label htmlFor="wizard-recipe-volume" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Volume Esperado (L)</label>
                                     <input
+                                        id="wizard-recipe-volume"
                                         type="number"
                                         value={volume}
                                         onChange={(e) => setVolume(e.target.value)}
@@ -509,8 +512,9 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-neutral-800/50 p-6 rounded-2xl border border-neutral-800">
-                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">OG (Original Gravity)</label>
+                                <label htmlFor="wizard-recipe-og" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">OG (Original Gravity)</label>
                                 <input
+                                    id="wizard-recipe-og"
                                     type="number"
                                     step="0.001"
                                     value={og}
@@ -520,8 +524,9 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                 <p className="text-center text-neutral-500 text-xs mt-4">Gravidade antes da fermentação</p>
                             </div>
                             <div className="bg-neutral-800/50 p-6 rounded-2xl border border-neutral-800">
-                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">FG (Final Gravity)</label>
+                                <label htmlFor="wizard-recipe-fg" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">FG (Final Gravity)</label>
                                 <input
+                                    id="wizard-recipe-fg"
                                     type="number"
                                     step="0.001"
                                     value={fg}
@@ -614,6 +619,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                     <div className="flex-1 w-full">
                                         <input 
                                             type="text" 
+                                            aria-label={`Nome da etapa ${index + 1}`}
                                             value={p.name}
                                             onChange={(e) => handleUpdateStep(p.id, 'name', e.target.value)}
                                             className="w-full bg-transparent border-b border-transparent hover:border-neutral-700 focus:border-neutral-500 outline-none text-white font-medium px-1 py-1 transition-colors"
@@ -625,6 +631,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             <div className="text-[10px] text-neutral-500 uppercase font-bold ml-1 mb-1">Temp (°C)</div>
                                             <input 
                                                 type="number" 
+                                                aria-label={`Temp (°C) da etapa ${index + 1}`}
                                                 value={isNaN(p.temperature) ? '' : p.temperature}
                                                 onChange={(e) => handleUpdateStep(p.id, 'temperature', parseFloat(e.target.value))}
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-neutral-600"
@@ -634,6 +641,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             <div className="text-[10px] text-neutral-500 uppercase font-bold ml-1 mb-1">Tempo (Dias)</div>
                                             <input 
                                                 type="number" 
+                                                aria-label={`Tempo (Dias) da etapa ${index + 1}`}
                                                 value={isNaN(p.duration) ? '' : p.duration}
                                                 onChange={(e) => handleUpdateStep(p.id, 'duration', parseFloat(e.target.value))}
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:border-neutral-600"
@@ -644,6 +652,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             <input 
                                                 type="number"
                                                 step="0.001"
+                                                aria-label={`Avançar em SG da etapa ${index + 1}`}
                                                 placeholder="Ex: 1.018"
                                                 value={p.triggerGravity !== undefined && !isNaN(p.triggerGravity) ? p.triggerGravity : ''}
                                                 onChange={(e) => handleUpdateStep(p.id, 'triggerGravity', e.target.value === '' ? undefined : parseFloat(e.target.value))}

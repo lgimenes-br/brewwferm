@@ -109,7 +109,7 @@ export const TerminalTab = () => {
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                     <span className="ml-2 text-xs font-mono text-neutral-500">pm2 logs breww-server</span>
                 </div>
-                <div ref={logsContainerRef} className="p-4 h-[500px] overflow-y-auto font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
+                <div ref={logsContainerRef} className="p-4 h-[500px] overflow-y-auto overscroll-contain font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
                     {logs || "Carregando logs..."}
                 </div>
             </div>

@@ -83,7 +83,7 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 relative">
+      <div className="flex-1 overflow-y-auto overscroll-contain pr-2 custom-scrollbar space-y-6 relative">
         {/* Continuous vertical line connecting all events */}
         {sortedEvents.length > 0 && (
           <div className="absolute left-3 top-2 bottom-6 w-px bg-neutral-800 z-0"></div>
@@ -161,8 +161,9 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
 
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2 block">Categoria</label>
+                <label htmlFor="timeline-event-category" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2 block">Categoria</label>
                 <select
+                  id="timeline-event-category"
                   value={newType}
                   onChange={(e) => setNewType(e.target.value as EventType)}
                   className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors text-sm"
@@ -174,8 +175,9 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2 block">Descrição</label>
+                <label htmlFor="timeline-event-description" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2 block">Descrição</label>
                 <textarea
+                  id="timeline-event-description"
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
                   placeholder="Descreva a ação ou observação..."

@@ -11,24 +11,40 @@ export const SecurityTab: React.FC = () => {
     const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'info', is_active: true, send_push: false });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const loadData = () => {
-        fetch(`${API_URL}/admin/audit`, { headers: { Authorization: `Bearer ${token}` } })
+    const loadData = (signal?: AbortSignal) => {
+        fetch(`${API_URL}/admin/audit`, {
+            headers: { Authorization: `Bearer ${token}` },
+            ...(signal ? { signal } : {})
+        })
             .then(res => {
                 if (res.status === 401 && typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                 }
                 return res.ok ? res.json() : [];
             })
-            .then(data => setLogs(Array.isArray(data) ? data : []))
+            .then(data => {
+                if (signal?.aborted) return;
+                setLogs(Array.isArray(data) ? data : []);
+            })
             .catch(() => {});
 
-        fetch(`${API_URL}/admin/broadcasts`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_URL}/admin/broadcasts`, {
+            headers: { Authorization: `Bearer ${token}` },
+            ...(signal ? { signal } : {})
+        })
             .then(res => (res.ok ? res.json() : []))
-            .then(data => setBroadcasts(Array.isArray(data) ? data : []))
+            .then(data => {
+                if (signal?.aborted) return;
+                setBroadcasts(Array.isArray(data) ? data : []);
+            })
             .catch(() => {});
     };
 
-    useEffect(() => { loadData(); }, [token]);
+    useEffect(() => {
+        const controller = new AbortController();
+        loadData(controller.signal);
+        return () => controller.abort();
+    }, [token]);
 
     const handleBroadcastSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,17 +93,17 @@ export const SecurityTab: React.FC = () => {
 
                     <form onSubmit={handleBroadcastSubmit} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Título do Aviso</label>
-                            <input type="text" value={broadcastForm.title} onChange={e => setBroadcastForm({ ...broadcastForm, title: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: Manutenção Programada" />
+                            <label htmlFor="broadcast-title-input" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Título do Aviso</label>
+                            <input id="broadcast-title-input" type="text" value={broadcastForm.title} onChange={e => setBroadcastForm({ ...broadcastForm, title: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: Manutenção Programada" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Mensagem (obrigatório)</label>
-                            <textarea required value={broadcastForm.message} onChange={e => setBroadcastForm({ ...broadcastForm, message: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 min-h-[80px]" placeholder="O servidor será reiniciado hoje às 23h..." />
+                            <label htmlFor="broadcast-message-input" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Mensagem (obrigatório)</label>
+                            <textarea id="broadcast-message-input" required value={broadcastForm.message} onChange={e => setBroadcastForm({ ...broadcastForm, message: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 min-h-[80px]" placeholder="O servidor será reiniciado hoje às 23h..." />
                         </div>
                         <div className="flex gap-4">
                             <div className="flex-1">
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Tipo / Cor</label>
-                                <select value={broadcastForm.type} onChange={e => setBroadcastForm({ ...broadcastForm, type: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 appearance-none">
+                                <label htmlFor="broadcast-type-select" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Tipo / Cor</label>
+                                <select id="broadcast-type-select" value={broadcastForm.type} onChange={e => setBroadcastForm({ ...broadcastForm, type: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 appearance-none">
                                     <option value="info">Informativo (Azul/Roxo)</option>
                                     <option value="warning">Alerta Crítico (Amarelo/Laranja)</option>
                                 </select>
@@ -113,7 +129,7 @@ export const SecurityTab: React.FC = () => {
                     <div className="px-4 py-3 bg-neutral-900 border-b border-neutral-800">
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">Histórico de Avisos</h3>
                     </div>
-                    <div className="divide-y divide-neutral-800/50 max-h-64 overflow-y-auto">
+                    <div className="divide-y divide-neutral-800/50 max-h-64 overflow-y-auto overscroll-contain">
                         {broadcasts.map(b => (
                             <div key={b.id} className="p-4 flex items-start justify-between gap-4 hover:bg-neutral-800/30">
                                 <div>
@@ -155,7 +171,7 @@ export const SecurityTab: React.FC = () => {
                             <div className="w-3 h-3 rounded-full bg-emerald-500/50"></div>
                         </div>
                     </div>
-                    <div className="p-4 overflow-y-auto flex-1 font-mono text-xs space-y-3">
+                    <div className="p-4 overflow-y-auto overscroll-contain flex-1 font-mono text-xs space-y-3">
                         {logs.map(log => {
                             const actionStr = String(log.action || '');
                             const isFail = actionStr.includes('FAIL');

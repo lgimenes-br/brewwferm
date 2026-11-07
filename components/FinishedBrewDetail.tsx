@@ -1,9 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { FinishedBrew, Reading, normalizeGravity } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { Award, Share2, FileDown, Quote, CheckCircle, Loader2, Save } from 'lucide-react';
+import { Award, Share2, FileDown, Quote, CheckCircle, Loader2, Save, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
@@ -16,6 +16,8 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const { token } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [copied, setCopied] = React.useState(false);
 
   const parseBrewIngredients = (b: FinishedBrew) => {
@@ -73,11 +75,13 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     }
 
     let isMounted = true;
+    const controller = new AbortController();
 
     const loadDetails = async () => {
       try {
+        setLoading(true);
+        setFetchError(null);
         // Add timeout to prevent infinite loading
-        const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
         const res = await fetch(`${API_URL}/batch/${brew.id}/data`, {
@@ -117,14 +121,17 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           setReadings(parsedReadings);
         } else {
           console.error('Failed to fetch batch data:', res.status, res.statusText);
+          setFetchError(`Falha ao carregar telemetria (HTTP ${res.status}).`);
         }
       } catch (e: any) {
         if (!isMounted) return;
 
         if (e.name === 'AbortError') {
           console.error('Request timeout - took longer than 10 seconds');
+          setFetchError('Tempo limite excedido ao buscar a telemetria.');
         } else {
           console.error('Error loading batch details:', e);
+          setFetchError('Não foi possível conectar ao servidor para carregar a telemetria.');
         }
       } finally {
         if (isMounted) {
@@ -137,8 +144,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
-  }, [brew.id, token]); // Only re-run if brew.id or token changes
+  }, [brew.id, token, retryCount]); // Only re-run if brew.id, token or retryCount changes
 
   const saveIngredients = async () => {
     setSavingIng(true);
@@ -194,6 +202,22 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
     }
   };
 
+  const { maxTempFormatted, minTempFormatted } = useMemo(() => {
+    const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
+    if (validTemps.length === 0) {
+      return { maxTempFormatted: '0.0', minTempFormatted: '0.0' };
+    }
+    let max = validTemps[0];
+    let min = validTemps[0];
+    for (let i = 1; i < validTemps.length; i++) {
+      if (validTemps[i] > max) max = validTemps[i];
+      if (validTemps[i] < min) min = validTemps[i];
+    }
+    return {
+      maxTempFormatted: max.toFixed(1),
+      minTempFormatted: min.toFixed(1)
+    };
+  }, [readings]);
   const normOg = normalizeGravity(brew.og, 0);
   const normFg = normalizeGravity(brew.fg, 0);
   const displayAbv = (() => {
@@ -327,12 +351,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Máx Temp</span>
           <span className="text-xl font-mono text-red-500 font-medium">
-            {(() => {
-              const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
-              if (validTemps.length === 0) return '0.0';
-              const maxTemp = validTemps.reduce((max, t) => (t > max ? t : max), validTemps[0]);
-              return maxTemp.toFixed(1);
-            })()}°C
+            {maxTempFormatted}°C
           </span>
         </div>
 
@@ -340,12 +359,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Min Temp</span>
           <span className="text-xl font-mono text-blue-500 font-medium">
-            {(() => {
-              const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
-              if (validTemps.length === 0) return '0.0';
-              const minTemp = validTemps.reduce((min, t) => (t < min ? t : min), validTemps[0]);
-              return minTemp.toFixed(1);
-            })()}°C
+            {minTempFormatted}°C
           </span>
         </div>
       </div>
@@ -385,8 +399,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-neutral-900/20 rounded-2xl p-8 border border-neutral-800/50">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Maltes / Fermentáveis</label>
+              <label htmlFor="brew-malts-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Maltes / Fermentáveis</label>
               <textarea 
+                id="brew-malts-input"
                 value={ingredients.malts}
                 onChange={e => setIngredients({...ingredients, malts: e.target.value})}
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
@@ -394,8 +409,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Lúpulos</label>
+              <label htmlFor="brew-hops-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Lúpulos</label>
               <textarea 
+                id="brew-hops-input"
                 value={ingredients.hops}
                 onChange={e => setIngredients({...ingredients, hops: e.target.value})}
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
@@ -404,8 +420,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             </div>
           </div>
           <div className="mb-6">
-            <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Levedura</label>
+            <label htmlFor="brew-yeast-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Levedura</label>
             <input 
+              id="brew-yeast-input"
               value={ingredients.yeast}
               onChange={e => setIngredients({...ingredients, yeast: e.target.value})}
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white focus:outline-none focus:border-orange-500 transition-colors"
@@ -413,8 +430,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             />
           </div>
           <div className="mb-8">
-            <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Anotações do Lote</label>
+            <label htmlFor="brew-notes-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Anotações do Lote</label>
             <textarea 
+              id="brew-notes-input"
               value={ingredients.notes}
               onChange={e => setIngredients({...ingredients, notes: e.target.value})}
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
@@ -437,6 +455,19 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             <div className="p-12 text-center text-neutral-500">
               <Loader2 className="animate-spin mx-auto mb-2" />
               Carregando dados de telemetria...
+            </div>
+          ) : fetchError ? (
+            <div role="alert" className="p-10 text-center bg-red-500/5 rounded-2xl border border-red-500/20 flex flex-col items-center">
+              <AlertTriangle className="text-red-400 mb-3" size={28} />
+              <p className="text-red-300 font-bold mb-1">Erro ao carregar telemetria</p>
+              <p className="text-neutral-400 text-sm mb-4">{fetchError}</p>
+              <button
+                type="button"
+                onClick={() => setRetryCount(c => c + 1)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 text-xs font-bold uppercase tracking-wider transition-colors"
+              >
+                <RefreshCw size={14} /> Tentar novamente
+              </button>
             </div>
           ) : readings.length === 0 ? (
             <div className="p-12 text-center bg-neutral-900/20 rounded-2xl border border-neutral-800 border-dashed">

@@ -43,7 +43,6 @@ import { Settings } from '../components/Settings';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { Login } from '../components/Login';
 import { Register } from '../components/Register';
-import { createVirtualEsp32Manager } from '../backend/utils/esp32Simulator.js';
 import { SystemBanner } from '../components/SystemBanner';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { FermenterStatus, DeviceMode, BeerStyle, Fermenter, FinishedBrew } from '../types';
@@ -827,79 +826,65 @@ describe('5. Backend Server & PushService Code & Logic Verification', () => {
         expect(mockPool.execute).not.toHaveBeenCalled();
     });
 
-    it('verifies Virtual ESP32 Simulator (esp32Simulator.js) handles all real ESP32 MQTT commands, 1-Wire scan, OTA, and physical device_action identically to physical firmware', () => {
-        const published: { topic: string; payload: any }[] = [];
-        const mockMqtt = {
-            publish: vi.fn((topic: string, msg: string) => {
-                published.push({ topic, payload: JSON.parse(msg) });
-            })
-        };
+    it('verifies 2nd Skill Audit improvements: voiceRoutes timingSafeEqual, FinishedBrewDetail error & retry state, and Virtual ESP32 removal', async () => {
+        const voiceCode = fs.readFileSync(path.resolve(__dirname, '../backend/routes/voiceRoutes.js'), 'utf-8');
+        expect(voiceCode).toContain('crypto.timingSafeEqual');
 
-        const sim = createVirtualEsp32Manager(mockMqtt);
-        sim.updateSimulatorState({ enabled: true, serial: 'ESP32-VIRTUAL-01' });
+        const serverCode = fs.readFileSync(path.resolve(__dirname, '../backend/server.js'), 'utf-8');
+        expect(serverCode).toContain('AbortSignal.timeout(4000)');
+        expect(serverCode).toContain("DELETE FROM devices WHERE serial_code = 'ESP32-VIRTUAL-01'");
+        expect(serverCode).not.toContain('esp32Simulator');
 
-        // 1. Initial telemetry published on brewbrother/ESP32-VIRTUAL-01/data
-        expect(published.some(p => p.topic === 'brewbrother/ESP32-VIRTUAL-01/data' && p.payload.opm === 0)).toBe(true);
-
-        // 2. setMode -> Chopeira (opm = 2)
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setMode', value: 2 });
-        expect(sim.getState().opm).toBe(2);
-        expect(published[published.length - 1].payload.opm).toBe(2);
-
-        // 3. setManual -> chopp_setpoint = 1.5°C
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setManual', field: 'chopp_setpoint', val: 1.5 });
-        expect(sim.getState().csp).toBe(1.5);
-
-        // 4. setChopp -> c_n1 = 'West Coast IPA'
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setChopp', field: 'c_n1', val: 'West Coast IPA' });
-        expect(sim.getState().c_n1).toBe('West Coast IPA');
-
-        // 5. setProfile -> loads ramp steps in hours and switches back to Fermenter mode (opm = 0)
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', {
-            type: 'setProfile',
-            steps: [
-                { n: 'Primária', t: 18.0, d: 120 },
-                { n: 'Diacetil', t: 21.5, d: 48 }
-            ],
-            currentStep: 0,
-            stepTime: 0
+        // Verify FinishedBrewDetail displays error alert and retry button when telemetry fetch fails
+        localStorage.setItem('token', 'valid-token');
+        localStorage.setItem('user', 'Brewer');
+        let fetchAttempts = 0;
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+            if (String(url).includes('/batch/999/data')) {
+                fetchAttempts++;
+                if (fetchAttempts === 1) {
+                    return { ok: false, status: 500, statusText: 'Internal Server Error' } as any;
+                }
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => [{ recorded_at: new Date().toISOString(), temp_ferm: 19.2, temp_amb: 16.0, target_temp: 19.0, gravity: 1.015 }]
+                } as any;
+            }
+            return { ok: true, status: 200, json: async () => [] } as any;
         });
-        expect(sim.getState().opm).toBe(0);
-        expect(sim.getState().csp).toBe(18.0);
-        expect(sim.getState().profStat).toBe('Primária');
 
-        // 6. skipStep -> advances to step 1 ('Diacetil', 21.5°C)
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'skipStep' });
-        expect(sim.getState().currStep).toBe(1);
-        expect(sim.getState().csp).toBe(21.5);
-        expect(sim.getState().profStat).toBe('Diacetil');
+        await act(async () => {
+            renderUI(
+                <FinishedBrewDetail
+                    brew={{
+                        id: '999',
+                        batchNumber: '#999',
+                        beerName: 'IPA Teste',
+                        style: BeerStyle.IPA,
+                        startDate: '2026-01-01T00:00:00Z',
+                        endDate: '2026-01-10T00:00:00Z',
+                        abv: 6.2,
+                        og: 1.055,
+                        fg: 1.008,
+                        efficiency: 85,
+                        rating: 5,
+                        notes: 'Excelente',
+                        readings: []
+                    }}
+                />
+            );
+        });
 
-        // 7. togglePause -> pauses and resumes
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'togglePause' });
-        expect(sim.getState().isPaused).toBe(true);
-        expect(sim.getState().statOp).toBe('PAUSADO');
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'togglePause' });
-        expect(sim.getState().isPaused).toBe(false);
+        expect(container.textContent).toContain('Erro ao carregar telemetria');
+        const retryBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Tentar novamente')) as HTMLButtonElement;
+        expect(retryBtn).toBeTruthy();
 
-        // 8. scan_sensors -> publishes scan_sensors_response with 3 DS18B20 MACs
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'scan_sensors' });
-        const scanResp = published.find(p => p.topic === 'brewbrother/ESP32-VIRTUAL-01/response');
-        expect(scanResp).toBeTruthy();
-        expect(scanResp?.payload.type).toBe('scan_sensors_response');
-        expect(scanResp?.payload.macs.length).toBe(3);
+        await act(async () => {
+            retryBtn.click();
+        });
 
-        // 9. setCalibration & PID
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'setCalibration', off_t1: -0.4, off_t2: 0.2, off_sg: 0.002 });
-        expect(sim.getState().off_t1).toBe(-0.4);
-        sim.handleIncomingCommand('ESP32-VIRTUAL-01', { type: 'Kp_c', val: 42.5 });
-        expect(sim.getState().kp_c).toBe(42.5);
-
-        // 10. Physical Screen Action (device_action: start_batch & stop_batch)
-        sim.triggerPhysicalDeviceAction({ action: 'start_batch', name: 'Lote Touch 7pol', style: 'Pilsen' });
-        const devActionMsg = published.find(p => p.topic === 'brewbrother/ESP32-VIRTUAL-01/device_action' && p.payload.action === 'start_batch');
-        expect(devActionMsg).toBeTruthy();
-        expect(devActionMsg?.payload.name).toBe('Lote Touch 7pol');
-
-        sim.stopLoop();
+        expect(fetchAttempts).toBe(2);
+        expect(container.textContent).toContain('1 leituras de telemetria carregadas');
     });
 });

@@ -20,20 +20,23 @@ export const OverviewTab: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchData = async () => {
             try {
                 const headers = { Authorization: `Bearer ${token}` };
                 const baseUrl = API_URL;
+                const signal = controller.signal;
 
                 const [resStats, resAnalytics, resTrends, resMap, resFin, resBatch, resComm] = await Promise.all([
-                    fetch(`${baseUrl}/admin/stats`, { headers }),
-                    fetch(`${baseUrl}/admin/analytics`, { headers }),
-                    fetch(`${baseUrl}/admin/trends`, { headers }),
-                    fetch(`${baseUrl}/admin/map`, { headers }),
-                    fetch(`${baseUrl}/admin/financials`, { headers }),
-                    fetch(`${baseUrl}/admin/batch-stats`, { headers }),
-                    fetch(`${baseUrl}/admin/community-trends`, { headers })
+                    fetch(`${baseUrl}/admin/stats`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/analytics`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/trends`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/map`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/financials`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/batch-stats`, { headers, signal }),
+                    fetch(`${baseUrl}/admin/community-trends`, { headers, signal })
                 ]);
+                if (signal.aborted) return;
                 if (resStats.status === 401 && typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                     return;
@@ -52,13 +55,18 @@ export const OverviewTab: React.FC = () => {
                     const cData = await resComm.json();
                     setCommunity(Array.isArray(cData) ? cData : []);
                 }
-            } catch (e) {
-                console.error(e);
+            } catch (e: any) {
+                if (e?.name !== 'AbortError') {
+                    console.error(e);
+                }
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
         };
         fetchData();
+        return () => controller.abort();
     }, [token]);
 
     if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;

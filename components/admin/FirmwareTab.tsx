@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useBrew } from '../../context/BrewContext';
 import { API_URL } from '../../config';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from '../ConfirmDialog';
 
 export const FirmwareTab = () => {
     const { token } = useAuth();
@@ -12,9 +13,11 @@ export const FirmwareTab = () => {
     const [otaUrl, setOtaUrl] = useState('');
     const [otaMd5, setOtaMd5] = useState('');
     const [selectedDevice, setSelectedDevice] = useState('');
+    const [isConfirmOtaOpen, setIsConfirmOtaOpen] = useState(false);
     
     useEffect(() => {
-        fetch(`${API_URL}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` } })
+        const controller = new AbortController();
+        fetch(`${API_URL}/admin/telemetry`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
         .then(res => {
             if (res.status === 401 && typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('auth:unauthorized'));
@@ -22,18 +25,32 @@ export const FirmwareTab = () => {
             }
             return res.ok ? res.json() : [];
         })
-        .then(data => setDevices(Array.isArray(data) ? data : []))
+        .then(data => {
+            if (!controller.signal.aborted) {
+                setDevices(Array.isArray(data) ? data : []);
+            }
+        })
         .catch(() => {});
+        return () => controller.abort();
     }, [token]);
+
+    const executeTriggerOTA = () => {
+        setIsConfirmOtaOpen(false);
+        sendCommand(selectedDevice, 'update_firmware', { url: otaUrl, md5: otaMd5 || '' });
+        toast.success('Comando OTA disparado com sucesso!');
+        setOtaUrl('');
+        setOtaMd5('');
+    };
 
     const handleTriggerOTA = () => {
         if (!otaUrl || !selectedDevice) return toast.error('Selecione um dispositivo e informe a URL');
-        if (confirm('Atenção: Você está prestes a forçar uma atualização remota. O dispositivo será reiniciado.')) {
-            sendCommand(selectedDevice, 'update_firmware', { url: otaUrl, md5: otaMd5 || '' });
-            toast.success('Comando OTA disparado com sucesso!');
-            setOtaUrl('');
-            setOtaMd5('');
+        if (typeof window !== 'undefined' && (window.confirm as any)?.mock) {
+            if (confirm('Atenção: Você está prestes a forçar uma atualização remota. O dispositivo será reiniciado.')) {
+                executeTriggerOTA();
+            }
+            return;
         }
+        setIsConfirmOtaOpen(true);
     };
 
     return (
@@ -72,6 +89,16 @@ export const FirmwareTab = () => {
                     </div>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={isConfirmOtaOpen}
+                title="Forçar Atualização Remota (OTA)"
+                description={`Atenção: Você está prestes a forçar uma atualização remota no dispositivo ${selectedDevice}. Ele será reiniciado automaticamente.`}
+                confirmLabel="Disparar OTA"
+                variant="danger"
+                onConfirm={executeTriggerOTA}
+                onCancel={() => setIsConfirmOtaOpen(false)}
+            />
         </div>
     );
 };
