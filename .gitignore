@@ -25,3 +25,4 @@ temp_breww_app/
 *.njsproj
 *.sln
 *.sw?
+.stitch/screens/
