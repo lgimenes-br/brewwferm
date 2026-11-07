@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 
 export const SimulatorTab = ({ compact = false }: { compact?: boolean }) => {
     const { token } = useAuth();
-    const { refetch } = useFermenters();
+    const { fermenters, refetch } = useFermenters();
     const [simState, setSimState] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -46,9 +46,25 @@ export const SimulatorTab = ({ compact = false }: { compact?: boolean }) => {
         try {
             const updated = await updateSimulatorState(patch, token);
             setSimState(updated);
+            refetch();
             if (successMsg) toast.success(successMsg);
         } catch (err: any) {
             toast.error(err.message || 'Erro ao atualizar ESP32 Virtual');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleSelectTargetSerial = async (targetSerial: string) => {
+        if (!token) return;
+        setBusy(true);
+        try {
+            const res = await linkSimulatorDevice({ serial: targetSerial, unlink: false }, token);
+            toast.success(`Simulando dispositivo ${res.serial}!`);
+            await loadStatus();
+            refetch();
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao trocar serial simulado');
         } finally {
             setBusy(false);
         }
@@ -175,6 +191,47 @@ export const SimulatorTab = ({ compact = false }: { compact?: boolean }) => {
                         <Power size={15} />
                         {simState.enabled ? 'Desligar Placa' : 'Ligar Placa Virtual'}
                     </button>
+                </div>
+            </div>
+
+            {/* Quick Device Serial Selector */}
+            <div className="bg-neutral-900/70 border border-neutral-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-neutral-400">
+                    <span className="font-bold text-white">Qual dispositivo você quer simular agora?</span> Escolha a placa virtual dedicada ou dê vida a uma das suas placas cadastradas:
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleSelectTargetSerial('ESP32-VIRTUAL-01')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border transition-colors ${
+                            simState.serial === 'ESP32-VIRTUAL-01'
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
+                        }`}
+                    >
+                        ESP32 Virtual (ESP32-VIRTUAL-01)
+                    </button>
+                    {fermenters
+                        .filter(f => f.id.toUpperCase() !== 'ESP32-VIRTUAL-01')
+                        .map(f => {
+                            const active = simState.serial === f.id.toUpperCase();
+                            return (
+                                <button
+                                    key={f.id}
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => handleSelectTargetSerial(f.id)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border transition-colors ${
+                                        active
+                                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                            : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
+                                    }`}
+                                >
+                                    {f.name} ({f.id})
+                                </button>
+                            );
+                        })}
                 </div>
             </div>
 

@@ -13,6 +13,7 @@ const DEFAULT_SERIAL = 'ESP32-VIRTUAL-01';
 export const createInitialEsp32State = (serial = DEFAULT_SERIAL) => ({
     serial: String(serial).trim().toUpperCase(),
     enabled: false,
+    unlinkedForDiscovery: false,
     autoPhysics: true,
     ferm: 20.2,
     amb: 16.5,
@@ -521,6 +522,9 @@ export const createVirtualEsp32Manager = (mqttClient) => {
         if (!patch || typeof patch !== 'object') return state;
         if (patch.serial && String(patch.serial).trim()) {
             state.serial = String(patch.serial).trim().toUpperCase();
+        }
+        if (patch.unlinkedForDiscovery !== undefined) {
+            state.unlinkedForDiscovery = Boolean(patch.unlinkedForDiscovery);
         }
         if (patch.autoPhysics !== undefined) state.autoPhysics = Boolean(patch.autoPhysics);
         if (patch.ferm !== undefined && !isNaN(Number(patch.ferm))) state.ferm = Number(patch.ferm);

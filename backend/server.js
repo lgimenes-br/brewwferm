@@ -357,6 +357,7 @@ const notifyUpdate = (serialCode) => {
 };
 
 const virtualEsp32 = createVirtualEsp32Manager(mqttClient);
+virtualEsp32.updateSimulatorState({ enabled: true });
 
 mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/status');
@@ -919,6 +920,60 @@ const deleteDeviceCascade = async (devId, serialCode) => {
 
 app.get('/api/devices', authenticateToken, async (req, res) => {
     try {
+        // Garante que o ESP32 Virtual já apareça automaticamente nos Dispositivos e conectado quando habilitado
+        const simState = virtualEsp32.getState();
+        if (simState.enabled && !simState.unlinkedForDiscovery && simState.serial) {
+            try {
+                const [simDevs] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ? LIMIT 1', [simState.serial]);
+                let simDevId = null;
+                if (simDevs.length === 0) {
+                    const [ins] = await pool.execute(
+                        'INSERT INTO devices (serial_code, user_id, device_name, firmware_version, last_seen, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
+                        [simState.serial, req.user.id, 'ESP32 Virtual', simState.ver || 'V2.5.0-VIRTUAL']
+                    );
+                    simDevId = ins.insertId;
+                } else {
+                    simDevId = simDevs[0].id;
+                    if (simState.serial === 'ESP32-VIRTUAL-01' && Number(simDevs[0].user_id) !== Number(req.user.id)) {
+                        const [uRows] = await pool.execute('SELECT role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+                        if (uRows.length > 0 && uRows[0].role === 'admin') {
+                            await pool.execute('UPDATE devices SET user_id = ? WHERE id = ?', [req.user.id, simDevId]);
+                        }
+                    }
+                    await pool.execute(
+                        'UPDATE devices SET last_seen = NOW(), firmware_version = COALESCE(?, firmware_version) WHERE id = ?',
+                        [simState.ver || 'V2.5.0-VIRTUAL', simDevId]
+                    );
+                }
+
+                if (simDevId) {
+                    const [tCheck] = await pool.execute('SELECT id FROM telemetry WHERE device_id = ? LIMIT 1', [simDevId]);
+                    if (tCheck.length === 0) {
+                        const activeBatchId = activeBatches[simState.serial] || null;
+                        await pool.execute(
+                            `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, extra_sensors, recorded_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                            [
+                                simDevId,
+                                activeBatchId,
+                                simState.ferm,
+                                simState.amb,
+                                simState.csp,
+                                simState.is_sg,
+                                simState.is_bat,
+                                simState.statOp,
+                                simState.profStat,
+                                simState.rssi,
+                                simState.ext_s ? JSON.stringify(simState.ext_s) : null
+                            ]
+                        );
+                    }
+                }
+            } catch (simErr) {
+                console.error('⚠️ [Virtual ESP32 Auto-Sync]:', simErr.message);
+            }
+        }
+
         const [devices] = await pool.execute(`
             SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online,
                    b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style,
@@ -952,6 +1007,15 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
 app.get('/api/discovery', authenticateToken, async (req, res) => {
     try {
         const now = Date.now();
+        const simState = virtualEsp32.getState();
+        if (simState.enabled && simState.unlinkedForDiscovery && simState.serial) {
+            discoveredUnknowns[simState.serial] = {
+                serialCode: simState.serial,
+                lastSeen: now,
+                temp: simState.ferm,
+                ip: simState.ip || '192.168.1.250'
+            };
+        }
         console.log(`🔎 [API] /api/discovery solicitado. Cache atual: ${Object.keys(discoveredUnknowns).length} itens`);
 
         // Clean old
@@ -980,6 +1044,10 @@ app.post('/api/devices', authenticateToken, async (req, res) => {
             return res.status(409).json({ error: 'Este código serial já está vinculado a uma conta.' });
         }
         await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body?.name ?? null]);
+        if (serialCode === virtualEsp32.getState().serial) {
+            virtualEsp32.updateSimulatorState({ unlinkedForDiscovery: false, enabled: true });
+            delete discoveredUnknowns[serialCode];
+        }
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip || null]);
         notifyUpdate();
         res.status(201).json({ message: 'Criado' });
@@ -1023,6 +1091,9 @@ app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
         const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
         await deleteDeviceCascade(devs[0].id, req.params.serial);
+        if (String(req.params.serial || '').trim().toUpperCase() === virtualEsp32.getState().serial) {
+            virtualEsp32.updateSimulatorState({ unlinkedForDiscovery: true });
+        }
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
         notifyUpdate(req.params.serial);
         res.json({ message: 'Excluído' });
