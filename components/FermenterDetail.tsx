@@ -595,7 +595,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <h2 className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-sm mb-4">Umidade Relativa</h2>
                             <div className="flex items-start gap-2">
                                 <span className="text-8xl md:text-8xl xl:text-9xl font-black text-white tracking-tighter tabular-nums">
-                                    {safeHumidity !== undefined && safeHumidity !== null && !isNaN(parseFloat(String(safeHumidity))) ? parseFloat(String(safeHumidity)).toFixed(0) : '--'}
+                                    {safeHumidity !== undefined && safeHumidity !== null && !isNaN(parseFloat(String(safeHumidity))) ? parseFloat(String(safeHumidity)).toFixed(1) : '--'}
                                 </span>
                                 <span className="text-4xl text-neutral-600 font-light mt-4">%</span>
                             </div>

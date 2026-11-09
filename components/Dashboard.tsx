@@ -565,7 +565,7 @@ export const Dashboard: React.FC = () => {
                                         <>
                                             <div className="flex items-start justify-end gap-1">
                                                 <span className="text-5xl font-bold tracking-tighter text-white">
-                                                    {safeHumidity !== undefined ? safeHumidity.toFixed(0) : '--'}
+                                                    {safeHumidity !== undefined ? safeHumidity.toFixed(1) : '--'}
                                                 </span>
                                                 <span className="text-lg text-neutral-500 font-light mt-1">%</span>
                                             </div>
