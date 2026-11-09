@@ -19,6 +19,8 @@ import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
+import { registerPairingRoutes } from './routes/pairingRoutes.js';
+import { registerLiveRoutes } from './routes/liveRoutes.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,6 +76,7 @@ const initDb = async () => {
     try {
         await pool.execute(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', plan_type ENUM('free', 'premium') DEFAULT 'free', max_devices INT DEFAULT 1, lat FLOAT DEFAULT NULL, lon FLOAT DEFAULT NULL, brewfather_webhook_url VARCHAR(255) DEFAULT NULL, alert_config JSON DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS devices (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, serial_code VARCHAR(100) NOT NULL UNIQUE, device_name VARCHAR(100), sensor1_name VARCHAR(50) DEFAULT 'Fermentador', sensor2_name VARCHAR(50) DEFAULT 'Geladeira', sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade', chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp', firmware_version VARCHAR(20) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS device_keys (serial_code VARCHAR(100) PRIMARY KEY, key_hash CHAR(64) NOT NULL, last_public_ip VARCHAR(64) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS batches (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, name VARCHAR(150) NOT NULL, style VARCHAR(100), og VARCHAR(20), fg VARCHAR(20), volume FLOAT DEFAULT 20, profile JSON, ingredients JSON, public_token VARCHAR(64) DEFAULT NULL, current_step_index INT DEFAULT 0, step_started_at DATETIME DEFAULT NULL, started_at DATETIME DEFAULT NOW(), ended_at DATETIME DEFAULT NULL, is_active BOOLEAN DEFAULT 1, FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS telemetry (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, batch_id INT DEFAULT NULL, temp_ferm FLOAT, temp_amb FLOAT, target_temp FLOAT, gravity FLOAT, battery FLOAT, status_op VARCHAR(50), step_name VARCHAR(100), rssi INT DEFAULT NULL, extra_sensors JSON, recorded_at DATETIME DEFAULT NOW(), FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS batch_events (id INT AUTO_INCREMENT PRIMARY KEY, batch_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, description TEXT, recorded_at DATETIME NOT NULL, FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE)`);
@@ -271,6 +274,9 @@ const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex
 // --- 2. MQTT ---
 const brokerUrl = process.env.VITE_MQTT_BROKER || 'mqtt://localhost:1883';
 console.log(`🔌 [MQTT] Conectando a ${brokerUrl}...`);
+if (!process.env.MQTT_USER || process.env.MQTT_USER === 'esp32user') {
+    console.warn('⚠️ [MQTT] Backend usando a credencial compartilhada das placas (esp32user). Rode backend/mosquitto/setup-vps-mosquitto.sh para usar breww_server; o ACL atual nao permite que esp32user publique comandos.');
+}
 
 const mqttClient = mqtt.connect(brokerUrl, {
     clientId: 'server_pro_' + Math.random().toString(16).substr(2, 8),
@@ -883,42 +889,10 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
-app.get('/api/discovery', authenticateToken, async (req, res) => {
-    try {
-        const now = Date.now();
-        console.log(`🔎 [API] /api/discovery solicitado. Cache atual: ${Object.keys(discoveredUnknowns).length} itens`);
-
-        // Clean old
-        for (const k in discoveredUnknowns) {
-            if (now - discoveredUnknowns[k].lastSeen > 300000) delete discoveredUnknowns[k];
-        }
-        res.json(Object.values(discoveredUnknowns));
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/devices', authenticateToken, async (req, res) => {
-    try {
-        const [userRows] = await pool.execute('SELECT max_devices FROM users WHERE id = ?', [req.user.id]);
-        if (userRows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
-        const max_devices = userRows[0].max_devices ?? 1;
-        const [[{ count }]] = await pool.execute('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [req.user.id]);
-        
-        if (count >= max_devices) {
-            return res.status(403).json({ error: 'Limite de equipamentos atingido. Atualize seu plano.' });
-        }
-
-        const serialCode = String(req.body?.serialCode || '').trim().toUpperCase();
-        if (!serialCode) return res.status(400).json({ error: 'Código serial é obrigatório' });
-        const [existingDev] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? LIMIT 1', [serialCode]);
-        if (existingDev.length > 0) {
-            return res.status(409).json({ error: 'Este código serial já está vinculado a uma conta.' });
-        }
-        await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())', [serialCode, req.user.id, req.body?.name ?? null]);
-        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_DEVICE', `Device: ${serialCode}`, req.ip || null]);
-        notifyUpdate();
-        res.status(201).json({ message: 'Criado' });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno' }); }
-});
+// Descoberta por rede (mesmo IP publico), pedido de vinculo e confirmacao na tela do aparelho
+registerPairingRoutes(app, { pool, mqttClient, authenticateToken, notifyUpdate });
+// Fluxo ao vivo para o navegador (substitui a conexao MQTT direta do browser)
+registerLiveRoutes(app, { pool, mqttClient, authenticateToken });
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {

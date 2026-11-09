@@ -5,22 +5,40 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-const mqttPublishMock = vi.fn();
-const mqttSubscribeMock = vi.fn();
-const mqttOnMock = vi.fn();
-const mqttEndMock = vi.fn();
+// O navegador nao fala mais com o broker MQTT: dados ao vivo chegam pelo fluxo SSE do
+// backend (services/liveClient) e comandos pelo endpoint autenticado (sendDeviceCommand).
+const commandMock = vi.fn();
+let liveOptions: any = null;
 
-vi.mock('mqtt', () => ({
-    default: {
-        connect: () => ({
-            connected: true,
-            on: mqttOnMock,
-            subscribe: mqttSubscribeMock,
-            publish: mqttPublishMock,
-            end: mqttEndMock
-        })
+vi.mock('../services/liveClient', () => ({
+    connectLive: (opts: any) => {
+        liveOptions = opts;
+        setTimeout(() => opts.onOpen?.(), 0);
+        return { close: () => {} };
     }
 }));
+
+vi.mock('../services/api', async (importOriginal) => {
+    const actual: any = await importOriginal();
+    return {
+        ...actual,
+        sendDeviceCommand: (...args: any[]) => {
+            commandMock(...args);
+            return Promise.resolve({});
+        }
+    };
+});
+
+/** Simula uma mensagem chegando pelo fluxo ao vivo (mesma assinatura do antigo handler MQTT) */
+const liveMessageHandler = () => (topic: string, message: any, packet?: { retain?: boolean }) =>
+    liveOptions?.onMessage(topic, message.toString(), Boolean(packet?.retain));
+
+/** Verifica se um comando foi enviado ao aparelho pela API autenticada */
+const expectCommand = (serial: string, fragment: string) => {
+    const sent = commandMock.mock.calls.map(([s, type, payload]) => [s, JSON.stringify({ ...(payload || {}), type, cmd: type })]);
+    const found = sent.some(([s, body]) => s === serial && body.includes(fragment));
+    expect(found, `esperava comando contendo ${fragment} para ${serial}. Enviados: ${JSON.stringify(sent)}`).toBe(true);
+};
 
 import { AuthProvider } from '../context/AuthContext';
 import { BrewProvider } from '../context/BrewContext';
@@ -98,10 +116,8 @@ beforeEach(() => {
     root = createRoot(container);
     localStorage.clear();
     clearLiveDeviceState();
-    mqttPublishMock.mockReset();
-    mqttSubscribeMock.mockReset();
-    mqttOnMock.mockReset();
-    mqttEndMock.mockReset();
+    commandMock.mockReset();
+    liveOptions = null;
     vi.restoreAllMocks();
 });
 
@@ -406,10 +422,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
         expect(container.textContent).toContain('Pausado');
         expect(findButtonByText('Retomar')).toBeTruthy();
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_01/comando',
-            expect.stringContaining('"type":"togglePause"')
-        );
+        expectCommand('ESP32_01', '"type":"togglePause"');
 
         // Retoma a fermentação
         await act(async () => {
@@ -424,10 +437,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             nextStepBtn.click();
             await new Promise(r => setTimeout(r, 40));
         });
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_01/comando',
-            expect.stringContaining('"type":"skipStep"')
-        );
+        expectCommand('ESP32_01', '"type":"skipStep"');
         // Set-point deve ter mudado para a temperatura da 2ª rampa (18.0°) e registrado no Diário de Bordo
         expect(container.textContent).toContain('18.0°');
 
@@ -436,10 +446,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             prevStepBtn.click();
             await new Promise(r => setTimeout(r, 40));
         });
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_01/comando',
-            expect.stringContaining('"type":"setProfile"')
-        );
+        expectCommand('ESP32_01', '"type":"setProfile"');
         expect(container.textContent).toContain('19.0°');
 
         // 6. Testa Edição dos Dados do Lote (Nome, OG, FG) no topo do painel
@@ -487,10 +494,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
 
         // Deve exibir o layout de Chopeira e enviar comando setMode (value: 2)
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_01/comando',
-            expect.stringContaining('"type":"setMode"')
-        );
+        expectCommand('ESP32_01', '"type":"setMode"');
         expect(container.textContent).toContain('Editar Informações do Display');
 
         // Altera Linha 1 da Chopeira e clica em Atualizar Display
@@ -623,7 +627,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(confirmAddBtn.disabled).toBe(true); // Bloqueado sem nome e sem IP/Serial
 
         const nameInput = container.querySelector('input[placeholder="Ex: Fermentador 03"]') as HTMLInputElement;
-        const ipInput = container.querySelector('input[placeholder="Ex: 192.168.1.50 ou SERIAL_123"]') as HTMLInputElement;
+        const ipInput = container.querySelector('input[placeholder="Código de 12 caracteres (letras e números)"]') as HTMLInputElement;
 
         setInputValue(nameInput, 'Fermentador Inox 02');
         expect(confirmAddBtn.disabled).toBe(true); // Ainda bloqueado sem Serial
@@ -956,72 +960,46 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
 
         // 1. Configurações Gerais ("Salvar Gerais")
         clickElement(findButtonByText('Salvar Gerais'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"setConfig"')
-        );
+        expectCommand('ESP32_CFG', '"type":"setConfig"');
 
         // 2. Nome Sensor SG ("Salvar Nome SG")
         await act(async () => {
             findButtonByText('Salvar Nome SG')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"setNames"')
-        );
+        expectCommand('ESP32_CFG', '"type":"setNames"');
         expect(apiCalls.some(c => c.url.includes('/sensors') && c.method === 'PUT')).toBe(true);
 
         // 3. Calibração ("Salvar Calibração")
         clickElement(findButtonByText('Salvar Calibração'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"setCalibration"')
-        );
+        expectCommand('ESP32_CFG', '"type":"setCalibration"');
 
         // 4. Auto-Tune e Atualizar PID
         clickElement(findButtonByText('Iniciar Auto-Tune'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"autotune"')
-        );
+        expectCommand('ESP32_CFG', '"type":"autotune"');
         clickElement(findButtonByText('Atualizar PID'));
         await act(async () => {
             await new Promise(r => setTimeout(r, 20));
         });
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"Kp_h"')
-        );
+        expectCommand('ESP32_CFG', '"type":"Kp_h"');
 
         // 5. Teste de Relés (Aquecer, Refrigerar, Auto)
         clickElement(findButtonByText('Aquecer'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"value":1')
-        );
+        expectCommand('ESP32_CFG', '"value":1');
         clickElement(findButtonByText('Refrigerar'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"value":2')
-        );
+        expectCommand('ESP32_CFG', '"value":2');
         clickElement(Array.from(container.querySelectorAll('button')).find(b => (b.textContent || '').trim() === 'Auto'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"value":0')
-        );
+        expectCommand('ESP32_CFG', '"value":0');
 
-        // 6. Mapeamento 1-Wire: Verifica que "Salvar Mapeamento" inicia desabilitado antes do scan
-        const saveMappingBtn = findButtonByText('Salvar Mapeamento')!;
-        expect(saveMappingBtn.disabled).toBe(true);
+        // 6. Mapeamento 1-Wire: "Escanear Sensores" abre o modal e dispara o scan
         clickElement(findButtonByText('Escanear Sensores'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"scan_sensors"')
-        );
+        expectCommand('ESP32_CFG', '"type":"scan_sensors"');
+        const scanDialog = () => container.querySelector('[aria-labelledby="sensor-scan-title"]') as HTMLElement | null;
+        expect(scanDialog()).toBeTruthy();
+        expect(scanDialog()!.textContent).toContain('Procurando sensores');
 
-        // Simula resposta MQTT da placa com 2 sensores 1-Wire encontrados
-        const messageHandler = mqttOnMock.mock.calls.find(c => c[0] === 'message')?.[1];
+        // Simula resposta MQTT da placa com 2 sensores 1-Wire encontrados (com temperaturas)
+        const messageHandler = liveMessageHandler();
         expect(messageHandler).toBeTruthy();
         act(() => {
             messageHandler(
@@ -1029,43 +1007,39 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
                 Buffer.from(JSON.stringify({
                     type: 'scan_sensors_response',
                     id: 'ESP32_CFG',
-                    macs: ['28FFAA112233', '28FFBB445566']
+                    macs: ['28FFAA112233', '28FFBB445566'],
+                    sensors: [{ mac: '28FFAA112233', temp: 19.5 }, { mac: '28FFBB445566', temp: 4.25 }],
+                    macCtrl: '',
+                    mac2: ''
                 })),
                 { retain: false }
             );
         });
 
-        // Verifica que os MACs apareceram na tela e "Salvar Mapeamento" habilitou!
-        expect(container.textContent).toContain('28FFAA112233');
-        expect(container.textContent).toContain('28FFBB445566');
-        expect(saveMappingBtn.disabled).toBe(false);
+        // Sensores e temperaturas aparecem no modal; sem mapeamento salvo, segue a ordem do barramento
+        expect(scanDialog()!.textContent).toContain('28FFAA112233');
+        expect(scanDialog()!.textContent).toContain('4.25 °C');
+        const nameInput = scanDialog()!.querySelector('input[aria-label="Nome do Sensor 1"]') as HTMLInputElement;
+        expect(nameInput).toBeTruthy();
 
-        // Define o 1º como Sensor de Controle e o 2º como Sensor Extra
-        const mappingSelects = container.querySelectorAll('select');
-        setSelectValue(mappingSelects[1] as HTMLSelectElement, 'control');
-        setSelectValue(mappingSelects[2] as HTMLSelectElement, 'extra');
+        // Inverte: o 2º sensor vira Sensor 1 (controle)
+        const row2 = scanDialog()!.querySelector('[data-testid="scan-row-28FFBB445566"]')!;
+        clickElement(Array.from(row2.querySelectorAll('button')).find(b => (b.textContent || '').includes('Sensor 1')));
 
         await act(async () => {
-            saveMappingBtn.click();
+            Array.from(scanDialog()!.querySelectorAll('button')).find(b => (b.textContent || '').trim() === 'Salvar')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"type":"set_sensors"')
-        );
+        expectCommand('ESP32_CFG', '"macSensorControle":"28FFBB445566"');
+        expectCommand('ESP32_CFG', '"extraSensors":[{"mac":"28FFAA112233"');
+        expect(scanDialog()).toBeNull();
 
         // 7. Botões de Sistema (Reiniciar, Reset Fábrica)
         vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
         clickElement(findButtonByText('Reiniciar'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"action":"reboot"')
-        );
+        expectCommand('ESP32_CFG', '"action":"reboot"');
         clickElement(findButtonByText('Reset Fábrica'));
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_CFG/comando',
-            expect.stringContaining('"action":"resetconfig"')
-        );
+        expectCommand('ESP32_CFG', '"action":"resetconfig"');
 
         // Parte B: AdminDashboard -> Navegar pelas 8 abas e testar ações administrativas
         renderWithProviders(<AdminDashboard />);
@@ -1261,10 +1235,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         // Verifica que o Set-point no painel principal mudou IMEDIATAMENTE para 21.5° e o badge de SG (≤ 1.014) apareceu!
         expect(container.textContent).toContain('21.5°');
         expect(container.textContent).toContain('≤ 1.014');
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_LIVE/comando',
-            expect.stringContaining('"type":"setProfile"')
-        );
+        expectCommand('ESP32_LIVE', '"type":"setProfile"');
         expect(apiCalls.some(c => c.url.includes('/batch/update') && Array.isArray(c.body?.profile) && c.body.profile.length === 1)).toBe(true);
 
         // 3. Exclui o evento "Adição de Saaz" do Diário de Bordo
@@ -1305,10 +1276,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             await new Promise(r => setTimeout(r, 550)); // Aguarda o debounce de 500ms para envio MQTT
         });
         expect(container.textContent).toContain('22.0°C');
-        expect(mqttPublishMock).toHaveBeenCalledWith(
-            'brewbrother/ESP32_LIVE/comando',
-            expect.stringContaining('"type":"setManual"')
-        );
+        expectCommand('ESP32_LIVE', '"type":"setManual"');
     });
 
     it('Fluxo 7: Telemetria MQTT em Tempo Real no Dashboard (Transição Offline -> Online e atualização instantânea de sensores) + Alerta Global de Firmware OTA (0% -> 50% -> 100%)', async () => {
@@ -1350,7 +1318,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('18.0');
 
         // Simula pacote MQTT ao vivo chegando em brewbrother/ESP32_MQTT/data
-        const messageHandler = mqttOnMock.mock.calls.find(c => c[0] === 'message')?.[1];
+        const messageHandler = liveMessageHandler();
         expect(messageHandler).toBeTruthy();
 
         await act(async () => {

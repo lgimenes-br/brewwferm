@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import mqtt, { MqttClient } from 'mqtt';
-import { MQTT_BROKER, MQTT_USER, MQTT_PASSWORD } from '../config';
+import { connectLive, LiveConnection } from '../services/liveClient';
 import { useAuth } from './AuthContext';
 import { useFermenters } from '../hooks/useFermenters';
 import { FermenterStatus, DeviceMode } from '../types';
@@ -13,7 +12,16 @@ interface BrewContextType {
     otaProgress: Record<string, number>;
     clearOtaProgress: () => void;
     scanResponses: Record<string, string[]>;
+    /** Detalhes do ultimo scan 1-Wire por aparelho (chave em MAIUSCULAS) */
+    scanDetails: Record<string, ScanDetails>;
     blockTelemetry: (serialCode: string) => void;
+}
+
+export interface ScanDetails {
+    sensors: { mac: string; temp: number | null }[];
+    macCtrl?: string;
+    mac2?: string;
+    receivedAt: number;
 }
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
@@ -25,104 +33,48 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(true);
     const [otaProgress, setOtaProgress] = useState<Record<string, number>>({});
     const [scanResponses, setScanResponses] = useState<Record<string, string[]>>({});
-    const clientRef = useRef<MqttClient | null>(null);
+    const [scanDetails, setScanDetails] = useState<Record<string, ScanDetails>>({});
+    const liveRef = useRef<LiveConnection | null>(null);
     const commandCooldownRef = useRef<Record<string, number>>({});
     const fermentersRef = useRef(fermenters);
     const initialPingedDevicesRef = useRef<Set<string>>(new Set());
-    const subscribedSerialsRef = useRef<Set<string>>(new Set());
+    const liveOpenRef = useRef(false);
 
-    const subscribeUserDevices = useCallback((client: MqttClient | null, list: typeof fermenters) => {
-        if (!client || !client.connected) return;
-        const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
+    // Pede uma leitura imediata a cada aparelho (uma vez por conexao), pelo endpoint autenticado
+    const pingNewDevices = useCallback((list: typeof fermenters) => {
+        if (!token || !liveOpenRef.current) return;
         list.forEach(f => {
-            if (!f.id) return;
-            const rawId = f.id.trim();
-            const upperId = rawId.toUpperCase();
-            if (!subscribedSerialsRef.current.has(upperId)) {
-                subscribedSerialsRef.current.add(upperId);
-                client.subscribe(`brewbrother/${rawId}/data`);
-                client.subscribe(`brewbrother/${rawId}/ota`);
-                client.subscribe(`brewbrother/${rawId}/response`);
-                if (upperId !== rawId) {
-                    client.subscribe(`brewbrother/${upperId}/data`);
-                    client.subscribe(`brewbrother/${upperId}/ota`);
-                    client.subscribe(`brewbrother/${upperId}/response`);
-                }
-            }
-            if (!initialPingedDevicesRef.current.has(upperId)) {
-                initialPingedDevicesRef.current.add(upperId);
-                client.publish(`brewbrother/${rawId}/comando`, statusMsg);
-                client.publish(`brewbrother/${rawId}/command`, statusMsg);
-            }
+            const upperId = (f.id || '').trim().toUpperCase();
+            if (!upperId || initialPingedDevicesRef.current.has(upperId)) return;
+            initialPingedDevicesRef.current.add(upperId);
+            sendDeviceCommand(f.id, 'request_status', {}, token).catch(() => {});
         });
-    }, []);
+    }, [token]);
 
     useEffect(() => {
         fermentersRef.current = fermenters;
-        subscribeUserDevices(clientRef.current, fermenters);
-    }, [fermenters, subscribeUserDevices]);
+        pingNewDevices(fermenters);
+    }, [fermenters, pingNewDevices]);
 
-    // --- MQTT ---
+    // --- Fluxo ao vivo (SSE do backend; o navegador nao acessa mais o broker MQTT) ---
     useEffect(() => {
         initialPingedDevicesRef.current.clear();
-        subscribedSerialsRef.current.clear();
+        liveOpenRef.current = false;
         if (!token) {
             setConnectionStatus('disconnected');
             setIsInitialSyncing(false);
             return;
         }
-        if (clientRef.current) clientRef.current.end();
+        if (liveRef.current) liveRef.current.close();
         setIsInitialSyncing(true);
 
-        const clientId = 'brew_' + Math.random().toString(16).slice(2, 10);
-        
-        const client = mqtt.connect(MQTT_BROKER, {
-            clientId,
-            protocol: 'wss',
-            username: MQTT_USER,
-            password: MQTT_PASSWORD,
-            keepalive: 60,
-            reconnectPeriod: 5000,
-            clean: true
-        });
-
-        clientRef.current = client;
         let syncTimer: ReturnType<typeof setTimeout> | null = null;
-        let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-        // Hard timeout so initial search never hangs forever if broker or device is unreachable
+        // Hard timeout so initial search never hangs forever if backend or device is unreachable
         const hardSyncTimer = setTimeout(() => {
             setIsInitialSyncing(false);
         }, 2500);
 
-        const broadcastRequestStatus = () => {
-            if (!client.connected) return;
-            const statusMsg = JSON.stringify({ type: 'request_status', cmd: 'request_status' });
-            fermentersRef.current.forEach(f => {
-                if (f.id) {
-                    client.publish(`brewbrother/${f.id}/comando`, statusMsg);
-                    client.publish(`brewbrother/${f.id}/command`, statusMsg);
-                }
-            });
-        };
-
-        client.on('connect', () => {
-            setConnectionStatus('connected');
-            client.subscribe('brewbrother/global/update'); // Global refresh trigger
-            client.subscribe('brewbrother/global/response'); // Global responses (scan sensors)
-            subscribeUserDevices(client, fermentersRef.current);
-            broadcastRequestStatus();
-            if (syncTimer) clearTimeout(syncTimer);
-            syncTimer = setTimeout(() => {
-                setIsInitialSyncing(false);
-            }, 1800);
-
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            heartbeatInterval = setInterval(broadcastRequestStatus, 30000);
-        });
-
-        client.on('message', (topic, message, packet) => {
-            const msgStr = message.toString();
-            const isRetained = Boolean(packet?.retain);
+        const handleMessage = (topic: string, msgStr: string, isRetained: boolean) => {
             const ownsSerial = (serialCandidate: string) => {
                 const norm = (serialCandidate || '').trim().toUpperCase();
                 return Boolean(norm) && fermentersRef.current.some(f => (f.id || '').trim().toUpperCase() === norm);
@@ -158,7 +110,22 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const payload = JSON.parse(msgStr);
                     const respId = payload?.id || topic.split('/')[1];
                     if (payload?.type === 'scan_sensors_response' && respId && ownsSerial(respId)) {
-                        setScanResponses(prev => ({ ...prev, [respId]: Array.isArray(payload.macs) ? payload.macs : [] }));
+                        const macs: string[] = Array.isArray(payload.macs) ? payload.macs : [];
+                        setScanResponses(prev => ({ ...prev, [respId]: macs }));
+                        const sensors = Array.isArray(payload.sensors)
+                            ? payload.sensors
+                                .filter((s: any) => s && typeof s.mac === 'string')
+                                .map((s: any) => ({ mac: s.mac, temp: typeof s.temp === 'number' ? s.temp : null }))
+                            : macs.map(mac => ({ mac, temp: null }));
+                        setScanDetails(prev => ({
+                            ...prev,
+                            [String(respId).toUpperCase()]: {
+                                sensors,
+                                macCtrl: typeof payload.macCtrl === 'string' ? payload.macCtrl : undefined,
+                                mac2: typeof payload.mac2 === 'string' ? payload.mac2 : undefined,
+                                receivedAt: Date.now()
+                            }
+                        }));
                     }
                 } catch (e) {}
                 return;
@@ -294,13 +261,13 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
                         battery: payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
                         rssi: !isNaN(parsedRssi) ? parsedRssi : undefined,
-                        ...(isRetained ? {} : { lastUpdate: new Date().toISOString() }),
+                        ...(isRetained ? {} : { lastUpdate: new Date().toISOString(), lastPacketMs: Date.now() }),
                         statOp: statusStr || 'INATIVO',
                         logInterval: payload.wi ? payload.wi / 1000 : undefined,
                         compressorDelay: payload.cds,
                         version: payload.ver || payload.fw, // Firmware version
                         macCtrl: payload.macCtrl,
-                        extSens: payload.ext_s || payload.extSens,
+                        extSens: payload.ext_s ?? payload.extSens ?? (payload.hum !== undefined ? { hum: payload.hum } : undefined),
                         stepTime: !isNaN(parsedStepTime) ? parsedStepTime : undefined,
                         offsetS1: payload.off_t1 ?? payload.off1,
                         offsetS2: payload.off_t2 ?? payload.off2,
@@ -311,27 +278,45 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         kp_c: payload.kp_c ?? payload.Kp_c,
                         ki_c: payload.ki_c ?? payload.Ki_c,
                         kd_c: payload.kd_c ?? payload.Kd_c,
-                        pwmWindowHeat: payload.pwmWindowHeat ?? payload.pwm_w
+                        pwmWindowHeat: payload.pwmWindowHeat ?? payload.pwm_w,
+                        rawPayload: payload
                     } as any // Use as any to rely on prior state spread inside updateFermenterLocal
                 });
             } catch (e) {
-                console.error("MQTT Parse Error", e);
+                console.error("Live Parse Error", e);
             }
-        });
+        };
 
-        client.on('close', () => setConnectionStatus('disconnected'));
-        client.on('error', (err) => {
-            if (err.message && err.message.includes('client disconnecting')) return;
-            console.error("MQTT Error", err);
+        liveRef.current = connectLive({
+            token,
+            onOpen: () => {
+                setConnectionStatus('connected');
+                liveOpenRef.current = true;
+                initialPingedDevicesRef.current.clear();
+                pingNewDevices(fermentersRef.current);
+                if (syncTimer) clearTimeout(syncTimer);
+                syncTimer = setTimeout(() => setIsInitialSyncing(false), 1800);
+            },
+            onClose: () => {
+                liveOpenRef.current = false;
+                setConnectionStatus('disconnected');
+            },
+            onUnauthorized: () => {
+                liveOpenRef.current = false;
+                setConnectionStatus('disconnected');
+                setIsInitialSyncing(false);
+            },
+            onMessage: handleMessage
         });
 
         return () => {
             clearTimeout(hardSyncTimer);
             if (syncTimer) clearTimeout(syncTimer);
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            if (clientRef.current) clientRef.current.end();
+            liveOpenRef.current = false;
+            if (liveRef.current) liveRef.current.close();
+            liveRef.current = null;
         };
-    }, [token, refetch, updateFermenterLocal]);
+    }, [token, refetch, updateFermenterLocal, pingNewDevices]);
 
 
     const sendCommand = useCallback((serialCode: string, type: string, payload: any) => {
@@ -346,14 +331,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (type !== 'request_status' && type !== 'scan_sensors') {
             commandCooldownRef.current[normalizedSerial] = Date.now();
         }
-        // Publica via MQTT local (e mantém compatibilidade com mocks de testes)
-        if (clientRef.current) {
-            const msg = JSON.stringify({ ...payload, type, cmd: type });
-            clientRef.current.publish(`brewbrother/${serialCode}/comando`, msg);
-            clientRef.current.publish(`brewbrother/${serialCode}/command`, msg);
-        }
-        // Envia também via endpoint autenticado do backend (garante entrega mesmo com broker restrito por ACL)
-        if (token && type !== 'request_status') {
+        // Unico caminho: endpoint autenticado do backend (valida dono do aparelho e publica no broker)
+        if (token) {
             sendDeviceCommand(serialCode, type, payload, token).catch(() => {});
         }
     }, [token, role]);
@@ -369,7 +348,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     return (
-        <BrewContext.Provider value={{ connectionStatus, isInitialSyncing, sendCommand, otaProgress, clearOtaProgress, scanResponses, blockTelemetry }}>
+        <BrewContext.Provider value={{ connectionStatus, isInitialSyncing, sendCommand, otaProgress, clearOtaProgress, scanResponses, scanDetails, blockTelemetry }}>
             {children}
         </BrewContext.Provider>
     );

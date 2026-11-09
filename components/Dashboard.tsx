@@ -7,10 +7,19 @@ import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plu
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
-import { fetchDiscoveryDevices } from '../services/api';
+import { fetchDiscoveryDevices, AddDeviceResult } from '../services/api';
+import { PairingWaitModal } from './PairingWaitModal';
+
+/** Normaliza o codigo do aparelho: MAC com ":"/"-" (ex: 28:84:85:49:54:64) vira o ID dos topicos MQTT (288485495464). */
+export const normalizePairCode = (raw: string): string => {
+    const code = (raw || '').trim().toUpperCase();
+    if (/^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/.test(code)) return code.replace(/[:-]/g, '');
+    return code;
+};
 
 export const Dashboard: React.FC = () => {
-    const { fermenters, addDevice, updateDevice, deleteDevice } = useFermenters();
+    const { fermenters, addDevice, updateDevice, deleteDevice, refetch } = useFermenters();
+    const [pendingPairing, setPendingPairing] = useState<{ pairingId: string; serial: string; expiresIn: number } | null>(null);
     const { connectionStatus, isInitialSyncing, sendCommand } = useBrew();
     
     // Keep track of which devices we've already asked for status in this component lifecycle
@@ -45,7 +54,7 @@ export const Dashboard: React.FC = () => {
     const [newDeviceName, setNewDeviceName] = useState('');
     const [newDeviceIp, setNewDeviceIp] = useState('');
 
-    // Auto-pair via QR Code / URL (?pair=ESP32_...) or pending sessionStorage pair code
+    // Auto-pair via QR Code da tela do aparelho (https://breww.live/?pair=<ID>) or pending sessionStorage pair code
     useEffect(() => {
         let pairCode = searchParams.get('pair')?.trim() || '';
         if (!pairCode && typeof window !== 'undefined') {
@@ -55,7 +64,7 @@ export const Dashboard: React.FC = () => {
             } catch {}
         }
         if (pairCode) {
-            setNewDeviceIp(pairCode.toUpperCase());
+            setNewDeviceIp(normalizePairCode(pairCode));
             setNewDeviceName(prev => prev.trim() ? prev : 'Meu Breww');
             setIsAddModalOpen(true);
             toast.success('Código do aparelho preenchido automaticamente!');
@@ -143,22 +152,36 @@ export const Dashboard: React.FC = () => {
         }
     };
 
+    // Vinculo concluido (direto ou apos confirmacao na tela do aparelho)
+    const finishDeviceAdded = (serial: string) => {
+        sendCommand(serial, 'setMode', { value: 1 });
+        refetch();
+        toast.success('Dispositivo adicionado com sucesso!');
+    };
+
+    const handleAddResult = (result: AddDeviceResult, serial: string) => {
+        if (result && result.status === 'pending') {
+            setPendingPairing({ pairingId: result.pairingId, serial, expiresIn: result.expiresIn });
+        } else {
+            finishDeviceAdded(serial);
+        }
+    };
+
     // Add Manual Handlers
     const handleManualAdd = async () => {
         const cleanName = newDeviceName.trim();
-        const cleanIp = newDeviceIp.trim();
+        const cleanIp = normalizePairCode(newDeviceIp);
         if (cleanName && cleanIp && !isSubmitting) {
             setIsSubmitting(true);
             try {
-                await addDevice({
+                const result = await addDevice({
                     name: cleanName,
                     serialCode: cleanIp
                 });
-                sendCommand(cleanIp, 'setMode', { value: 1 });
-                toast.success('Dispositivo adicionado com sucesso!');
                 setIsAddModalOpen(false);
                 setNewDeviceName('');
                 setNewDeviceIp('');
+                handleAddResult(result, cleanIp);
             } catch (err: any) {
                 toast.error(err?.message || 'Erro ao adicionar dispositivo.');
             } finally {
@@ -193,15 +216,14 @@ export const Dashboard: React.FC = () => {
             setIsSubmitting(true);
             try {
                 const scannedSerial = (deviceToAddFromScan.ip || '').trim();
-                await addDevice({
+                const result = await addDevice({
                     name: cleanName,
                     serialCode: scannedSerial
                 });
-                sendCommand(scannedSerial, 'setMode', { value: 1 });
-                toast.success('Dispositivo adicionado com sucesso!');
                 setIsScanModalOpen(false);
                 setDeviceToAddFromScan(null);
                 setScannedDevices([]);
+                handleAddResult(result, scannedSerial);
             } catch (err: any) {
                 toast.error(err?.message || 'Erro ao adicionar dispositivo.');
             } finally {
@@ -315,7 +337,7 @@ export const Dashboard: React.FC = () => {
                                 </div>
                                 <h3 className="text-white font-bold text-sm mb-1">Vincular Serial / IP</h3>
                                 <p className="text-neutral-500 text-xs leading-relaxed">
-                                    Escaneie o QR Code na tela do aparelho ou adicione o código <span className="font-mono text-neutral-400">ESP32_...</span> manualmente.
+                                    Escaneie o QR Code na tela do aparelho ou digite o código de 12 caracteres exibido nela.
                                 </p>
                             </div>
                         </div>
@@ -685,11 +707,11 @@ export const Dashboard: React.FC = () => {
                                         type="text"
                                         value={newDeviceIp}
                                         onChange={(e) => setNewDeviceIp(e.target.value.toUpperCase())}
-                                        placeholder="Ex: 192.168.1.50 ou SERIAL_123"
+                                        placeholder="Código de 12 caracteres (letras e números)"
                                         className="w-full bg-black border border-neutral-800 text-white font-mono text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
                                     />
                                     <p className="text-[11px] text-neutral-500">
-                                        Digite o código exibido na telinha do seu Breww (ex: ESP32_4CC4EC4CEE78) ou na etiqueta do aparelho.
+                                        Digite o código de 12 caracteres da tela "Vincule seu Equipamento" do seu Breww, ou escaneie o QR code dessa mesma tela.
                                     </p>
                                 </div>
 
@@ -769,7 +791,7 @@ export const Dashboard: React.FC = () => {
                                                 <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full animate-pulse"></div>
                                                 <Loader2 size={48} className="text-blue-500 animate-spin relative z-10" />
                                             </div>
-                                            <p className="text-neutral-400 text-sm animate-pulse">Escaneando rede local...</p>
+                                            <p className="text-neutral-400 text-sm animate-pulse">Procurando aparelhos na sua rede...</p>
                                         </div>
                                     ) : scannedDevices.length > 0 ? (
                                         <div className="space-y-2">
@@ -782,7 +804,7 @@ export const Dashboard: React.FC = () => {
                                                         </div>
                                                         <div>
                                                             <p className="text-sm text-neutral-200 font-medium group-hover:text-white">{device.type}</p>
-                                                            <p className="text-[10px] text-neutral-600 font-mono">{device.ip}</p>
+                                                            <p className="text-[10px] text-neutral-600 font-mono">{device.ip}{device.localIp ? ` · ${device.localIp}` : ''}</p>
                                                         </div>
                                                     </div>
                                                     <button
@@ -797,7 +819,8 @@ export const Dashboard: React.FC = () => {
                                     ) : (
                                         <div className="flex flex-col items-center justify-center h-64 text-center">
                                             <Network size={48} className="text-neutral-800 mb-4" />
-                                            <p className="text-neutral-500 text-sm">Nenhum dispositivo encontrado.</p>
+                                            <p className="text-neutral-500 text-sm">Nenhum aparelho encontrado na sua rede.</p>
+                                            <p className="text-neutral-600 text-xs mt-2 max-w-xs">Seu computador ou celular precisa estar no mesmo Wi-Fi do aparelho. Se não aparecer, adicione pelo código de 12 caracteres da tela do aparelho.</p>
                                             <button onClick={startScan} className="text-blue-500 text-xs mt-2 hover:underline">Tentar novamente</button>
                                         </div>
                                     )}
@@ -807,6 +830,14 @@ export const Dashboard: React.FC = () => {
                     </div>
                 )
             }
+            <PairingWaitModal
+                pairing={pendingPairing}
+                onConfirmed={(serial) => {
+                    sendCommand(serial, 'setMode', { value: 1 });
+                    refetch();
+                }}
+                onClose={() => setPendingPairing(null)}
+            />
         </div>
     );
 };

@@ -24,12 +24,14 @@ sudo bash /var/www/breww-backend/mosquitto/setup-vps-mosquitto.sh
    password_file /etc/mosquitto/passwd
    acl_file /etc/mosquitto/acl.conf
    ```
-3. Quando atualizar o firmware das placas ESP32 para usar uma credencial própria (`esp32_device`) separada do navegador (`web_reader`), basta restringir `web_reader` no `acl.conf` apenas a `topic read`:
-   ```conf
-   user web_reader
-   topic read brewbrother/+/data
-   topic read brewbrother/+/ota
-   topic read brewbrother/+/response
-   topic read brewbrother/global/update
-   ```
-   Como o frontend já envia comandos via `POST /api/devices/:serial/command`, bloquear `write` para `web_reader` no Mosquitto impedirá 100% que qualquer cliente web publique comandos ou telemetria falsa diretamente no broker.
+3. O ACL so e instalado quando `MQTT_USER=breww_server` esta no `.env` do backend (o script garante isso). Sem isso, o backend perderia a capacidade de enviar comandos.
+
+## Modelo de acesso (Fase 3)
+
+- **Navegador:** nao acessa mais o broker. Dados ao vivo chegam por `GET /api/live` (Server-Sent Events, autenticado com JWT; o backend so repassa mensagens dos aparelhos do usuario). Comandos vao por `POST /api/devices/:serial/command`. Nenhuma credencial MQTT vai no JavaScript do site.
+- **Backend (`breww_server`):** unico cliente com leitura/escrita total; e o unico que publica em `command`/`comando`, depois de validar o dono no banco.
+- **Placas (`esp32user`):** so publicam telemetria/respostas e so leem comandos. Mesmo quem extrair essa credencial do firmware nao consegue mandar comandos a nenhum aparelho.
+- **Listener WebSocket do Mosquitto (`wss://breww.live/mqtt`):** nao e mais usado pelo site e pode ser desativado (listener `websockets` no `mosquitto.conf` e o `location /mqtt` no nginx).
+
+### Limitacao conhecida
+`esp32user` ainda e compartilhado entre todas as placas: quem extrair a credencial do firmware consegue LER a telemetria de outros aparelhos e publicar telemetria falsa. O proximo passo e credencial por aparelho (usuario = serial, senha derivada da chave do aparelho ja registrada em `device_keys`), com ACL `pattern write brewbrother/%u/data` via plugin de autenticacao do Mosquitto.

@@ -102,6 +102,8 @@ export default defineConfig(() => {
       globals: true,
       environment: 'jsdom',
       setupFiles: './tests/setup.ts',
+      // backend/tests usa node:test (rodar com "cd backend && npm test")
+      exclude: ['**/node_modules/**', '**/dist/**', 'backend/**'],
     }
   };
 });

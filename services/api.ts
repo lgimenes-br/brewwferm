@@ -159,7 +159,27 @@ export const addDevice = async (serialCode: string, name: string) => {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to add device');
   }
-  return true;
+  // 202 = pedido criado; o vinculo so acontece quando alguem confirma na tela do aparelho
+  if (res.status === 202) {
+    const data = await res.json().catch(() => ({}));
+    return { status: 'pending', pairingId: String(data.pairingId || ''), expiresIn: Number(data.expiresIn) || 120 } as AddDeviceResult;
+  }
+  return { status: 'confirmed' } as AddDeviceResult;
+};
+
+export type AddDeviceResult =
+  | { status: 'pending'; pairingId: string; expiresIn: number }
+  | { status: 'confirmed' };
+
+export type PairingStatus = 'pending' | 'confirmed' | 'rejected' | 'expired' | 'superseded' | 'conflict' | 'limit';
+
+export const fetchPairingStatus = async (pairingId: string): Promise<{ status: PairingStatus; expiresIn: number }> => {
+  const res = await fetch(`${API_URL}/devices/pairing/${encodeURIComponent(pairingId)}`, {
+    headers: getHeaders()
+  });
+  checkUnauthorized(res);
+  if (!res.ok) throw new Error('Pedido de vínculo não encontrado');
+  return res.json();
 };
 
 export const updateDevice = async (serialCode: string, name: string) => {

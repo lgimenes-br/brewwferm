@@ -22,12 +22,6 @@ if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
   SUDO="sudo -n"
 fi
 
-echo "[Mosquitto ACL] Instalando ${ACL_DEST}..."
-${SUDO} cp "${ACL_SRC}" "${ACL_DEST}" 2>/dev/null || {
-  echo "[Mosquitto ACL] Sem permissão de escrita em /etc/mosquitto. Ignorando."
-  exit 0
-}
-${SUDO} chmod 644 "${ACL_DEST}" 2>/dev/null || true
 
 # Detecta arquivo de senhas configurado no Mosquitto (padrão: /etc/mosquitto/passwd)
 PASSWD_FILE=$(grep -h -E "^\s*password_file\s+" /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d/*.conf 2>/dev/null | head -n 1 | awk '{print $2}' || true)
@@ -57,6 +51,21 @@ if [ -n "${PASSWD_FILE}" ] && [ -f "${PASSWD_FILE}" ] && command -v mosquitto_pa
     echo "[Mosquitto ACL] Usuário 'breww_server' já existe em ${PASSWD_FILE}."
   fi
 fi
+
+# O ACL restringe esp32user a SO LER comandos. Ele so pode ser instalado se o backend ja
+# estiver usando a credencial propria (breww_server); senao o backend perderia a capacidade
+# de enviar comandos aos aparelhos.
+if ! grep -q "^MQTT_USER=breww_server$" "${ENV_FILE}" 2>/dev/null; then
+  echo "[Mosquitto ACL] AVISO: backend ainda nao usa breww_server (${ENV_FILE}). ACL NAO atualizado para nao bloquear comandos."
+  exit 0
+fi
+
+echo "[Mosquitto ACL] Instalando ${ACL_DEST}..."
+${SUDO} cp "${ACL_SRC}" "${ACL_DEST}" 2>/dev/null || {
+  echo "[Mosquitto ACL] Sem permissão de escrita em /etc/mosquitto. Ignorando."
+  exit 0
+}
+${SUDO} chmod 644 "${ACL_DEST}" 2>/dev/null || true
 
 # Ativa acl_file no mosquitto.conf se ainda não estiver ativo em nenhum arquivo de configuração
 ADDED_ACL_LINE=0

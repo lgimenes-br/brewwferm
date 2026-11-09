@@ -132,9 +132,10 @@ export interface FinishedBrew {
 }
 
 export interface ScannedDevice {
-    ip: string;
+    ip: string; // serial do aparelho
     type: string;
     rssi: number;
+    localIp?: string | null; // IP na rede local (informativo)
 }
 
 export const normalizeGravity = (val: any, fallback = 0): number => {

@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, fetchFirmwareVersion, UserAlertConfig } from '../services/api';
 import { toast } from 'react-hot-toast';
+import { SensorTestModal } from './SensorTestModal';
+import { SensorScanModal, SensorMapping } from './SensorScanModal';
 
 interface PIDParams {
   kp: number;
@@ -83,12 +85,14 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 
 export const Settings: React.FC = () => {
   const { fermenters, updateFermenterLocal } = useFermenters();
-  const { sendCommand, otaProgress, scanResponses } = useBrew();
+  const { sendCommand, otaProgress, scanDetails } = useBrew();
   const { token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const autoScannedRef = React.useRef<string | null>(null);
+  const [showSensorTest, setShowSensorTest] = useState(false);
+  const [showSensorScan, setShowSensorScan] = useState(false);
   
   // Set default device or fallback if selected device was removed
   useEffect(() => {
@@ -115,8 +119,7 @@ export const Settings: React.FC = () => {
     const shouldScan = searchParams.get('scan') === '1';
     if (shouldScan && selectedDeviceId && autoScannedRef.current !== selectedDeviceId) {
         autoScannedRef.current = selectedDeviceId;
-        sendCommand(selectedDeviceId, 'scan_sensors', {});
-        toast.success('Buscando sensores de temperatura conectados no seu aparelho...');
+        setShowSensorScan(true); // o modal dispara o scan e mostra o resultado
         setTimeout(() => {
             const el = document.getElementById('sensor-mapping-section');
             if (el && typeof el.scrollIntoView === 'function') {
@@ -127,7 +130,7 @@ export const Settings: React.FC = () => {
         nextParams.delete('scan');
         setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, selectedDeviceId, sendCommand, setSearchParams]);
+  }, [searchParams, selectedDeviceId, setSearchParams]);
 
   const activeDevice = fermenters.find(f => f.id === selectedDeviceId);
 
@@ -216,76 +219,31 @@ export const Settings: React.FC = () => {
     telegramBotToken: '',
     telegramChatId: ''
   });
-  const [macSensorControle, setMacSensorControle] = useState('');
-  const [nameSensorControle, setNameSensorControle] = useState('');
-  const [extraSensors, setExtraSensors] = useState<{mac: string, name: string}[]>([]);
-  const [initialMappingLoaded, setInitialMappingLoaded] = useState(false);
+  const rawPayload: any = (activeDevice?.currentDevice as any)?.rawPayload || {};
+  const currentMacCtrl: string = typeof rawPayload.macCtrl === 'string' ? rawPayload.macCtrl : '';
+  const currentMac2: string = typeof rawPayload.mac2 === 'string' ? rawPayload.mac2 : '';
 
-  useEffect(() => {
-      setInitialMappingLoaded(false);
-  }, [selectedDeviceId]);
-
-  useEffect(() => {
-      if (!initialMappingLoaded && activeDevice?.currentDevice) {
-          const { macCtrl, extSens } = activeDevice.currentDevice as any;
-          if (macCtrl !== undefined) {
-              setMacSensorControle(macCtrl);
-              setNameSensorControle(activeDevice.sensor1_name || 'Fermentador');
-              if (extSens) {
-                  try {
-                      const parsed = typeof extSens === 'string' ? JSON.parse(extSens) : extSens;
-                      if (Array.isArray(parsed)) {
-                          const validExtras = parsed
-                              .filter((item: any) => item && typeof item.mac === 'string')
-                              .map((item: any, idx: number) => ({
-                                  mac: item.mac,
-                                  name: typeof item.name === 'string' && item.name.trim() ? item.name : (idx === 0 ? (activeDevice.sensor2_name || 'Geladeira') : `Sensor ${idx + 1}`)
-                              }));
-                          setExtraSensors(validExtras);
-                      } else {
-                          setExtraSensors([]);
-                      }
-                  } catch (e) {
-                      setExtraSensors([]);
-                  }
-              } else {
-                  setExtraSensors([]);
-              }
-              setInitialMappingLoaded(true);
-          }
-      }
-  }, [activeDevice?.currentDevice, initialMappingLoaded]);
-
-  const deviceMacs = scanResponses[selectedDeviceId] || scanResponses[(selectedDeviceId || '').toUpperCase()] || [];
-
-  const handleScanSensors = () => {
-      if (!selectedDeviceId) return toast.error('Selecione um dispositivo primeiro');
-      sendCommand(selectedDeviceId, 'scan_sensors', {});
-      toast.success('Comando de scan enviado! Aguardando resposta...');
-  };
-
-  const handleSaveMapping = async () => {
+  const handleSaveMapping = async ({ macCtrl, mac2, name1, name2 }: SensorMapping) => {
       if (!selectedDeviceId) return;
-      const s1Name = (nameSensorControle || '').trim() || 'Fermentador';
-      const sensor2Name = extraSensors.length > 0 && (extraSensors[0].name || '').trim() ? extraSensors[0].name.trim() : 'Geladeira';
-      sendCommand(selectedDeviceId, 'set_sensors', { macSensorControle, nameSensorControle: s1Name, extraSensors });
-      
-      // Update the database with the new names
+      sendCommand(selectedDeviceId, 'set_sensors', {
+          macSensorControle: macCtrl,
+          nameSensorControle: name1,
+          extraSensors: mac2 ? [{ mac: mac2, name: name2 }] : []
+      });
+      setSettings(prev => ({ ...prev, sensor1Name: name1, sensor2Name: name2 }));
+      updateFermenterLocal(selectedDeviceId, {
+          sensor1_name: name1,
+          sensor2_name: name2,
+          sensor_sg_name: settings.sensorSgName
+      });
       try {
-          setSettings(prev => ({ ...prev, sensor1Name: s1Name, sensor2Name }));
-          updateFermenterLocal(selectedDeviceId, {
-              sensor1_name: s1Name,
-              sensor2_name: sensor2Name,
-              sensor_sg_name: settings.sensorSgName
-          });
-          await updateSensors(token || '', selectedDeviceId, s1Name, sensor2Name, settings.sensorSgName);
+          await updateSensors(token || '', selectedDeviceId, name1, name2, settings.sensorSgName);
       } catch (e) {
           console.error('Failed to save sensor names to db', e);
-          toast.error('Mapeamento enviado à placa, mas falhou ao salvar nomes no servidor.');
+          toast.error('Mapeamento enviado à placa, mas falhou ao salvar os nomes no servidor.');
           return;
       }
-      
-      toast.success('Mapeamento e nomes enviados!');
+      toast.success('Sensores salvos!');
   };
 
   useEffect(() => {
@@ -978,89 +936,37 @@ export const Settings: React.FC = () => {
       {/* 5.5 Mapeamento de Sensores */}
       <section id="sensor-mapping-section" className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
         <SectionHeader icon={Thermometer} title="Mapeamento de Sensores (1-Wire)" />
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-4 mb-6">
             <button 
-                onClick={handleScanSensors}
+                onClick={() => setShowSensorScan(true)}
                 disabled={!selectedDeviceId}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
             >
                 <Search size={14} className="inline mr-2" /> Escanear Sensores
             </button>
             <button 
-                onClick={handleSaveMapping}
-                disabled={!selectedDeviceId || deviceMacs.length === 0}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                onClick={() => setShowSensorTest(true)}
+                disabled={!selectedDeviceId}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
             >
-                <Save size={14} className="inline mr-2" /> Salvar Mapeamento
+                <Activity size={14} className="inline mr-2" /> Testar Sensores
             </button>
         </div>
-        
-        {deviceMacs.length > 0 ? (
-            <div className="space-y-4">
-                {deviceMacs.map((mac) => {
-                    const isControl = macSensorControle === mac;
-                    const extraIndex = extraSensors.findIndex(e => e.mac === mac);
-                    const isExtra = extraIndex !== -1;
-                    const role = isControl ? 'control' : (isExtra ? 'extra' : '');
-                    
-                    return (
-                        <div key={mac} className="flex items-center gap-4 bg-neutral-800/50 p-4 rounded-xl border border-neutral-700/50">
-                            <span className="font-mono text-sm text-neutral-300 w-40">{mac}</span>
-                            <select 
-                                className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
-                                value={role}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === 'control') {
-                                        setMacSensorControle(mac);
-                                        setExtraSensors(prev => prev.filter(p => p.mac !== mac));
-                                    } else if (val === 'extra') {
-                                        if (macSensorControle === mac) setMacSensorControle('');
-                                        setExtraSensors(prev => [...prev.filter(p => p.mac !== mac), {mac, name: `Sensor ${prev.length + 1}`}]);
-                                    } else {
-                                        if (macSensorControle === mac) setMacSensorControle('');
-                                        setExtraSensors(prev => prev.filter(p => p.mac !== mac));
-                                    }
-                                }}
-                            >
-                                <option value="">Não utilizado</option>
-                                <option value="control">Sensor de Controle (PID)</option>
-                                <option value="extra">Sensor Extra (Monitoramento)</option>
-                            </select>
-                            
-                            {isControl && (
-                                <input 
-                                    type="text"
-                                    placeholder="Nome (ex: Mosto)"
-                                    className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none flex-1"
-                                    value={nameSensorControle}
-                                    onChange={(e) => setNameSensorControle(e.target.value)}
-                                />
-                            )}
-                            
-                            {isExtra && (
-                                <input 
-                                    type="text"
-                                    placeholder="Nome do Sensor Extra (ex: Geladeira)"
-                                    className="bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:outline-none flex-1"
-                                    value={extraSensors[extraIndex]?.name || ''}
-                                    onChange={(e) => {
-                                        const newName = e.target.value;
-                                        setExtraSensors(prev => {
-                                            const copy = [...prev];
-                                            copy[extraIndex].name = newName;
-                                            return copy;
-                                        });
-                                    }}
-                                />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        ) : (
-            <p className="text-neutral-500 text-sm italic">Nenhum sensor escaneado. Clique em "Escanear Sensores" para buscar na placa.</p>
-        )}
+
+        <div className="space-y-2">
+            {[
+                { label: 'Sensor 1 · Controle', name: settings.sensor1Name, mac: currentMacCtrl },
+                { label: 'Sensor 2', name: settings.sensor2Name, mac: currentMac2 }
+            ].map(row => (
+                <div key={row.label} className="flex items-center justify-between gap-4 bg-neutral-800/40 p-4 rounded-xl border border-neutral-800">
+                    <div className="min-w-0">
+                        <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-bold">{row.label}</p>
+                        <p className="text-white text-sm truncate">{row.name}</p>
+                    </div>
+                    <span className="font-mono text-[11px] text-neutral-400 shrink-0">{row.mac || 'automático (ordem do barramento)'}</span>
+                </div>
+            ))}
+        </div>
       </section>
 
       {/* 6. Sistema */}
@@ -1145,6 +1051,27 @@ export const Settings: React.FC = () => {
         )}
 
       </section>
+
+      <SensorTestModal
+        open={showSensorTest}
+        onClose={() => setShowSensorTest(false)}
+        deviceId={selectedDeviceId}
+        device={activeDevice?.currentDevice}
+        names={{ sensor1: settings.sensor1Name, sensor2: settings.sensor2Name, sg: settings.sensorSgName }}
+        sendCommand={sendCommand}
+      />
+
+      <SensorScanModal
+        open={showSensorScan}
+        onClose={() => setShowSensorScan(false)}
+        deviceId={selectedDeviceId}
+        scan={scanDetails[(selectedDeviceId || '').toUpperCase()]}
+        currentMacCtrl={currentMacCtrl}
+        currentMac2={currentMac2}
+        names={{ sensor1: settings.sensor1Name, sensor2: settings.sensor2Name }}
+        sendCommand={sendCommand}
+        onSave={handleSaveMapping}
+      />
 
     </div>
   );
