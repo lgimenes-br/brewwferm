@@ -29,7 +29,7 @@ DEVICE_USER="esp32user"
 DEVICE_PASS="esp32"   # credencial LEGADA compartilhada (firmware antigo, config.h)
 # 1 = mantem esp32user (placas com firmware antigo continuam conectando)
 # 0 = remove esp32user: so conectam placas com credencial propria (firmware com cloud_pairing)
-KEEP_LEGACY_DEVICE_USER=1
+KEEP_LEGACY_DEVICE_USER=0
 SERVER_USER="breww_server"
 LOCAL_BROKER_URL="mqtt://127.0.0.1:1883"
 
