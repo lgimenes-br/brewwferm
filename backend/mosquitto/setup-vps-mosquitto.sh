@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 # ============================================================================
-# BREWW Platform — Script Idempotente de Provisionamento Mosquitto ACL na VPS
-# Executado automaticamente pelo GitHub Actions (.github/workflows/deploy.yml)
+# BREWW Platform — Provisionamento idempotente do Mosquitto na VPS
+# Executado automaticamente pelo GitHub Actions (.github/workflows/deploy.yml),
+# antes do "pm2 restart" do backend.
+#
+# Estado final:
+#   - Autenticacao obrigatoria (allow_anonymous false + password_file)
+#   - esp32user    -> placas (senha que o firmware envia); so publica telemetria e le comandos
+#   - breww_server -> backend (senha aleatoria gravada no .env); acesso total
+#   - Listener unico 1883 (o WebSocket 9001 deixou de ser usado pelo site)
+#   - ACL de backend/mosquitto/acl.conf
+# Se o Mosquitto nao subir ou a autenticacao nao se comportar como esperado, tudo e
+# revertido para o backup feito no inicio.
 # ============================================================================
 set -uo pipefail
 
@@ -9,111 +19,157 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENV_FILE="${BACKEND_DIR}/.env"
 ACL_SRC="${SCRIPT_DIR}/acl.conf"
-ACL_DEST="/etc/mosquitto/acl.conf"
-MOSQ_CONF="/etc/mosquitto/mosquitto.conf"
+MOSQ_DIR="/etc/mosquitto"
+MOSQ_CONF="${MOSQ_DIR}/mosquitto.conf"
+CONF_D="${MOSQ_DIR}/conf.d"
+BREWW_CONF="${CONF_D}/breww.conf"
+PASSWD_FILE="${MOSQ_DIR}/passwd"
+ACL_DEST="${MOSQ_DIR}/acl.conf"
+DEVICE_USER="esp32user"
+DEVICE_PASS="esp32"   # credencial que o firmware atual envia (config.h)
+SERVER_USER="breww_server"
+LOCAL_BROKER_URL="mqtt://127.0.0.1:1883"
 
-if [ ! -d "/etc/mosquitto" ] || [ ! -f "${ACL_SRC}" ]; then
-  echo "[Mosquitto ACL] /etc/mosquitto ou acl.conf não encontrado. Ignorando."
+log() { echo "[Mosquitto] $*"; }
+
+if [ ! -d "${MOSQ_DIR}" ] || [ ! -f "${ACL_SRC}" ]; then
+  log "/etc/mosquitto ou acl.conf nao encontrado. Ignorando."
+  exit 0
+fi
+if [ "$(id -u)" -ne 0 ]; then
+  log "Precisa rodar como root (usuario atual: $(id -un)). Ignorando."
+  exit 0
+fi
+if ! command -v mosquitto_passwd >/dev/null 2>&1; then
+  log "mosquitto_passwd nao encontrado. Ignorando."
   exit 0
 fi
 
-SUDO=""
-if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
-  SUDO="sudo -n"
-fi
+# ---------------------------------------------------------------------------
+# 1. Backup (config do broker + .env do backend)
+# ---------------------------------------------------------------------------
+BACKUP_DIR="${MOSQ_DIR}/backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "${BACKUP_DIR}/conf.d"
+cp -a "${MOSQ_CONF}" "${BACKUP_DIR}/" 2>/dev/null || true
+cp -a "${CONF_D}/." "${BACKUP_DIR}/conf.d/" 2>/dev/null || true
+cp -a "${ACL_DEST}" "${BACKUP_DIR}/" 2>/dev/null || true
+cp -a "${PASSWD_FILE}" "${BACKUP_DIR}/" 2>/dev/null || true
+touch "${ENV_FILE}"
+cp -a "${ENV_FILE}" "${BACKUP_DIR}/backend.env"
+chmod 700 "${BACKUP_DIR}"
+log "Backup em ${BACKUP_DIR}"
 
+config_fingerprint() {
+  cat "${MOSQ_CONF}" "${CONF_D}"/*.conf "${ACL_DEST}" "${PASSWD_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+BEFORE="$(config_fingerprint)"
 
-# Detecta arquivo de senhas configurado no Mosquitto (padrão: /etc/mosquitto/passwd)
-PASSWD_FILE=$(grep -h -E "^\s*password_file\s+" /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d/*.conf 2>/dev/null | head -n 1 | awk '{print $2}' || true)
-if [ -z "${PASSWD_FILE}" ] && [ -f "/etc/mosquitto/passwd" ]; then
-  PASSWD_FILE="/etc/mosquitto/passwd"
-fi
-
-# --- Diagnostico (sem segredos) para entender o ambiente da VPS ---
-echo "[Mosquitto Diag] usuario: $(id -un) (uid $(id -u)) | SUDO='${SUDO}'"
-if [ -n "${SUDO}" ]; then
-  if sudo -n true 2>/dev/null; then echo "[Mosquitto Diag] sudo sem senha: OK"; else echo "[Mosquitto Diag] sudo sem senha: NAO DISPONIVEL"; fi
-fi
-echo "[Mosquitto Diag] diretivas do mosquitto.conf/conf.d:"
-grep -h -E "^\s*(listener|port|protocol|allow_anonymous|password_file|acl_file|per_listener_settings|include_dir|plugin|auth_plugin)\b" /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d/*.conf 2>/dev/null | sed 's/^/[Mosquitto Diag]   /' || true
-echo "[Mosquitto Diag] PASSWD_FILE='${PASSWD_FILE}' existe=$([ -n "${PASSWD_FILE}" ] && [ -f "${PASSWD_FILE}" ] && echo sim || echo nao)"
-echo "[Mosquitto Diag] mosquitto_passwd: $(command -v mosquitto_passwd || echo 'nao encontrado')"
-if command -v systemctl >/dev/null 2>&1; then echo "[Mosquitto Diag] servico mosquitto: $(systemctl is-active mosquitto 2>/dev/null || echo desconhecido)"; fi
-if command -v docker >/dev/null 2>&1; then
-  echo "[Mosquitto Diag] containers mosquitto: $(${SUDO} docker ps --format '{{.Names}} ({{.Image}})' 2>/dev/null | grep -i mosquitto | tr '\n' ' ' || true)"
-fi
-echo "[Mosquitto Diag] backend .env MQTT_USER: $(grep -E '^MQTT_USER=' "${ENV_FILE}" 2>/dev/null | cut -d= -f2 || true)"
-
-# Provisiona usuário exclusivo breww_server para o backend Node.js se mosquitto_passwd e arquivo de senhas existirem
-if [ -n "${PASSWD_FILE}" ] && [ -f "${PASSWD_FILE}" ] && command -v mosquitto_passwd >/dev/null 2>&1; then
-  if ! ${SUDO} grep -q "^breww_server:" "${PASSWD_FILE}" 2>/dev/null; then
-    NEW_MQTT_PASS=$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
-    if PASSWD_ERR=$(${SUDO} mosquitto_passwd -b "${PASSWD_FILE}" breww_server "${NEW_MQTT_PASS}" 2>&1); then
-      echo "[Mosquitto ACL] Usuário exclusivo 'breww_server' criado em ${PASSWD_FILE}."
-      touch "${ENV_FILE}"
-      if grep -q "^MQTT_USER=" "${ENV_FILE}"; then
-        sed -i "s|^MQTT_USER=.*|MQTT_USER=breww_server|" "${ENV_FILE}"
-      else
-        echo "MQTT_USER=breww_server" >> "${ENV_FILE}"
-      fi
-      if grep -q "^MQTT_PASSWORD=" "${ENV_FILE}"; then
-        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=${NEW_MQTT_PASS}|" "${ENV_FILE}"
-      else
-        echo "MQTT_PASSWORD=${NEW_MQTT_PASS}" >> "${ENV_FILE}"
-      fi
-    else
-      echo "[Mosquitto ACL] Falha ao criar breww_server com mosquitto_passwd: ${PASSWD_ERR}"
-    fi
-  else
-    echo "[Mosquitto ACL] Usuário 'breww_server' já existe em ${PASSWD_FILE}."
-    if ! grep -q "^MQTT_USER=breww_server$" "${ENV_FILE}" 2>/dev/null; then
-      echo "[Mosquitto ACL] ...mas o .env do backend nao esta configurado com ele (senha desconhecida para este script)."
-    fi
-  fi
-else
-  echo "[Mosquitto ACL] Pulando criacao de breww_server: precisa de password_file existente e do comando mosquitto_passwd (ver diagnostico acima)."
-fi
-
-# O ACL restringe esp32user a SO LER comandos. Ele so pode ser instalado se o backend ja
-# estiver usando a credencial propria (breww_server); senao o backend perderia a capacidade
-# de enviar comandos aos aparelhos.
-if ! grep -q "^MQTT_USER=breww_server$" "${ENV_FILE}" 2>/dev/null; then
-  echo "[Mosquitto ACL] AVISO: backend ainda nao usa breww_server (${ENV_FILE}). ACL NAO atualizado para nao bloquear comandos."
-  exit 0
-fi
-
-echo "[Mosquitto ACL] Instalando ${ACL_DEST}..."
-${SUDO} cp "${ACL_SRC}" "${ACL_DEST}" 2>/dev/null || {
-  echo "[Mosquitto ACL] Sem permissão de escrita em /etc/mosquitto. Ignorando."
+rollback() {
+  log "ERRO: $1. Revertendo para ${BACKUP_DIR}..."
+  cp -a "${BACKUP_DIR}/mosquitto.conf" "${MOSQ_CONF}" 2>/dev/null || true
+  find "${CONF_D}" -maxdepth 1 -name '*.conf' -delete 2>/dev/null || true
+  cp -a "${BACKUP_DIR}/conf.d/." "${CONF_D}/" 2>/dev/null || true
+  if [ -f "${BACKUP_DIR}/acl.conf" ]; then cp -a "${BACKUP_DIR}/acl.conf" "${ACL_DEST}"; else rm -f "${ACL_DEST}"; fi
+  if [ -f "${BACKUP_DIR}/passwd" ]; then cp -a "${BACKUP_DIR}/passwd" "${PASSWD_FILE}"; else rm -f "${PASSWD_FILE}"; fi
+  cp -a "${BACKUP_DIR}/backend.env" "${ENV_FILE}"
+  systemctl restart mosquitto 2>/dev/null || true
+  log "Rollback concluido. Estado anterior restaurado."
   exit 0
 }
-${SUDO} chmod 644 "${ACL_DEST}" 2>/dev/null || true
 
-# Ativa acl_file no mosquitto.conf se ainda não estiver ativo em nenhum arquivo de configuração
-ADDED_ACL_LINE=0
-if [ -f "${MOSQ_CONF}" ]; then
-  if ! grep -q -E "^\s*acl_file\s+" /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d/*.conf 2>/dev/null; then
-    echo "[Mosquitto ACL] Adicionando acl_file ${ACL_DEST} em ${MOSQ_CONF}..."
-    echo "" | ${SUDO} tee -a "${MOSQ_CONF}" >/dev/null
-    echo "acl_file ${ACL_DEST}" | ${SUDO} tee -a "${MOSQ_CONF}" >/dev/null
-    ADDED_ACL_LINE=1
+# ---------------------------------------------------------------------------
+# 2. Usuarios e senhas
+# ---------------------------------------------------------------------------
+set_env() {
+  local key="$1" value="$2"
+  if grep -q "^${key}=" "${ENV_FILE}"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "${ENV_FILE}"
   else
-    echo "[Mosquitto ACL] acl_file já está configurado no Mosquitto."
+    echo "${key}=${value}" >> "${ENV_FILE}"
   fi
+}
+
+SERVER_PASS=""
+if grep -q "^MQTT_USER=${SERVER_USER}$" "${ENV_FILE}"; then
+  SERVER_PASS="$(grep -E '^MQTT_PASSWORD=' "${ENV_FILE}" | head -n1 | cut -d= -f2-)"
+fi
+if [ -z "${SERVER_PASS}" ]; then
+  SERVER_PASS="$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  log "Gerada nova senha para ${SERVER_USER}."
 fi
 
-# Recarrega o serviço Mosquitto com rollback automático caso haja qualquer incompatibilidade de listener
-if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mosquitto; then
-  echo "[Mosquitto ACL] Recarregando serviço mosquitto..."
-  ${SUDO} systemctl reload mosquitto 2>/dev/null || ${SUDO} systemctl restart mosquitto 2>/dev/null || true
-  sleep 1
-  if ! systemctl is-active --quiet mosquitto; then
-    echo "[Mosquitto ACL] AVISO: Mosquitto não iniciou com acl_file; revertendo linha para manter disponibilidade..."
-    if [ "${ADDED_ACL_LINE}" -eq 1 ]; then
-      ${SUDO} sed -i '\|acl_file /etc/mosquitto/acl.conf|d' "${MOSQ_CONF}" 2>/dev/null || true
-      ${SUDO} systemctl restart mosquitto 2>/dev/null || true
-    fi
-  else
-    echo "[Mosquitto ACL] Serviço mosquitto online e operando com ACL ativa!"
-  fi
+[ -f "${PASSWD_FILE}" ] || touch "${PASSWD_FILE}"
+mosquitto_passwd -b "${PASSWD_FILE}" "${DEVICE_USER}" "${DEVICE_PASS}" || rollback "falha ao gravar ${DEVICE_USER}"
+mosquitto_passwd -b "${PASSWD_FILE}" "${SERVER_USER}" "${SERVER_PASS}" || rollback "falha ao gravar ${SERVER_USER}"
+if getent group mosquitto >/dev/null 2>&1; then chown root:mosquitto "${PASSWD_FILE}"; fi
+chmod 640 "${PASSWD_FILE}"
+
+set_env MQTT_USER "${SERVER_USER}"
+set_env MQTT_PASSWORD "${SERVER_PASS}"
+# Backend fala com o broker local pela porta 1883 (o WebSocket 9001 sera desativado)
+set_env VITE_MQTT_BROKER "${LOCAL_BROKER_URL}"
+chmod 600 "${ENV_FILE}"
+
+# ---------------------------------------------------------------------------
+# 3. Configuracao do broker
+# ---------------------------------------------------------------------------
+# Remove do arquivo principal as diretivas de listener/autenticacao (passam a viver em breww.conf)
+sed -i -E '/^\s*(listener|port|protocol|allow_anonymous|password_file|acl_file|per_listener_settings)\b/d' "${MOSQ_CONF}"
+grep -q -E "^\s*include_dir\s+${CONF_D}\s*$" "${MOSQ_CONF}" || echo "include_dir ${CONF_D}" >> "${MOSQ_CONF}"
+
+# Outros arquivos de conf.d (antigos listeners anonimos) saem; ficam no backup
+mkdir -p "${CONF_D}"
+for f in "${CONF_D}"/*.conf; do
+  [ -e "$f" ] || continue
+  [ "$f" = "${BREWW_CONF}" ] && continue
+  log "Desativando ${f} (copia no backup)"
+  rm -f "$f"
+done
+
+cat > "${BREWW_CONF}" <<EOF
+# Gerenciado por backend/mosquitto/setup-vps-mosquitto.sh — nao editar a mao
+per_listener_settings false
+allow_anonymous false
+password_file ${PASSWD_FILE}
+acl_file ${ACL_DEST}
+
+listener 1883
+EOF
+
+cp "${ACL_SRC}" "${ACL_DEST}"
+chmod 644 "${ACL_DEST}"
+
+AFTER="$(config_fingerprint)"
+if [ "${BEFORE}" = "${AFTER}" ] && systemctl is-active --quiet mosquitto; then
+  log "Configuracao ja estava atualizada; Mosquitto nao precisa reiniciar."
+  rm -rf "${BACKUP_DIR}"
+  exit 0
 fi
+
+# ---------------------------------------------------------------------------
+# 4. Reinicia e valida
+# ---------------------------------------------------------------------------
+log "Reiniciando Mosquitto..."
+systemctl restart mosquitto 2>/dev/null || true
+sleep 2
+systemctl is-active --quiet mosquitto || rollback "Mosquitto nao iniciou com a nova configuracao"
+
+if command -v mosquitto_pub >/dev/null 2>&1; then
+  T="brewbrother/global/ping"
+  mosquitto_pub -h 127.0.0.1 -p 1883 -u "${SERVER_USER}" -P "${SERVER_PASS}" -t "${T}" -m setup -q 1 2>/dev/null \
+    || rollback "${SERVER_USER} nao conseguiu publicar"
+  mosquitto_pub -h 127.0.0.1 -p 1883 -u "${DEVICE_USER}" -P "${DEVICE_PASS}" -t "${T}" -m setup -q 1 2>/dev/null \
+    || rollback "${DEVICE_USER} nao conseguiu conectar"
+  if mosquitto_pub -h 127.0.0.1 -p 1883 -t "${T}" -m anon -q 1 2>/dev/null; then
+    rollback "conexao anonima ainda e aceita"
+  fi
+  if mosquitto_pub -h 127.0.0.1 -p 1883 -u "${SERVER_USER}" -P "senha-errada" -t "${T}" -m x -q 1 2>/dev/null; then
+    rollback "senha errada ainda e aceita"
+  fi
+  log "Validacao OK: anonimo e senha errada recusados; ${SERVER_USER} e ${DEVICE_USER} conectam."
+else
+  log "mosquitto_pub nao instalado; validacao de autenticacao pulada (servico esta ativo)."
+fi
+
+log "Mosquitto protegido: autenticacao obrigatoria, ACL ativo, WebSocket 9001 desativado."
+log "O backend sera reiniciado pelo deploy com MQTT_USER=${SERVER_USER}."
