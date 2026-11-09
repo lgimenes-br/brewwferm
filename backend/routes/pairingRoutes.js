@@ -136,7 +136,7 @@ const deviceRateLimiter = (req, res, next) => {
     next();
 };
 
-export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken, notifyUpdate, store = createPairingStore() }) => {
+export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken, notifyUpdate, store = createPairingStore(), provisionMqtt = null }) => {
     const readDeviceAuth = async (req, res) => {
         const serial = normalizeSerial(req.body?.serial);
         const key = String(req.body?.key || '').toLowerCase();
@@ -151,7 +151,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
             return null;
         }
         if (result === 'registered') console.log(`🔑 [Pairing] Chave registrada para o aparelho ${serial}`);
-        return serial;
+        return { serial, key, result };
     };
 
     const isClaimed = async (serial) => {
@@ -162,8 +162,13 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
     // --- Placa: anuncio periodico (descoberta + entrega de pedido de pareamento pendente) ---
     app.post('/api/device/announce', deviceRateLimiter, async (req, res) => {
         try {
-            const serial = await readDeviceAuth(req, res);
-            if (!serial) return;
+            const auth = await readDeviceAuth(req, res);
+            if (!auth) return;
+            const { serial } = auth;
+            // Credencial MQTT propria do aparelho (usuario = serial, senha derivada da chave)
+            const mqttReady = provisionMqtt
+                ? await provisionMqtt(serial, auth.key, { force: auth.result === 'registered' })
+                : false;
             const publicIp = normalizeIp(req.ip);
             const localIp = typeof req.body?.localIp === 'string' ? req.body.localIp.slice(0, 45) : null;
             store.announce(serial, publicIp, localIp);
@@ -172,6 +177,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
             const pending = store.pendingForSerial(serial);
             res.json({
                 ok: true,
+                mqtt: mqttReady,
                 claimed: await isClaimed(serial),
                 pairing: pending ? {
                     id: pending.id,
@@ -189,8 +195,9 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
     // --- Placa: resposta do usuario na tela (Confirmar / Recusar) ---
     app.post('/api/device/pairing/respond', deviceRateLimiter, async (req, res) => {
         try {
-            const serial = await readDeviceAuth(req, res);
-            if (!serial) return;
+            const auth = await readDeviceAuth(req, res);
+            if (!auth) return;
+            const { serial } = auth;
             const pairing = store.get(req.body?.pairingId);
             if (!pairing || pairing.serial !== serial) return res.status(404).json({ status: 'not_found' });
             if (pairing.status !== 'pending') return res.status(410).json({ status: pairing.status });

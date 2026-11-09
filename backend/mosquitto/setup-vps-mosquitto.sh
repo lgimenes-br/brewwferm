@@ -26,7 +26,10 @@ BREWW_CONF="${CONF_D}/breww.conf"
 PASSWD_FILE="${MOSQ_DIR}/passwd"
 ACL_DEST="${MOSQ_DIR}/acl.conf"
 DEVICE_USER="esp32user"
-DEVICE_PASS="esp32"   # credencial que o firmware atual envia (config.h)
+DEVICE_PASS="esp32"   # credencial LEGADA compartilhada (firmware antigo, config.h)
+# 1 = mantem esp32user (placas com firmware antigo continuam conectando)
+# 0 = remove esp32user: so conectam placas com credencial propria (firmware com cloud_pairing)
+KEEP_LEGACY_DEVICE_USER=1
 SERVER_USER="breww_server"
 LOCAL_BROKER_URL="mqtt://127.0.0.1:1883"
 
@@ -95,12 +98,24 @@ if grep -q "^MQTT_USER=${SERVER_USER}$" "${ENV_FILE}"; then
 fi
 if [ -z "${SERVER_PASS}" ]; then
   SERVER_PASS="$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  NEW_SERVER_PASS=1
   log "Gerada nova senha para ${SERVER_USER}."
 fi
 
 [ -f "${PASSWD_FILE}" ] || touch "${PASSWD_FILE}"
-mosquitto_passwd -b "${PASSWD_FILE}" "${DEVICE_USER}" "${DEVICE_PASS}" || rollback "falha ao gravar ${DEVICE_USER}"
-mosquitto_passwd -b "${PASSWD_FILE}" "${SERVER_USER}" "${SERVER_PASS}" || rollback "falha ao gravar ${SERVER_USER}"
+has_user() { grep -q "^$1:" "${PASSWD_FILE}" 2>/dev/null; }
+
+# Credenciais por aparelho (criadas pelo backend) sao preservadas: so mexemos nas contas abaixo,
+# e so quando necessario (regravar troca o hash e forcaria reiniciar o broker a cada deploy)
+if [ "${KEEP_LEGACY_DEVICE_USER}" = "1" ]; then
+  has_user "${DEVICE_USER}" || mosquitto_passwd -b "${PASSWD_FILE}" "${DEVICE_USER}" "${DEVICE_PASS}" || rollback "falha ao gravar ${DEVICE_USER}"
+elif has_user "${DEVICE_USER}"; then
+  log "Removendo credencial legada compartilhada ${DEVICE_USER}."
+  mosquitto_passwd -D "${PASSWD_FILE}" "${DEVICE_USER}" || rollback "falha ao remover ${DEVICE_USER}"
+fi
+if [ -n "${NEW_SERVER_PASS:-}" ] || ! has_user "${SERVER_USER}"; then
+  mosquitto_passwd -b "${PASSWD_FILE}" "${SERVER_USER}" "${SERVER_PASS}" || rollback "falha ao gravar ${SERVER_USER}"
+fi
 if getent group mosquitto >/dev/null 2>&1; then chown root:mosquitto "${PASSWD_FILE}"; fi
 chmod 640 "${PASSWD_FILE}"
 
@@ -108,6 +123,8 @@ set_env MQTT_USER "${SERVER_USER}"
 set_env MQTT_PASSWORD "${SERVER_PASS}"
 # Backend fala com o broker local pela porta 1883 (o WebSocket 9001 sera desativado)
 set_env VITE_MQTT_BROKER "${LOCAL_BROKER_URL}"
+# Onde o backend cria as credenciais por aparelho (services/mqttCredentials.js)
+set_env MOSQUITTO_PASSWD_FILE "${PASSWD_FILE}"
 chmod 600 "${ENV_FILE}"
 
 # ---------------------------------------------------------------------------
@@ -158,15 +175,19 @@ if command -v mosquitto_pub >/dev/null 2>&1; then
   T="brewbrother/global/ping"
   mosquitto_pub -h 127.0.0.1 -p 1883 -u "${SERVER_USER}" -P "${SERVER_PASS}" -t "${T}" -m setup -q 1 2>/dev/null \
     || rollback "${SERVER_USER} nao conseguiu publicar"
-  mosquitto_pub -h 127.0.0.1 -p 1883 -u "${DEVICE_USER}" -P "${DEVICE_PASS}" -t "${T}" -m setup -q 1 2>/dev/null \
-    || rollback "${DEVICE_USER} nao conseguiu conectar"
+  if [ "${KEEP_LEGACY_DEVICE_USER}" = "1" ]; then
+    mosquitto_pub -h 127.0.0.1 -p 1883 -u "${DEVICE_USER}" -P "${DEVICE_PASS}" -t "${T}" -m setup -q 1 2>/dev/null \
+      || rollback "${DEVICE_USER} nao conseguiu conectar"
+  elif mosquitto_pub -h 127.0.0.1 -p 1883 -u "${DEVICE_USER}" -P "${DEVICE_PASS}" -t "${T}" -m x -q 1 2>/dev/null; then
+    rollback "credencial legada ${DEVICE_USER} ainda e aceita"
+  fi
   if mosquitto_pub -h 127.0.0.1 -p 1883 -t "${T}" -m anon -q 1 2>/dev/null; then
     rollback "conexao anonima ainda e aceita"
   fi
   if mosquitto_pub -h 127.0.0.1 -p 1883 -u "${SERVER_USER}" -P "senha-errada" -t "${T}" -m x -q 1 2>/dev/null; then
     rollback "senha errada ainda e aceita"
   fi
-  log "Validacao OK: anonimo e senha errada recusados; ${SERVER_USER} e ${DEVICE_USER} conectam."
+  log "Validacao OK: anonimo e senha errada recusados; ${SERVER_USER} conecta; legado ${DEVICE_USER}: $([ "${KEEP_LEGACY_DEVICE_USER}" = "1" ] && echo mantido || echo removido)."
 else
   log "mosquitto_pub nao instalado; validacao de autenticacao pulada (servico esta ativo)."
 fi

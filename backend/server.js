@@ -21,6 +21,7 @@ import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
 import { registerPairingRoutes } from './routes/pairingRoutes.js';
 import { registerLiveRoutes } from './routes/liveRoutes.js';
+import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -890,7 +891,7 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
 });
 
 // Descoberta por rede (mesmo IP publico), pedido de vinculo e confirmacao na tela do aparelho
-registerPairingRoutes(app, { pool, mqttClient, authenticateToken, notifyUpdate });
+registerPairingRoutes(app, { pool, mqttClient, authenticateToken, notifyUpdate, provisionMqtt: createMqttProvisioner() });
 // Fluxo ao vivo para o navegador (substitui a conexao MQTT direta do browser)
 registerLiveRoutes(app, { pool, mqttClient, authenticateToken });
 

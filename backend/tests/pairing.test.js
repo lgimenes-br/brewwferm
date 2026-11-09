@@ -47,7 +47,9 @@ const startServer = async () => {
         req.user = { id };
         next();
     };
-    registerPairingRoutes(app, { pool, mqttClient: { publish: (t, m) => published.push([t, m]) }, authenticateToken, notifyUpdate: () => {} });
+    const provisioned = [];
+    const provisionMqtt = async (serial, key, opts) => { provisioned.push([serial, key, opts]); return true; };
+    registerPairingRoutes(app, { pool, mqttClient: { publish: (t, m) => published.push([t, m]) }, authenticateToken, notifyUpdate: () => {}, provisionMqtt });
     const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
     const base = `http://127.0.0.1:${server.address().port}`;
     const call = async (method, path, { body, user, ip = '203.0.113.10' } = {}) => {
@@ -62,7 +64,7 @@ const startServer = async () => {
         });
         return { status: res.status, body: await res.json().catch(() => null) };
     };
-    return { server, call, pool, published };
+    return { server, call, pool, published, provisioned };
 };
 
 const SERIAL = '288485495464';
@@ -85,13 +87,15 @@ test('pedido expira apos o TTL', () => {
 });
 
 test('fluxo completo: anuncio, descoberta por IP, pedido e confirmacao no aparelho', async () => {
-    const { server, call, pool, published } = await startServer();
+    const { server, call, pool, published, provisioned } = await startServer();
     try {
         // Placa se anuncia (registra a chave no primeiro contato)
         let r = await call('POST', '/api/device/announce', { body: { serial: SERIAL, key: KEY, localIp: '192.168.0.20' } });
         assert.equal(r.status, 200);
         assert.equal(r.body.claimed, false);
         assert.equal(r.body.pairing, null);
+        assert.equal(r.body.mqtt, true);
+        assert.deepEqual(provisioned[0], [SERIAL, KEY, { force: true }], 'primeiro contato cria a credencial MQTT');
 
         // Mesmo IP publico ve o aparelho; outro IP nao
         r = await call('GET', '/api/discovery', { user: 1 });
