@@ -29,11 +29,26 @@ if [ -z "${PASSWD_FILE}" ] && [ -f "/etc/mosquitto/passwd" ]; then
   PASSWD_FILE="/etc/mosquitto/passwd"
 fi
 
+# --- Diagnostico (sem segredos) para entender o ambiente da VPS ---
+echo "[Mosquitto Diag] usuario: $(id -un) (uid $(id -u)) | SUDO='${SUDO}'"
+if [ -n "${SUDO}" ]; then
+  if sudo -n true 2>/dev/null; then echo "[Mosquitto Diag] sudo sem senha: OK"; else echo "[Mosquitto Diag] sudo sem senha: NAO DISPONIVEL"; fi
+fi
+echo "[Mosquitto Diag] diretivas do mosquitto.conf/conf.d:"
+grep -h -E "^\s*(listener|port|protocol|allow_anonymous|password_file|acl_file|per_listener_settings|include_dir|plugin|auth_plugin)\b" /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d/*.conf 2>/dev/null | sed 's/^/[Mosquitto Diag]   /' || true
+echo "[Mosquitto Diag] PASSWD_FILE='${PASSWD_FILE}' existe=$([ -n "${PASSWD_FILE}" ] && [ -f "${PASSWD_FILE}" ] && echo sim || echo nao)"
+echo "[Mosquitto Diag] mosquitto_passwd: $(command -v mosquitto_passwd || echo 'nao encontrado')"
+if command -v systemctl >/dev/null 2>&1; then echo "[Mosquitto Diag] servico mosquitto: $(systemctl is-active mosquitto 2>/dev/null || echo desconhecido)"; fi
+if command -v docker >/dev/null 2>&1; then
+  echo "[Mosquitto Diag] containers mosquitto: $(${SUDO} docker ps --format '{{.Names}} ({{.Image}})' 2>/dev/null | grep -i mosquitto | tr '\n' ' ' || true)"
+fi
+echo "[Mosquitto Diag] backend .env MQTT_USER: $(grep -E '^MQTT_USER=' "${ENV_FILE}" 2>/dev/null | cut -d= -f2 || true)"
+
 # Provisiona usuário exclusivo breww_server para o backend Node.js se mosquitto_passwd e arquivo de senhas existirem
 if [ -n "${PASSWD_FILE}" ] && [ -f "${PASSWD_FILE}" ] && command -v mosquitto_passwd >/dev/null 2>&1; then
   if ! ${SUDO} grep -q "^breww_server:" "${PASSWD_FILE}" 2>/dev/null; then
     NEW_MQTT_PASS=$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
-    if ${SUDO} mosquitto_passwd -b "${PASSWD_FILE}" breww_server "${NEW_MQTT_PASS}" 2>/dev/null; then
+    if PASSWD_ERR=$(${SUDO} mosquitto_passwd -b "${PASSWD_FILE}" breww_server "${NEW_MQTT_PASS}" 2>&1); then
       echo "[Mosquitto ACL] Usuário exclusivo 'breww_server' criado em ${PASSWD_FILE}."
       touch "${ENV_FILE}"
       if grep -q "^MQTT_USER=" "${ENV_FILE}"; then
@@ -46,10 +61,17 @@ if [ -n "${PASSWD_FILE}" ] && [ -f "${PASSWD_FILE}" ] && command -v mosquitto_pa
       else
         echo "MQTT_PASSWORD=${NEW_MQTT_PASS}" >> "${ENV_FILE}"
       fi
+    else
+      echo "[Mosquitto ACL] Falha ao criar breww_server com mosquitto_passwd: ${PASSWD_ERR}"
     fi
   else
     echo "[Mosquitto ACL] Usuário 'breww_server' já existe em ${PASSWD_FILE}."
+    if ! grep -q "^MQTT_USER=breww_server$" "${ENV_FILE}" 2>/dev/null; then
+      echo "[Mosquitto ACL] ...mas o .env do backend nao esta configurado com ele (senha desconhecida para este script)."
+    fi
   fi
+else
+  echo "[Mosquitto ACL] Pulando criacao de breww_server: precisa de password_file existente e do comando mosquitto_passwd (ver diagnostico acima)."
 fi
 
 # O ACL restringe esp32user a SO LER comandos. Ele so pode ser instalado se o backend ja
