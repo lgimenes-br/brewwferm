@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { connectLive, LiveConnection } from '../services/liveClient';
 import { OtaSession, createOtaSession, applyOtaMessage, applyOtaTelemetry } from '../services/otaSession';
+import { PendingConfirm, registerCommand, evaluateCooldown } from '../services/telemetryCooldown';
 import { useAuth } from './AuthContext';
 import { useFermenters } from '../hooks/useFermenters';
 import { FermenterStatus, DeviceMode } from '../types';
@@ -42,7 +43,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [scanResponses, setScanResponses] = useState<Record<string, string[]>>({});
     const [scanDetails, setScanDetails] = useState<Record<string, ScanDetails>>({});
     const liveRef = useRef<LiveConnection | null>(null);
-    const commandCooldownRef = useRef<Record<string, number>>({});
+    const commandCooldownRef = useRef<Record<string, PendingConfirm>>({});
     const fermentersRef = useRef(fermenters);
     const initialPingedDevicesRef = useRef<Set<string>>(new Set());
     const liveOpenRef = useRef(false);
@@ -215,9 +216,15 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                 }
                 
-                // Cooldown: se um comando foi enviado ha menos de 10s, nao sobrescreve estado otimista
-                // para evitar que telemetria velha (em transito) desfaca o update otimista
-                const isInCooldown = (Date.now() - (commandCooldownRef.current[serial] || 0)) < 10000;
+                // Telemetria velha (em transito) nao pode desfazer o update otimista de um comando.
+                // Modo/setpoint: ignorada ate o aparelho CONFIRMAR o valor pedido (normalmente < 1 s);
+                // outros comandos: janela curta. Ver services/telemetryCooldown.ts
+                const pendingCmd = commandCooldownRef.current[serial];
+                const cooldown = evaluateCooldown(pendingCmd, { opm: payload.opm, csp: payload.csp }, Date.now());
+                if (pendingCmd && !isRetained && (cooldown.confirmed || !cooldown.inCooldown)) {
+                    delete commandCooldownRef.current[serial];
+                }
+                const isInCooldown = cooldown.inCooldown;
 
                 if (payload.currStep !== undefined) {
                     currentStepIndexUpdate = parseInt(payload.currStep, 10) || 0;
@@ -351,7 +358,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         // Cooldown: bloqueia telemetria de sobrescrever updates otimistas (exceto comandos de leitura)
         if (type !== 'request_status' && type !== 'scan_sensors') {
-            commandCooldownRef.current[normalizedSerial] = Date.now();
+            commandCooldownRef.current[normalizedSerial] = registerCommand(commandCooldownRef.current[normalizedSerial], type, payload, Date.now());
         }
         // Unico caminho: endpoint autenticado do backend (valida dono do aparelho e publica no broker)
         if (token) {
@@ -381,7 +388,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const blockTelemetry = useCallback((serialCode: string) => {
         if (serialCode) {
-            commandCooldownRef.current[serialCode.trim().toUpperCase()] = Date.now();
+            const key = serialCode.trim().toUpperCase();
+            commandCooldownRef.current[key] = registerCommand(commandCooldownRef.current[key], 'block', {}, Date.now());
         }
     }, []);
 

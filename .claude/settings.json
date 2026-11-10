@@ -8,7 +8,11 @@
       "Bash(awk 'NR>=360 && NR<=480 && /^        \\\\}\\\\\\)\\\\\\(\\\\\\)\\\\}/ {print NR\": \"$0}' App.tsx)",
       "Bash(grep -n \"cat > \\\\\"\\\\${BREWW_CONF}\\\\\"\" -A10 setup-vps-mosquitto.sh)",
       "Bash(grep -n \"^                \\)}$\" App.tsx)",
-      "Bash(grep -n \"const { sendCommand, otaProgress, clearOtaProgress } = useBrew\\(\\);\" App.tsx)"
+      "Bash(grep -n \"const { sendCommand, otaProgress, clearOtaProgress } = useBrew\\(\\);\" App.tsx)",
+      "Bash(curl -s -o /dev/null -w \"download: %{size_download} bytes em %{time_total}s \\(%{speed_download} B/s\\) | TTFB %{time_starttransfer}s\\\\n\" https://breww.live/firmware/update.bin)",
+      "Bash(ping -c 5 breww.live)",
+      "Bash(grep -n 'if \\(strcmp\\(cmd, \"setMode\"\\) == 0\\) {' net_manager.cpp)",
+      "Bash(sed -n '/        if \\(strcmp\\(cmd, \"setMode\"\\) == 0\\) {/,/mqtt_publish_telemetry\\(\\);/p' net_manager.cpp)"
     ]
   }
 }
