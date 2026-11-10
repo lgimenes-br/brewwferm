@@ -30,6 +30,13 @@ DEVICE_PASS="esp32"   # credencial LEGADA compartilhada (firmware antigo, config
 # 1 = mantem esp32user (placas com firmware antigo continuam conectando)
 # 0 = remove esp32user: so conectam placas com credencial propria (firmware com cloud_pairing)
 KEEP_LEGACY_DEVICE_USER=0
+# 1 = porta 1883 (MQTT sem criptografia) aberta para a internet (transicao)
+# 0 = 1883 so local (backend); placas usam apenas 8883 com TLS
+PLAIN_MQTT_PUBLIC=1
+DOMAIN="breww.live"
+LE_DIR="/etc/letsencrypt/live/${DOMAIN}"
+CERT_DIR="${MOSQ_DIR}/certs"
+RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/breww-mosquitto.sh"
 SERVER_USER="breww_server"
 LOCAL_BROKER_URL="mqtt://127.0.0.1:1883"
 
@@ -63,7 +70,7 @@ chmod 700 "${BACKUP_DIR}"
 log "Backup em ${BACKUP_DIR}"
 
 config_fingerprint() {
-  cat "${MOSQ_CONF}" "${CONF_D}"/*.conf "${ACL_DEST}" "${PASSWD_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1
+  cat "${MOSQ_CONF}" "${CONF_D}"/*.conf "${ACL_DEST}" "${PASSWD_FILE}" "${CERT_DIR}"/*.pem 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 BEFORE="$(config_fingerprint)"
 
@@ -143,6 +150,37 @@ for f in "${CONF_D}"/*.conf; do
   rm -f "$f"
 done
 
+# --- TLS (porta 8883) com o certificado Let's Encrypt do site ---
+TLS_OK=0
+if [ -f "${LE_DIR}/fullchain.pem" ] && [ -f "${LE_DIR}/privkey.pem" ]; then
+  mkdir -p "${CERT_DIR}"
+  cp -L "${LE_DIR}/fullchain.pem" "${CERT_DIR}/fullchain.pem"
+  cp -L "${LE_DIR}/privkey.pem" "${CERT_DIR}/privkey.pem"
+  if getent group mosquitto >/dev/null 2>&1; then chown root:mosquitto "${CERT_DIR}" "${CERT_DIR}"/*.pem; fi
+  chmod 750 "${CERT_DIR}"; chmod 644 "${CERT_DIR}/fullchain.pem"; chmod 640 "${CERT_DIR}/privkey.pem"
+  TLS_OK=1
+  log "Certificado TLS: $(openssl x509 -in "${CERT_DIR}/fullchain.pem" -noout -subject -enddate 2>/dev/null | tr '\n' ' ')"
+  # Renovacao automatica: o certbot copia o certificado novo e reinicia o broker
+  if [ -d /etc/letsencrypt/renewal-hooks/deploy ]; then
+    cat > "${RENEW_HOOK}" <<HOOK
+#!/bin/sh
+# Gerenciado por setup-vps-mosquitto.sh: entrega o certificado renovado ao Mosquitto
+case "\${RENEWED_LINEAGE:-}" in *${DOMAIN}*) ;; *) exit 0 ;; esac
+cp -L "${LE_DIR}/fullchain.pem" "${CERT_DIR}/fullchain.pem"
+cp -L "${LE_DIR}/privkey.pem" "${CERT_DIR}/privkey.pem"
+chown root:mosquitto "${CERT_DIR}"/*.pem 2>/dev/null || true
+chmod 644 "${CERT_DIR}/fullchain.pem"; chmod 640 "${CERT_DIR}/privkey.pem"
+systemctl restart mosquitto
+HOOK
+    chmod 755 "${RENEW_HOOK}"
+  fi
+else
+  log "AVISO: certificado ${LE_DIR} nao encontrado; listener TLS 8883 NAO sera criado."
+fi
+
+PLAIN_BIND=""
+if [ "${PLAIN_MQTT_PUBLIC}" != "1" ] && [ "${TLS_OK}" = "1" ]; then PLAIN_BIND=" 127.0.0.1"; fi
+
 cat > "${BREWW_CONF}" <<EOF
 # Gerenciado por backend/mosquitto/setup-vps-mosquitto.sh — nao editar a mao
 per_listener_settings false
@@ -150,11 +188,29 @@ allow_anonymous false
 password_file ${PASSWD_FILE}
 acl_file ${ACL_DEST}
 
-listener 1883
+# Sem criptografia: backend local
+listener 1883${PLAIN_BIND}
 EOF
+if [ "${TLS_OK}" = "1" ]; then
+  cat >> "${BREWW_CONF}" <<EOF
+
+# Placas: MQTT com TLS (certificado Let's Encrypt do ${DOMAIN})
+listener 8883
+certfile ${CERT_DIR}/fullchain.pem
+keyfile ${CERT_DIR}/privkey.pem
+EOF
+fi
 
 cp "${ACL_SRC}" "${ACL_DEST}"
 chmod 644 "${ACL_DEST}"
+
+if command -v ufw >/dev/null 2>&1; then
+  if [ -n "${PLAIN_BIND}" ]; then
+    if ufw status | grep -qE "^1883/tcp\s+ALLOW"; then ufw delete allow 1883/tcp >/dev/null && log "ufw: 1883/tcp fechada para a internet."; fi
+  else
+    ufw status | grep -qE "^1883/tcp\s+ALLOW" || { ufw allow 1883/tcp >/dev/null && log "ufw: 1883/tcp liberada."; }
+  fi
+fi
 
 AFTER="$(config_fingerprint)"
 if [ "${BEFORE}" = "${AFTER}" ] && systemctl is-active --quiet mosquitto; then
@@ -187,10 +243,20 @@ if command -v mosquitto_pub >/dev/null 2>&1; then
   if mosquitto_pub -h 127.0.0.1 -p 1883 -u "${SERVER_USER}" -P "senha-errada" -t "${T}" -m x -q 1 2>/dev/null; then
     rollback "senha errada ainda e aceita"
   fi
+  if [ "${TLS_OK}" = "1" ]; then
+    CA=/etc/ssl/certs/ca-certificates.crt
+    # Valida a cadeia do certificado (o hostname e conferido pelas placas; aqui conectamos via 127.0.0.1)
+    mosquitto_pub -h 127.0.0.1 -p 8883 --cafile "${CA}" --insecure -u "${SERVER_USER}" -P "${SERVER_PASS}" -t "${T}" -m tls -q 1 2>/dev/null \
+      || rollback "conexao TLS na 8883 falhou"
+    if mosquitto_pub -h 127.0.0.1 -p 8883 --cafile "${CA}" --insecure -t "${T}" -m anon -q 1 2>/dev/null; then
+      rollback "conexao anonima aceita na 8883"
+    fi
+    log "TLS OK: 8883 aceita usuario autenticado e recusa anonimo."
+  fi
   log "Validacao OK: anonimo e senha errada recusados; ${SERVER_USER} conecta; legado ${DEVICE_USER}: $([ "${KEEP_LEGACY_DEVICE_USER}" = "1" ] && echo mantido || echo removido)."
 else
   log "mosquitto_pub nao instalado; validacao de autenticacao pulada (servico esta ativo)."
 fi
 
-log "Mosquitto protegido: autenticacao obrigatoria, ACL ativo, WebSocket 9001 desativado."
+log "Mosquitto protegido: autenticacao obrigatoria, ACL ativo, WebSocket 9001 desativado, TLS 8883: $([ "${TLS_OK}" = "1" ] && echo ativo || echo inativo), 1883 publica: $([ -z "${PLAIN_BIND}" ] && echo sim || echo nao)."
 log "O backend sera reiniciado pelo deploy com MQTT_USER=${SERVER_USER}."

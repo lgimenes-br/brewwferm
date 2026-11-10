@@ -5,7 +5,8 @@
       "Bash(bash -n backend/deploy/setup-nginx.sh)",
       "Bash(gh release *)",
       "Bash(awk 'NR>=360 && NR<=470 && /\\\\{isUpdating && \\\\\\(/ {print NR\": \"$0}' App.tsx)",
-      "Bash(awk 'NR>=360 && NR<=480 && /^        \\\\}\\\\\\)\\\\\\(\\\\\\)\\\\}/ {print NR\": \"$0}' App.tsx)"
+      "Bash(awk 'NR>=360 && NR<=480 && /^        \\\\}\\\\\\)\\\\\\(\\\\\\)\\\\}/ {print NR\": \"$0}' App.tsx)",
+      "Bash(grep -n \"cat > \\\\\"\\\\${BREWW_CONF}\\\\\"\" -A10 setup-vps-mosquitto.sh)"
     ]
   }
 }
