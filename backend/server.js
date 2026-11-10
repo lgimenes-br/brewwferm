@@ -25,6 +25,7 @@ import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
+import { registerAppPushRoutes } from './services/appPush.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -906,6 +907,8 @@ registerAppAuthRoutes(app, {
     rateLimiter: authRateLimiter,
     signToken: (claims) => jwt.sign(claims, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' }),
 });
+// Push do app nativo (tokens da Expo); os alertas usam sendPushToUser como antes
+registerAppPushRoutes(app, { pool, authenticateToken });
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {

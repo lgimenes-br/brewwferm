@@ -1,4 +1,5 @@
 import webpush from 'web-push';
+import { sendAppPushToUser } from './services/appPush.js';
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BL4hVT-vi0XvI2r0Lm91LlaxwNtrqf7gK56y4EjjckSURXsBxSj8EqqyoqZiZggjVLP7o2EhGnEk4ihB7A0VkFs';
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
@@ -46,7 +47,14 @@ export const sendPushToUser = async (pool, userId, title, body, url = '/') => {
     }
   }
 
-  // 2. Disparo opcional via Telegram Bot Webhook (se configurado nas Regras de Alerta do usuário)
+  // 2. App nativo (iOS/Android) via servico de push da Expo
+  try {
+    await sendAppPushToUser(pool, userId, title, body, { url });
+  } catch (err) {
+    console.error('Erro no push do app:', err?.message || err);
+  }
+
+  // 3. Disparo opcional via Telegram Bot Webhook (se configurado nas Regras de Alerta do usuário)
   try {
     const [uRows] = await pool.execute('SELECT alert_config FROM users WHERE id = ?', [userId]);
     const rawCfg = uRows?.[0]?.alert_config;
