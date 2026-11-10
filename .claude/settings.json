@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(curl -s https://breww.live/firmware/version.json)",
-      "Bash(bash -n backend/deploy/setup-nginx.sh)"
+      "Bash(bash -n backend/deploy/setup-nginx.sh)",
+      "Bash(gh release *)",
+      "Bash(awk 'NR>=360 && NR<=470 && /\\\\{isUpdating && \\\\\\(/ {print NR\": \"$0}' App.tsx)",
+      "Bash(awk 'NR>=360 && NR<=480 && /^        \\\\}\\\\\\)\\\\\\(\\\\\\)\\\\}/ {print NR\": \"$0}' App.tsx)"
     ]
   }
 }
