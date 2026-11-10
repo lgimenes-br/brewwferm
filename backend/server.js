@@ -23,6 +23,7 @@ import { registerPairingRoutes } from './routes/pairingRoutes.js';
 import { registerLiveRoutes } from './routes/liveRoutes.js';
 import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
+import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -895,6 +896,8 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
 registerPairingRoutes(app, { pool, mqttClient, authenticateToken, notifyUpdate, provisionMqtt: createMqttProvisioner() });
 // Fluxo ao vivo para o navegador (substitui a conexao MQTT direta do browser)
 registerLiveRoutes(app, { pool, mqttClient, authenticateToken });
+// Diagnosticos das placas (travamentos/quedas de MQTT), guardados 30 dias
+registerDeviceDiagnostics({ pool, mqttClient });
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {

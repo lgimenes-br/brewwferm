@@ -12,7 +12,9 @@
       "Bash(curl -s -o /dev/null -w \"download: %{size_download} bytes em %{time_total}s \\(%{speed_download} B/s\\) | TTFB %{time_starttransfer}s\\\\n\" https://breww.live/firmware/update.bin)",
       "Bash(ping -c 5 breww.live)",
       "Bash(grep -n 'if \\(strcmp\\(cmd, \"setMode\"\\) == 0\\) {' net_manager.cpp)",
-      "Bash(sed -n '/        if \\(strcmp\\(cmd, \"setMode\"\\) == 0\\) {/,/mqtt_publish_telemetry\\(\\);/p' net_manager.cpp)"
+      "Bash(sed -n '/        if \\(strcmp\\(cmd, \"setMode\"\\) == 0\\) {/,/mqtt_publish_telemetry\\(\\);/p' net_manager.cpp)",
+      "Bash(curl -s https://breww.live/)",
+      "Bash(grep -E \"^index-.*\\\\.js$\")"
     ]
   }
 }

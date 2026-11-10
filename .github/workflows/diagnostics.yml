@@ -1,0 +1,41 @@
+# Consulta manual dos diagnosticos das placas (travamentos, quedas de MQTT).
+#   gh workflow run diagnostics.yml -f hours=24 -f serial=288485495464
+name: Diagnosticos das placas
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: 'Ultimas N horas (1-720)'
+        required: false
+        default: '24'
+      serial:
+        description: 'Serial do aparelho (vazio = todos)'
+        required: false
+        default: ''
+      kind:
+        description: 'Tipo (lag, mqtt_reconnect, boot; vazio = todos)'
+        required: false
+        default: ''
+
+jobs:
+  consultar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar na VPS
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          HOURS: ${{ github.event.inputs.hours }}
+          SERIAL: ${{ github.event.inputs.serial }}
+          KIND: ${{ github.event.inputs.kind }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          envs: HOURS,SERIAL,KIND
+          script: |
+            cd /var/www/breww-backend/
+            H=$(echo "$HOURS" | tr -cd '0-9'); S=$(echo "$SERIAL" | tr -cd 'A-Za-z0-9_-'); K=$(echo "$KIND" | tr -cd 'a-z_')
+            node scripts/print-diagnostics.js --hours "${H:-24}" ${S:+--serial "$S"} ${K:+--kind "$K"}
