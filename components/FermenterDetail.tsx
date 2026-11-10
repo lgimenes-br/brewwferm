@@ -11,6 +11,7 @@ import { DualAxisChart } from './DualAxisChart';
 import { FermentationTimeline } from './FermentationTimeline';
 import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
+import { WifiSignal } from './WifiSignal';
 import { FermentationProfile } from './FermentationProfile';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
@@ -900,6 +901,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     <div className="flex items-center gap-2">
                         <span className="text-zinc-600 font-black">IP:</span>
                         <span className="text-zinc-400">{fermenter.ipAddress || '0.0.0.0'}</span>
+                    </div>
+                    <span className="text-neutral-800 font-light opacity-50">//</span>
+                    <div className="flex items-center gap-2 normal-case tracking-normal">
+                        <WifiSignal rssi={fermenter.currentDevice?.rssi} />
                     </div>
                 </div>
             </div>

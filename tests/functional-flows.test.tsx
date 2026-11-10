@@ -1346,7 +1346,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('Alvo: 19.5°');
         expect(container.textContent).toContain('Geladeira: 11.4°');
         expect(container.textContent).toContain('1.028');
-        expect(container.textContent).toContain('96%'); // RSSI -52 dBm -> 2 * (-52 + 100) = 96%
+        expect(container.textContent).toContain('-52 dBm'); // indicador de sinal Wi-Fi (RSSI em dBm)
         expect(container.textContent).toContain('192.168.1.120');
     });
 

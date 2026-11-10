@@ -9,6 +9,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { fetchDiscoveryDevices, AddDeviceResult } from '../services/api';
 import { PairingWaitModal } from './PairingWaitModal';
+import { WifiSignal } from './WifiSignal';
 
 /** Normaliza o codigo do aparelho: MAC com ":"/"-" (ex: 28:84:85:49:54:64) vira o ID dos topicos MQTT (288485495464). */
 export const normalizePairCode = (raw: string): string => {
@@ -411,7 +412,6 @@ export const Dashboard: React.FC = () => {
                     const safeOG = normalizeGravity(f.og, 0);
                     const safeFG = f.fg ? normalizeGravity(f.fg, 0) : null;
                     const rawRssi = f.currentDevice?.rssi || 0;
-                    const rssiPercent = rawRssi === 0 ? 0 : Math.min(100, Math.max(0, 2 * (rawRssi + 100)));
 
 
                     const isCorrupted = isOnline && isInitialSyncing && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
@@ -582,9 +582,8 @@ export const Dashboard: React.FC = () => {
                             {/* Footer Info */}
                             <div className="flex items-center justify-between pt-6 border-t border-neutral-800/50 mt-auto">
                                 <div className="flex gap-4">
-                                    <div className="flex items-center gap-1.5 text-neutral-600 group-hover:text-neutral-400 transition-colors" title="Sinal Wifi">
-                                        <Wifi size={14} />
-                                        <span className="text-xs font-mono">{rssiPercent}%</span>
+                                    <div className="flex items-center gap-1.5 text-neutral-600 group-hover:text-neutral-400 transition-colors">
+                                        <WifiSignal rssi={isOnline ? rawRssi : null} />
                                         <span className="text-xs text-neutral-700">•</span>
                                         <span className="text-xs font-mono">{f.ipAddress || '--'}</span>
                                     </div>
