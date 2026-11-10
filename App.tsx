@@ -7,6 +7,7 @@ import { Register } from './components/Register';
 import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode, isDeviceOnline } from './types';
 import { fetchFirmwareVersion } from './services/api';
+import { isFirmwareUpdateAvailable } from './services/firmware';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -102,7 +103,7 @@ const NavConfig = () => {
     const iconOnlyBase = "flex items-center justify-center w-9 h-9 rounded-md border transition-all shrink-0 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white";
 
     // Check if any device needs an update
-    const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && f.currentDevice?.version && f.currentDevice.version !== latestFirmware.version);
+    const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, f.currentDevice?.version));
     const hasUpdate = devicesNeedingUpdate.length > 0;
 
     const handleUpdateAll = () => {
@@ -356,13 +357,15 @@ const NavConfig = () => {
         </nav>
         
         {/* Global Firmware Alert */}
-        {hasUpdate && location.pathname !== '/settings' && (() => {
+        {hasUpdate && (() => {
             const getDevProgress = (id: string) => otaProgress?.[(id || '').toUpperCase()] ?? otaProgress?.[id] ?? 0;
             const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, getDevProgress(dev.id)), 0);
             const isUpdating = maxProgress > 0;
+            // Aviso escondido em Configuracoes (la existe o box proprio); o modal de progresso aparece em qualquer pagina
+            const showBanner = location.pathname !== '/settings';
             return (
                 <>
-                <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
+                {showBanner && <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
                         <p className="text-amber-500 text-xs md:text-sm font-medium">
@@ -378,7 +381,7 @@ const NavConfig = () => {
                             {isUpdating ? 'Instalando...' : 'Atualizar Agora'}
                         </button>
                     </div>
-                </div>
+                </div>}
 
                 {isUpdating && (
                     <div role="dialog" aria-modal="true" aria-labelledby="ota-dialog-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
