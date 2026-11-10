@@ -86,7 +86,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 
 export const Settings: React.FC = () => {
   const { fermenters, updateFermenterLocal } = useFermenters();
-  const { sendCommand, otaProgress, scanDetails } = useBrew();
+  const { sendCommand, otaProgress, scanDetails, startOta } = useBrew();
   const { token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -1040,8 +1040,8 @@ export const Settings: React.FC = () => {
                     onClick={() => {
                         const finalUrl = latestFirmware.url || `${window.location.origin}/firmware/update.bin`;
                         if (confirm(`Deseja instalar a versão ${latestFirmware.version} agora? O ESP32 será reiniciado.`)) {
+                            startOta(selectedDeviceId, { name: activeDevice?.name, targetVersion: latestFirmware.version });
                             sendCommand(selectedDeviceId, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
-                            toast.success('Comando de Atualização OTA enviado! O painel da placa exibirá o progresso.');
                         }
                     }}
                     className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0 shadow-[0_0_15px_rgba(5,150,105,0.3)]"

@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { connectLive, LiveConnection } from '../services/liveClient';
+import { OtaSession, createOtaSession, applyOtaMessage, applyOtaTelemetry } from '../services/otaSession';
 import { useAuth } from './AuthContext';
 import { useFermenters } from '../hooks/useFermenters';
 import { FermenterStatus, DeviceMode } from '../types';
@@ -11,6 +12,11 @@ interface BrewContextType {
     sendCommand: (serialCode: string, type: string, payload: any) => void;
     otaProgress: Record<string, number>;
     clearOtaProgress: () => void;
+    /** Sessoes de atualizacao em andamento (chave = serial em MAIUSCULAS) */
+    otaSessions: Record<string, OtaSession>;
+    /** Abre a sessao no clique (o modal aparece antes de o aparelho responder) */
+    startOta: (serial: string, opts: { name?: string; targetVersion?: string }) => void;
+    dismissOta: (serial: string) => void;
     scanResponses: Record<string, string[]>;
     /** Detalhes do ultimo scan 1-Wire por aparelho (chave em MAIUSCULAS) */
     scanDetails: Record<string, ScanDetails>;
@@ -32,6 +38,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
     const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(true);
     const [otaProgress, setOtaProgress] = useState<Record<string, number>>({});
+    const [otaSessions, setOtaSessions] = useState<Record<string, OtaSession>>({});
     const [scanResponses, setScanResponses] = useState<Record<string, string[]>>({});
     const [scanDetails, setScanDetails] = useState<Record<string, ScanDetails>>({});
     const liveRef = useRef<LiveConnection | null>(null);
@@ -100,6 +107,14 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (serial && ownsSerial(serial) && payload?.progress !== undefined) {
                         setOtaProgress(prev => ({ ...prev, [serial]: payload.progress }));
                     }
+                    if (serial && ownsSerial(serial)) {
+                        setOtaSessions(prev => {
+                            // Atualizacao iniciada fora deste navegador: abre a sessao ao primeiro sinal
+                            const base = prev[serial] ?? createOtaSession(serial, {}, Date.now());
+                            const next = applyOtaMessage(base, payload, Date.now());
+                            return next === prev[serial] ? prev : { ...prev, [serial]: next };
+                        });
+                    }
                 } catch (e) {}
                 return;
             }
@@ -141,6 +156,13 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Se recebeu telemetria ao vivo (não retida), significa que reiniciou e já está vivo. Remove o progresso OTA.
                 if (!isRetained) {
+                    const fw = typeof (payload.fw ?? payload.ver) === 'string' ? String(payload.fw ?? payload.ver) : undefined;
+                    setOtaSessions(prev => {
+                        const cur = prev[serial];
+                        if (!cur) return prev;
+                        const next = applyOtaTelemetry(cur, fw, Date.now());
+                        return next === cur ? prev : { ...prev, [serial]: next };
+                    });
                     setOtaProgress(prev => {
                         if (prev[serial] !== undefined) {
                             const next = { ...prev };
@@ -337,6 +359,22 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [token, role]);
 
+    const startOta = useCallback((serial: string, opts: { name?: string; targetVersion?: string }) => {
+        const key = (serial || '').trim().toUpperCase();
+        if (!key) return;
+        setOtaSessions(prev => ({ ...prev, [key]: createOtaSession(key, opts, Date.now()) }));
+    }, []);
+
+    const dismissOta = useCallback((serial: string) => {
+        const key = (serial || '').trim().toUpperCase();
+        setOtaSessions(prev => {
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    }, []);
+
     const clearOtaProgress = useCallback(() => {
         setOtaProgress({});
     }, []);
@@ -348,7 +386,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     return (
-        <BrewContext.Provider value={{ connectionStatus, isInitialSyncing, sendCommand, otaProgress, clearOtaProgress, scanResponses, scanDetails, blockTelemetry }}>
+        <BrewContext.Provider value={{ connectionStatus, isInitialSyncing, sendCommand, otaProgress, clearOtaProgress, otaSessions, startOta, dismissOta, scanResponses, scanDetails, blockTelemetry }}>
             {children}
         </BrewContext.Provider>
     );

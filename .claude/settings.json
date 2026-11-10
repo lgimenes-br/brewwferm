@@ -6,7 +6,9 @@
       "Bash(gh release *)",
       "Bash(awk 'NR>=360 && NR<=470 && /\\\\{isUpdating && \\\\\\(/ {print NR\": \"$0}' App.tsx)",
       "Bash(awk 'NR>=360 && NR<=480 && /^        \\\\}\\\\\\)\\\\\\(\\\\\\)\\\\}/ {print NR\": \"$0}' App.tsx)",
-      "Bash(grep -n \"cat > \\\\\"\\\\${BREWW_CONF}\\\\\"\" -A10 setup-vps-mosquitto.sh)"
+      "Bash(grep -n \"cat > \\\\\"\\\\${BREWW_CONF}\\\\\"\" -A10 setup-vps-mosquitto.sh)",
+      "Bash(grep -n \"^                \\)}$\" App.tsx)",
+      "Bash(grep -n \"const { sendCommand, otaProgress, clearOtaProgress } = useBrew\\(\\);\" App.tsx)"
     ]
   }
 }
