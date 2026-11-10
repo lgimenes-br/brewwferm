@@ -26,3 +26,6 @@ temp_breww_app/
 *.sln
 *.sw?
 .stitch/screens/
+
+# Firmwares publicados pelo CI (existem so no servidor)
+backend/firmware/

@@ -21,6 +21,7 @@ import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
 import { registerPairingRoutes } from './routes/pairingRoutes.js';
 import { registerLiveRoutes } from './routes/liveRoutes.js';
+import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
@@ -1634,31 +1635,8 @@ registerAdminRoutes({
     sendPushToUser
 });
 
-app.get('/firmware/version.json', (req, res) => {
-    try {
-        const filePath = path.resolve(__dirname, 'firmware/version.json');
-        if (fs.existsSync(filePath)) {
-            res.sendFile(filePath);
-        } else {
-            res.status(404).json({ version: "0.0.0" });
-        }
-    } catch (error) {
-        res.status(500).json({ error: 'Erro interno ao consultar versão do firmware' });
-    }
-});
-
-app.get('/firmware/update.bin', (req, res) => {
-    try {
-        const filePath = path.resolve(__dirname, 'firmware/update.bin');
-        if (fs.existsSync(filePath)) {
-            res.download(filePath);
-        } else {
-            res.status(404).send('Firmware update not found');
-        }
-    } catch (error) {
-        res.status(500).send('Erro interno ao baixar firmware');
-    }
-});
+// Firmware OTA: publicacao pelo GitHub Actions + arquivos servidos a placa (com x-MD5)
+registerFirmwareRoutes(app, { firmwareDir: path.resolve(__dirname, 'firmware') });
 
 app.get('/api/broadcasts/active', async (req, res) => {
     try {

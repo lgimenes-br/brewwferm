@@ -8,6 +8,7 @@ import { API_URL } from '../config';
 import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, fetchFirmwareVersion, UserAlertConfig } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { SensorTestModal } from './SensorTestModal';
+import { isFirmwareUpdateAvailable } from '../services/firmware';
 import { SensorScanModal, SensorMapping } from './SensorScanModal';
 
 interface PIDParams {
@@ -1022,7 +1023,7 @@ export const Settings: React.FC = () => {
       <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
         <SectionHeader icon={Download} title="Atualização Remota (OTA)" />
         
-        {latestFirmware && activeDevice?.currentDevice?.version && latestFirmware.version !== activeDevice.currentDevice.version && (
+        {latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, activeDevice?.currentDevice?.version) && (
             <div className="bg-emerald-950/20 border border-emerald-900/50 rounded-xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-500">
                 <div>
                     <h4 className="text-emerald-500 font-bold text-sm mb-1 flex items-center gap-2">
