@@ -95,6 +95,7 @@ jobs:
             chmod +x mosquitto/setup-vps-mosquitto.sh 2>/dev/null || true
             bash mosquitto/setup-vps-mosquitto.sh || true
             bash deploy/setup-nginx.sh || true
+            bash deploy/setup-firewall.sh || true
             bash deploy/diag-firewall.sh || true
             if [ ! -f .env ] || ! grep -q "^VITE_GEMINI_API_KEY=" .env; then echo "VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" >> .env; else sed -i "s|^VITE_GEMINI_API_KEY=.*|VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}|" .env; fi
             if [ -n "${{ secrets.FIRMWARE_UPLOAD_TOKEN }}" ]; then if grep -q "^FIRMWARE_UPLOAD_TOKEN=" .env; then sed -i "s|^FIRMWARE_UPLOAD_TOKEN=.*|FIRMWARE_UPLOAD_TOKEN=${{ secrets.FIRMWARE_UPLOAD_TOKEN }}|" .env; else echo "FIRMWARE_UPLOAD_TOKEN=${{ secrets.FIRMWARE_UPLOAD_TOKEN }}" >> .env; fi; fi
