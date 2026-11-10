@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
 import { Toaster, toast } from 'react-hot-toast';
 import { Login } from './components/Login';
+import { AppLogin } from './components/AppLogin';
 import { Register } from './components/Register';
 import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode, isDeviceOnline } from './types';
@@ -79,7 +80,7 @@ const NavConfig = () => {
     if (role === 'admin') return null;
 
     // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/login', '/register'];
+    const publicRoutes = ['/login', '/register', '/app-login'];
     if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
@@ -443,6 +444,8 @@ const AppRoutes = () => {
                         </PublicRoute>
                     } />
                     <Route path="/live/:token" element={<PublicLiveBatch />} />
+                    {/* Login do app nativo (aberto pelo app numa janela segura do sistema) */}
+                    <Route path="/app-login" element={<AppLogin />} />
 
                     {/* Protected App Routes */}
                     <Route path="/*" element={

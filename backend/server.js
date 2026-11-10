@@ -24,6 +24,7 @@ import { registerLiveRoutes } from './routes/liveRoutes.js';
 import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
+import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -898,6 +899,13 @@ registerPairingRoutes(app, { pool, mqttClient, authenticateToken, notifyUpdate, 
 registerLiveRoutes(app, { pool, mqttClient, authenticateToken });
 // Diagnosticos das placas (travamentos/quedas de MQTT), guardados 30 dias
 registerDeviceDiagnostics({ pool, mqttClient });
+// Login do app nativo pelo site (codigo de uso unico + PKCE)
+registerAppAuthRoutes(app, {
+    pool,
+    authenticateToken,
+    rateLimiter: authRateLimiter,
+    signToken: (claims) => jwt.sign(claims, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' }),
+});
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {

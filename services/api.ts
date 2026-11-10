@@ -63,6 +63,18 @@ export const login = async (email: string, pass: string) => {
   return data;
 };
 
+/** Login do app nativo: codigo de uso unico preso ao PKCE do app (ver components/AppLogin.tsx) */
+export const requestAppLoginCode = async (token: string, redirectUri: string, codeChallenge: string): Promise<string> => {
+  const res = await fetch(`${API_URL}/auth/app-code`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify({ redirect_uri: redirectUri, code_challenge: codeChallenge })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.code) throw new Error(data.error || 'Não foi possível conectar o app.');
+  return data.code;
+};
+
 export const loginWithGoogle = async (idToken: string) => {
   const res = await fetch(`${API_URL}/auth/google`, {
     method: 'POST',

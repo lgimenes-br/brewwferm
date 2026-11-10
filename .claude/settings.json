@@ -15,7 +15,26 @@
       "Bash(sed -n '/        if \\(strcmp\\(cmd, \"setMode\"\\) == 0\\) {/,/mqtt_publish_telemetry\\(\\);/p' net_manager.cpp)",
       "Bash(curl -s https://breww.live/)",
       "Bash(grep -E \"^index-.*\\\\.js$\")",
-      "Bash(awk 'NR>=440 && NR<=470' server.js)"
+      "Bash(awk 'NR>=440 && NR<=470' server.js)",
+      "Bash(npm -v)",
+      "Bash(npx --yes create-expo-app@latest breww-app --template default --no-install)",
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(rm -f src/app/explore.tsx src/app/index.tsx src/components/themed-text.tsx src/components/animated-icon.tsx src/components/themed-view.tsx src/components/hint-row.tsx src/components/app-tabs.web.tsx src/components/web-badge.tsx src/components/app-tabs.tsx src/components/external-link.tsx src/components/animated-icon.module.css src/components/animated-icon.web.tsx src/hooks/use-color-scheme.web.ts src/hooks/use-color-scheme.ts src/hooks/use-theme.ts src/components/ui/collapsible.tsx src/constants/theme.ts)",
+      "Bash(rmdir src/components/ui src/hooks src/constants)",
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Bash(npx expo-doctor *)",
+      "Bash(npx --yes skills@latest add --help)",
+      "Bash(npx --yes skills@latest add expo/skills --list)",
+      "Bash(grep \"\\\\.md$\")"
+    ],
+    "additionalDirectories": [
+      "/Users/libra/Desktop/Apps/breww-app/src/core",
+      "/Users/libra/Desktop/Apps/breww-app/src/auth",
+      "/Users/libra/Desktop/Apps/breww-app/src/devices",
+      "/Users/libra/Desktop/Apps/breww-app/src/app",
+      "/Users/libra/Desktop/Apps/breww-app/src/components",
+      "/Users/libra/Desktop/Apps/breww-app/src/app/(app)"
     ]
   }
 }
