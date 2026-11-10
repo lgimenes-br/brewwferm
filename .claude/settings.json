@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://breww.live/firmware/version.json)",
+      "Bash(bash -n backend/deploy/setup-nginx.sh)"
+    ]
+  }
+}
