@@ -41,6 +41,24 @@ try {
         console.log('=== Resumo ===');
         for (const s of summary) console.log(`${s.serial_code} | ${s.kind.padEnd(14)} | ${s.n} evento(s) | max ${s.max_ms} ms | media ${s.avg_ms} ms`);
     }
+
+    // Disponibilidade e sinal do Wi-Fi, hora a hora, a partir da telemetria gravada
+    const devWhere = serial ? 'WHERE d.serial_code = ?' : '';
+    const devParams = serial ? [serial] : [];
+    const [devs] = await pool.query(`SELECT d.id, d.serial_code, d.last_seen, d.firmware_version FROM devices d ${devWhere}`, devParams);
+    for (const d of devs) {
+        const last = d.last_seen ? new Date(d.last_seen).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'nunca';
+        console.log(`=== ${d.serial_code} | fw ${d.firmware_version || '?'} | ultimo contato: ${last} ===`);
+        const [hoursRows] = await pool.query(
+            `SELECT DATE_FORMAT(CONVERT_TZ(recorded_at, @@session.time_zone, '-03:00'), '%d/%m %H:00') h,
+                    COUNT(*) n, MIN(rssi) rssi_min, ROUND(AVG(rssi)) rssi_avg, MAX(rssi) rssi_max
+             FROM telemetry WHERE device_id = ? AND recorded_at >= NOW() - INTERVAL ? HOUR
+             GROUP BY h ORDER BY MIN(recorded_at)`, [d.id, hours]);
+        if (!hoursRows.length) console.log('  (sem telemetria gravada no periodo)');
+        for (const r of hoursRows) {
+            console.log(`  ${r.h} | ${String(r.n).padStart(4)} leituras | RSSI min ${r.rssi_min ?? '?'} / media ${r.rssi_avg ?? '?'} / max ${r.rssi_max ?? '?'} dBm`);
+        }
+    }
 } catch (err) {
     console.error('Erro ao consultar diagnosticos:', err.message);
     process.exitCode = 1;
