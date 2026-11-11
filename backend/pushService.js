@@ -1,7 +1,8 @@
 import webpush from 'web-push';
 import { sendAppPushToUser } from './services/appPush.js';
 
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BL4hVT-vi0XvI2r0Lm91LlaxwNtrqf7gK56y4EjjckSURXsBxSj8EqqyoqZiZggjVLP7o2EhGnEk4ihB7A0VkFs';
+// Chaves VAPID so pelo ambiente (.env escrito pelo deploy a partir dos segredos do GitHub)
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
 
 if (vapidPublicKey && vapidPrivateKey) {
@@ -35,7 +36,8 @@ export const sendPushToUser = async (pool, userId, title, body, url = '/') => {
         try {
           await webpush.sendNotification(pushSubscription, payload);
         } catch (err) {
-          if (err?.statusCode === 410 || err?.statusCode === 404) {
+          // 410/404 = inscricao expirada; 403 = inscricao feita com outra chave VAPID (chaves trocadas)
+          if (err?.statusCode === 410 || err?.statusCode === 404 || err?.statusCode === 403) {
             await pool.execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
           } else {
             console.error('Push error:', err);

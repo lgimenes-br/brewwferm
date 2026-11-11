@@ -27,6 +27,7 @@ jobs:
       - name: 3. Construindo o Layout novo (Build)
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
         run: |
           npm install --legacy-peer-deps
           npx tsc --noEmit
@@ -99,6 +100,8 @@ jobs:
             bash deploy/diag-firewall.sh || true
             if [ ! -f .env ] || ! grep -q "^VITE_GEMINI_API_KEY=" .env; then echo "VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" >> .env; else sed -i "s|^VITE_GEMINI_API_KEY=.*|VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}|" .env; fi
             if [ -n "${{ secrets.FIRMWARE_UPLOAD_TOKEN }}" ]; then if grep -q "^FIRMWARE_UPLOAD_TOKEN=" .env; then sed -i "s|^FIRMWARE_UPLOAD_TOKEN=.*|FIRMWARE_UPLOAD_TOKEN=${{ secrets.FIRMWARE_UPLOAD_TOKEN }}|" .env; else echo "FIRMWARE_UPLOAD_TOKEN=${{ secrets.FIRMWARE_UPLOAD_TOKEN }}" >> .env; fi; fi
+            # Chaves VAPID (push do navegador) vindas dos segredos do GitHub; trocadas em 11/11/2026
+            if [ -n "${{ secrets.VAPID_PRIVATE_KEY }}" ]; then for KV in "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}"; do K="${KV%%=*}"; if grep -q "^${K}=" .env; then sed -i "s|^${K}=.*|${KV}|" .env; else echo "${KV}" >> .env; fi; done; fi
             npm install
             pm2 restart breww-server || pm2 start server.js --name "breww-server"
             pm2 save

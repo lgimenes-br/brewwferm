@@ -542,7 +542,7 @@ export const Settings: React.FC = () => {
       let subscription = await registration.pushManager.getSubscription();
       
       if (!subscription) {
-        const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BL4hVT-vi0XvI2r0Lm91LlaxwNtrqf7gK56y4EjjckSURXsBxSj8EqqyoqZiZggjVLP7o2EhGnEk4ihB7A0VkFs';
+        const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
