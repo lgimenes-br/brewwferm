@@ -25,6 +25,7 @@ import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
+import { dropStaleIspindel } from './services/ispindelFreshness.js';
 import { registerAppleAuthRoutes, createAppleKeyStore, appleAudiences, verifyAppleToken } from './routes/appleAuthRoutes.js';
 import { registerIdentityRoutes, ensureIdentityTable, findUserIdByIdentity, linkIdentity, hasRealPassword, verifyGoogleAccessToken, DEFAULT_GOOGLE_CLIENT_ID } from './routes/identityRoutes.js';
 import { registerAppPushRoutes } from './services/appPush.js';
@@ -446,6 +447,9 @@ mqttClient.on('message', async (topic, message, packet) => {
 
             const now = Date.now();
             lastSeenTimes[serialCode] = now;
+            // iSpindel desligado: o controlador repete a ultima leitura; velha nao vale (historico,
+            // avanco por densidade, alertas). O repasse ao vivo usa o pacote original.
+            dropStaleIspindel(payload, now);
             const lastLog = lastLogTimes[serialCode] || 0;
             const logInterval = payload.wi || 60000;
 

@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { isIspindelFresh } from '../services/ispindel';
 import { connectLive, LiveConnection } from '../services/liveClient';
 import { OtaSession, createOtaSession, applyOtaMessage, applyOtaTelemetry } from '../services/otaSession';
 import { PendingConfirm, registerCommand, evaluateCooldown } from '../services/telemetryCooldown';
@@ -275,6 +276,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ? parseFloat(payload.stepTime)
                     : (savedStepTimeStr !== null ? parseFloat(savedStepTimeStr) : NaN);
 
+                const ispFresh = isIspindelFresh(payload);
                 updateFermenterLocal(serial, {
                     ...(!isInCooldown && newStatus ? { status: newStatus } : {}),
                     ...(!isInCooldown && currentModeUpdate ? { mode: currentModeUpdate } : {}),
@@ -287,8 +289,9 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...(kegeratorConfigUpdate ? { kegeratorConfig: kegeratorConfigUpdate } : {}),
                     currentDevice: {
                         temperature: !isNaN(parsedFerm) ? parsedFerm : undefined,
-                        gravity: payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
-                        battery: payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
+                        // iSpindel desligado: o controlador repete a ultima leitura; velha nao aparece
+                        gravity: ispFresh === false ? 0 : payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
+                        battery: ispFresh === false ? 0 : payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
                         rssi: !isNaN(parsedRssi) ? parsedRssi : undefined,
                         ...(isRetained ? {} : { lastUpdate: new Date().toISOString(), lastPacketMs: Date.now() }),
                         statOp: statusStr || 'INATIVO',
