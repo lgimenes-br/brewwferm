@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { deviceRegistry } from '../services/deviceRegistry.js';
 
 // ============================================================================
 // Pareamento seguro de aparelhos
@@ -296,6 +297,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 'INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())',
                 [serial, pairing.userId, pairing.deviceName]
             );
+            deviceRegistry.invalidate(serial); // estava em cache como 'sem cadastro'
             await pool.execute(
                 'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
                 [pairing.userId, 'CREATE_DEVICE', `Device: ${serial} (confirmado no aparelho)`, normalizeIp(req.ip) || null]

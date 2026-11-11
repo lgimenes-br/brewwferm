@@ -14,6 +14,7 @@ import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
 
 const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
+import { deviceRegistry } from './services/deviceRegistry.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
@@ -472,19 +473,12 @@ mqttClient.on('message', async (topic, message, packet) => {
         if (parts.length < 3) return;
         const serialCode = parts[1].trim().toUpperCase();
 
-        let deviceId = null;
-        try {
-            const [rows] = await pool.execute('SELECT id FROM devices WHERE serial_code = ?', [parts[1]]);
-            if (rows.length > 0) deviceId = rows[0].id;
-        } catch (dbErr) { /* Ignore DB error to allow discovery */ }
+        // serial -> id em cache; last_seen no banco no maximo 1x/min, firmware so quando muda (services/deviceRegistry.js)
+        const deviceId = await deviceRegistry.lookup(pool, serialCode);
 
         if (deviceId) {
             delete discoveredUnknowns[serialCode];
-            await pool.execute('UPDATE devices SET last_seen = NOW() WHERE id = ?', [deviceId]).catch(() => { });
-            const fwVersion = payload.fw || payload.ver;
-            if (fwVersion) {
-                await pool.execute('UPDATE devices SET firmware_version = ? WHERE id = ?', [fwVersion, deviceId]).catch(() => { });
-            }
+            await deviceRegistry.touch(pool, serialCode, deviceId, payload.fw || payload.ver);
 
             const now = Date.now();
             lastSeenTimes[serialCode] = now;
@@ -979,6 +973,7 @@ const deleteDeviceCascade = async (devId, serialCode) => {
     await pool.execute('DELETE FROM batch_events WHERE batch_id IN (SELECT id FROM batches WHERE device_id = ?)', [devId]);
     await pool.execute('DELETE FROM batches WHERE device_id = ?', [devId]);
     await pool.execute('DELETE FROM devices WHERE id = ?', [devId]);
+    if (serialCode) deviceRegistry.invalidate(serialCode);
     if (serialCode) {
         const normalizedSerial = String(serialCode).trim().toUpperCase();
         delete activeBatches[normalizedSerial];
@@ -1015,6 +1010,12 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             WHERE d.user_id = ?
         `, [req.user.id]);
 
+        // Online e "visto por ultimo" pelo contato MQTT em memoria (o banco so recebe last_seen 1x/min)
+        for (const d of devices) {
+            d.is_online = deviceRegistry.isOnline(d.serial_code, 30 * 1000, d.is_online) ? 1 : 0;
+            const mem = deviceRegistry.lastSeenMs(d.serial_code);
+            if (mem && (!d.last_seen || mem > new Date(d.last_seen).getTime())) d.last_seen = new Date(mem);
+        }
         res.json(devices);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
@@ -1657,7 +1658,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
 
         const [batches] = await pool.execute(
             `SELECT b.id, b.name, b.style, b.og, b.fg, b.volume, b.profile, b.started_at, b.ended_at, b.is_active, b.current_step_index, b.step_started_at, b.ingredients,
-                    d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online
+                    d.device_name, d.sensor1_name, d.sensor2_name, d.sensor_sg_name, (d.last_seen > NOW() - INTERVAL 2 MINUTE) as is_online, d.serial_code AS device_serial
              FROM batches b
              JOIN devices d ON b.device_id = d.id
              WHERE b.public_token = ? LIMIT 1`,
@@ -1666,6 +1667,8 @@ app.get('/api/public/batch/:token', async (req, res) => {
         if (batches.length === 0) return res.status(404).json({ error: 'Lote público não encontrado ou link revogado' });
 
         const batch = batches[0];
+        batch.is_online = deviceRegistry.isOnline(batch.device_serial, 2 * 60 * 1000, batch.is_online) ? 1 : 0;
+        delete batch.device_serial; // link publico nao expoe o serial
         const [rows] = await pool.execute(
             `SELECT temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at
              FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`,

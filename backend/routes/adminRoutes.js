@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { exec } from 'child_process';
 import util from 'util';
+import { deviceRegistry } from '../services/deviceRegistry.js';
 
 const execPromise = util.promisify(exec);
 
@@ -105,6 +106,7 @@ export const registerAdminRoutes = ({
             const { serial_code, device_name, user_id } = req.body;
             if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
             await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name || null, user_id]);
+            deviceRegistry.invalidate(serial_code);
             res.status(201).json({ message: 'Device created' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -114,7 +116,10 @@ export const registerAdminRoutes = ({
             const { id } = req.params;
             const { serial_code, device_name, user_id } = req.body;
             if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
+            const [prevDev] = await pool.execute('SELECT serial_code FROM devices WHERE id = ?', [id]);
             await pool.execute('UPDATE devices SET serial_code=?, device_name=?, user_id=? WHERE id=?', [serial_code.trim().toUpperCase(), device_name || null, user_id, id]);
+            if (prevDev[0]) deviceRegistry.invalidate(prevDev[0].serial_code);
+            deviceRegistry.invalidate(serial_code);
             await loadActiveBatches();
             res.json({ message: 'Device updated' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
