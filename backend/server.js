@@ -1281,7 +1281,10 @@ app.post('/api/events', authenticateToken, async (req, res) => {
         if (!batchId || !type) return res.status(400).json({ error: 'batchId e type são obrigatórios' });
         const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [batchId, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        await pool.execute('INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, ?)', [batchId, type, description ?? null, date || new Date()]);
+        // O cliente manda ISO ("2026-11-11T18:55:13.450Z"), que o MariaDB recusa como DATETIME; um Date o mysql2 formata certo
+        const recordedAt = date ? new Date(date) : new Date();
+        if (Number.isNaN(recordedAt.getTime())) return res.status(400).json({ error: 'date inválida' });
+        await pool.execute('INSERT INTO batch_events (batch_id, event_type, description, recorded_at) VALUES (?, ?, ?, ?)', [batchId, type, description ?? null, recordedAt]);
         res.status(201).json({ message: 'Registrado' });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
@@ -1814,7 +1817,9 @@ app.get('/api/broadcasts/active', async (req, res) => {
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint de API não encontrado' }));
 app.use(express.static(path.join(__dirname, 'dist')));
-app.get(/(.*)/, (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+// O site e servido pelo nginx; aqui o dist so existe em instalacoes locais. Sem ele, 404 em vez de erro ENOENT no log.
+const spaIndex = path.join(__dirname, 'dist', 'index.html');
+app.get(/(.*)/, (req, res) => (fs.existsSync(spaIndex) ? res.sendFile(spaIndex) : res.status(404).json({ error: 'Não encontrado' })));
 
 const serverInstance = app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
 
@@ -1828,7 +1833,9 @@ const gracefulShutdown = (signal) => {
             process.exit(0);
         });
     });
-    setTimeout(() => process.exit(0), 5000).unref();
+    // Conexoes keep-alive/SSE seguravam o close() e o PM2 matava com SIGKILL apos 1,6 s; fecha tudo na hora
+    try { serverInstance.closeAllConnections(); } catch (e) {}
+    setTimeout(() => process.exit(0), 1200).unref();
 };
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
