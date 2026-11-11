@@ -11,6 +11,8 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
             if (pairCode && pairCode.trim()) {
                 try {
                     sessionStorage.setItem('breww_pending_pair', pairCode.trim());
+                    const confirm = params.get('code');
+                    if (confirm) sessionStorage.setItem('breww_pending_pair_code', confirm.trim());
                 } catch {}
             }
         }

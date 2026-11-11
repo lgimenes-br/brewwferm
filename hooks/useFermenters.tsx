@@ -347,7 +347,7 @@ export const useFermenters = () => {
 
     // Mutations
     const addDeviceMutation = useMutation({
-        mutationFn: (data: { serialCode: string, name: string }) => api.addDevice(data.serialCode, data.name),
+        mutationFn: (data: { serialCode: string, name: string, pairCode?: string }) => api.addDevice(data.serialCode, data.name, data.pairCode),
         onSuccess: (_, variables) => {
             const norm = (variables.serialCode || '').trim().toUpperCase();
             try {

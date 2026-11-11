@@ -54,24 +54,32 @@ export const Dashboard: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newDeviceName, setNewDeviceName] = useState('');
     const [newDeviceIp, setNewDeviceIp] = useState('');
+    // Codigo de confirmacao (8 caracteres) da tela do aparelho / QR: prova que e o aparelho real
+    const [newDeviceCode, setNewDeviceCode] = useState('');
+    const cleanConfirmCode = (v: string) => v.replace(/[^0-9a-fA-F]/g, '').toUpperCase().slice(0, 8);
 
     // Auto-pair via QR Code da tela do aparelho (https://breww.live/?pair=<ID>) or pending sessionStorage pair code
     useEffect(() => {
         let pairCode = searchParams.get('pair')?.trim() || '';
+        let confirmCode = searchParams.get('code')?.trim() || '';
         if (!pairCode && typeof window !== 'undefined') {
             try {
                 pairCode = sessionStorage.getItem('breww_pending_pair')?.trim() || '';
+                confirmCode = sessionStorage.getItem('breww_pending_pair_code')?.trim() || '';
                 if (pairCode) sessionStorage.removeItem('breww_pending_pair');
+                sessionStorage.removeItem('breww_pending_pair_code');
             } catch {}
         }
         if (pairCode) {
             setNewDeviceIp(normalizePairCode(pairCode));
+            if (confirmCode) setNewDeviceCode(cleanConfirmCode(confirmCode));
             setNewDeviceName(prev => prev.trim() ? prev : 'Meu Breww');
             setIsAddModalOpen(true);
             toast.success('Código do aparelho preenchido automaticamente!');
             if (searchParams.has('pair')) {
                 const nextParams = new URLSearchParams(searchParams);
                 nextParams.delete('pair');
+                nextParams.delete('code');
                 setSearchParams(nextParams, { replace: true });
             }
         }
@@ -177,11 +185,13 @@ export const Dashboard: React.FC = () => {
             try {
                 const result = await addDevice({
                     name: cleanName,
-                    serialCode: cleanIp
+                    serialCode: cleanIp,
+                    pairCode: newDeviceCode || undefined
                 });
                 setIsAddModalOpen(false);
                 setNewDeviceName('');
                 setNewDeviceIp('');
+                setNewDeviceCode('');
                 handleAddResult(result, cleanIp);
             } catch (err: any) {
                 toast.error(err?.message || 'Erro ao adicionar dispositivo.');
@@ -219,8 +229,10 @@ export const Dashboard: React.FC = () => {
                 const scannedSerial = (deviceToAddFromScan.ip || '').trim();
                 const result = await addDevice({
                     name: cleanName,
-                    serialCode: scannedSerial
+                    serialCode: scannedSerial,
+                    pairCode: newDeviceCode || undefined
                 });
+                setNewDeviceCode('');
                 setIsScanModalOpen(false);
                 setDeviceToAddFromScan(null);
                 setScannedDevices([]);
@@ -713,6 +725,21 @@ export const Dashboard: React.FC = () => {
                                         Digite o código de 12 caracteres da tela "Vincule seu Equipamento" do seu Breww, ou escaneie o QR code dessa mesma tela.
                                     </p>
                                 </div>
+                                <div className="space-y-2">
+                                    <label htmlFor="add-device-confirm-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Código de confirmação</label>
+                                    <input
+                                        id="add-device-confirm-input"
+                                        type="text"
+                                        value={newDeviceCode}
+                                        onChange={(e) => setNewDeviceCode(cleanConfirmCode(e.target.value))}
+                                        placeholder="8 caracteres (ex.: 3F9A12C0)"
+                                        maxLength={8}
+                                        className="w-full bg-black border border-neutral-800 text-white font-mono text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
+                                    />
+                                    <p className="text-[11px] text-neutral-500">
+                                        Aparece na mesma tela do aparelho e já vem preenchido pelo QR code. Ele garante que você está vinculando o seu aparelho.
+                                    </p>
+                                </div>
 
                                 <button
                                     onClick={handleManualAdd}
@@ -762,6 +789,18 @@ export const Dashboard: React.FC = () => {
                                             onChange={(e) => setNewDeviceName(e.target.value)}
                                             className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
                                             autoFocus
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label htmlFor="scan-device-confirm-input" className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Código de confirmação</label>
+                                        <input
+                                            id="scan-device-confirm-input"
+                                            type="text"
+                                            value={newDeviceCode}
+                                            onChange={(e) => setNewDeviceCode(cleanConfirmCode(e.target.value))}
+                                            placeholder="8 caracteres, da tela do aparelho"
+                                            maxLength={8}
+                                            className="w-full bg-black border border-neutral-800 text-white font-mono text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 transition-colors"
                                         />
                                     </div>
 

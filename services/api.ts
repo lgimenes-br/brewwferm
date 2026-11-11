@@ -160,11 +160,12 @@ export const deleteBatch = async (id: string | number, token?: string | null) =>
   return res.json();
 };
 
-export const addDevice = async (serialCode: string, name: string) => {
+export const addDevice = async (serialCode: string, name: string, pairCode?: string) => {
   const res = await fetch(`${API_URL}/devices`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ serialCode, name })
+    // pairCode: codigo de confirmacao de 8 caracteres mostrado no aparelho (prova que e o aparelho real)
+    body: JSON.stringify({ serialCode, name, ...(pairCode ? { pairCode } : {}) })
   });
   checkUnauthorized(res);
   if (!res.ok) {
