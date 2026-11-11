@@ -97,10 +97,16 @@ const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appen
     // Preserve triggerGravity from existing profile when ESP32 telemetry sends raw steps ({ n, t, d })
     if (Array.isArray(filteredRest.profile) && Array.isArray(f.profile) && f.profile.length > 0) {
         filteredRest.profile = filteredRest.profile.map((step, idx) => {
-            if (step.triggerGravity === undefined && f.profile[idx]?.triggerGravity !== undefined) {
-                return { ...step, triggerGravity: f.profile[idx].triggerGravity };
+            const prev = f.profile[idx];
+            let next = step;
+            if (step.triggerGravity === undefined && prev?.triggerGravity !== undefined) {
+                next = { ...next, triggerGravity: prev.triggerGravity };
             }
-            return step;
+            // O controlador guarda nomes de ate 19 bytes: se veio cortado, mantem o nome completo do lote
+            if (prev?.name && step.name && prev.name !== step.name && prev.name.startsWith(step.name)) {
+                next = { ...next, name: prev.name };
+            }
+            return next;
         });
     }
 
