@@ -60,6 +60,8 @@ const AppLoginFlow: React.FC = () => {
     const [password, setPassword] = useState('');
     const handledHash = useRef(false);
     const startedGoogle = useRef(false);
+    // Lido uma vez, antes de qualquer efeito: o efeito da volta do Google apaga o #access_token da URL
+    const [returningFromGoogle] = useState(() => /(^#|&)(access_token|error)=/.test(window.location.hash));
     const [autoContinue, setAutoContinue] = useState(false);
 
     const valid = useMemo(() => !!params && isAllowedAppRedirect(params.redirectUri) && /^[A-Za-z0-9_-]{43}$/.test(params.challenge), [params]);
@@ -127,9 +129,7 @@ const AppLoginFlow: React.FC = () => {
 
     // "Continuar com Google" no app: vai direto ao Google (sem esta tela) ...
     useEffect(() => {
-        if (!direct || startedGoogle.current) return;
-        const hash = window.location.hash;
-        if (hash.includes('access_token') || hash.includes('error')) return; // voltando do Google
+        if (!direct || startedGoogle.current || returningFromGoogle) return; // voltando do Google: nao reabre
         startedGoogle.current = true;
         startGoogle();
         // eslint-disable-next-line react-hooks/exhaustive-deps
