@@ -20,6 +20,10 @@ export const PROVIDERS = ['google', 'apple'];
 export const LINK_TICKET_TTL_MS = 5 * 60 * 1000;
 export const DEFAULT_GOOGLE_CLIENT_ID = '186122113143-5ao2f53lkggo3a2jd3f5jo62v6tbc39j.apps.googleusercontent.com';
 
+/** So aceita fotos servidas pelo Google (https://*.googleusercontent.com/) */
+export const googlePicture = (url) =>
+    typeof url === 'string' && /^https:\/\/[a-z0-9.-]*googleusercontent\.com\//i.test(url) ? url.slice(0, 512) : null;
+
 /** Conta criada so pelo Google/Apple guarda uma marca no lugar da senha (nao serve para login) */
 export const hasRealPassword = (hash) => !!hash && !/^(google|apple)_sso_/.test(String(hash));
 
@@ -205,6 +209,9 @@ export const registerIdentityRoutes = (app, {
         }
         try {
             await linkIdentity(pool, t.userId, 'google', info.sub, info.email);
+            // Foto do Google vira a foto da conta (so URLs https do Google)
+            const picture = googlePicture(info.picture);
+            if (picture) await pool.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [picture, t.userId]).catch(() => {});
             res.json({ ok: true, redirectUri: t.redirectUri });
         } catch (e) {
             if (e instanceof IdentityConflictError) return res.status(409).json({ error: e.message, redirectUri: t.redirectUri });

@@ -34,6 +34,10 @@ export const createFakeUsersDb = () => {
         if (q.startsWith('SELECT id, name, role FROM users WHERE LOWER(email) = ?')) return [users.filter(u => u.email.toLowerCase() === p[0])];
         if (q.startsWith('SELECT email, password_hash FROM users WHERE id = ?')) return [users.filter(u => u.id === p[0])];
         if (q.startsWith('SELECT name, email FROM users WHERE id = ?')) return [users.filter(u => u.id === p[0])];
+        if (q.startsWith('UPDATE users SET avatar_url = ? WHERE id = ?')) {
+            users.filter(u => u.id === p[1]).forEach(u => { u.avatar_url = p[0]; });
+            return [{}];
+        }
         if (q.startsWith('INSERT INTO users')) {
             const [name, email, password_hash] = p;
             if (users.some(u => u.email === email)) throw dup();

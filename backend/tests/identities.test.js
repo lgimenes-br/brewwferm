@@ -1,10 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import { registerIdentityRoutes, createLinkTicketStore, verifyGoogleAccessToken, hasRealPassword, linkIdentity, IdentityConflictError } from '../routes/identityRoutes.js';
+import { registerIdentityRoutes, googlePicture, createLinkTicketStore, verifyGoogleAccessToken, hasRealPassword, linkIdentity, IdentityConflictError } from '../routes/identityRoutes.js';
 import { createFakeUsersDb } from './helpers/fake-users-db.js';
 
 const REDIRECT = 'exp://127.0.0.1:8082/--/link';
+
+test('googlePicture so aceita fotos do Google', () => {
+    assert.equal(googlePicture('https://lh3.googleusercontent.com/a/x'), 'https://lh3.googleusercontent.com/a/x');
+    assert.equal(googlePicture('https://evil.example/x.png'), null);
+    assert.equal(googlePicture('http://lh3.googleusercontent.com/a/x'), null);
+    assert.equal(googlePicture(undefined), null);
+});
 
 test('hasRealPassword ignora as marcas de SSO', () => {
     assert.equal(hasRealPassword('$2b$10$abc'), true);
@@ -64,7 +71,7 @@ test('rotas: vincular Apple e Google, conflito, desvincular com trava', async ()
     };
     const verifyApple = async (tok, nonce) => { if (tok !== 'apple-ok' || nonce !== 'n') throw new Error('x'); return { sub: 'a1', email: 'relay@apple.com' }; };
     const verifyGoogle = async (tok) => {
-        if (tok === 'g-meu') return { sub: 'g-meu', email: 'eu@gmail.com' };
+        if (tok === 'g-meu') return { sub: 'g-meu', email: 'eu@gmail.com', picture: 'https://lh3.googleusercontent.com/a/foto' };
         if (tok === 'g-outro') return { sub: 'g-outro', email: 'outro@gmail.com' };
         throw new Error('x');
     };
@@ -94,6 +101,7 @@ test('rotas: vincular Apple e Google, conflito, desvincular com trava', async ()
         assert.deepEqual(info.body, { name: 'Libra', email: 'eu@breww.live', provider: 'google', redirectUri: REDIRECT });
         const linked = await call('POST', '/api/auth/link/google', { ticket, accessToken: 'g-meu' });
         assert.deepEqual(linked.body, { ok: true, redirectUri: REDIRECT });
+        assert.equal(users[0].avatar_url, 'https://lh3.googleusercontent.com/a/foto');
         assert.equal((await call('POST', '/api/auth/link/google', { ticket, accessToken: 'g-meu' })).status, 400); // uso unico
         assert.equal((await call('GET', '/api/me/identities', null, 1)).body.google.email, 'eu@gmail.com');
 
