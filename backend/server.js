@@ -850,14 +850,64 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
     }
 });
 
-// Perfil do usuario logado (nome, e-mail e foto do Google) — usado pelo app
+// Perfil do usuario logado — usado pelo app (pagina "Minha conta")
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT name, email, avatar_url FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const [rows] = await pool.execute(
+            `SELECT u.name, u.email, u.avatar_url, u.password_hash, u.plan_type, u.max_devices, u.created_at,
+                    (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id) AS device_count
+             FROM users u WHERE u.id = ? LIMIT 1`,
+            [req.user.id]
+        );
         if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
-        res.json({ name: rows[0].name, email: rows[0].email, avatarUrl: rows[0].avatar_url || null });
+        const u = rows[0];
+        res.json({
+            name: u.name,
+            email: u.email,
+            avatarUrl: u.avatar_url || null,
+            // Conta criada pelo Google tem uma senha interna aleatoria (nao serve para login por e-mail)
+            hasPassword: !!u.password_hash && !String(u.password_hash).startsWith('google_sso_'),
+            plan: u.plan_type || 'free',
+            maxDevices: Number(u.max_devices ?? 1),
+            deviceCount: Number(u.device_count ?? 0),
+            createdAt: u.created_at,
+        });
     } catch (err) {
         console.error('me:', err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+});
+
+// Alterar o nome
+app.put('/api/me', authenticateToken, async (req, res) => {
+    try {
+        const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+        if (name.length < 2 || name.length > 100) return res.status(400).json({ error: 'O nome precisa ter entre 2 e 100 caracteres.' });
+        await pool.execute('UPDATE users SET name = ? WHERE id = ?', [name, req.user.id]);
+        res.json({ ok: true, name });
+    } catch (err) {
+        console.error('me update:', err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+});
+
+// Trocar a senha (com a atual) ou criar uma (conta que so entrava com Google)
+app.post('/api/me/password', authRateLimiter, authenticateToken, async (req, res) => {
+    try {
+        const currentPassword = String(req.body?.currentPassword ?? '');
+        const newPassword = String(req.body?.newPassword ?? '');
+        if (newPassword.length < 6) return res.status(400).json({ error: 'A nova senha precisa ter pelo menos 6 caracteres.' });
+        const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+        const hash = String(rows[0].password_hash || '');
+        const hasPassword = hash && !hash.startsWith('google_sso_');
+        if (hasPassword && !(await bcrypt.compare(currentPassword, hash))) {
+            return res.status(400).json({ error: 'A senha atual está incorreta.' });
+        }
+        await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [await bcrypt.hash(newPassword, 10), req.user.id]);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('me password:', err);
         res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
