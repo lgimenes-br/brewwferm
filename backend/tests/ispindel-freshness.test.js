@@ -10,6 +10,8 @@ test('isIspindelFresh', () => {
     assert.equal(isIspindelFresh({ is_epc: 0 }, NOW), false); // desconhecido
     assert.equal(isIspindelFresh({ is_epc: 12345 }, NOW), false); // relogio sem sincronizar
     assert.equal(isIspindelFresh({ is_epc: epc(20 * 60 * 1000) }, NOW), true);
+    assert.equal(isIspindelFresh({ is_epc: epc(5 * 3600000) }, NOW), true); // envio de 1 h com 4 falhas
+    assert.equal(isIspindelFresh({ is_epc: epc(7 * 3600000) }, NOW), false);
     assert.equal(isIspindelFresh({ is_epc: epc(ISPINDEL_STALE_MS + 1000) }, NOW), false);
     assert.equal(isIspindelFresh({ is_epc: epc(-60 * 1000) }, NOW), true); // relogio 1 min adiantado
     assert.equal(isIspindelFresh({ is_epc: epc(-60 * 60 * 1000) }, NOW), false); // futuro absurdo

@@ -2,7 +2,8 @@
 // O controlador repete a ultima densidade/bateria em todo pacote. Com "is_epc" (firmware novo,
 // epoch da ultima leitura em s) da para saber a idade; sem ele (firmware antigo) mantem como antes.
 
-export const ISPINDEL_STALE_MS = 2 * 60 * 60 * 1000;
+// 6 h: com envio de 1 em 1 h tolera ate 5 envios perdidos; cobre intervalos de 2-3 h
+export const ISPINDEL_STALE_MS = 6 * 60 * 60 * 1000;
 
 /** null = firmware antigo (sem is_epc); true/false = leitura recente/velha */
 export const isIspindelFresh = (payload: any, now = Date.now()): boolean | null => {

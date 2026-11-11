@@ -3,10 +3,11 @@
 // Desde o firmware com "is_epc" (epoch da ultima leitura, em s), da para saber a idade:
 //   - is_epc ausente  -> firmware antigo: mantem o comportamento de antes (trata como recente);
 //   - is_epc = 0      -> horario desconhecido: trata como velha;
-//   - mais que ISPINDEL_STALE_MS -> velha (o iSpindel manda a cada 15-30 min).
+//   - mais que ISPINDEL_STALE_MS -> velha (o iSpindel costuma mandar a cada 15 min a 1 h).
 // Leitura velha nao entra no historico nem dispara avanco por densidade ou alertas.
 
-export const ISPINDEL_STALE_MS = 2 * 60 * 60 * 1000;
+// 6 h: com envio de 1 em 1 h tolera ate 5 envios perdidos; cobre intervalos de 2-3 h
+export const ISPINDEL_STALE_MS = 6 * 60 * 60 * 1000;
 
 /** null = firmware antigo (sem is_epc); senao, true/false */
 export const isIspindelFresh = (payload, now = Date.now()) => {
