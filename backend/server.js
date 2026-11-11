@@ -25,6 +25,7 @@ import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
+import { registerAppleAuthRoutes } from './routes/appleAuthRoutes.js';
 import { registerAppPushRoutes } from './services/appPush.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
@@ -866,7 +867,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
             email: u.email,
             avatarUrl: u.avatar_url || null,
             // Conta criada pelo Google tem uma senha interna aleatoria (nao serve para login por e-mail)
-            hasPassword: !!u.password_hash && !String(u.password_hash).startsWith('google_sso_'),
+            hasPassword: !!u.password_hash && !/^(google|apple)_sso_/.test(String(u.password_hash)),
             plan: u.plan_type || 'free',
             maxDevices: Number(u.max_devices ?? 1),
             deviceCount: Number(u.device_count ?? 0),
@@ -900,7 +901,7 @@ app.post('/api/me/password', authRateLimiter, authenticateToken, async (req, res
         const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id]);
         if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
         const hash = String(rows[0].password_hash || '');
-        const hasPassword = hash && !hash.startsWith('google_sso_');
+        const hasPassword = hash && !/^(google|apple)_sso_/.test(hash);
         if (hasPassword && !(await bcrypt.compare(currentPassword, hash))) {
             return res.status(400).json({ error: 'A senha atual está incorreta.' });
         }
@@ -971,6 +972,12 @@ registerDeviceDiagnostics({ pool, mqttClient });
 registerAppAuthRoutes(app, {
     pool,
     authenticateToken,
+    rateLimiter: authRateLimiter,
+    signToken: (claims) => jwt.sign(claims, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' }),
+});
+// Entrar com a Apple (app nativo)
+registerAppleAuthRoutes(app, {
+    pool,
     rateLimiter: authRateLimiter,
     signToken: (claims) => jwt.sign(claims, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' }),
 });
