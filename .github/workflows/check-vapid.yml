@@ -1,0 +1,46 @@
+# Confere na VPS se as chaves VAPID do .env batem com os segredos do GitHub.
+# Nunca imprime a chave privada: so mostra sim/nao.
+#   gh workflow run check-vapid.yml
+name: Conferir chaves VAPID
+
+on:
+  workflow_dispatch:
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conferir na VPS
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          EXPECTED_PUB: ${{ secrets.VAPID_PUBLIC_KEY }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          envs: EXPECTED_PUB
+          script: |
+            cd /var/www/breww-backend/
+            echo "Linhas VAPID_PUBLIC_KEY no .env: $(grep -c '^VAPID_PUBLIC_KEY=' .env)"
+            echo "Linhas VAPID_PRIVATE_KEY no .env: $(grep -c '^VAPID_PRIVATE_KEY=' .env)"
+            echo ".env modificado em: $(date -r .env '+%Y-%m-%d %H:%M:%S')"
+            pm2 describe breww-server 2>/dev/null | grep -E "status|uptime|restarts" | head -3
+            node --input-type=module -e "
+              import 'dotenv/config';
+              import crypto from 'node:crypto';
+              const pub = process.env.VAPID_PUBLIC_KEY || '';
+              const priv = process.env.VAPID_PRIVATE_KEY || '';
+              console.log('Publica igual ao segredo do GitHub:', pub === process.env.EXPECTED_PUB ? 'SIM' : 'NAO');
+              console.log('Publica comeca com:', pub.slice(0, 12));
+              console.log('Publica e a antiga (BL4hVT)?', pub.startsWith('BL4hVT') ? 'SIM' : 'NAO');
+              console.log('Privada presente:', priv ? 'SIM' : 'NAO');
+              let par = 'NAO';
+              try {
+                const ecdh = crypto.createECDH('prime256v1');
+                ecdh.setPrivateKey(Buffer.from(priv, 'base64url'));
+                par = ecdh.getPublicKey().toString('base64url') === pub ? 'SIM' : 'NAO';
+              } catch {}
+              console.log('Privada forma par com a publica:', par);
+            "
