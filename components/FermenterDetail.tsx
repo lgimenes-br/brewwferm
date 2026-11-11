@@ -803,12 +803,12 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     <div className="text-center">
                                         <Target size={16} className="text-neutral-600 mx-auto mb-2" />
                                         <span className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Set-point</span>
-                                        <span className="block text-sm font-mono text-white">{safeTargetTemp.toFixed(1)}°</span>
+                                        <span className="block text-sm font-mono text-white">{safeTargetTemp.toFixed(1)}°C</span>
                                     </div>
                                     <div className="text-center">
                                         <Snowflake size={16} className="text-neutral-600 mx-auto mb-2" />
                                         <span className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">{fermenter.sensor2_name || 'Geladeira'}</span>
-                                        <span className="block text-sm font-mono text-blue-300">{safeCurrentFridgeTemp.toFixed(1)}°</span>
+                                        <span className="block text-sm font-mono text-blue-300">{safeCurrentFridgeTemp.toFixed(1)}°C</span>
                                     </div>
                                     <div className="text-center">
                                         <Battery size={16} className="text-neutral-600 mx-auto mb-2" />

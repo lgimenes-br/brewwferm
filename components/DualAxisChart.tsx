@@ -98,7 +98,7 @@ export const DualAxisChart: React.FC<DualAxisChartProps> = React.memo(({ data, o
                 stroke="#ffffff" // white for temp
                 domain={['auto', 'auto']}
                 fontSize={11}
-                tickFormatter={(val) => Number.isFinite(Number(val)) ? Number(val).toFixed(1) + '°' : ''}
+                tickFormatter={(val) => Number.isFinite(Number(val)) ? Number(val).toFixed(1) + '°C' : ''}
                 tickLine={false}
                 axisLine={false}
                 dx={-10}
