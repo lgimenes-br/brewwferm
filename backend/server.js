@@ -108,6 +108,7 @@ const initDb = async () => {
         await runMigration('ALTER TABLE users ADD COLUMN reset_token_expires DATETIME DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN ingredients JSON');
         await runMigration(`ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'`);
+        await runMigration(`ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) DEFAULT NULL`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`);
@@ -818,6 +819,9 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
         if (!email) return res.status(400).json({ error: 'Token não possui email' });
         const name = payload.name || email.split('@')[0] || 'Usuário Google';
         const googleId = payload.sub || '';
+        // Foto do perfil Google (so URLs https do Google)
+        const picture = typeof payload.picture === 'string' && /^https:\/\/[a-z0-9.-]*googleusercontent\.com\//i.test(payload.picture)
+            ? payload.picture.slice(0, 512) : null;
 
         // Verifica se o usuário existe no DB
         let [users] = await pool.execute('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
@@ -836,12 +840,25 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
             userRole = users[0].role;
         }
 
+        if (picture) await pool.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [picture, userId]).catch(() => {});
         const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
         updateUserLocation(userId, req);
         res.json({ token, name: userName, role: userRole });
     } catch (err) { 
         console.error('Google Auth Error:', err);
         res.status(500).json({ error: 'Falha na autenticação com o Google' }); 
+    }
+});
+
+// Perfil do usuario logado (nome, e-mail e foto do Google) — usado pelo app
+app.get('/api/me', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT name, email, avatar_url FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+        res.json({ name: rows[0].name, email: rows[0].email, avatarUrl: rows[0].avatar_url || null });
+    } catch (err) {
+        console.error('me:', err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
 
