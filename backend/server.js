@@ -1199,7 +1199,7 @@ app.post('/api/batch/start', authenticateToken, async (req, res) => {
 
 app.put('/api/batch/update', authenticateToken, async (req, res) => {
     try {
-        const { serialCode, og, fg, name, profile } = req.body || {};
+        const { serialCode, og, fg, name, profile, style, volume } = req.body || {};
         if (!serialCode) return res.status(400).json({ error: 'serialCode é obrigatório' });
         console.log(`📝 [API] /api/batch/update - Recebido:`, { serialCode, og, fg, name, hasProfile: profile !== undefined });
 
@@ -1215,7 +1215,15 @@ app.put('/api/batch/update', authenticateToken, async (req, res) => {
         if (og !== undefined) { updates.push('og = ?'); params.push(og); }
         if (fg !== undefined) { updates.push('fg = ?'); params.push(fg); }
         if (name !== undefined) { updates.push('name = ?'); params.push(name); }
-        if (profile !== undefined) { updates.push('profile = ?'); params.push(profile ? JSON.stringify(profile) : null); }
+        if (profile !== undefined) {
+            updates.push('profile = ?'); params.push(profile ? JSON.stringify(profile) : null);
+            // Perfil com menos etapas: a etapa atual nao pode passar da ultima
+            if (Array.isArray(profile) && profile.length > 0) {
+                updates.push('current_step_index = LEAST(current_step_index, ?)'); params.push(profile.length - 1);
+            }
+        }
+        if (style !== undefined) { updates.push('style = ?'); params.push(String(style).slice(0, 100)); }
+        if (volume !== undefined && Number.isFinite(Number(volume)) && Number(volume) > 0) { updates.push('volume = ?'); params.push(Number(volume)); }
 
         if (updates.length > 0) {
             params.push(devs[0].id);
