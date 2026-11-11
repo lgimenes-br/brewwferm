@@ -72,6 +72,20 @@ export const registerAppAuthRoutes = (app, {
         res.json({ code: store.issue(req.user.id, challenge, redirectUri) });
     });
 
+    // Renovar a sessao do app: com um token ainda valido, devolve um novo (mais 7 dias).
+    // O app chama ao abrir/voltar; assim quem usa o app nao precisa entrar de novo toda semana.
+    app.post('/api/auth/renew', rateLimiter, authenticateToken, async (req, res) => {
+        try {
+            const [users] = await pool.execute('SELECT id, name, role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+            if (!users.length) return res.sendStatus(401);
+            const u = users[0];
+            res.json({ token: signToken({ id: u.id, name: u.name, role: u.role }), name: u.name, role: u.role });
+        } catch (err) {
+            console.error('❌ [AppAuth] renew:', err);
+            res.status(500).json({ error: 'Erro interno' });
+        }
+    });
+
     app.post('/api/auth/app-token', rateLimiter, async (req, res) => {
         try {
             const { code, code_verifier: verifier, redirect_uri: redirectUri } = req.body || {};

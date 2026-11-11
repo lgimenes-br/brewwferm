@@ -65,3 +65,27 @@ test('fluxo completo com PKCE', async () => {
         server.close();
     }
 });
+
+test('renovar sessao: exige token valido e devolve um novo', async () => {
+    const app = express();
+    app.use(express.json());
+    const authenticateToken = (req, res, next) => {
+        const id = Number(String(req.headers.authorization || '').split(' ')[1]);
+        if (!id) return res.sendStatus(401);
+        req.user = { id };
+        next();
+    };
+    const pool = { execute: async (sql, p) => [p[0] === 7 ? [{ id: 7, name: 'Libra', role: 'user' }] : []] };
+    registerAppAuthRoutes(app, { pool, authenticateToken, signToken: c => `jwt-for-${c.id}` });
+    const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
+    const renew = user => fetch(`http://127.0.0.1:${server.address().port}/api/auth/renew`, {
+        method: 'POST', headers: user ? { Authorization: `Bearer ${user}` } : {},
+    }).then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
+    try {
+        assert.equal((await renew()).status, 401);
+        assert.deepEqual((await renew(7)).body, { token: 'jwt-for-7', name: 'Libra', role: 'user' });
+        assert.equal((await renew(99)).status, 401); // conta removida
+    } finally {
+        server.close();
+    }
+});
