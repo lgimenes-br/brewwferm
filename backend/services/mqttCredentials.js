@@ -72,3 +72,22 @@ export const createMqttProvisioner = ({
         return result;
     };
 };
+
+/**
+ * Remove a credencial MQTT de um serial (ex.: registro de teste ou aparelho descartado).
+ * Sem MOSQUITTO_PASSWD_FILE (desenvolvimento) nao faz nada.
+ */
+export const removeMqttCredential = async (serial, {
+    passwdFile = process.env.MOSQUITTO_PASSWD_FILE,
+    run = (cmd, args) => execFileP(cmd, args),
+    readFile = (f) => fs.readFile(f, 'utf8')
+} = {}) => {
+    if (!passwdFile) return false;
+    if (!passwdHasUser(await readFile(passwdFile), serial)) return false;
+    await run('mosquitto_passwd', ['-D', passwdFile, serial]);
+    await run('chown', ['root:mosquitto', passwdFile]).catch(() => {});
+    await run('chmod', ['640', passwdFile]).catch(() => {});
+    try { await run('systemctl', ['reload', 'mosquitto']); } catch { await run('pkill', ['-HUP', '-x', 'mosquitto']).catch(() => {}); }
+    console.log(`🔐 [MQTT] Credencial removida: ${serial}`);
+    return true;
+};

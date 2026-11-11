@@ -22,7 +22,7 @@ import { registerAdminRoutes } from './routes/adminRoutes.js';
 import { registerPairingRoutes } from './routes/pairingRoutes.js';
 import { registerLiveRoutes } from './routes/liveRoutes.js';
 import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
-import { createMqttProvisioner } from './services/mqttCredentials.js';
+import { createMqttProvisioner, removeMqttCredential } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
 import { dropStaleIspindel } from './services/ispindelFreshness.js';
@@ -88,6 +88,16 @@ const initDb = async () => {
         await pool.execute(`CREATE TABLE IF NOT EXISTS device_keys (serial_code VARCHAR(100) PRIMARY KEY, key_hash CHAR(64) NOT NULL, last_public_ip VARCHAR(64) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
         // Chaves ainda nao confirmadas no aparelho (pareamento seguro; ver routes/pairingRoutes.js)
         await pool.execute(`CREATE TABLE IF NOT EXISTS device_key_candidates (serial_code VARCHAR(100) NOT NULL, key_hash CHAR(64) NOT NULL, pair_code CHAR(8) NOT NULL, last_public_ip VARCHAR(64) DEFAULT NULL, first_seen DATETIME DEFAULT NOW(), last_seen DATETIME DEFAULT NOW(), PRIMARY KEY (serial_code, key_hash))`);
+        // Limpeza pontual: serial ficticio registrado por engano num teste em producao (11/11/2026),
+        // antes do pareamento seguro entrar no ar. So apaga se nao estiver vinculado a ninguem.
+        for (const serial of ['TESTE0000001']) {
+            const [owned] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? LIMIT 1', [serial]);
+            if (!owned.length) {
+                await pool.execute('DELETE FROM device_keys WHERE serial_code = ?', [serial]).catch(() => {});
+                await pool.execute('DELETE FROM device_key_candidates WHERE serial_code = ?', [serial]).catch(() => {});
+                await removeMqttCredential(serial).catch(e => console.error('Limpeza MQTT:', e?.message || e));
+            }
+        }
         // Candidatas abandonadas (nunca confirmadas) somem depois de 30 dias
         await pool.execute('DELETE FROM device_key_candidates WHERE last_seen < DATE_SUB(NOW(), INTERVAL 30 DAY)').catch(() => {});
         await pool.execute(`CREATE TABLE IF NOT EXISTS batches (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, name VARCHAR(150) NOT NULL, style VARCHAR(100), og VARCHAR(20), fg VARCHAR(20), volume FLOAT DEFAULT 20, profile JSON, ingredients JSON, public_token VARCHAR(64) DEFAULT NULL, current_step_index INT DEFAULT 0, step_started_at DATETIME DEFAULT NULL, started_at DATETIME DEFAULT NOW(), ended_at DATETIME DEFAULT NULL, is_active BOOLEAN DEFAULT 1, FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
