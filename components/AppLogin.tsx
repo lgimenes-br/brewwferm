@@ -19,6 +19,8 @@ interface AppLoginParams {
     redirectUri: string;
     challenge: string;
     state: string;
+    /** provider=google: o app tocou em "Continuar com Google" — vai direto ao Google e volta sozinho */
+    provider?: string;
     googleState?: string;
 }
 
@@ -37,7 +39,7 @@ const loadParams = (): AppLoginParams | null => {
     const redirectUri = q.get('redirect_uri');
     const challenge = q.get('code_challenge');
     if (redirectUri && challenge) {
-        const p: AppLoginParams = { redirectUri, challenge, state: q.get('state') || '' };
+        const p: AppLoginParams = { redirectUri, challenge, state: q.get('state') || '', provider: q.get('provider') || '' };
         try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch { /* ignore */ }
         return p;
     }
@@ -57,8 +59,11 @@ const AppLoginFlow: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const handledHash = useRef(false);
+    const startedGoogle = useRef(false);
+    const [autoContinue, setAutoContinue] = useState(false);
 
     const valid = useMemo(() => !!params && isAllowedAppRedirect(params.redirectUri) && /^[A-Za-z0-9_-]{43}$/.test(params.challenge), [params]);
+    const direct = valid && params?.provider === 'google';
 
     // Volta do Google (fluxo por redirecionamento): #access_token=...&state=...
     useEffect(() => {
@@ -74,6 +79,7 @@ const AppLoginFlow: React.FC = () => {
         }
         setBusy(true);
         loginWithGoogle(accessToken)
+            .then(ok => { if (ok !== false && params.provider === 'google') setAutoContinue(true); })
             .catch(e => setError(e?.message || 'Falha ao entrar com o Google.'))
             .finally(() => setBusy(false));
     }, [params, loginWithGoogle]);
@@ -118,6 +124,30 @@ const AppLoginFlow: React.FC = () => {
             setBusy(false);
         }
     };
+
+    // "Continuar com Google" no app: vai direto ao Google (sem esta tela) ...
+    useEffect(() => {
+        if (!direct || startedGoogle.current) return;
+        const hash = window.location.hash;
+        if (hash.includes('access_token') || hash.includes('error')) return; // voltando do Google
+        startedGoogle.current = true;
+        startGoogle();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [direct]);
+
+    // ... e, entrou, volta ao app sem pedir confirmacao
+    useEffect(() => {
+        if (autoContinue && token) { setAutoContinue(false); continueToApp(); }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoContinue, token]);
+
+    if (direct && !error) {
+        return (
+            <div className="min-h-screen min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
+                <div className="flex items-center gap-2 text-neutral-400 text-sm"><Loader2 size={16} className="animate-spin" /> Entrando com o Google…</div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
