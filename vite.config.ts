@@ -33,6 +33,8 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         workbox: {
           importScripts: ['/push-sw.js'],
+          // Login do app e API sempre pela rede (nunca a pagina antiga do cache)
+          navigateFallbackDenylist: [/^\/app-login/, /^\/api\//],
           maximumFileSizeToCacheInBytes: 3000000
         },
         includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'mask-icon.svg'],

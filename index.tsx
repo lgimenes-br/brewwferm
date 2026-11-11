@@ -9,7 +9,9 @@ import { BrewProvider } from './context/BrewContext';
 import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 
-if ('serviceWorker' in navigator) {
+// /app-login roda dentro da janela de login do app: ali o PWA nao pode se atualizar e recarregar
+// a pagina no meio do retorno do Google (cortava o login com "Load failed").
+if ('serviceWorker' in navigator && !window.location.pathname.startsWith('/app-login')) {
   // Register Vite PWA (which includes push-sw.js via importScripts)
   registerSW({ immediate: true });
 }
