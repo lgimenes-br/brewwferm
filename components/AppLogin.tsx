@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Smartphone, LogOut } from 'lucide-react';
+import { Loader2, Smartphone, LogOut, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { requestAppLoginCode } from '../services/api';
+import { API_URL } from '../config';
 
 // ============================================================================
 // /app-login — login do app nativo (iOS/Android) pelo site.
@@ -48,7 +49,7 @@ const loadParams = (): AppLoginParams | null => {
     }
 };
 
-export const AppLogin: React.FC = () => {
+const AppLoginFlow: React.FC = () => {
     const { token, user, login, loginWithGoogle, logout } = useAuth();
     const [params] = useState<AppLoginParams | null>(loadParams);
     const [busy, setBusy] = useState(false);
@@ -200,4 +201,153 @@ export const AppLogin: React.FC = () => {
             </div>
         </div>
     );
+};
+
+// ============================================================================
+// /app-login?mode=link — vincular o Google a uma conta ja aberta no app.
+// O app manda um bilhete de uso unico (preso a conta). A pagina mostra a conta, o usuario
+// confirma, entra no Google e o vinculo e feito; depois volta ao app com ?status=linked.
+// Ver backend/routes/identityRoutes.js.
+// ============================================================================
+
+const LINK_KEY = 'breww_app_link';
+
+interface AppLinkParams {
+    ticket: string;
+    redirectUri: string;
+    state: string;
+    googleState?: string;
+}
+
+const loadLinkParams = (): AppLinkParams | null => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('mode') === 'link') {
+        const p: AppLinkParams = { ticket: q.get('ticket') || '', redirectUri: q.get('redirect_uri') || '', state: q.get('state') || '' };
+        try { sessionStorage.setItem(LINK_KEY, JSON.stringify(p)); } catch { /* ignore */ }
+        return p;
+    }
+    // Volta do Google: so vale se o state do Google bater com o guardado para o vinculo
+    const hashState = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('state');
+    try {
+        const raw = sessionStorage.getItem(LINK_KEY);
+        const p: AppLinkParams | null = raw ? JSON.parse(raw) : null;
+        return p && hashState && p.googleState === hashState ? p : null;
+    } catch {
+        return null;
+    }
+};
+
+const AppLink: React.FC<{ initial: AppLinkParams }> = ({ initial }) => {
+    const [params] = useState<AppLinkParams>(initial);
+    const [account, setAccount] = useState<{ name: string; email: string } | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const handledHash = useRef(false);
+    const valid = isAllowedAppRedirect(params.redirectUri) && /^[A-Za-z0-9_-]{20,64}$/.test(params.ticket);
+
+    const backToApp = (query: string) => {
+        try { sessionStorage.removeItem(LINK_KEY); } catch { /* ignore */ }
+        const sep = params.redirectUri.includes('?') ? '&' : '?';
+        window.location.assign(`${params.redirectUri}${sep}${query}&state=${encodeURIComponent(params.state)}`);
+    };
+
+    // Conta do bilhete (antes de ir ao Google)
+    useEffect(() => {
+        if (!valid || window.location.hash.includes('access_token')) return;
+        fetch(`${API_URL}/auth/link-ticket/${encodeURIComponent(params.ticket)}`)
+            .then(async r => {
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(d.error || 'Link expirado. Volte ao app e tente de novo.');
+                setAccount({ name: d.name, email: d.email });
+            })
+            .catch(e => setError(e.message));
+    }, [valid, params.ticket]);
+
+    // Volta do Google: faz o vinculo e devolve ao app
+    useEffect(() => {
+        if (handledHash.current || !valid) return;
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const accessToken = hash.get('access_token');
+        if (!accessToken && !hash.get('error')) return;
+        handledHash.current = true;
+        window.history.replaceState(null, '', window.location.pathname);
+        if (!accessToken || hash.get('state') !== params.googleState) {
+            backToApp(`error=${encodeURIComponent('Vínculo com o Google cancelado.')}`);
+            return;
+        }
+        setBusy(true);
+        fetch(`${API_URL}/auth/link/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticket: params.ticket, accessToken }),
+        })
+            .then(async r => {
+                const d = await r.json().catch(() => ({}));
+                backToApp(r.ok ? 'status=linked' : `error=${encodeURIComponent(d.error || 'Não foi possível vincular o Google.')}`);
+            })
+            .catch(() => backToApp(`error=${encodeURIComponent('Sem conexão. Tente de novo.')}`));
+    }, [valid, params]);
+
+    const startGoogle = () => {
+        const googleState = randomState();
+        try { sessionStorage.setItem(LINK_KEY, JSON.stringify({ ...params, googleState })); } catch { /* ignore */ }
+        const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+        url.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+        url.searchParams.set('redirect_uri', `${window.location.origin}/app-login`);
+        url.searchParams.set('response_type', 'token');
+        url.searchParams.set('scope', 'openid email profile');
+        url.searchParams.set('state', googleState);
+        url.searchParams.set('prompt', 'select_account');
+        window.location.assign(url.toString());
+    };
+
+    return (
+        <div className="min-h-screen min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
+            <div className="w-full max-w-sm bg-neutral-900/50 border border-neutral-800 rounded-3xl p-7">
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center mb-4">
+                        <Link2 size={22} />
+                    </div>
+                    <h1 className="text-white text-xl font-bold">Vincular o Google</h1>
+                    <p className="text-neutral-400 text-sm mt-1">Depois você poderá entrar com o Google nesta mesma conta.</p>
+                </div>
+
+                {!valid ? (
+                    <p className="text-red-400 text-sm text-center">Link inválido. Abra esta página pelo app, em Minha conta.</p>
+                ) : busy ? (
+                    <div className="flex items-center justify-center gap-2 text-neutral-300 text-sm"><Loader2 size={16} className="animate-spin" /> Vinculando…</div>
+                ) : account ? (
+                    <div className="space-y-3">
+                        <p className="text-neutral-300 text-sm text-center">
+                            Conta Breww: <span className="text-white font-medium">{account.name}</span>
+                            <br /><span className="text-neutral-500">{account.email}</span>
+                        </p>
+                        <button
+                            type="button"
+                            onClick={startGoogle}
+                            className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-neutral-200 inline-flex items-center justify-center gap-2"
+                        >
+                            Continuar com Google
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => backToApp(`error=${encodeURIComponent('Vínculo com o Google cancelado.')}`)}
+                            className="w-full text-neutral-400 hover:text-white text-sm py-2"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                ) : !error ? (
+                    <div className="flex justify-center"><Loader2 size={18} className="animate-spin text-neutral-500" /></div>
+                ) : null}
+
+                {error && <p className="text-red-400 text-sm text-center mt-4" aria-live="polite">{error}</p>}
+            </div>
+        </div>
+    );
+};
+
+export const AppLogin: React.FC = () => {
+    const [link] = useState<AppLinkParams | null>(loadLinkParams);
+    return link ? <AppLink initial={link} /> : <AppLoginFlow />;
 };

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { findUserIdByIdentity, linkIdentity } from './identityRoutes.js';
 
 // ============================================================================
 // Entrar com a Apple (app nativo)
@@ -64,11 +65,12 @@ export const registerAppleAuthRoutes = (app, { pool, signToken, rateLimiter = (q
         }
         try {
             const marker = 'apple_sso_' + info.sub;
-            let [users] = await pool.execute('SELECT id, name, role FROM users WHERE password_hash = ? LIMIT 1', [marker]);
-            if (users.length === 0 && info.email && info.emailVerified) {
-                [users] = await pool.execute('SELECT id, name, role FROM users WHERE LOWER(email) = ? LIMIT 1', [info.email]);
-            }
-            let user = users[0];
+            const pick = async (sql, params) => { const [r] = await pool.execute(sql, params); return r[0] || null; };
+            // 1) login vinculado; 2) conta antiga criada pela Apple; 3) mesmo e-mail (verificado pela Apple)
+            const linkedId = await findUserIdByIdentity(pool, 'apple', info.sub);
+            let user = linkedId ? await pick('SELECT id, name, role FROM users WHERE id = ? LIMIT 1', [linkedId]) : null;
+            if (!user) user = await pick('SELECT id, name, role FROM users WHERE password_hash = ? LIMIT 1', [marker]);
+            if (!user && info.email && info.emailVerified) user = await pick('SELECT id, name, role FROM users WHERE LOWER(email) = ? LIMIT 1', [info.email]);
             if (!user) {
                 if (!info.email) return res.status(400).json({ error: 'A Apple não informou o e-mail. Tente de novo permitindo o compartilhamento do e-mail.' });
                 const given = typeof fullName === 'string' ? fullName.trim().slice(0, 100) : '';
@@ -76,6 +78,8 @@ export const registerAppleAuthRoutes = (app, { pool, signToken, rateLimiter = (q
                 const [r] = await pool.execute('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)', [name, info.email, marker]);
                 user = { id: r.insertId, name, role: 'user' };
             }
+            // Registra o vinculo (se a conta ja tiver outro Apple, mantem o que existe)
+            await linkIdentity(pool, user.id, 'apple', info.sub, info.email).catch(() => {});
             const role = user.role || 'user';
             res.json({ token: signToken({ id: user.id, name: user.name, role }), name: user.name, role });
         } catch (e) {

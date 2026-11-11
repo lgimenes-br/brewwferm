@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { registerAppleAuthRoutes, verifyAppleToken, createAppleKeyStore } from '../routes/appleAuthRoutes.js';
+import { createFakeUsersDb } from './helpers/fake-users-db.js';
 
 const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const other = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -43,15 +44,7 @@ test('createAppleKeyStore busca JWKS e recarrega quando a chave muda', async () 
 });
 
 test('rota: cria conta, reaproveita pelo sub e recusa token invalido', async () => {
-    const users = [];
-    const pool = {
-        execute: async (sql, p) => {
-            if (sql.startsWith('SELECT') && sql.includes('password_hash = ?')) return [users.filter(u => u.password_hash === p[0])];
-            if (sql.startsWith('SELECT') && sql.includes('LOWER(email)')) return [users.filter(u => u.email.toLowerCase() === p[0])];
-            if (sql.startsWith('INSERT')) { users.push({ id: users.length + 1, name: p[0], email: p[1], password_hash: p[2], role: 'user' }); return [{ insertId: users.length }]; }
-            throw new Error('sql inesperado ' + sql);
-        },
-    };
+    const { pool, users, identities } = createFakeUsersDb();
     const app = express();
     app.use(express.json());
     registerAppleAuthRoutes(app, { pool, getKey, audiences: [AUD], signToken: c => `jwt-${c.id}` });
@@ -66,11 +59,18 @@ test('rota: cria conta, reaproveita pelo sub e recusa token invalido', async () 
         assert.equal(first.status, 200);
         assert.deepEqual(first.body, { token: 'jwt-1', name: 'Luiz Fernando', role: 'user' });
         assert.equal(users[0].password_hash, 'apple_sso_apple-sub-1');
+        assert.deepEqual(identities.map(i => [i.user_id, i.provider, i.subject]), [[1, 'apple', 'apple-sub-1']]);
 
         // depois a Apple nao manda nome nem (as vezes) e-mail: acha pelo sub
         const again = await post({ identityToken: sign({ email: undefined }), nonce: NONCE });
         assert.equal(again.body.token, 'jwt-1');
         assert.equal(users.length, 1);
+
+        // Apple vinculada a uma conta de e-mail e senha (outro e-mail): entra nela
+        users.push({ id: 2, name: 'Conta Email', email: 'eu@breww.live', password_hash: '$2b$hash', role: 'user' });
+        identities.push({ user_id: 2, provider: 'apple', subject: 'sub-vinculado', email: 'relay@privaterelay.appleid.com' });
+        const linked = await post({ identityToken: sign({ sub: 'sub-vinculado', email: 'relay@privaterelay.appleid.com' }), nonce: NONCE });
+        assert.deepEqual(linked.body, { token: 'jwt-2', name: 'Conta Email', role: 'user' });
 
         // sem conta e sem e-mail: pede o e-mail
         assert.equal((await post({ identityToken: sign({ sub: 'novo', email: undefined }), nonce: NONCE })).status, 400);

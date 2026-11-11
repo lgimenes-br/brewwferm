@@ -25,7 +25,8 @@ import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
-import { registerAppleAuthRoutes } from './routes/appleAuthRoutes.js';
+import { registerAppleAuthRoutes, createAppleKeyStore, appleAudiences, verifyAppleToken } from './routes/appleAuthRoutes.js';
+import { registerIdentityRoutes, ensureIdentityTable, findUserIdByIdentity, linkIdentity, hasRealPassword, verifyGoogleAccessToken, DEFAULT_GOOGLE_CLIENT_ID } from './routes/identityRoutes.js';
 import { registerAppPushRoutes } from './services/appPush.js';
 import { startSmartScheduler } from './services/smartScheduler.js';
 
@@ -110,6 +111,8 @@ const initDb = async () => {
         await runMigration('ALTER TABLE batches ADD COLUMN ingredients JSON');
         await runMigration(`ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'`);
         await runMigration(`ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) DEFAULT NULL`);
+        // Logins vinculados (Google/Apple) + migracao das contas antigas
+        await ensureIdentityTable(pool).catch(e => console.error('⚠️ [DB Migration] user_identities:', e.message));
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`);
@@ -824,8 +827,11 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
         const picture = typeof payload.picture === 'string' && /^https:\/\/[a-z0-9.-]*googleusercontent\.com\//i.test(payload.picture)
             ? payload.picture.slice(0, 512) : null;
 
-        // Verifica se o usuário existe no DB
-        let [users] = await pool.execute('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
+        // 1) Google vinculado a uma conta; 2) mesmo e-mail (regra antiga)
+        const linkedId = googleId ? await findUserIdByIdentity(pool, 'google', googleId) : null;
+        let [users] = linkedId
+            ? await pool.execute('SELECT id, name, email, role FROM users WHERE id = ?', [linkedId])
+            : await pool.execute('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
         
         let userId;
         let userName = name;
@@ -841,6 +847,7 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
             userRole = users[0].role;
         }
 
+        if (googleId) await linkIdentity(pool, userId, 'google', googleId, email).catch(() => {}); // registra o vinculo
         if (picture) await pool.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [picture, userId]).catch(() => {});
         const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
         updateUserLocation(userId, req);
@@ -867,7 +874,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
             email: u.email,
             avatarUrl: u.avatar_url || null,
             // Conta criada pelo Google tem uma senha interna aleatoria (nao serve para login por e-mail)
-            hasPassword: !!u.password_hash && !/^(google|apple)_sso_/.test(String(u.password_hash)),
+            hasPassword: hasRealPassword(u.password_hash),
             plan: u.plan_type || 'free',
             maxDevices: Number(u.max_devices ?? 1),
             deviceCount: Number(u.device_count ?? 0),
@@ -901,7 +908,7 @@ app.post('/api/me/password', authRateLimiter, authenticateToken, async (req, res
         const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id]);
         if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
         const hash = String(rows[0].password_hash || '');
-        const hasPassword = hash && !/^(google|apple)_sso_/.test(hash);
+        const hasPassword = hasRealPassword(hash);
         if (hasPassword && !(await bcrypt.compare(currentPassword, hash))) {
             return res.status(400).json({ error: 'A senha atual está incorreta.' });
         }
@@ -976,10 +983,20 @@ registerAppAuthRoutes(app, {
     signToken: (claims) => jwt.sign(claims, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' }),
 });
 // Entrar com a Apple (app nativo)
+const appleKeys = createAppleKeyStore();
 registerAppleAuthRoutes(app, {
     pool,
+    getKey: appleKeys,
     rateLimiter: authRateLimiter,
     signToken: (claims) => jwt.sign(claims, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' }),
+});
+// Logins vinculados (e-mail, Google e Apple na mesma conta)
+registerIdentityRoutes(app, {
+    pool,
+    authenticateToken,
+    rateLimiter: authRateLimiter,
+    verifyApple: (identityToken, nonce) => verifyAppleToken(identityToken, nonce, { getKey: appleKeys, audiences: appleAudiences() }),
+    verifyGoogle: (accessToken) => verifyGoogleAccessToken(accessToken, { clientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID }),
 });
 // Push do app nativo (tokens da Expo); os alertas usam sendPushToUser como antes
 registerAppPushRoutes(app, { pool, authenticateToken });
