@@ -103,5 +103,5 @@ jobs:
             # Chaves VAPID (push do navegador) vindas dos segredos do GitHub; trocadas em 11/11/2026
             if [ -n "${{ secrets.VAPID_PRIVATE_KEY }}" ]; then for KV in "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}"; do K="${KV%%=*}"; if grep -q "^${K}=" .env; then sed -i "s|^${K}=.*|${KV}|" .env; else echo "${KV}" >> .env; fi; done; fi
             npm install
-            pm2 restart breww-server || pm2 start server.js --name "breww-server"
+            pm2 startOrRestart ecosystem.config.cjs --only breww-server || pm2 restart breww-server
             pm2 save
