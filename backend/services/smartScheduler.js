@@ -1,5 +1,6 @@
 export const startSmartScheduler = ({
     pool,
+    profileLive,
     advanceBatchStep,
     normalizeGravityVal,
     alertState,
@@ -23,6 +24,12 @@ export const startSmartScheduler = ({
                 } catch (e) {
                     continue;
                 }
+
+                // Firmware 2.7.0+: o proprio controlador conta o tempo da etapa (respeitando a pausa);
+                // aqui fica so o avanco por densidade, e nada avanca com o perfil pausado.
+                const live = profileLive?.get(batch.serial_code);
+                if (live?.isPaused) continue;
+                const deviceCountsTime = !!live;
 
                 if (Array.isArray(profile) && batch.current_step_index < profile.length - 1) {
                     const currentStep = profile[batch.current_step_index];
@@ -53,7 +60,7 @@ export const startSmartScheduler = ({
                         }
                     }
 
-                    if (elapsedMs >= durationMs || gravityTriggered) {
+                    if ((!deviceCountsTime && elapsedMs >= durationMs) || gravityTriggered) {
                         const newIndex = batch.current_step_index + 1;
                         await advanceBatchStep({
                             batchId: batch.id,

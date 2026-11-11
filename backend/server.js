@@ -26,6 +26,7 @@ import { createMqttProvisioner } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
 import { dropStaleIspindel } from './services/ispindelFreshness.js';
+import { decideProfileSync, createProfileLiveStore, hasRemoteProfileSupport, toDeviceSteps, PROFILE_SYNC_MIN_INTERVAL_MS } from './services/profileSync.js';
 import { registerAppleAuthRoutes, createAppleKeyStore, appleAudiences, verifyAppleToken } from './routes/appleAuthRoutes.js';
 import { registerIdentityRoutes, ensureIdentityTable, findUserIdByIdentity, linkIdentity, hasRealPassword, verifyGoogleAccessToken, DEFAULT_GOOGLE_CLIENT_ID } from './routes/identityRoutes.js';
 import { registerAppPushRoutes } from './services/appPush.js';
@@ -304,9 +305,35 @@ const notifyUpdate = (serialCode) => {
     }));
 };
 
+// --- PERFIL NO CONTROLADOR (firmware 2.7.0+) ---
+// Estado informado pelo controlador (pausa, etapa) e alinhamento com o lote do banco.
+const profileLive = createProfileLiveStore();
+const lastProfileSyncAt = {};
+const syncDeviceProfile = async (serialCode, deviceId, payload, now) => {
+    const key = String(serialCode).trim().toUpperCase();
+    if (lastProfileSyncAt[key] && now - lastProfileSyncAt[key] < PROFILE_SYNC_MIN_INTERVAL_MS) return;
+    const [rows] = await pool.execute(
+        'SELECT id, profile, current_step_index, step_started_at FROM batches WHERE device_id = ? AND is_active = 1 LIMIT 1',
+        [deviceId]
+    );
+    if (!rows.length) return;
+    const profile = normalizeIncomingProfile(rows[0].profile);
+    const decision = decideProfileSync({ payload, profile, dbStepIndex: rows[0].current_step_index, stepStartedAt: rows[0].step_started_at, now });
+    if (!decision) return;
+    lastProfileSyncAt[key] = now;
+    const msg = JSON.stringify({
+        cmd: 'setProfile', type: 'setProfile', steps: toDeviceSteps(profile),
+        currentStep: decision.currentStep, currStep: decision.currentStep, stepTime: decision.stepTime,
+    });
+    mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
+    mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
+    console.log(`🔁 [Perfil] ${key}: ${decision.reason}; enviado o perfil do lote ${rows[0].id} (etapa ${decision.currentStep}, ${decision.stepTime} h)`);
+};
+
 // --- SMART SCHEDULING & MAGIC PREDICTION ---
 const smartScheduler = startSmartScheduler({
     pool,
+    profileLive,
     advanceBatchStep,
     normalizeGravityVal,
     alertState,
@@ -450,6 +477,11 @@ mqttClient.on('message', async (topic, message, packet) => {
             // iSpindel desligado: o controlador repete a ultima leitura; velha nao vale (historico,
             // avanco por densidade, alertas). O repasse ao vivo usa o pacote original.
             dropStaleIspindel(payload, now);
+            // Firmware com perfil remoto: guarda pausa/etapa e mantem o controlador alinhado ao lote
+            if (hasRemoteProfileSupport(payload)) {
+                profileLive.update(serialCode, payload, now);
+                syncDeviceProfile(parts[1], deviceId, payload, now).catch(e => console.error('Profile sync error:', e.message));
+            }
             const lastLog = lastLogTimes[serialCode] || 0;
             const logInterval = payload.wi || 60000;
 
@@ -497,7 +529,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                 }
 
                 // Instant Gravity-Triggered Step Advancement on live SG reading
-                if (currentBatchId && !stepSyncedInThisMessage && payload.is_sg && parseFloat(payload.is_sg) > 0) {
+                if (currentBatchId && !stepSyncedInThisMessage && payload.isPaused !== true && payload.is_sg && parseFloat(payload.is_sg) > 0) {
                     try {
                         const liveSgNorm = normalizeGravityVal(payload.is_sg);
                         if (liveSgNorm > 0.980) {
@@ -1207,6 +1239,10 @@ app.post('/api/batch/stop', authenticateToken, async (req, res) => {
         if (devs.length === 0) return res.status(404).json({ error: 'Device não encontrado' });
         await pool.execute('UPDATE batches SET is_active = 0, ended_at = NOW() WHERE device_id = ? AND is_active = 1', [devs[0].id]);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'STOP_BATCH', `Device: ${serialCode}`, req.ip || null]);
+        // Firmware 2.7.0+: o controlador para de seguir o perfil (o anterior ignora o comando)
+        const stopMsg = JSON.stringify({ cmd: 'stopProfile', type: 'stopProfile' });
+        mqttClient.publish(`brewbrother/${serialCode}/command`, stopMsg);
+        mqttClient.publish(`brewbrother/${serialCode}/comando`, stopMsg);
         const normalizedSerial = String(serialCode).trim().toUpperCase();
         const stoppedBatchId = activeBatches[normalizedSerial];
         delete activeBatches[normalizedSerial];
