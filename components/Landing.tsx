@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { BrewwLogo } from './BrewwMark';
 import { ArrowRight, Bell, Activity, Layers, History, Radio, Cpu, Usb, Wifi, Smartphone, Check, Download } from 'lucide-react';
 
 // Home de vendas (visitante sem login em "/").
@@ -100,9 +101,8 @@ export const Landing: React.FC = () => {
             {/* Navegacao */}
             <header className="sticky top-0 z-30 border-b border-black/5 bg-[var(--bg)]/80 backdrop-blur-md">
                 <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
-                    <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
-                        <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" />
-                        <span className="text-lg">Breww</span>
+                    <Link to="/" aria-label="Breww, início">
+                        <BrewwLogo />
                     </Link>
                     <div className="hidden items-center gap-8 text-sm text-[var(--muted)] md:flex">
                         <a href="#recursos" className="hover:text-[var(--ink)]">Recursos</a>
@@ -293,10 +293,7 @@ export const Landing: React.FC = () => {
 
             <footer className="bg-[var(--ink)] text-[#a3a7b0]">
                 <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-center gap-2.5 text-white">
-                        <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg ring-1 ring-white/10" />
-                        <span className="text-lg font-semibold tracking-tight">Breww</span>
-                    </div>
+                    <BrewwLogo className="text-white" />
                     <nav className="flex flex-wrap gap-x-8 gap-y-3 text-sm" aria-label="Rodapé">
                         <a href="#recursos" className="hover:text-white">Recursos</a>
                         <Link to="/instalar" className="hover:text-white">Monte o seu</Link>
