@@ -44,7 +44,6 @@ export const Privacy: React.FC = () => {
                     <li><b>Biblioteca de perfis:</b> os perfis que você publica aparecem para outros usuários com o seu primeiro nome.</li>
                     <li><b>Notificações:</b> o token de notificação do celular ou do navegador.</li>
                     <li><b>Integrações que você ativa:</b> o endereço de envio do Brewfather e os dados do bot do Telegram.</li>
-                    <li><b>Localização aproximada:</b> a cidade estimada a partir do endereço IP no login, para estatísticas por região.</li>
                     <li><b>Segurança e diagnóstico:</b> endereço IP e horário de logins e de ações administrativas, e registros técnicos dos aparelhos (reinícios, falhas de conexão, lentidão).</li>
                     <li><b>Erros técnicos:</b> quando o site, o app ou o servidor falham, registramos a mensagem do erro, a tela, o tipo de aparelho e a versão, sem o conteúdo dos seus lotes.</li>
                 </ul>
@@ -63,7 +62,7 @@ export const Privacy: React.FC = () => {
                 <h2>4. Bases legais</h2>
                 <ul>
                     <li><b>Execução do contrato</b> (art. 7º, V): conta, aparelhos, leituras, lotes e alertas, sem os quais o serviço não funciona.</li>
-                    <li><b>Legítimo interesse</b> (art. 7º, IX): segurança, diagnósticos, registro de erros e estatísticas por região.</li>
+                    <li><b>Legítimo interesse</b> (art. 7º, IX): segurança, diagnósticos e registro de erros.</li>
                     <li><b>Consentimento</b> (art. 7º, I): notificações, integrações, publicação na biblioteca e a análise com inteligência artificial, que você ativa e pode desativar quando quiser.</li>
                     <li><b>Cumprimento de obrigação legal</b> (art. 7º, II): guarda de registros de acesso exigida pelo Marco Civil da Internet.</li>
                 </ul>
@@ -76,7 +75,6 @@ export const Privacy: React.FC = () => {
                     <li><b>Expo, Apple e Google</b>: envio de notificações e login com Google ou Apple.</li>
                     <li><b>Resend</b>: envio de e-mails, como a recuperação de senha.</li>
                     <li><b>Google (Gemini)</b>: análise do lote com inteligência artificial, só quando você pede. Enviamos os dados do lote (estilo, densidades, temperaturas), sem nome ou e-mail.</li>
-                    <li><b>ip-api.com</b>: estimativa da cidade a partir do endereço IP no login.</li>
                     <li><b>Sentry</b>: registro de erros técnicos.</li>
                     <li><b>Brewfather e Telegram</b>: só se você ativar a integração, e só os dados que ela envia.</li>
                 </ul>

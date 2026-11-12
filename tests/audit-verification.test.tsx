@@ -831,7 +831,7 @@ describe('5. Backend Server & PushService Code & Logic Verification', () => {
         expect(voiceCode).toContain('crypto.timingSafeEqual');
 
         const serverCode = fs.readFileSync(path.resolve(__dirname, '../backend/server.js'), 'utf-8');
-        expect(serverCode).toContain('AbortSignal.timeout(4000)');
+        expect(serverCode).not.toContain('ip-api.com'); // localizacao por IP removida (12/11/2026)
         expect(serverCode).toContain("DELETE FROM devices WHERE serial_code = 'ESP32-VIRTUAL-01'");
         expect(serverCode).not.toContain('esp32Simulator');
 

@@ -173,6 +173,8 @@ const initDb = async () => {
         await runMigration(`CREATE UNIQUE INDEX idx_devices_serial_unique ON devices(serial_code)`);
         await runMigration(`DELETE FROM devices WHERE serial_code = 'ESP32-VIRTUAL-01'`);
 
+        // Localizacao por IP (servico externo) removida em 12/11/2026: apaga as cidades guardadas antes
+        await runMigration('UPDATE users SET lat = NULL, lon = NULL WHERE lat IS NOT NULL OR lon IS NOT NULL');
         console.log('✅ [DB] Schema base e migrações verificados.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
@@ -843,20 +845,6 @@ const requireAdmin = async (req, res, next) => {
     }
 };
 
-const updateUserLocation = async (userId, req) => {
-    let ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip;
-    if (ip && ip.includes(',')) ip = ip.split(',')[0].trim();
-    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) return;
-    try {
-        const cleanIp = ip.includes('::ffff:') ? ip.split('::ffff:')[1] : ip;
-        const res = await fetch(`http://ip-api.com/json/${cleanIp}`, { signal: AbortSignal.timeout(4000) });
-        const data = await res.json();
-        if (data.status === 'success' && data.lat && data.lon) {
-            await pool.execute('UPDATE users SET lat = ?, lon = ? WHERE id = ?', [data.lat, data.lon, userId]);
-        }
-    } catch (e) { console.error('Location fetch error:', e.message); }
-};
-
 app.post('/api/login', authRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body || {};
@@ -872,7 +860,6 @@ app.post('/api/login', authRateLimiter, async (req, res) => {
             // Log successful login
             const userIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || null;
             await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [users[0].id, 'LOGIN_SUCCESS', 'User logged in', userIp]);
-            updateUserLocation(users[0].id, req);
             
             res.json({ token, name: users[0].name, role: users[0].role });
         } else { 
@@ -977,7 +964,6 @@ app.post('/api/auth/google', authRateLimiter, async (req, res) => {
         if (googleId) await linkIdentity(pool, userId, 'google', googleId, email).catch(() => {}); // registra o vinculo
         if (picture) await pool.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [picture, userId]).catch(() => {});
         const token = jwt.sign({ id: userId, name: userName, role: userRole }, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
-        updateUserLocation(userId, req);
         res.json({ token, name: userName, role: userRole });
     } catch (err) { 
         console.error('Google Auth Error:', err);

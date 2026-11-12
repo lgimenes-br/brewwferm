@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
 
-const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 // Paleta da marca: tinta, verde e cinzas (categorias em ordem fixa)
 const COLORS = ['#0B0D12', '#2fbf55', '#6B6F78', '#A3A7B0', '#D0D3D9'];
 
@@ -30,7 +28,6 @@ export const OverviewTab: React.FC = () => {
     const [community, setCommunity] = useState<any[]>([]);
     const [financials, setFinancials] = useState<any>({ free: 0, premium: 0, mrr: 0 });
     const [batchStats, setBatchStats] = useState<any>({ total: 0, success: 0, abandoned: 0 });
-    const [mapData, setMapData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -41,11 +38,10 @@ export const OverviewTab: React.FC = () => {
                 const baseUrl = API_URL;
                 const signal = controller.signal;
 
-                const [resStats, resAnalytics, resTrends, resMap, resFin, resBatch, resComm] = await Promise.all([
+                const [resStats, resAnalytics, resTrends, resFin, resBatch, resComm] = await Promise.all([
                     fetch(`${baseUrl}/admin/stats`, { headers, signal }),
                     fetch(`${baseUrl}/admin/analytics`, { headers, signal }),
                     fetch(`${baseUrl}/admin/trends`, { headers, signal }),
-                    fetch(`${baseUrl}/admin/map`, { headers, signal }),
                     fetch(`${baseUrl}/admin/financials`, { headers, signal }),
                     fetch(`${baseUrl}/admin/batch-stats`, { headers, signal }),
                     fetch(`${baseUrl}/admin/community-trends`, { headers, signal })
@@ -59,10 +55,6 @@ export const OverviewTab: React.FC = () => {
                 if (resStats.ok) setStats(await resStats.json());
                 if (resAnalytics.ok) setAnalytics(await resAnalytics.json());
                 if (resTrends.ok) setTrends(await resTrends.json());
-                if (resMap.ok) {
-                    const mData = await resMap.json();
-                    setMapData(Array.isArray(mData) ? mData : []);
-                }
                 if (resFin.ok) setFinancials(await resFin.json());
                 if (resBatch.ok) setBatchStats(await resBatch.json());
                 if (resComm.ok) {
@@ -205,31 +197,7 @@ export const OverviewTab: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white border border-black/[0.07] rounded-xl p-5">
-                    <h3 className="text-sm font-semibold text-[var(--muted)] mb-6">Mapa Global de Dispositivos</h3>
-                    <div className="w-full aspect-[2/1] bg-[var(--bg)] rounded-lg overflow-hidden border border-black/[0.07]">
-                        <ComposableMap projectionConfig={{ scale: 140 }} width={800} height={400} style={{ width: '100%', height: '100%' }}>
-                            <Geographies geography={geoUrl}>
-                                {({ geographies }) => geographies.map(geo => (
-                                    <Geography key={geo.rsmKey} geography={geo} fill="#E3E5E8" stroke="#FFFFFF" strokeWidth={0.6} />
-                                ))}
-                            </Geographies>
-                            {mapData.map(({ name, lat, lon }, i) => {
-                                const numLon = Number(lon);
-                                const numLat = Number(lat);
-                                if (isNaN(numLon) || isNaN(numLat)) return null;
-                                return (
-                                    <Marker key={`${name || 'loc'}-${i}`} coordinates={[numLon, numLat]}>
-                                        <circle r={5} fill="#2fbf55" fillOpacity={0.35} />
-                                        <circle r={2.5} fill="#178a3f" />
-                                    </Marker>
-                                );
-                            })}
-                        </ComposableMap>
-                    </div>
-                </div>
-
+            <div className="grid grid-cols-1 gap-6">
                 <div className="bg-white border border-black/[0.07] rounded-xl p-5">
                     <h3 className="text-sm font-semibold text-[var(--muted)] mb-6">Versões de Firmware</h3>
                     <div className="space-y-4 mt-4">

@@ -414,13 +414,6 @@ export const registerAdminRoutes = ({
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
 
-    app.get('/api/admin/map', authenticateToken, requireAdmin, async (req, res) => {
-        try {
-            const [locations] = await pool.execute('SELECT u.name, IFNULL(u.lat, -23.5505) as lat, IFNULL(u.lon, -46.6333) as lon, MAX(d.last_seen) as last_seen FROM users u JOIN devices d ON u.id = d.user_id GROUP BY u.id');
-            res.json(locations);
-        } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
-    });
-
     app.get('/api/admin/server/logs', authenticateToken, requireAdmin, async (req, res) => {
         try {
             const { stdout, stderr } = await execPromise('pm2 logs breww-server --nostream --lines 100');
