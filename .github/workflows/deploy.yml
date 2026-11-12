@@ -105,4 +105,9 @@ jobs:
             if [ -n "${{ secrets.VAPID_PRIVATE_KEY }}" ]; then for KV in "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}"; do K="${KV%%=*}"; if grep -q "^${K}=" .env; then sed -i "s|^${K}=.*|${KV}|" .env; else echo "${KV}" >> .env; fi; done; fi
             npm install
             pm2 startOrRestart ecosystem.config.cjs --only breww-server || pm2 restart breww-server
+            # Confere se o PM2 aplicou o node_args do ecosystem (so imprime o limite de heap)
+            WANT=$(node -e "console.log(require('./ecosystem.config.cjs').apps[0].node_args)")
+            HAVE=$(pm2 jlist | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const p=JSON.parse(d).find(x=>x.name==='breww-server');const a=p&&p.pm2_env.node_args;console.log(Array.isArray(a)?a.join(' '):a)})")
+            if [ "$WANT" != "$HAVE" ]; then echo "node_args mudou ($HAVE -> $WANT): recriando o processo"; pm2 delete breww-server && pm2 start ecosystem.config.cjs --only breww-server; fi
+            echo "Heap configurado: $(pm2 jlist | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const p=JSON.parse(d).find(x=>x.name==='breww-server');const a=p&&p.pm2_env.node_args;console.log(Array.isArray(a)?a.join(' '):a)})")"
             pm2 save
