@@ -29,24 +29,24 @@ const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId:
     }, [token, userId, refreshTrigger]);
 
     return loading ? (
-        <div className="text-xs text-neutral-500 py-2">Carregando...</div>
+        <div className="text-xs text-[var(--muted)] py-2">Carregando...</div>
     ) : devices.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {devices.map(dev => (
-                <div key={dev.id} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex justify-between items-center group hover:border-neutral-700 transition-colors">
+                <div key={dev.id} className="bg-white border border-black/[0.07] rounded-lg p-3 flex justify-between items-center group hover:border-black/15 transition-colors">
                     <div>
-                        <div className="font-mono text-emerald-400 text-sm">{dev.serial_code}</div>
-                        <div className="text-xs text-neutral-500">{dev.device_name || 'Sem nome'}</div>
+                        <div className="font-mono text-[#178a3f] text-sm">{dev.serial_code}</div>
+                        <div className="text-xs text-[var(--muted)]">{dev.device_name || 'Sem nome'}</div>
                     </div>
                     <div className="flex items-center gap-1 opacity-60 md:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                        <button type="button" aria-label={`Editar dispositivo ${dev.serial_code}`} onClick={() => onEdit(dev)} className="p-1.5 text-neutral-400 hover:text-amber-400 hover:bg-amber-400/10 rounded"><Edit2 size={14} /></button>
-                        <button type="button" aria-label={`Remover dispositivo ${dev.serial_code}`} onClick={() => onDelete(dev.id)} className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-red-400/10 rounded"><Trash2 size={14} /></button>
+                        <button type="button" aria-label={`Editar dispositivo ${dev.serial_code}`} onClick={() => onEdit(dev)} className="p-1.5 text-[var(--muted)] hover:text-[#b45309] hover:bg-amber-500/15 rounded"><Edit2 size={14} /></button>
+                        <button type="button" aria-label={`Remover dispositivo ${dev.serial_code}`} onClick={() => onDelete(dev.id)} className="p-1.5 text-[var(--muted)] hover:text-[#d63a4d] hover:bg-red-400/10 rounded"><Trash2 size={14} /></button>
                     </div>
                 </div>
             ))}
         </div>
     ) : (
-        <div className="text-sm text-neutral-500 py-4 border border-dashed border-neutral-800 rounded-lg text-center bg-black/20">
+        <div className="text-sm text-[var(--muted)] py-4 border border-dashed border-black/[0.07] rounded-lg text-center bg-[var(--bg)]">
             Nenhum equipamento vinculado a esta conta.
         </div>
     );
@@ -93,35 +93,35 @@ const UserFormModal = ({ data, onClose, onSuccess }: { data: any, onClose: () =>
     };
 
     return (
-        <div role="dialog" aria-modal="true" aria-labelledby="user-modal-title" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+        <div role="dialog" aria-modal="true" aria-labelledby="user-modal-title" className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white border border-black/[0.07] rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 id="user-modal-title" className="text-xl font-bold text-white">{data ? 'Editar Conta' : 'Nova Conta'}</h3>
-                    <button type="button" aria-label="Fechar" onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20} /></button>
+                    <h3 id="user-modal-title" className="text-xl font-semibold text-[var(--ink)]">{data ? 'Editar Conta' : 'Nova Conta'}</h3>
+                    <button type="button" aria-label="Fechar" onClick={onClose} className="text-[var(--muted)] hover:text-[var(--ink)]"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="user-modal-name" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nome</label>
-                        <input id="user-modal-name" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                        <label htmlFor="user-modal-name" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Nome</label>
+                        <input id="user-modal-name" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" />
                     </div>
                     <div>
-                        <label htmlFor="user-modal-email" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Email</label>
-                        <input id="user-modal-email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                        <label htmlFor="user-modal-email" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Email</label>
+                        <input id="user-modal-email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" />
                     </div>
                     <div>
-                        <label htmlFor="user-modal-password" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">{data ? 'Nova Senha (opcional)' : 'Senha'}</label>
-                        <input id="user-modal-password" type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required={!data} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                        <label htmlFor="user-modal-password" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">{data ? 'Nova Senha (opcional)' : 'Senha'}</label>
+                        <input id="user-modal-password" type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required={!data} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" />
                     </div>
                     <div>
-                        <label htmlFor="user-modal-role" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Nível de Acesso</label>
-                        <select id="user-modal-role" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 appearance-none">
+                        <label htmlFor="user-modal-role" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Nível de Acesso</label>
+                        <select id="user-modal-role" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] appearance-none">
                             <option value="user">Usuário Comum</option>
                             <option value="admin">Administrador</option>
                         </select>
                     </div>
                     <div className="pt-4 flex gap-3">
-                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors">Cancelar</button>
-                        <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-lg font-medium transition-colors">Cancelar</button>
+                        <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-lg font-medium transition-colors disabled:opacity-50">
                             {loading ? 'Salvando...' : 'Salvar'}
                         </button>
                     </div>
@@ -171,24 +171,24 @@ const DeviceFormModal = ({ data, userId, onClose, onSuccess }: { data: any, user
     };
 
     return (
-        <div role="dialog" aria-modal="true" aria-labelledby="device-modal-title" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+        <div role="dialog" aria-modal="true" aria-labelledby="device-modal-title" className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white border border-black/[0.07] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 id="device-modal-title" className="text-xl font-bold text-white">{data ? 'Editar Dispositivo' : 'Vincular Dispositivo'}</h3>
-                    <button type="button" aria-label="Fechar" onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20} /></button>
+                    <h3 id="device-modal-title" className="text-xl font-semibold text-[var(--ink)]">{data ? 'Editar Dispositivo' : 'Vincular Dispositivo'}</h3>
+                    <button type="button" aria-label="Fechar" onClick={onClose} className="text-[var(--muted)] hover:text-[var(--ink)]"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="device-modal-serial" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Serial (Código Único)</label>
-                        <input id="device-modal-serial" type="text" value={formData.serial_code} onChange={e => setFormData({ ...formData, serial_code: e.target.value })} required className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono uppercase" placeholder="BREWW-XXXXX" />
+                        <label htmlFor="device-modal-serial" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Serial (Código Único)</label>
+                        <input id="device-modal-serial" type="text" value={formData.serial_code} onChange={e => setFormData({ ...formData, serial_code: e.target.value })} required className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] font-mono " placeholder="BREWW-XXXXX" />
                     </div>
                     <div>
-                        <label htmlFor="device-modal-name" className="block text-xs font-bold text-neutral-400 uppercase mb-1 ml-1">Apelido (Opcional)</label>
-                        <input id="device-modal-name" type="text" value={formData.device_name} onChange={e => setFormData({ ...formData, device_name: e.target.value })} className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500" placeholder="Ex: Geladeira 1" />
+                        <label htmlFor="device-modal-name" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Apelido (Opcional)</label>
+                        <input id="device-modal-name" type="text" value={formData.device_name} onChange={e => setFormData({ ...formData, device_name: e.target.value })} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" placeholder="Ex: Geladeira 1" />
                     </div>
                     <div className="pt-4 flex gap-3">
-                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors">Cancelar</button>
-                        <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-lg font-medium transition-colors">Cancelar</button>
+                        <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-lg font-medium transition-colors disabled:opacity-50">
                             {loading ? 'Salvando...' : 'Salvar'}
                         </button>
                     </div>
@@ -315,24 +315,23 @@ export const UsersTab: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Gerenciamento de Contas</h2>
+            <div className="flex justify-end items-center">
                 <button
                     type="button"
                     onClick={() => setUserModal({ isOpen: true, data: null })}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-indigo-900/20"
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-lg font-medium transition-colors shadow-lg shadow-indigo-900/20"
                 >
                     <Plus size={16} /> Nova Conta
                 </button>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
+                <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-[var(--ink)] border-t-transparent rounded-full animate-spin"></div></div>
             ) : (
-                <div className="border border-neutral-800 rounded-xl overflow-hidden bg-black/20">
+                <div className="border border-black/[0.07] rounded-xl overflow-hidden bg-[var(--bg)]">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-neutral-900">
-                            <tr className="text-neutral-400">
+                        <thead className="bg-white">
+                            <tr className="text-[var(--muted)]">
                                 <th className="py-4 px-4 font-medium w-10"></th>
                                 <th className="py-4 px-4 font-medium">Nome</th>
                                 <th className="py-4 px-4 font-medium">Email</th>
@@ -342,25 +341,25 @@ export const UsersTab: React.FC = () => {
                                 <th className="py-4 px-4 font-medium text-right">Ações</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-neutral-800/50">
+                        <tbody className="divide-y divide-black/[0.06]">
                             {users.map(user => (
                                 <React.Fragment key={user.id}>
-                                    <tr className={`hover:bg-neutral-800/30 transition-colors ${expandedUserId === user.id ? 'bg-neutral-800/20' : ''}`}>
+                                    <tr className={`hover:bg-[var(--bg)] transition-colors ${expandedUserId === user.id ? 'bg-[var(--bg)]' : ''}`}>
                                         <td className="py-3 px-4">
                                             <button
                                                 type="button"
                                                 aria-expanded={expandedUserId === user.id}
                                                 aria-label={`Dispositivos de ${user.name}`}
                                                 onClick={() => toggleExpand(user.id)}
-                                                className="p-1 hover:bg-neutral-700 rounded text-neutral-400"
+                                                className="p-1 hover:bg-black/10 rounded text-[var(--muted)]"
                                             >
                                                 {expandedUserId === user.id ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                                             </button>
                                         </td>
-                                        <td className="py-3 px-4 font-medium text-neutral-200">{user.name}</td>
-                                        <td className="py-3 px-4 text-neutral-400">{user.email}</td>
+                                        <td className="py-3 px-4 font-medium text-[#2b2f37]">{user.name}</td>
+                                        <td className="py-3 px-4 text-[var(--muted)]">{user.email}</td>
                                         <td className="py-3 px-4">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}`}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${user.role === 'admin' ? 'bg-[var(--accent)]/30 text-[var(--ink)] border border-[var(--ink)]/20' : 'bg-[var(--bg)] text-[var(--muted)] border border-black/15'}`}>
                                                 {user.role}
                                             </span>
                                         </td>
@@ -369,38 +368,38 @@ export const UsersTab: React.FC = () => {
                                                 aria-label={`Plano de ${user.name}`}
                                                 value={user.plan_type || 'free'}
                                                 onChange={(e) => changeUserPlan(user.id, e.target.value)}
-                                                className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-indigo-500"
+                                                className="bg-[var(--bg)] border border-black/15 text-[#2b2f37] text-xs rounded px-2 py-1 focus:outline-none focus:border-[var(--ink)]"
                                             >
                                                 <option value="free">Free</option>
                                                 <option value="premium">Premium</option>
                                             </select>
                                         </td>
                                         <td className="py-3 px-4 text-center">
-                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-neutral-800 text-xs font-bold text-neutral-300">
+                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg)] text-xs font-semibold text-[#2b2f37]">
                                                 {user.device_count || 0}
                                             </span>
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button type="button" aria-label={`Editar ${user.name}`} onClick={() => setUserModal({ isOpen: true, data: user })} className="p-1.5 text-neutral-400 hover:text-amber-400 hover:bg-amber-400/10 rounded transition-colors"><Edit2 size={16} /></button>
-                                                <button type="button" aria-label={`Excluir ${user.name}`} onClick={() => deleteUser(user.id)} className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"><Trash2 size={16} /></button>
+                                                <button type="button" aria-label={`Editar ${user.name}`} onClick={() => setUserModal({ isOpen: true, data: user })} className="p-1.5 text-[var(--muted)] hover:text-[#b45309] hover:bg-amber-500/15 rounded transition-colors"><Edit2 size={16} /></button>
+                                                <button type="button" aria-label={`Excluir ${user.name}`} onClick={() => deleteUser(user.id)} className="p-1.5 text-[var(--muted)] hover:text-[#d63a4d] hover:bg-red-400/10 rounded transition-colors"><Trash2 size={16} /></button>
                                             </div>
                                         </td>
                                     </tr>
 
                                     {expandedUserId === user.id && (
                                         <tr>
-                                            <td colSpan={7} className="p-0 border-b border-neutral-800">
-                                                <div className="bg-black/40 px-4 md:px-10 py-6 border-l-2 border-indigo-500 animate-in slide-in-from-top-2 duration-200">
+                                            <td colSpan={7} className="p-0 border-b border-black/[0.07]">
+                                                <div className="bg-[var(--bg)] px-4 md:px-10 py-6 border-l-2 border-[var(--ink)] animate-in slide-in-from-top-2 duration-200">
                                                     <div className="flex justify-between items-center mb-4">
-                                                        <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2 uppercase tracking-widest">
-                                                            <HardDrive size={14} className="text-indigo-500" />
+                                                        <h3 className="text-sm font-semibold text-[#2b2f37] flex items-center gap-2 ">
+                                                            <HardDrive size={14} className="text-[var(--ink)]" />
                                                             Dispositivos Vinculados
                                                         </h3>
                                                         <button
                                                             type="button"
                                                             onClick={() => setDeviceModal({ isOpen: true, data: null, userId: user.id })}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-md text-xs font-medium transition-colors border border-neutral-700"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] rounded-md text-xs font-medium transition-colors border border-black/15"
                                                         >
                                                             <Plus size={14} /> Adicionar
                                                         </button>
@@ -414,7 +413,7 @@ export const UsersTab: React.FC = () => {
                                 </React.Fragment>
                             ))}
                             {users.length === 0 && !loading && (
-                                <tr><td colSpan={7} className="py-8 text-center text-neutral-500">Nenhum usuário encontrado.</td></tr>
+                                <tr><td colSpan={7} className="py-8 text-center text-[var(--muted)]">Nenhum usuário encontrado.</td></tr>
                             )}
                         </tbody>
                     </table>

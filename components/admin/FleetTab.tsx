@@ -22,21 +22,21 @@ const moduleLabel = (m: string) => MODULE_NAME[m] ?? (m.startsWith('ds18b20 x') 
 
 function Bars({ title, rows, label, total, highlight }: { title: string; rows: Row[]; label: (n: string) => string; total: number; highlight?: string }) {
     return (
-        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
-            <h3 className="text-sm font-semibold text-white">{title}</h3>
-            {rows.length === 0 ? <p className="mt-4 text-sm text-neutral-500">Nenhum dado ainda.</p> : (
+        <section className="rounded-2xl border border-black/[0.07] bg-white p-5">
+            <h3 className="text-sm font-semibold text-[var(--ink)]">{title}</h3>
+            {rows.length === 0 ? <p className="mt-4 text-sm text-[var(--muted)]">Nenhum dado ainda.</p> : (
                 <ul className="mt-4 space-y-3">
                     {rows.map(r => (
                         <li key={r.name}>
                             <div className="flex items-baseline justify-between gap-3 text-sm">
-                                <span className="text-neutral-200">
+                                <span className="text-[#2b2f37]">
                                     {label(r.name)}
-                                    {highlight && r.name === highlight && <span className="ml-2 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-400">atual</span>}
+                                    {highlight && r.name === highlight && <span className="ml-2 rounded-full bg-[var(--accent)]/40 px-2 py-0.5 text-[11px] text-[var(--ink)]">atual</span>}
                                 </span>
-                                <span className="tabular-nums text-neutral-400">{r.count} <span className="text-neutral-600">· {r.online} online</span></span>
+                                <span className="tabular-nums text-[var(--muted)]">{r.count} <span className="text-black/35">· {r.online} online</span></span>
                             </div>
-                            <div className="mt-1.5 h-1.5 rounded-full bg-neutral-800">
-                                <div className="h-full rounded-full bg-indigo-500" style={{ width: `${total ? Math.max(3, (r.count / total) * 100) : 0}%` }} />
+                            <div className="mt-1.5 h-1.5 rounded-full bg-[var(--bg)]">
+                                <div className="h-full rounded-full bg-[var(--ink)]" style={{ width: `${total ? Math.max(3, (r.count / total) * 100) : 0}%` }} />
                             </div>
                         </li>
                     ))}
@@ -72,16 +72,12 @@ export const FleetTab = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold text-white">Frota</h2>
-                    <p className="text-sm text-neutral-400">Aparelhos por placa, versão de firmware e hardware detectado.</p>
-                </div>
-                <button type="button" onClick={load} disabled={loading} className="flex items-center gap-2 rounded-xl border border-neutral-800 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-700 disabled:opacity-50">
+            <div className="flex items-center justify-end">
+                <button type="button" onClick={load} disabled={loading} className="flex items-center gap-2 rounded-xl border border-black/[0.07] px-3 py-2 text-sm text-[#2b2f37] hover:border-black/15 disabled:opacity-50">
                     <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Atualizar
                 </button>
             </div>
-            {error && <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+            {error && <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-[#d63a4d]">{error}</p>}
             {fleet && (
                 <>
                     <div className="grid gap-4 sm:grid-cols-3">
@@ -90,9 +86,9 @@ export const FleetTab = () => {
                             { k: 'Online (1 h)', v: fleet.online },
                             { k: 'Informando placa', v: `${fleet.reporting} de ${fleet.total}` },
                         ].map(c => (
-                            <div key={c.k} className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
-                                <p className="text-sm text-neutral-400">{c.k}</p>
-                                <p className="mt-1 text-3xl font-bold tabular-nums text-white">{c.v}</p>
+                            <div key={c.k} className="rounded-2xl border border-black/[0.07] bg-white p-5">
+                                <p className="text-sm text-[var(--muted)]">{c.k}</p>
+                                <p className="mt-3 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em] tabular-nums">{c.v}</p>
                             </div>
                         ))}
                     </div>
@@ -101,7 +97,7 @@ export const FleetTab = () => {
                         <Bars title="Por versão do firmware" rows={fleet.versions} label={n => n} total={fleet.total} highlight={latest} />
                         <Bars title="Hardware detectado" rows={fleet.modules} label={moduleLabel} total={fleet.total} />
                     </div>
-                    <p className="text-xs text-neutral-500">Placa e hardware aparecem quando o aparelho manda telemetria com firmware 2.8.3 ou mais novo.</p>
+                    <p className="text-xs text-[var(--muted)]">Placa e hardware aparecem quando o aparelho manda telemetria com firmware 2.8.3 ou mais novo.</p>
                 </>
             )}
         </div>

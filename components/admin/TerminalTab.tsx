@@ -31,7 +31,8 @@ export const TerminalTab = () => {
             });
             if (logsRes.ok) {
                 const logsText = await logsRes.text();
-                setLogs(logsText);
+                // Tira os codigos de cor do terminal (ex.: \u001b[32m) que o pm2 grava no log
+                setLogs(String(logsText).replace(/\u001b?\[[0-9;]*m/g, ''));
             }
         } catch (e) {
             console.error(e);
@@ -56,22 +57,18 @@ export const TerminalTab = () => {
         }
     }, [logs]);
 
-    if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
+    if (loading) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-[var(--ink)] border-t-transparent rounded-full animate-spin"></div></div>;
 
     const pm2Process = Array.isArray(status) && status.length > 0 ? status.find((p: any) => p.name === 'breww-server') || status[0] : null;
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Terminal className="text-indigo-500" size={24} /> 
-                    Terminal & Processos
-                </h2>
+            <div className="flex items-center justify-end">
                 <button 
                     type="button"
                     onClick={fetchData} 
                     disabled={refreshing}
-                    className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     <Activity size={16} className={refreshing ? 'animate-spin' : ''} />
                     Atualizar Agora
@@ -80,36 +77,36 @@ export const TerminalTab = () => {
 
             {pm2Process && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
-                        <div className="text-sm text-neutral-500 mb-1">Status do Processo</div>
-                        <div className={`text-xl font-bold flex items-center gap-2 ${pm2Process.pm2_env?.status === 'online' ? 'text-green-500' : 'text-red-500'}`}>
-                            <span className={`w-3 h-3 rounded-full ${pm2Process.pm2_env?.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                    <div className="bg-white border border-black/[0.07] rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-[var(--muted)] mb-1">Status do Processo</div>
+                        <div className={`text-xl font-semibold flex items-center gap-2 ${pm2Process.pm2_env?.status === 'online' ? 'text-[#178a3f]' : 'text-[#d63a4d]'}`}>
+                            <span className={`w-3 h-3 rounded-full ${pm2Process.pm2_env?.status === 'online' ? 'bg-[#2fbf55] animate-pulse' : 'bg-red-500'}`}></span>
                             {pm2Process.pm2_env?.status?.toUpperCase()}
                         </div>
                     </div>
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
-                        <div className="text-sm text-neutral-500 mb-1">Uso de CPU</div>
-                        <div className="text-xl font-bold text-white">{pm2Process.monit?.cpu || 0}%</div>
+                    <div className="bg-white border border-black/[0.07] rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-[var(--muted)] mb-1">Uso de CPU</div>
+                        <div className="text-xl font-semibold text-[var(--ink)]">{pm2Process.monit?.cpu || 0}%</div>
                     </div>
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
-                        <div className="text-sm text-neutral-500 mb-1">Memória RAM</div>
-                        <div className="text-xl font-bold text-white">{Math.round((pm2Process.monit?.memory || 0) / 1024 / 1024)} MB</div>
+                    <div className="bg-white border border-black/[0.07] rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-[var(--muted)] mb-1">Memória RAM</div>
+                        <div className="text-xl font-semibold text-[var(--ink)]">{Math.round((pm2Process.monit?.memory || 0) / 1024 / 1024)} MB</div>
                     </div>
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center text-center">
-                        <div className="text-sm text-neutral-500 mb-1">Reinicializações</div>
-                        <div className="text-xl font-bold text-amber-500">{pm2Process.pm2_env?.restart_time || 0}</div>
+                    <div className="bg-white border border-black/[0.07] rounded-xl p-4 flex flex-col items-center text-center">
+                        <div className="text-sm text-[var(--muted)] mb-1">Reinicializações</div>
+                        <div className="text-xl font-semibold text-[#b45309]">{pm2Process.pm2_env?.restart_time || 0}</div>
                     </div>
                 </div>
             )}
 
-            <div className="bg-black border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
-                <div className="bg-neutral-900 px-4 py-2 border-b border-neutral-800 flex items-center gap-2">
+            <div className="overflow-hidden rounded-2xl bg-[#0B0D12]">
+                <div className="flex items-center gap-2 border-b border-white/10 bg-[#181C25] px-4 py-2.5">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="ml-2 text-xs font-mono text-neutral-500">pm2 logs breww-server</span>
+                    <div className="w-3 h-3 rounded-full bg-[#2fbf55]"></div>
+                    <span className="ml-2 text-xs font-mono text-[#898E99]">pm2 logs breww-server</span>
                 </div>
-                <div ref={logsContainerRef} className="p-4 h-[500px] overflow-y-auto overscroll-contain font-mono text-xs md:text-sm text-green-400 whitespace-pre-wrap break-all custom-scrollbar">
+                <div ref={logsContainerRef} className="p-4 h-[500px] overflow-y-auto overscroll-contain font-mono text-xs md:text-sm text-[#71FC8F] whitespace-pre-wrap break-all custom-scrollbar">
                     {logs || "Carregando logs..."}
                 </div>
             </div>
