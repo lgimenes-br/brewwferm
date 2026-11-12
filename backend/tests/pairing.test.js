@@ -28,14 +28,18 @@ const createFakePool = () => {
             }
             if (q.startsWith('UPDATE device_keys')) return [{}];
             if (q.startsWith('SELECT key_hash FROM device_key_candidates')) return [db.candidates.filter(c => c.serial_code === params[0])];
-            if (q.startsWith('SELECT key_hash, pair_code FROM device_key_candidates')) return [db.candidates.filter(c => c.serial_code === params[0])];
+            if (q.startsWith('SELECT key_hash, pair_code')) return [db.candidates.filter(c => c.serial_code === params[0])];
             if (q.startsWith('SELECT DISTINCT serial_code FROM device_key_candidates WHERE pair_code')) {
                 return [[...new Set(db.candidates.filter(c => c.pair_code === params[0]).map(c => c.serial_code))].map(serial_code => ({ serial_code }))];
             }
             if (q.startsWith('INSERT IGNORE INTO device_key_candidates')) {
                 if (!db.candidates.some(c => c.serial_code === params[0] && c.key_hash === params[1])) {
-                    db.candidates.push({ serial_code: params[0], key_hash: params[1], pair_code: params[2] });
+                    db.candidates.push({ serial_code: params[0], key_hash: params[1], pair_code: params[2], last_public_ip: params[3] });
                 }
+                return [{}];
+            }
+            if (q.startsWith('UPDATE device_key_candidates SET last_seen = NOW(), last_public_ip')) {
+                db.candidates.filter(c => c.serial_code === params[1] && c.key_hash === params[2]).forEach(c => { c.last_public_ip = params[0]; });
                 return [{}];
             }
             if (q.startsWith('UPDATE device_key_candidates')) return [{}];
@@ -83,7 +87,7 @@ const startServer = async () => {
         });
         return { status: res.status, body: await res.json().catch(() => null) };
     };
-    const announce = (key, extra = {}) => call('POST', '/api/device/announce', { body: { serial: SERIAL, key, ...extra } });
+    const announce = (key, extra = {}, ip) => call('POST', '/api/device/announce', { body: { serial: SERIAL, key, ...extra }, ...(ip ? { ip } : {}) });
     const respond = (key, pairingId, accept = true) => call('POST', '/api/device/pairing/respond', { body: { serial: SERIAL, key, pairingId, accept } });
     return { server, call, pool, published, provisioned, announce, respond };
 };
@@ -110,8 +114,10 @@ test('pedido expira apos o TTL', () => {
     assert.equal(store.pendingForSerial(SERIAL), null);
 });
 
-test('fluxo com codigo: chave so vale (e so ganha MQTT) depois da confirmacao no aparelho', async () => {
-    const { server, call, pool, published, provisioned, announce, respond } = await startServer();
+const OUTRA_INTERNET = '198.51.100.7';
+
+test('codigo de confirmacao: vincula na hora, sem confirmar no aparelho; MQTT no proximo anuncio', async () => {
+    const { server, call, pool, provisioned, announce } = await startServer();
     try {
         // Primeiro contato: chave CANDIDATA, sem credencial MQTT
         let r = await announce(KEY, { localIp: '192.168.0.20' });
@@ -120,117 +126,100 @@ test('fluxo com codigo: chave so vale (e so ganha MQTT) depois da confirmacao no
         assert.equal(r.body.bound, false);
         assert.equal(r.body.pairCode, derivePairCode(KEY));
         assert.equal(provisioned.length, 0, 'nada de MQTT antes do vinculo');
-        assert.equal(pool.db.device_keys.length, 0);
 
-        // Descoberta por IP continua igual
-        r = await call('GET', '/api/discovery', { user: 1 });
-        assert.deepEqual(r.body.map(d => d.ip), [SERIAL]);
-        r = await call('GET', '/api/discovery', { user: 2, ip: '198.51.100.7' });
-        assert.deepEqual(r.body, []);
-
-        // Codigo errado e recusado; o certo cria o pedido
-        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, pairCode: '00000000' } });
+        // Codigo errado e recusado; o certo (de outra internet, inclusive) vincula na hora
+        r = await call('POST', '/api/devices', { user: 1, ip: OUTRA_INTERNET, body: { serialCode: SERIAL, pairCode: '00000000' } });
         assert.equal(r.status, 422);
-        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, pairCode: derivePairCode(KEY).toLowerCase(), name: 'Meu Breww' } });
-        assert.equal(r.status, 202);
-        const { pairingId } = r.body;
-        assert.ok(published.some(([t, m]) => t === `brewbrother/${SERIAL}/command` && JSON.parse(m).cmd === 'pair_request' && !m.includes('@')));
-
-        r = await announce(KEY);
-        assert.equal(r.body.pairing.id, pairingId);
-        assert.equal(r.body.pairing.email, 'do**@example.com');
-        r = await call('GET', `/api/devices/pairing/${pairingId}`, { user: 2 });
-        assert.equal(r.status, 404);
-
-        // Confirmacao: vincula a chave, cria o MQTT e o aparelho
-        r = await respond(KEY, pairingId);
-        assert.equal(r.body.status, 'confirmed');
+        r = await call('POST', '/api/devices', { user: 1, ip: OUTRA_INTERNET, body: { serialCode: SERIAL, pairCode: derivePairCode(KEY).toLowerCase(), name: 'Meu Breww' } });
+        assert.equal(r.status, 201);
+        assert.deepEqual(r.body, { status: 'confirmed', serial: SERIAL });
         assert.deepEqual(pool.db.device_keys, [{ serial_code: SERIAL, key_hash: hashDeviceKey(KEY) }]);
         assert.deepEqual(pool.db.devices, [{ serial_code: SERIAL, user_id: 1, device_name: 'Meu Breww' }]);
-        assert.deepEqual(provisioned.at(-1), [SERIAL, KEY, { force: true }]);
         assert.equal(pool.db.candidates.length, 0);
 
-        // Depois: chave vinculada ganha MQTT; outra chave e recusada; sai da descoberta
+        // Proximo anuncio: chave vinculada, credencial gravada com force uma vez
         r = await announce(KEY);
         assert.equal(r.body.mqtt, true);
         assert.equal(r.body.bound, true);
-        r = await announce(OTHER_KEY);
-        assert.equal(r.status, 403);
-        r = await call('GET', '/api/discovery', { user: 2 });
-        assert.deepEqual(r.body, []);
+        assert.deepEqual(provisioned.at(-1), [SERIAL, KEY, { force: true }]);
+        await announce(KEY);
+        assert.deepEqual(provisioned.at(-1), [SERIAL, KEY, { force: false }]);
+
+        // Outra chave e recusada; ja tem dono; sai da descoberta
+        assert.equal((await announce(OTHER_KEY)).status, 403);
         r = await call('POST', '/api/devices', { user: 2, body: { serialCode: SERIAL } });
         assert.equal(r.status, 409);
+        r = await call('GET', '/api/discovery', { user: 2 });
+        assert.deepEqual(r.body, []);
     } finally {
         server.close();
     }
 });
 
-test('sequestro de serial: anunciar o MAC de outra pessoa primeiro nao da acesso', async () => {
-    const { server, call, pool, provisioned, announce, respond } = await startServer();
-    try {
-        // Atacante anuncia o serial antes do aparelho real
-        let r = await announce(OTHER_KEY);
-        assert.equal(r.body.mqtt, false);
-        r = await announce(KEY); // aparelho real
-        assert.equal(r.status, 200);
-        assert.equal(provisioned.length, 0);
-
-        // Com duas candidatas, sem codigo nao da (precisa do codigo da tela)
-        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
-        assert.equal(r.status, 422);
-        assert.equal(r.body.needsPairCode, true);
-
-        // Dono usa o codigo da tela do aparelho real: so ele recebe e pode confirmar
-        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, pairCode: derivePairCode(KEY) } });
-        const { pairingId } = r.body;
-        assert.equal((await announce(OTHER_KEY)).body.pairing, null);
-        r = await respond(OTHER_KEY, pairingId);
-        assert.equal(r.status, 403);
-        assert.equal(pool.db.devices.length, 0);
-
-        r = await respond(KEY, pairingId);
-        assert.equal(r.body.status, 'confirmed');
-        assert.equal(pool.db.device_keys[0].key_hash, hashDeviceKey(KEY));
-        assert.equal((await announce(OTHER_KEY)).status, 403, 'atacante fica de fora');
-    } finally {
-        server.close();
-    }
-});
-
-test('transicao: sem codigo so com uma candidata; ALLOW_LEGACY_PAIRING=0 desliga', async () => {
-    const { server, call, announce, respond, pool } = await startServer();
+test('achado na rede: mesma internet vincula sem codigo; outra internet precisa do codigo', async () => {
+    const { server, call, pool, announce } = await startServer();
     try {
         let r = await call('POST', '/api/devices', { user: 1, body: { serialCode: 'AABBCCDDEEFF' } });
         assert.equal(r.status, 422, 'aparelho que nunca se conectou');
 
         await announce(KEY);
-        process.env.ALLOW_LEGACY_PAIRING = '0';
-        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
-        assert.equal(r.status, 422);
-        delete process.env.ALLOW_LEGACY_PAIRING;
+        r = await call('GET', '/api/discovery', { user: 1 });
+        assert.deepEqual(r.body.map(d => d.ip), [SERIAL]);
 
-        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
-        assert.equal(r.status, 202);
-        // Recusa no aparelho
-        r = await respond(KEY, r.body.pairingId, false);
-        assert.equal(r.body.status, 'rejected');
+        r = await call('POST', '/api/devices', { user: 2, ip: OUTRA_INTERNET, body: { serialCode: SERIAL } });
+        assert.equal(r.status, 422);
+        assert.equal(r.body.needsPairCode, true);
         assert.equal(pool.db.devices.length, 0);
+
+        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, name: 'Garagem' } });
+        assert.equal(r.status, 201);
+        assert.deepEqual(pool.db.devices, [{ serial_code: SERIAL, user_id: 1, device_name: 'Garagem' }]);
     } finally {
-        delete process.env.ALLOW_LEGACY_PAIRING;
         server.close();
     }
 });
 
-test('aparelho com chave vinculada antes desta mudanca continua pareando sem codigo', async () => {
-    const { server, call, pool, announce, respond } = await startServer();
+test('sequestro de serial: chave anunciada de outra internet nao e escolhida', async () => {
+    const { server, call, pool, announce } = await startServer();
+    try {
+        // Atacante anuncia o serial de longe, antes do aparelho real
+        await announce(OTHER_KEY, {}, OUTRA_INTERNET);
+        await announce(KEY); // aparelho real, na casa do dono
+
+        // Dono achou na rede: vale so a chave anunciada da internet dele
+        let r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
+        assert.equal(r.status, 201);
+        assert.equal(pool.db.device_keys[0].key_hash, hashDeviceKey(KEY));
+        assert.equal((await announce(OTHER_KEY, {}, OUTRA_INTERNET)).status, 403, 'atacante fica de fora');
+    } finally {
+        server.close();
+    }
+});
+
+test('duas chaves na mesma internet: sem codigo nao escolhe, com codigo sim', async () => {
+    const { server, call, pool, announce } = await startServer();
+    try {
+        await announce(OTHER_KEY);
+        await announce(KEY);
+        let r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
+        assert.equal(r.status, 422);
+        assert.equal(r.body.needsPairCode, true);
+        r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, pairCode: derivePairCode(KEY) } });
+        assert.equal(r.status, 201);
+        assert.equal(pool.db.device_keys[0].key_hash, hashDeviceKey(KEY));
+    } finally {
+        server.close();
+    }
+});
+
+test('aparelho com chave vinculada antes (sem dono) entra sem codigo', async () => {
+    const { server, call, pool, announce } = await startServer();
     try {
         pool.db.device_keys.push({ serial_code: SERIAL, key_hash: hashDeviceKey(KEY) });
         let r = await announce(KEY);
         assert.equal(r.body.mqtt, true);
         r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
-        assert.equal(r.status, 202);
-        r = await respond(KEY, r.body.pairingId);
-        assert.equal(r.body.status, 'confirmed');
+        assert.equal(r.status, 201);
         assert.equal(pool.db.devices.length, 1);
     } finally {
         server.close();
@@ -238,7 +227,7 @@ test('aparelho com chave vinculada antes desta mudanca continua pareando sem cod
 });
 
 test('troca de chave: aparelho resetado volta pelo dono com o codigo novo', async () => {
-    const { server, call, pool, provisioned, announce, respond } = await startServer();
+    const { server, call, pool, provisioned, announce } = await startServer();
     try {
         pool.db.device_keys.push({ serial_code: SERIAL, key_hash: hashDeviceKey(KEY) });
         pool.db.devices.push({ serial_code: SERIAL, user_id: 1, device_name: 'Breww' });
@@ -253,19 +242,33 @@ test('troca de chave: aparelho resetado volta pelo dono com o codigo novo', asyn
         r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL } });
         assert.equal(r.status, 409);
 
-        // Dono com o codigo novo: a placa nova recebe o pedido e confirma
+        // Dono com o codigo novo: troca na hora; o proximo anuncio regrava a senha MQTT
         r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, pairCode: derivePairCode(NEW_KEY) } });
-        assert.equal(r.status, 202);
-        const { pairingId } = r.body;
+        assert.equal(r.status, 201);
+        assert.equal(pool.db.device_keys[0].key_hash, hashDeviceKey(NEW_KEY));
         r = await announce(NEW_KEY);
         assert.equal(r.status, 200);
-        assert.equal(r.body.pairing.id, pairingId);
-        r = await respond(NEW_KEY, pairingId);
-        assert.equal(r.body.status, 'confirmed');
-        assert.equal(pool.db.device_keys[0].key_hash, hashDeviceKey(NEW_KEY));
+        assert.equal(r.body.mqtt, true);
         assert.deepEqual(provisioned.at(-1), [SERIAL, NEW_KEY, { force: true }]);
         assert.equal(pool.db.devices.length, 1, 'continua o mesmo aparelho do dono');
         assert.equal((await announce(KEY)).status, 403, 'chave antiga deixa de valer');
+    } finally {
+        server.close();
+    }
+});
+
+test('placa sem tela: vincula so com o codigo de 8 caracteres (serial vem do anuncio)', async () => {
+    const { server, call, pool, announce } = await startServer();
+    try {
+        await announce(KEY);
+        let r = await call('POST', '/api/devices', { user: 1, body: { pairCode: '00000000' } });
+        assert.equal(r.status, 422);
+        r = await call('POST', '/api/devices', { user: 1, body: {} });
+        assert.equal(r.status, 400);
+        r = await call('POST', '/api/devices', { user: 1, body: { pairCode: derivePairCode(KEY), name: 'DevKit' } });
+        assert.equal(r.status, 201);
+        assert.equal(r.body.serial, SERIAL);
+        assert.deepEqual(pool.db.devices.map(d => d.serial_code), [SERIAL]);
     } finally {
         server.close();
     }
@@ -278,28 +281,6 @@ test('limite de chaves candidatas por serial', async () => {
             assert.equal((await announce(String(i).repeat(64).slice(0, 64).replace(/[^0-9a-f]/g, 'd'))).status, 200);
         }
         assert.equal((await announce('e'.repeat(64))).status, 429);
-    } finally {
-        server.close();
-    }
-});
-
-test('placa sem tela: vincula so com o codigo de 8 caracteres (serial vem do anuncio)', async () => {
-    const { server, call, pool, announce, respond } = await startServer();
-    try {
-        await announce(KEY);
-        // Codigo que nenhum aparelho anunciou
-        let r = await call('POST', '/api/devices', { user: 1, body: { pairCode: '00000000' } });
-        assert.equal(r.status, 422);
-        // Sem serial e sem codigo continua exigindo o serial
-        r = await call('POST', '/api/devices', { user: 1, body: {} });
-        assert.equal(r.status, 400);
-        // Codigo certo: acha o serial e cria o pedido, que ainda precisa da confirmacao no aparelho
-        r = await call('POST', '/api/devices', { user: 1, body: { pairCode: derivePairCode(KEY), name: 'DevKit' } });
-        assert.equal(r.status, 202);
-        assert.equal(pool.db.devices.length, 0, 'nada vinculado antes do botao');
-        r = await respond(KEY, r.body.pairingId, true);
-        assert.equal(r.status, 200);
-        assert.deepEqual(pool.db.devices.map(d => d.serial_code), [SERIAL]);
     } finally {
         server.close();
     }
