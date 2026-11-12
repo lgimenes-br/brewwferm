@@ -48,7 +48,7 @@ const GROUPS: Group[] = [
         items: [
             {
                 q: 'A temperatura mostra −127 °C',
-                a: <>O sensor DS18B20 não está respondendo: confira o fio de dados no pino certo, o 3,3 V, o GND e o <b>resistor de 4,7 kΩ</b> entre o fio de dados e o 3,3 V. Sem esse resistor, o sensor não funciona.</>,
+                a: <>O sensor DS18B20 não está respondendo: confira se o fio de dados está num dos pinos livres da lista do instalador (a placa procura sozinha em até 30 s), o 3,3 V, o GND e o <b>resistor de 4,7 kΩ</b> entre o fio de dados e o 3,3 V. Sem esse resistor, o sensor não funciona.</>,
             },
             {
                 q: 'A temperatura trava em 85 °C',
@@ -56,7 +56,7 @@ const GROUPS: Group[] = [
             },
             {
                 q: 'A umidade não aparece',
-                a: <>Com DHT22, confira o pino de dados e a alimentação. Com sensores I²C (SHT3x, AHT20, BME280), confira SDA e SCL; eles são reconhecidos quando a placa liga, então reinicie depois de ligar. No app, em <b>Hardware</b>, aparece qual sensor foi detectado.</>,
+                a: <>Com DHT22, confira se o fio de dados está num pino livre (ele é achado sozinho em até 30 s) e a alimentação. Com sensores I²C (SHT3x, AHT20, BME280), confira SDA e SCL; eles são reconhecidos quando a placa liga, então reinicie depois de ligar. No app, em <b>Hardware</b>, aparece qual sensor foi detectado.</>,
             },
         ],
     },
@@ -73,7 +73,7 @@ const GROUPS: Group[] = [
             },
             {
                 q: 'Quero usar outros pinos',
-                a: <>Nas placas sem tela, dá para trocar pelo app, em <b>Hardware → Pinos</b>. O aparelho confere se o pino pode ser usado e reinicia para aplicar.</>,
+                a: <>Os sensores (DS18B20 e DHT22) podem ir em qualquer pino livre: a placa encontra sozinha e o app mostra onde, em <b>Hardware → Pinos</b>. Os relés e o I²C têm pinos fixos, mas nas placas sem tela dá para trocar no mesmo lugar. O aparelho confere se o pino pode ser usado e reinicia para aplicar.</>,
             },
         ],
     },

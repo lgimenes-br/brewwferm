@@ -15,42 +15,46 @@ declare module 'react' {
 }
 
 type Wire = { pin: string; to: string; note?: string };
-type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string };
+// sensorPins: onde o DS18B20 e o DHT22 podem ir (o firmware procura sozinho; igual a pins_sensor_candidate)
+type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string; sensorPins?: number[] };
 
-// Pinos iguais aos de boards/*.h do firmware (padrao; nas placas sem tela podem ser trocados pelo app)
+// Reles e I2C: pinos fixos de boards/*.h. Sensores: qualquer pino de sensorPins (detectados sozinhos, v2.9.2+)
 const BOARDS: Board[] = [
     {
         id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'O mais barato e fácil de achar (WROOM-32 / DevKit V1).',
         wires: [
-            { pin: 'GPIO 23', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
+            { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
             { pin: 'GPIO 26', to: 'Relé de aquecer · IN' },
             { pin: 'GPIO 27', to: 'Relé de resfriar · IN' },
-            { pin: 'GPIO 19', to: 'DHT22 · dados', note: 'opcional' },
+            { pin: 'Qualquer livre', to: 'DHT22 · dados', note: 'opcional' },
             { pin: 'GPIO 21 / 22', to: 'Tela ou sensor I²C · SDA / SCL', note: 'opcional' },
         ],
         relayDefault: 'Módulo de relé comum (liga em nível baixo)',
+        sensorPins: [4, 13, 14, 16, 17, 18, 19, 23, 25, 32, 33],
     },
     {
         id: 's3-headless', name: 'ESP32-S3', hint: 'ESP32-S3-DevKitC ou similar, sem tela.',
         wires: [
-            { pin: 'GPIO 17', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
+            { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
             { pin: 'GPIO 9', to: 'Relé de aquecer · IN' },
             { pin: 'GPIO 14', to: 'Relé de resfriar · IN' },
-            { pin: 'GPIO 18', to: 'DHT22 · dados', note: 'opcional' },
+            { pin: 'Qualquer livre', to: 'DHT22 · dados', note: 'opcional' },
             { pin: 'GPIO 4 / 5', to: 'Tela ou sensor I²C · SDA / SCL', note: 'opcional' },
         ],
         relayDefault: 'Módulo de relé comum (liga em nível baixo)',
+        sensorPins: [1, 2, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 21, 38, 39, 40, 41, 42, 47],
     },
     {
         id: 'c3-headless', name: 'ESP32-C3 SuperMini', hint: 'Bem pequeno. Poucos pinos, mas suficiente.',
         wires: [
-            { pin: 'GPIO 3', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
+            { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
             { pin: 'GPIO 5', to: 'Relé de aquecer · IN' },
             { pin: 'GPIO 6', to: 'Relé de resfriar · IN' },
-            { pin: 'GPIO 4', to: 'DHT22 · dados', note: 'opcional' },
+            { pin: 'Qualquer livre', to: 'DHT22 · dados', note: 'opcional' },
             { pin: 'GPIO 7 / 10', to: 'Tela ou sensor I²C · SDA / SCL', note: 'opcional' },
         ],
         relayDefault: 'Módulo de relé comum (liga em nível baixo)',
+        sensorPins: [0, 1, 3, 4, 20, 21],
     },
     {
         id: 's3-35', name: 'Breww com tela 3,5"', hint: 'A placa oficial com tela touch.',
@@ -191,16 +195,28 @@ export const Installer: React.FC = () => {
                             <ul className="mt-6 space-y-3">
                                 {board.wires.map(w => (
                                     <li key={w.to} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                        <span className="w-[8.5rem] shrink-0 rounded-full bg-[var(--ink)] px-3 py-1.5 text-center font-mono text-sm text-white">{w.pin}</span>
+                                        <span className={`w-[8.5rem] shrink-0 rounded-full px-3 py-1.5 text-center text-sm ${w.pin.startsWith('GPIO') || w.pin.startsWith('JST') ? 'bg-[var(--ink)] font-mono text-white' : 'border border-dashed border-[var(--ink)]/40 text-[var(--ink)]'}`}>{w.pin}</span>
                                         <span aria-hidden className="hidden h-px flex-1 border-t border-dashed border-black/20 sm:block" />
                                         <span className="font-medium">{w.to}</span>
                                         {w.note && <span className={`rounded-full px-2.5 py-0.5 text-xs ${w.note === 'opcional' ? 'bg-[var(--bg)] text-[var(--muted)]' : 'bg-[var(--accent)] text-[var(--ink)]'}`}>{w.note}</span>}
                                     </li>
                                 ))}
                             </ul>
+                            {board.sensorPins && (
+                                <div className="mt-6 rounded-2xl bg-[var(--bg)] p-4">
+                                    <p className="text-sm font-medium">Pinos livres para os sensores</p>
+                                    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Pinos livres para os sensores">
+                                        {board.sensorPins.map(n => (
+                                            <li key={n} className="rounded-full bg-white px-2.5 py-0.5 font-mono text-xs">{n}</li>
+                                        ))}
+                                    </ul>
+                                    <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+                                        Ligue o DS18B20 e o DHT22 em qualquer um deles: a placa procura e acha sozinha. Os outros pinos são da própria placa (memória, boot, USB) ou dos relés e do I²C. Não ligue sensor neles.
+                                    </p>
+                                </div>
+                            )}
                             <p className="mt-6 text-sm leading-relaxed text-[var(--muted)]">
                                 Alimente os sensores no 3,3 V e todos os GND juntos. Dois DS18B20 podem dividir o mesmo pino.
-                                {headless && ' Precisa de outro pino? Dá para trocar depois pelo app, em Hardware.'}
                             </p>
                         </div>
                         <div className="space-y-4">
