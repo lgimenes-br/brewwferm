@@ -232,7 +232,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   const handleShare = async () => {
     const shareData = {
       title: `Lote ${brew.batchNumber} - ${brew.beerName}`,
-      text: `Confira minha ${brew.beerName} (${brew.style}). ABV: ${displayAbv.toFixed(1)}%, FG: ${normFg.toFixed(3)}. Analisado no BREWW Dashboard!`,
+      text: `Confira minha ${brew.beerName} (${brew.style}). ABV: ${displayAbv.toFixed(1)}%, FG: ${normFg.toFixed(3)}. Acompanhado no Breww!`,
       url: window.location.href
     };
 

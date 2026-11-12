@@ -56,18 +56,18 @@ const NavConfig = () => {
 
     React.useEffect(() => {
         const path = location.pathname;
-        let pageTitle = 'BREWW';
-        if (path === '/login') pageTitle = 'Entrar — BREWW';
-        else if (path === '/register') pageTitle = 'Criar Conta — BREWW';
-        else if (path === '/history') pageTitle = 'Logs de Produção — BREWW';
-        else if (path.startsWith('/history/')) pageTitle = 'Detalhes do Lote — BREWW';
-        else if (path === '/calculators') pageTitle = 'Calculadoras — BREWW';
-        else if (path === '/compare') pageTitle = 'Comparar Lotes — BREWW';
-        else if (path === '/settings') pageTitle = 'Configurações — BREWW';
-        else if (path.startsWith('/admin')) pageTitle = 'Painel Admin — BREWW';
-        else if (path.startsWith('/fermenter/')) pageTitle = 'Controle de Fermentação — BREWW';
-        else if (path.startsWith('/live/')) pageTitle = 'Acompanhamento Ao Vivo — BREWW';
-        else pageTitle = 'Dispositivos — BREWW';
+        let pageTitle = 'Breww';
+        if (path === '/login') pageTitle = 'Entrar — Breww';
+        else if (path === '/register') pageTitle = 'Criar Conta — Breww';
+        else if (path === '/history') pageTitle = 'Logs de Produção — Breww';
+        else if (path.startsWith('/history/')) pageTitle = 'Detalhes do Lote — Breww';
+        else if (path === '/calculators') pageTitle = 'Calculadoras — Breww';
+        else if (path === '/compare') pageTitle = 'Comparar Lotes — Breww';
+        else if (path === '/settings') pageTitle = 'Configurações — Breww';
+        else if (path.startsWith('/admin')) pageTitle = 'Painel Admin — Breww';
+        else if (path.startsWith('/fermenter/')) pageTitle = 'Controle de Fermentação — Breww';
+        else if (path.startsWith('/live/')) pageTitle = 'Acompanhamento Ao Vivo — Breww';
+        else pageTitle = 'Dispositivos — Breww';
         document.title = pageTitle;
     }, [location.pathname]);
 
