@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Usb, Cpu, Wifi, Smartphone, AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, Check, Cpu, Smartphone, Thermometer, ToggleRight, Usb, Wifi, Plug, Monitor, Droplets, CircleDot, Gauge } from 'lucide-react';
+import { SiteHeader, SiteFooter } from './SiteChrome';
 
-// Instalador do firmware pelo navegador (Fase 3, item 1). Usa o ESP Web Tools (Web Serial):
-// o servidor gera o manifest de cada placa em /firmware/manifest/<placa>.json.
+// "Monte o seu" + instalador pelo navegador (Fases 3.1 e 3.5), no estilo da home (.brew-landing).
+// O ESP Web Tools grava a imagem completa da placa: /firmware/manifest/<placa>.json (servidor).
 
 declare module 'react' {
     namespace JSX {
@@ -12,70 +14,76 @@ declare module 'react' {
     }
 }
 
-type Board = {
-    id: string;
-    name: string;
-    hint: string;
-    pins: { label: string; pin: string }[];
-    relayNote: string;
-};
+type Wire = { pin: string; to: string; note?: string };
+type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string };
 
-// Pinos iguais aos de boards/*.h do firmware
+// Pinos iguais aos de boards/*.h do firmware (padrao; nas placas sem tela podem ser trocados pelo app)
 const BOARDS: Board[] = [
     {
-        id: 'esp32-devkit',
-        name: 'ESP32 DevKit',
-        hint: 'O mais barato e fácil de achar (ESP32-WROOM-32 / DevKit V1).',
-        pins: [
-            { label: 'Sensor DS18B20 (dados)', pin: 'GPIO 23' },
-            { label: 'DHT22 (opcional)', pin: 'GPIO 19' },
-            { label: 'Relé de aquecer', pin: 'GPIO 26' },
-            { label: 'Relé de resfriar', pin: 'GPIO 27' },
-            { label: 'Tela I²C (opcional) SDA / SCL', pin: 'GPIO 21 / 22' }
+        id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'O mais barato e fácil de achar (WROOM-32 / DevKit V1).',
+        wires: [
+            { pin: 'GPIO 23', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
+            { pin: 'GPIO 26', to: 'Relé de aquecer · IN' },
+            { pin: 'GPIO 27', to: 'Relé de resfriar · IN' },
+            { pin: 'GPIO 19', to: 'DHT22 · dados', note: 'opcional' },
+            { pin: 'GPIO 21 / 22', to: 'Tela ou sensor I²C · SDA / SCL', note: 'opcional' },
         ],
-        relayNote: 'Módulo de relé comum (liga em nível baixo) é o padrão.'
+        relayDefault: 'Módulo de relé comum (liga em nível baixo)',
     },
     {
-        id: 's3-headless',
-        name: 'ESP32-S3 (sem tela)',
-        hint: 'ESP32-S3-DevKitC ou similar.',
-        pins: [
-            { label: 'Sensor DS18B20 (dados)', pin: 'GPIO 17' },
-            { label: 'DHT22 (opcional)', pin: 'GPIO 18' },
-            { label: 'Relé de aquecer', pin: 'GPIO 9' },
-            { label: 'Relé de resfriar', pin: 'GPIO 14' },
-            { label: 'Tela I²C (opcional) SDA / SCL', pin: 'GPIO 4 / 5' }
+        id: 's3-headless', name: 'ESP32-S3', hint: 'ESP32-S3-DevKitC ou similar, sem tela.',
+        wires: [
+            { pin: 'GPIO 17', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
+            { pin: 'GPIO 9', to: 'Relé de aquecer · IN' },
+            { pin: 'GPIO 14', to: 'Relé de resfriar · IN' },
+            { pin: 'GPIO 18', to: 'DHT22 · dados', note: 'opcional' },
+            { pin: 'GPIO 4 / 5', to: 'Tela ou sensor I²C · SDA / SCL', note: 'opcional' },
         ],
-        relayNote: 'Módulo de relé comum (liga em nível baixo) é o padrão.'
+        relayDefault: 'Módulo de relé comum (liga em nível baixo)',
     },
     {
-        id: 'c3-headless',
-        name: 'ESP32-C3 SuperMini',
-        hint: 'Bem pequeno. Poucos pinos, mas suficiente.',
-        pins: [
-            { label: 'Sensor DS18B20 (dados)', pin: 'GPIO 3' },
-            { label: 'DHT22 (opcional)', pin: 'GPIO 4' },
-            { label: 'Relé de aquecer', pin: 'GPIO 5' },
-            { label: 'Relé de resfriar', pin: 'GPIO 6' },
-            { label: 'Tela I²C (opcional) SDA / SCL', pin: 'GPIO 7 / 10' }
+        id: 'c3-headless', name: 'ESP32-C3 SuperMini', hint: 'Bem pequeno. Poucos pinos, mas suficiente.',
+        wires: [
+            { pin: 'GPIO 3', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V' },
+            { pin: 'GPIO 5', to: 'Relé de aquecer · IN' },
+            { pin: 'GPIO 6', to: 'Relé de resfriar · IN' },
+            { pin: 'GPIO 4', to: 'DHT22 · dados', note: 'opcional' },
+            { pin: 'GPIO 7 / 10', to: 'Tela ou sensor I²C · SDA / SCL', note: 'opcional' },
         ],
-        relayNote: 'Módulo de relé comum (liga em nível baixo) é o padrão.'
+        relayDefault: 'Módulo de relé comum (liga em nível baixo)',
     },
     {
-        id: 's3-35',
-        name: 'Breww com tela 3,5"',
-        hint: 'A placa oficial com tela touch (ESP32-S3 + AXS15231B).',
-        pins: [
-            { label: 'Sensor DS18B20 (dados)', pin: 'GPIO 17' },
-            { label: 'DHT22 (opcional)', pin: 'GPIO 18' },
-            { label: 'Relé de aquecer', pin: 'GPIO 9' },
-            { label: 'Relé de resfriar', pin: 'GPIO 14' }
+        id: 's3-35', name: 'Breww com tela 3,5"', hint: 'A placa oficial com tela touch.',
+        wires: [
+            { pin: 'JST 4P · pino 3', to: 'Sensor DS18B20 · dados' },
+            { pin: 'JST 8P · pino 1', to: 'Relé de aquecer' },
+            { pin: 'JST 8P · pino 2', to: 'Relé de resfriar' },
+            { pin: 'JST 4P · pino 4', to: 'DHT22 · dados', note: 'opcional' },
         ],
-        relayNote: 'Relés da placa oficial (ligam em nível alto).'
-    }
+        relayDefault: 'Relés da placa oficial (nível alto)',
+    },
+];
+
+const PARTS = [
+    { icon: Cpu, title: 'Uma placa ESP32', text: 'DevKit, S3 ou C3. Qualquer uma das placas abaixo.' },
+    { icon: Thermometer, title: 'Sensor DS18B20', text: 'A versão à prova d’água, com cabo. Mais um resistor de 4,7 kΩ.' },
+    { icon: ToggleRight, title: 'Relés', text: 'Módulo de 2 canais (aquecer e resfriar) ou SSR.' },
+    { icon: Plug, title: 'Fonte 5 V', text: 'Um carregador USB comum serve para a placa.' },
+];
+const EXTRAS = [
+    { icon: Monitor, title: 'Tela OLED 0,96" ou LCD 20x4', text: 'I²C. Reconhecida sozinha ao ligar.' },
+    { icon: Droplets, title: 'Umidade', text: 'SHT3x, AHT20, BME280 ou DHT22.' },
+    { icon: CircleDot, title: 'Dois botões', text: 'Para ajustar o alvo e o menu na telinha.' },
+    { icon: Gauge, title: 'iSpindel', text: 'Densímetro Wi-Fi para acompanhar a gravidade.' },
 ];
 
 const supportsWebSerial = typeof navigator !== 'undefined' && 'serial' in navigator;
+
+const StepLabel: React.FC<{ n: string; children: React.ReactNode; dark?: boolean }> = ({ n, children, dark }) => (
+    <p className={`flex items-center gap-3 text-sm font-medium ${dark ? 'text-[#898E99]' : 'text-[var(--muted)]'}`}>
+        <span className={`font-mono ${dark ? 'text-[var(--accent)]' : 'text-[var(--ink)]'}`}>{n}</span>{children}
+    </p>
+);
 
 export const Installer: React.FC = () => {
     const [boardId, setBoardId] = useState(BOARDS[0].id);
@@ -85,7 +93,9 @@ export const Installer: React.FC = () => {
     const board = BOARDS.find(b => b.id === boardId)!;
     const headless = board.id !== 's3-35';
 
-    // Carrega o componente do ESP Web Tools so nesta pagina
+    useEffect(() => { document.title = 'Monte o seu Breww — Instalador'; }, []);
+
+    // Componente do ESP Web Tools so nesta pagina
     useEffect(() => {
         if (!supportsWebSerial) return;
         import('esp-web-tools').then(() => setReady(true)).catch(() => setReady(false));
@@ -101,109 +111,186 @@ export const Installer: React.FC = () => {
     }, [board.id]);
 
     return (
-        <div className="min-h-screen bg-black text-white">
-            <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-                <header className="space-y-2">
-                    <h1 className="text-3xl font-black">Instale o Breww no seu ESP32</h1>
-                    <p className="text-neutral-400">
-                        Grave o firmware direto pelo navegador, sem instalar nada no computador. Depois é só configurar o Wi-Fi pelo celular e
-                        vincular ao app.
+        <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
+            <SiteHeader />
+            <main>
+                {/* Heroi */}
+                <section className="mx-auto max-w-6xl px-4 pb-16 pt-14 sm:px-6 lg:pt-20">
+                    <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/60 px-3 py-1 text-xs font-medium text-[var(--muted)]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#2fbf55]" /> Firmware aberto · Grátis
                     </p>
-                </header>
+                    <h1 className="max-w-4xl [font-family:var(--font-display)] text-[44px] font-light leading-[1.02] tracking-[-0.035em] sm:text-[64px]">
+                        Monte o seu Breww. <span className="landing-mark">Sem compilar nada.</span>
+                    </h1>
+                    <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
+                        Compre as peças, ligue os fios, grave o firmware pelo navegador e configure o Wi-Fi pelo celular. Em menos de meia hora ele aparece no app.
+                    </p>
+                    <ol className="mt-10 grid gap-3 text-sm sm:grid-cols-4">
+                        {[['01', 'Peças', '#pecas'], ['02', 'Ligações', '#ligacoes'], ['03', 'Instalar', '#instalar'], ['04', 'Wi-Fi e app', '#app']].map(([n, t, href]) => (
+                            <li key={n}>
+                                <a href={href} className="flex items-center justify-between rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white">
+                                    <span><span className="mr-2 font-mono text-[var(--muted)]">{n}</span>{t}</span>
+                                    <ArrowRight size={16} className="text-[var(--muted)]" />
+                                </a>
+                            </li>
+                        ))}
+                    </ol>
+                </section>
 
-                {/* 1. Placa */}
-                <section className="bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold flex items-center gap-2"><Cpu size={20} className="text-amber-500" /> 1. Escolha a placa</h2>
-                    <div className="grid sm:grid-cols-2 gap-3">
+                {/* 01 Pecas */}
+                <section id="pecas" className="scroll-mt-20 border-t border-black/5 bg-white/50">
+                    <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+                        <StepLabel n="01">Lista de compras</StepLabel>
+                        <h2 className="mt-2 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em] sm:text-5xl">O essencial cabe na palma da mão.</h2>
+                        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {PARTS.map(({ icon: Icon, title, text }) => (
+                                <article key={title} className="rounded-3xl border border-black/5 bg-white p-6">
+                                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bg)]"><Icon size={20} strokeWidth={1.75} /></span>
+                                    <h3 className="mt-5 text-lg font-semibold tracking-tight">{title}</h3>
+                                    <p className="mt-1.5 leading-relaxed text-[var(--muted)]">{text}</p>
+                                </article>
+                            ))}
+                        </div>
+                        <p className="mt-12 text-sm font-medium text-[var(--muted)]">Opcionais, para quando quiser mais</p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            {EXTRAS.map(({ icon: Icon, title, text }) => (
+                                <div key={title} className="flex gap-3 rounded-2xl border border-black/5 bg-[var(--bg)] p-4">
+                                    <Icon size={18} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+                                    <div><p className="font-medium">{title}</p><p className="text-sm text-[var(--muted)]">{text}</p></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* 02 Ligacoes */}
+                <section id="ligacoes" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
+                    <StepLabel n="02">Escolha a placa e ligue</StepLabel>
+                    <h2 className="mt-2 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em] sm:text-5xl">Cada fio no seu lugar.</h2>
+                    <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Placa">
                         {BOARDS.map(b => (
                             <button
                                 key={b.id}
+                                role="radio"
+                                aria-checked={b.id === boardId}
                                 onClick={() => setBoardId(b.id)}
-                                className={`text-left rounded-2xl p-4 border transition-colors ${b.id === boardId ? 'border-amber-500 bg-amber-500/10' : 'border-neutral-800 hover:border-neutral-600'}`}
+                                className={`rounded-2xl border p-4 text-left transition-colors ${b.id === boardId ? 'border-[var(--ink)] bg-white shadow-[0_12px_30px_-20px_rgba(11,13,18,0.4)]' : 'border-black/10 bg-white/40 hover:bg-white'}`}
                             >
-                                <div className="font-semibold">{b.name}</div>
-                                <div className="text-sm text-neutral-400">{b.hint}</div>
+                                <span className="flex items-center justify-between">
+                                    <span className="font-semibold">{b.name}</span>
+                                    {b.id === boardId && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--ink)]"><Check size={13} className="text-white" /></span>}
+                                </span>
+                                <span className="mt-1 block text-sm text-[var(--muted)]">{b.hint}</span>
                             </button>
                         ))}
                     </div>
-                </section>
 
-                {/* 2. Ligacoes */}
-                <section className="bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold flex items-center gap-2"><Zap size={20} className="text-amber-500" /> 2. Ligações</h2>
-                    <table className="w-full text-sm">
-                        <tbody>
-                            {board.pins.map(p => (
-                                <tr key={p.label} className="border-b border-neutral-800 last:border-0">
-                                    <td className="py-2 text-neutral-300">{p.label}</td>
-                                    <td className="py-2 text-right font-mono text-amber-400">{p.pin}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <ul className="text-sm text-neutral-400 space-y-1 list-disc pl-5">
-                        <li>DS18B20: resistor de 4,7 kΩ entre o fio de dados e o 3,3 V. Dois sensores podem dividir o mesmo pino.</li>
-                        <li>{board.relayNote} Se usar SSR, troque o tipo de relé depois da instalação.</li>
-                    </ul>
-                    <div className="flex gap-3 rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-sm text-red-200">
-                        <AlertTriangle size={20} className="shrink-0 text-red-400" />
-                        <span>
-                            Os relés comandam aparelhos ligados na tomada (110/220 V). Faça a ligação elétrica com o equipamento desligado, use caixa
-                            fechada e, se não tiver experiência, peça ajuda a um eletricista.
-                        </span>
+                    <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                        <div className="rounded-3xl bg-white p-6 sm:p-8">
+                            <p className="text-sm font-medium text-[var(--muted)]">Mapa de ligações · {board.name}</p>
+                            <ul className="mt-6 space-y-3">
+                                {board.wires.map(w => (
+                                    <li key={w.to} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span className="w-[8.5rem] shrink-0 rounded-full bg-[var(--ink)] px-3 py-1.5 text-center font-mono text-sm text-white">{w.pin}</span>
+                                        <span aria-hidden className="hidden h-px flex-1 border-t border-dashed border-black/20 sm:block" />
+                                        <span className="font-medium">{w.to}</span>
+                                        {w.note && <span className={`rounded-full px-2.5 py-0.5 text-xs ${w.note === 'opcional' ? 'bg-[var(--bg)] text-[var(--muted)]' : 'bg-[var(--accent)] text-[var(--ink)]'}`}>{w.note}</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                            <p className="mt-6 text-sm leading-relaxed text-[var(--muted)]">
+                                Alimente os sensores no 3,3 V e todos os GND juntos. Dois DS18B20 podem dividir o mesmo pino.
+                                {headless && ' Precisa de outro pino? Dá para trocar depois pelo app, em Hardware.'}
+                            </p>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="rounded-3xl bg-[var(--card)] p-6 text-white">
+                                <p className="text-sm text-[#898E99]">Tipo de relé padrão</p>
+                                <p className="mt-2 text-lg font-medium">{board.relayDefault}</p>
+                                <p className="mt-2 text-sm leading-relaxed text-[#a3a7b0]">Usa SSR ou outro tipo? Troque no app, em Hardware, depois de instalar.</p>
+                            </div>
+                            <div className="flex gap-3 rounded-3xl border border-[#FF5A6E]/30 bg-[#FF5A6E]/10 p-6 text-sm leading-relaxed text-[#7a1f2b]" role="note">
+                                <AlertTriangle size={20} className="mt-0.5 shrink-0 text-[#d63a4d]" />
+                                <span>Os relés comandam aparelhos na tomada (110/220 V). Faça a parte elétrica com tudo desligado, use caixa fechada e, sem experiência, peça ajuda a um eletricista.</span>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                {/* 3. Instalar */}
-                <section className="bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold flex items-center gap-2"><Usb size={20} className="text-amber-500" /> 3. Instale</h2>
-                    <p className="text-sm text-neutral-400">
-                        Ligue a placa no computador com um cabo USB <b>de dados</b> (alguns cabos só carregam) e clique em Instalar. Funciona no
-                        Chrome ou no Edge, no computador.
-                        {version && <> Versão <span className="font-mono text-neutral-200">{version}</span>.</>}
-                    </p>
-                    {!supportsWebSerial ? (
-                        <div className="rounded-2xl bg-neutral-800/60 p-4 text-sm text-neutral-300">
-                            Este navegador não consegue acessar o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.
+                {/* 03 Instalar */}
+                <section id="instalar" className="scroll-mt-16 bg-[var(--card)] text-white">
+                    <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+                        <div>
+                            <StepLabel n="03" dark>Instalar</StepLabel>
+                            <h2 className="mt-2 [font-family:var(--font-display)] text-4xl font-light leading-[1.05] tracking-[-0.03em] sm:text-5xl">
+                                Um clique e o firmware <span className="text-[var(--accent)]">está gravado.</span>
+                            </h2>
+                            <ul className="mt-8 space-y-3 text-[#c9ccd3]">
+                                {['Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Se a placa não aparecer, segure o BOOT ao conectar'].map(t => (
+                                    <li key={t} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{t}</li>
+                                ))}
+                            </ul>
                         </div>
-                    ) : manifestMissing ? (
-                        <div className="rounded-2xl bg-neutral-800/60 p-4 text-sm text-neutral-300">
-                            O instalador desta placa ainda não foi publicado. Tente novamente mais tarde.
+                        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8">
+                            <p className="text-sm text-[#898E99]">Placa selecionada</p>
+                            <p className="mt-1 text-2xl font-medium">{board.name}</p>
+                            <p className="mt-1 text-sm text-[#898E99]">{version ? `Versão ${version}` : manifestMissing ? 'Instalador indisponível' : 'Carregando versão…'}</p>
+                            <div className="mt-8">
+                                {!supportsWebSerial ? (
+                                    <p className="rounded-2xl bg-white/5 p-4 text-sm text-[#c9ccd3]">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</p>
+                                ) : manifestMissing ? (
+                                    <p className="rounded-2xl bg-white/5 p-4 text-sm text-[#c9ccd3]">O instalador desta placa ainda não foi publicado. Tente mais tarde.</p>
+                                ) : ready ? (
+                                    <esp-web-install-button key={board.id} manifest={`/firmware/manifest/${board.id}.json`}>
+                                        <button slot="activate" className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 py-4 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
+                                            <Usb size={18} /> Instalar no {board.name}
+                                        </button>
+                                    </esp-web-install-button>
+                                ) : (
+                                    <p className="text-sm text-[#898E99]">Carregando o instalador…</p>
+                                )}
+                            </div>
+                            <p className="mt-4 text-xs text-[#6B6F78]">A instalação apaga o que estiver gravado na placa.</p>
                         </div>
-                    ) : ready ? (
-                        <esp-web-install-button key={board.id} manifest={`/firmware/manifest/${board.id}.json`}>
-                            <button slot="activate" className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-amber-500 text-black font-bold hover:bg-amber-400">
-                                Instalar no {board.name}
-                            </button>
-                        </esp-web-install-button>
-                    ) : (
-                        <div className="text-sm text-neutral-500">Carregando o instalador...</div>
-                    )}
-                    <p className="text-xs text-neutral-500">
-                        A instalação apaga o que estiver gravado na placa. Se ela não for reconhecida, segure o botão BOOT enquanto conecta o cabo.
-                    </p>
+                    </div>
                 </section>
 
-                {/* 4. Depois */}
-                <section className="bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold flex items-center gap-2"><Wifi size={20} className="text-amber-500" /> 4. Wi-Fi e app</h2>
+                {/* 04 Wi-Fi e app */}
+                <section id="app" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
+                    <StepLabel n="04">Wi-Fi e app</StepLabel>
+                    <h2 className="mt-2 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em] sm:text-5xl">Do celular, em três toques.</h2>
                     {headless ? (
-                        <ol className="space-y-3 text-sm text-neutral-300">
-                            <li className="flex gap-3"><Wifi size={18} className="shrink-0 text-amber-500" /> No celular, conecte na rede <b>Breww-XXXX</b>. A página de configuração abre sozinha: escolha o Wi-Fi da sua casa e digite a senha.</li>
-                            <li className="flex gap-3"><Smartphone size={18} className="shrink-0 text-amber-500" /> Volte para o Wi-Fi de casa, abra o app Breww e toque em <b>Adicionar aparelho</b>.</li>
-                            <li className="flex gap-3"><CheckCircle2 size={18} className="shrink-0 text-amber-500" /> Digite o código mostrado na página de Wi-Fi ou escolha o aparelho em <b>Buscar aparelhos na rede</b>. Pronto!</li>
+                        <ol className="mt-10 grid gap-4 md:grid-cols-3">
+                            {[
+                                { icon: Wifi, title: 'Conecte na rede Breww', text: 'No celular, entre na rede Breww-XXXX. A página abre sozinha: escolha o Wi-Fi da sua casa e digite a senha.' },
+                                { icon: Smartphone, title: 'Abra o app', text: 'Volte para o Wi-Fi de casa e toque em Adicionar aparelho.' },
+                                { icon: Check, title: 'Pronto', text: 'Escolha o aparelho em Buscar na rede ou digite o código da página de Wi-Fi. Ele entra na hora.' },
+                            ].map(({ icon: Icon, title, text }, i) => (
+                                <li key={title} className="rounded-3xl border border-black/5 bg-white p-7">
+                                    <div className="flex items-center justify-between">
+                                        <Icon size={22} strokeWidth={1.75} />
+                                        <span className="font-mono text-sm text-[var(--muted)]">{String(i + 1).padStart(2, '0')}</span>
+                                    </div>
+                                    <h3 className="mt-8 text-xl font-semibold tracking-tight">{title}</h3>
+                                    <p className="mt-2 leading-relaxed text-[var(--muted)]">{text}</p>
+                                </li>
+                            ))}
                         </ol>
                     ) : (
-                        <p className="text-sm text-neutral-300">Siga o assistente na tela do aparelho para escolher o Wi-Fi e vincular ao app.</p>
+                        <p className="mt-6 max-w-2xl text-lg text-[var(--muted)]">Siga o assistente na tela do aparelho para escolher o Wi-Fi. Depois, no app, toque em Adicionar aparelho e leia o QR code da tela.</p>
                     )}
                     {headless && (
-                        <p className="text-xs text-neutral-500">
-                            LED da placa: piscando devagar = sem Wi-Fi; aceso = conectado. Segurar o BOOT por 10 segundos apaga o Wi-Fi e abre a
-                            rede Breww-XXXX de novo.
-                        </p>
+                        <p className="mt-6 text-sm text-[var(--muted)]">LED da placa: piscando devagar = sem Wi-Fi; aceso = conectado. Segurar o BOOT por 10 segundos apaga o Wi-Fi e abre a rede Breww de novo.</p>
                     )}
+                    <div className="mt-12 flex flex-wrap items-center gap-4">
+                        <Link to="/register" className="group inline-flex items-center gap-2 rounded-full bg-[var(--ink)] px-6 py-3.5 text-[15px] font-medium text-white hover:bg-black">
+                            Criar conta grátis <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                        <span className="text-sm text-[var(--muted)]">Você vai precisar de uma conta no app.</span>
+                    </div>
                 </section>
-            </div>
+            </main>
+            <SiteFooter />
         </div>
     );
 };
