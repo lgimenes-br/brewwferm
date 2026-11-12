@@ -191,7 +191,7 @@ export const Installer: React.FC = () => {
                         <ol className="space-y-3 text-sm text-neutral-300">
                             <li className="flex gap-3"><Wifi size={18} className="shrink-0 text-amber-500" /> No celular, conecte na rede <b>Breww-XXXX</b>. A página de configuração abre sozinha: escolha o Wi-Fi da sua casa e digite a senha.</li>
                             <li className="flex gap-3"><Smartphone size={18} className="shrink-0 text-amber-500" /> Volte para o Wi-Fi de casa, abra o app Breww e toque em <b>Adicionar aparelho</b>.</li>
-                            <li className="flex gap-3"><CheckCircle2 size={18} className="shrink-0 text-amber-500" /> Quando o pedido chegar, <b>segure o botão BOOT da placa por 3 segundos</b> para confirmar.</li>
+                            <li className="flex gap-3"><CheckCircle2 size={18} className="shrink-0 text-amber-500" /> Digite o código mostrado na página de Wi-Fi ou escolha o aparelho em <b>Buscar aparelhos na rede</b>. Pronto!</li>
                         </ol>
                     ) : (
                         <p className="text-sm text-neutral-300">Siga o assistente na tela do aparelho para escolher o Wi-Fi e vincular ao app.</p>
