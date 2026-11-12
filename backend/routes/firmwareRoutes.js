@@ -9,7 +9,26 @@ import express from 'express';
 //  - POST /api/firmware/release  (GitHub Actions do repo do firmware, token dedicado)
 //  - GET  /firmware/version.json (site compara com a versao da placa)
 //  - GET  /firmware/update.bin   (placa baixa; header x-MD5 e conferido antes de ativar)
+//
+// Um firmware por placa (header X-Firmware-Board / ?board=). A placa com tela (s3-35) e a
+// padrao e mantem os arquivos e URLs de sempre (update.bin / version.json), entao aparelhos
+// e apps antigos nao mudam. Placa desconhecida ou sem arquivo = 404: nunca serve o firmware
+// de outra placa.
 // ============================================================================
+
+export const DEFAULT_BOARD = 's3-35';
+export const KNOWN_BOARDS = ['s3-35', 'esp32-devkit', 's3-headless', 'c3-headless'];
+
+/** Placa pedida (header/query) ou a padrao; null se nao for uma placa conhecida */
+export const resolveBoard = (value) => {
+    const board = String(value ?? '').trim().toLowerCase() || DEFAULT_BOARD;
+    return KNOWN_BOARDS.includes(board) ? board : null;
+};
+
+/** Arquivos de cada placa: a padrao usa os nomes antigos */
+export const boardFiles = (firmwareDir, board) => board === DEFAULT_BOARD
+    ? { binPath: path.join(firmwareDir, 'update.bin'), metaPath: path.join(firmwareDir, 'version.json') }
+    : { binPath: path.join(firmwareDir, `update-${board}.bin`), metaPath: path.join(firmwareDir, `version-${board}.json`) };
 
 const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)$/;
 const MAX_FIRMWARE_BYTES = 4 * 1024 * 1024;
@@ -41,10 +60,7 @@ export const registerFirmwareRoutes = (app, {
     firmwareDir,
     uploadToken = process.env.FIRMWARE_UPLOAD_TOKEN
 }) => {
-    const binPath = path.join(firmwareDir, 'update.bin');
-    const metaPath = path.join(firmwareDir, 'version.json');
-
-    const readMeta = async () => {
+    const readMeta = async (metaPath) => {
         try {
             return JSON.parse(await fs.readFile(metaPath, 'utf8'));
         } catch {
@@ -60,12 +76,16 @@ export const registerFirmwareRoutes = (app, {
                 const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
                 if (!safeEqual(token, uploadToken)) return res.status(401).json({ error: 'Token invalido' });
 
+                const board = resolveBoard(req.headers['x-firmware-board']);
+                if (!board) return res.status(400).json({ error: `Placa desconhecida (use ${KNOWN_BOARDS.join(', ')})` });
+                const { binPath, metaPath } = boardFiles(firmwareDir, board);
+
                 const version = String(req.headers['x-firmware-version'] || '').trim();
                 if (!parseSemver(version)) return res.status(400).json({ error: 'Versao invalida (use X.Y.Z)' });
                 const bin = req.body;
                 if (!looksLikeEsp32Image(bin)) return res.status(400).json({ error: 'Arquivo nao parece um firmware ESP32 (.bin)' });
 
-                const current = await readMeta();
+                const current = await readMeta(metaPath);
                 const cmp = current?.version ? compareSemver(version, current.version) : 1;
                 if (cmp !== null && cmp <= 0) {
                     return res.status(409).json({ error: `Versao ${version} nao e mais nova que a publicada (${current.version})` });
@@ -77,11 +97,11 @@ export const registerFirmwareRoutes = (app, {
                 // Escrita atomica: a placa nunca baixa um arquivo pela metade
                 await fs.writeFile(`${binPath}.tmp`, bin);
                 await fs.rename(`${binPath}.tmp`, binPath);
-                const meta = { version, md5, sha256, size: bin.length, publishedAt: new Date().toISOString() };
+                const meta = { version, board, md5, sha256, size: bin.length, publishedAt: new Date().toISOString() };
                 await fs.writeFile(`${metaPath}.tmp`, JSON.stringify(meta, null, 2));
                 await fs.rename(`${metaPath}.tmp`, metaPath);
 
-                console.log(`📦 [Firmware] Versao ${version} publicada (${bin.length} bytes, md5 ${md5})`);
+                console.log(`📦 [Firmware] Versao ${version} publicada para ${board} (${bin.length} bytes, md5 ${md5})`);
                 res.status(201).json(meta);
             } catch (err) {
                 console.error('❌ [Firmware] Falha ao publicar:', err);
@@ -90,16 +110,21 @@ export const registerFirmwareRoutes = (app, {
         });
 
     app.get('/firmware/version.json', async (req, res) => {
-        const meta = await readMeta();
         res.set('Cache-Control', 'no-store');
+        const board = resolveBoard(req.query.board);
+        if (!board) return res.status(404).json({ version: '0.0.0' });
+        const meta = await readMeta(boardFiles(firmwareDir, board).metaPath);
         if (!meta) return res.status(404).json({ version: '0.0.0' });
-        res.json({ version: meta.version, md5: meta.md5, size: meta.size, publishedAt: meta.publishedAt });
+        res.json({ version: meta.version, board, md5: meta.md5, size: meta.size, publishedAt: meta.publishedAt });
     });
 
     app.get('/firmware/update.bin', async (req, res) => {
         try {
+            const board = resolveBoard(req.query.board);
+            if (!board) return res.status(404).send('Firmware update not found for this board');
+            const { binPath, metaPath } = boardFiles(firmwareDir, board);
             if (!existsSync(binPath)) return res.status(404).send('Firmware update not found');
-            const meta = await readMeta();
+            const meta = await readMeta(metaPath);
             res.set('Cache-Control', 'no-store');
             // HTTPUpdate do ESP32 le este header e confere o MD5 antes de ativar a imagem
             if (meta?.md5) res.set('x-MD5', meta.md5);
