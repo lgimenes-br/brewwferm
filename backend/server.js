@@ -15,6 +15,7 @@ import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
 const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
 import { deviceRegistry } from './services/deviceRegistry.js';
+import { runTelemetryRetention } from './services/telemetryRetention.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
@@ -148,6 +149,9 @@ const initDb = async () => {
         await runMigration(`CREATE INDEX idx_telemetry_batch ON telemetry(batch_id)`);
         await runMigration(`CREATE INDEX idx_telemetry_device ON telemetry(device_id)`);
         await runMigration(`CREATE INDEX idx_telemetry_device_id_desc ON telemetry(device_id, id)`);
+        // Retencao da telemetria: lote ja compactado + indice para graficos/compactacao por lote
+        await runMigration('ALTER TABLE batches ADD COLUMN telemetry_compacted_at DATETIME DEFAULT NULL');
+        await runMigration(`CREATE INDEX idx_telemetry_batch_time ON telemetry(batch_id, recorded_at)`);
         await runMigration(`CREATE INDEX idx_batches_device_active ON batches(device_id, is_active)`);
         await runMigration(`CREATE INDEX idx_batches_public_token ON batches(public_token)`);
         await runMigration(`CREATE INDEX idx_batch_events_batch_recorded ON batch_events(batch_id, recorded_at)`);
@@ -1851,6 +1855,17 @@ const adminApi = registerAdminRoutes({
     onTrash: (id) => trashedUsers.add(Number(id)),
     onRestore: (id) => trashedUsers.delete(Number(id)),
 });
+// Retencao da telemetria (services/telemetryRetention.js): 1x por dia, 10 min depois de ligar.
+// TELEMETRY_RETENTION: 'on' aplica | 'dry' so conta (padrao ate conferir em producao) | 'off'
+const retentionMode = process.env.TELEMETRY_RETENTION || 'dry';
+const runRetention = () => {
+    if (retentionMode === 'off') return;
+    runTelemetryRetention(pool, { dryRun: retentionMode !== 'on', log: (m) => console.log('🧹 ' + m) })
+        .catch(e => console.error('Retencao da telemetria:', e.message));
+};
+setTimeout(runRetention, 10 * 60 * 1000).unref();
+setInterval(runRetention, 24 * 60 * 60 * 1000).unref();
+
 // Lixeira: apaga de vez as contas com mais de 30 dias (1x por dia)
 setInterval(() => {
     adminApi.purgeExpiredTrash()
