@@ -1,3 +1,4 @@
+import { Sentry, sentryEnabled } from './instrument.js'; // primeiro: monitor de erros (sem SENTRY_DSN, desligado)
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -1976,6 +1977,7 @@ app.use(express.static(path.join(__dirname, 'dist')));
 const spaIndex = path.join(__dirname, 'dist', 'index.html');
 app.get(/(.*)/, (req, res) => (fs.existsSync(spaIndex) ? res.sendFile(spaIndex) : res.status(404).json({ error: 'Não encontrado' })));
 
+if (sentryEnabled) Sentry.setupExpressErrorHandler(app);
 const serverInstance = app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
 
 // Graceful shutdown for PM2 / Docker / OS signals
