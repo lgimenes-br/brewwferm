@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, TestTube, LogOut, Activity, Zap, Shield, Terminal, HeartPulse, Download } from 'lucide-react';
+import { Users, TestTube, LogOut, Activity, Zap, Shield, Terminal, HeartPulse, Download, Boxes } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { OverviewTab } from './admin/OverviewTab';
@@ -7,6 +7,7 @@ import { TelemetryTab } from './admin/TelemetryTab';
 import { UsersTab } from './admin/UsersTab';
 import { SecurityTab } from './admin/SecurityTab';
 import { FirmwareTab } from './admin/FirmwareTab';
+import { FleetTab } from './admin/FleetTab';
 import { IngredientsTab } from './admin/IngredientsTab';
 import { TerminalTab } from './admin/TerminalTab';
 import { MarketingTab } from './admin/MarketingTab';
@@ -14,7 +15,7 @@ import { MarketingTab } from './admin/MarketingTab';
 export const AdminDashboard = () => {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'firmware' | 'ingredients' | 'terminal' | 'marketing'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'users' | 'security' | 'firmware' | 'fleet' | 'ingredients' | 'terminal' | 'marketing'>('overview');
 
     const handleLogout = () => {
         logout();
@@ -57,6 +58,9 @@ export const AdminDashboard = () => {
                             <button type="button" role="tab" aria-selected={activeTab === 'firmware'} aria-label="Firmware (OTA)" onClick={() => setActiveTab('firmware')} title="Firmware (OTA)" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'firmware' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <Download size={18} />
                             </button>
+                            <button type="button" role="tab" aria-selected={activeTab === 'fleet'} aria-label="Frota" onClick={() => setActiveTab('fleet')} title="Frota" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'fleet' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
+                                <Boxes size={18} />
+                            </button>
                             <button type="button" role="tab" aria-selected={activeTab === 'ingredients'} aria-label="Banco de Ingredientes" onClick={() => setActiveTab('ingredients')} title="Banco de Ingredientes" className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${activeTab === 'ingredients' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-900'}`}>
                                 <TestTube size={18} />
                             </button>
@@ -94,6 +98,7 @@ export const AdminDashboard = () => {
                 {activeTab === 'users' && <UsersTab />}
                 {activeTab === 'security' && <SecurityTab />}
                 {activeTab === 'firmware' && <FirmwareTab />}
+                {activeTab === 'fleet' && <FleetTab />}
                 {activeTab === 'ingredients' && <IngredientsTab />}
                 {activeTab === 'terminal' && <TerminalTab />}
                 {activeTab === 'marketing' && <MarketingTab />}

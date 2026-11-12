@@ -118,6 +118,9 @@ const initDb = async () => {
         await runMigration('ALTER TABLE users ADD COLUMN lat FLOAT DEFAULT NULL');
         await runMigration('ALTER TABLE users ADD COLUMN lon FLOAT DEFAULT NULL');
         await runMigration('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL');
+        // Frota (admin): placa e hardware detectado, vindos da telemetria (firmware 2.9+)
+        await runMigration('ALTER TABLE devices ADD COLUMN board VARCHAR(32) DEFAULT NULL');
+        await runMigration('ALTER TABLE devices ADD COLUMN hw_modules VARCHAR(255) DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20');
         await runMigration('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL');
@@ -478,7 +481,7 @@ mqttClient.on('message', async (topic, message, packet) => {
 
         if (deviceId) {
             delete discoveredUnknowns[serialCode];
-            await deviceRegistry.touch(pool, serialCode, deviceId, payload.fw || payload.ver);
+            await deviceRegistry.touch(pool, serialCode, deviceId, payload.fw || payload.ver, { board: payload.board, mods: payload.mods });
 
             const now = Date.now();
             lastSeenTimes[serialCode] = now;

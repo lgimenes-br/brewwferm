@@ -3,6 +3,40 @@ import { exec } from 'child_process';
 import util from 'util';
 import { deviceRegistry } from '../services/deviceRegistry.js';
 
+/**
+ * Resumo da frota para o admin. rows: { board, firmware_version, hw_modules (JSON), online }.
+ * Modulos "ds18b20:N" viram contagem de aparelhos por numero de sensores ("ds18b20 x2").
+ */
+export const summarizeFleet = (rows) => {
+    const tally = (map, key, online) => {
+        const e = map.get(key) || { name: key, count: 0, online: 0 };
+        e.count++; if (online) e.online++;
+        map.set(key, e);
+    };
+    const boards = new Map(), versions = new Map(), modules = new Map();
+    for (const r of rows) {
+        const online = Number(r.online) === 1;
+        tally(boards, r.board || 'desconhecida', online);
+        tally(versions, r.firmware_version || 'desconhecida', online);
+        let mods = [];
+        try { mods = JSON.parse(r.hw_modules || '[]'); } catch { mods = []; }
+        for (const m of Array.isArray(mods) ? mods : []) {
+            const ds = /^ds18b20:(\d+)$/.exec(String(m));
+            if (ds) { if (Number(ds[1]) > 0) tally(modules, `ds18b20 x${ds[1]}`, online); }
+            else tally(modules, String(m), online);
+        }
+    }
+    const sorted = (map) => [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    return {
+        total: rows.length,
+        online: rows.filter(r => Number(r.online) === 1).length,
+        reporting: rows.filter(r => r.board).length, // ja mandam placa (firmware 2.8.3+)
+        boards: sorted(boards),
+        versions: sorted(versions),
+        modules: sorted(modules),
+    };
+};
+
 const execPromise = util.promisify(exec);
 
 export const registerAdminRoutes = ({
@@ -152,6 +186,16 @@ export const registerAdminRoutes = ({
                 pool.execute('SELECT COUNT(*) as online_devices FROM devices WHERE last_seen > NOW() - INTERVAL 1 HOUR')
             ]);
             res.json({ total_users, total_devices, active_batches, online_devices });
+        } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
+    });
+
+    // Frota (Fase 5.3): aparelhos por placa, versao de firmware e hardware detectado
+    app.get('/api/admin/fleet', authenticateToken, requireAdmin, async (req, res) => {
+        try {
+            const [rows] = await pool.execute(
+                'SELECT board, firmware_version, hw_modules, (last_seen > NOW() - INTERVAL 1 HOUR) AS online FROM devices'
+            );
+            res.json(summarizeFleet(rows));
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
 

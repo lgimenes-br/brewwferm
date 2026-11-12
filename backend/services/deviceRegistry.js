@@ -32,11 +32,14 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
     }
   }
 
-  /** Registra contato. Grava last_seen no banco no maximo 1x por LAST_SEEN_FLUSH_MS e firmware so se mudar. */
-  async function touch(pool, serial, deviceId, fw) {
+  /**
+   * Registra contato. Grava last_seen no banco no maximo 1x por LAST_SEEN_FLUSH_MS; firmware, placa e
+   * hardware detectado (frota no admin) so quando mudam. info = { board, mods } (telemetria).
+   */
+  async function touch(pool, serial, deviceId, fw, info = {}) {
     const key = norm(serial);
     const t = now();
-    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined };
+    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined };
     s.ms = t;
     const writes = [];
     if (t - s.flushedAt >= LAST_SEEN_FLUSH_MS) {
@@ -46,6 +49,16 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
     if (fw && fw !== s.fw) {
       s.fw = fw;
       writes.push(pool.execute('UPDATE devices SET firmware_version = ? WHERE id = ?', [fw, deviceId]).catch(() => { s.fw = undefined; }));
+    }
+    const board = typeof info.board === 'string' ? info.board.slice(0, 32) : null;
+    if (board && board !== s.board) {
+      s.board = board;
+      writes.push(pool.execute('UPDATE devices SET board = ? WHERE id = ?', [board, deviceId]).catch(() => { s.board = undefined; }));
+    }
+    const mods = Array.isArray(info.mods) ? JSON.stringify(info.mods.map(String).slice(0, 12)).slice(0, 255) : null;
+    if (mods && mods !== s.mods) {
+      s.mods = mods;
+      writes.push(pool.execute('UPDATE devices SET hw_modules = ? WHERE id = ?', [mods, deviceId]).catch(() => { s.mods = undefined; }));
     }
     seen.set(key, s);
     await Promise.all(writes);
