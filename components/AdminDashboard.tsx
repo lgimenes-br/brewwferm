@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Activity, Boxes, Download, HeartPulse, LayoutGrid, LogOut, Menu, Shield, Terminal, TestTube, Users, X } from 'lucide-react';
+import { Activity, Boxes, Download, HeartPulse, LayoutGrid, Library, LogOut, Menu, Shield, Terminal, TestTube, Users, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { BrewwMark } from './BrewwMark';
 import { OverviewTab } from './admin/OverviewTab';
@@ -12,6 +12,7 @@ import { FleetTab } from './admin/FleetTab';
 import { IngredientsTab } from './admin/IngredientsTab';
 import { TerminalTab } from './admin/TerminalTab';
 import { MarketingTab } from './admin/MarketingTab';
+import { LibraryTab } from './admin/LibraryTab';
 
 // Painel de administracao com a identidade nova (fundo claro, tinta #0B0D12, verde para "ok").
 // Navegacao lateral agrupada; cada secao tem endereco proprio (/admin/<secao>).
@@ -24,6 +25,7 @@ const SECTIONS: Section[] = [
     { id: 'telemetria', label: 'Telemetria', group: 'Operação', icon: Activity, title: 'Telemetria', desc: 'Últimas leituras e sinal de cada aparelho.', Comp: TelemetryTab },
     { id: 'firmware', label: 'Firmware', group: 'Operação', icon: Download, title: 'Firmware', desc: 'Atualização manual (OTA) de um aparelho.', Comp: FirmwareTab },
     { id: 'contas', label: 'Contas e aparelhos', group: 'Clientes', icon: Users, title: 'Contas e aparelhos', desc: 'Usuários, planos e aparelhos vinculados.', Comp: UsersTab },
+    { id: 'biblioteca', label: 'Biblioteca de perfis', group: 'Clientes', icon: Library, title: 'Biblioteca de perfis', desc: 'Perfis publicados pelos usuários, com as denúncias primeiro.', Comp: LibraryTab },
     { id: 'saude', label: 'Saúde e marketing', group: 'Clientes', icon: HeartPulse, title: 'Saúde e marketing', desc: 'Engajamento, notificações e avisos para os usuários.', Comp: MarketingTab },
     { id: 'seguranca', label: 'Segurança e avisos', group: 'Sistema', icon: Shield, title: 'Segurança e avisos', desc: 'Auditoria, avisos do sistema e controle de acesso.', Comp: SecurityTab },
     { id: 'terminal', label: 'Terminal', group: 'Sistema', icon: Terminal, title: 'Terminal do servidor', desc: 'Processos e registros do backend.', Comp: TerminalTab },

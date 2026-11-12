@@ -26,6 +26,7 @@ import { registerAdminRoutes } from './routes/adminRoutes.js';
 import { registerPairingRoutes } from './routes/pairingRoutes.js';
 import { registerLiveRoutes } from './routes/liveRoutes.js';
 import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
+import { registerLibraryRoutes } from './routes/libraryRoutes.js';
 import { createMqttProvisioner, removeMqttCredential } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
@@ -174,7 +175,7 @@ const initDb = async () => {
         console.log('✅ [DB] Schema base e migrações verificados.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
-initDb();
+const dbReady = initDb();
 
 let activeBatches = {};
 const activeBatchesUserId = {}; // Para saber quem notificar
@@ -1890,6 +1891,18 @@ const adminApi = registerAdminRoutes({
     onTrash: (id) => trashedUsers.add(Number(id)),
     onRestore: (id) => trashedUsers.delete(Number(id)),
 });
+// Biblioteca de perfis compartilhados (publica na hora; denuncia avisa os admins; o admin esconde)
+const libraryApi = registerLibraryRoutes(app, {
+    pool, authenticateToken, requireAdmin, audit: auditLog,
+    onReport: async (profile) => {
+        try {
+            const [admins] = await pool.execute("SELECT id FROM users WHERE role = 'admin' AND deleted_at IS NULL");
+            for (const a of admins) sendPushToUser(pool, a.id, 'Perfil denunciado na biblioteca', `"${profile.name}": veja em Admin > Biblioteca`);
+        } catch (e) { console.error('Biblioteca (aviso):', e.message); }
+    },
+});
+dbReady.then(() => libraryApi.ensureTables()).catch(e => console.error('Biblioteca (tabelas):', e.message));
+
 // Retencao da telemetria (services/telemetryRetention.js): 1x por dia, 10 min depois de ligar.
 // TELEMETRY_RETENTION: 'on' aplica (padrao; ativado em 12/11/2026 apos conferencia) | 'dry' so conta | 'off'
 const retentionMode = process.env.TELEMETRY_RETENTION || 'on';
