@@ -20,7 +20,7 @@ on:
 
 jobs:
   consultar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Consultar na VPS
         uses: appleboy/ssh-action@v1.0.3
