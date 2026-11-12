@@ -101,3 +101,41 @@ test('um firmware por placa: s3-35 continua no endereco antigo e placa sem arqui
         await fs.rm(dir, { recursive: true, force: true });
     }
 });
+
+test('instalador: imagem completa por placa e manifest do ESP Web Tools', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'fw-'));
+    const app = express();
+    registerFirmwareRoutes(app, { firmwareDir: dir, uploadToken: TOKEN });
+    const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const publishUsb = (version, body, board) => fetch(`${base}/api/firmware/release`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Firmware-Version': version, 'X-Firmware-Board': board, 'X-Firmware-Image': 'usb', 'Content-Type': 'application/octet-stream' },
+        body
+    });
+    // ESP32 classico: bootloader em 0x1000 (antes, 0xFF); S3/C3: bootloader em 0x0
+    const classic = Buffer.alloc(5 * 1024 * 1024, 0xff); classic[0x1000] = 0xe9;
+    const c3 = Buffer.alloc(0x20000, 0xff); c3[0] = 0xe9;
+    try {
+        assert.equal((await fetch(`${base}/firmware/manifest/esp32-devkit.json`)).status, 404);
+        assert.equal((await publishUsb('2.9.0', Buffer.alloc(0x20000, 0xff), 'esp32-devkit')).status, 400); // sem bootloader
+        assert.equal((await publishUsb('2.9.0', classic, 'esp32-devkit')).status, 201);  // 5 MB: maior que o limite de OTA, ok no USB
+        assert.equal((await publishUsb('2.9.0', c3, 'c3-headless')).status, 201);
+
+        const m = await (await fetch(`${base}/firmware/manifest/esp32-devkit.json`)).json();
+        assert.equal(m.version, '2.9.0');
+        assert.equal(m.builds[0].chipFamily, 'ESP32');
+        assert.equal(m.builds[0].parts[0].path, '/firmware/install/esp32-devkit.bin');
+        assert.equal((await (await fetch(`${base}/firmware/manifest/c3-headless.json`)).json()).builds[0].chipFamily, 'ESP32-C3');
+
+        const dl = await fetch(`${base}/firmware/install/esp32-devkit.bin`);
+        assert.equal(dl.status, 200);
+        assert.equal(Buffer.from(await dl.arrayBuffer()).length, classic.length);
+        // A imagem do instalador nao vira OTA: o update.bin da placa continua inexistente
+        assert.equal((await fetch(`${base}/firmware/update.bin?board=esp32-devkit`)).status, 404);
+        assert.equal((await fetch(`${base}/firmware/manifest/uno.json`)).status, 404);
+    } finally {
+        server.close();
+        await fs.rm(dir, { recursive: true, force: true });
+    }
+});
