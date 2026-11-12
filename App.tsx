@@ -12,6 +12,7 @@ import { isFirmwareUpdateAvailable } from './services/firmware';
 import { isOtaFinal } from './services/otaSession';
 import { OtaProgressModal } from './components/OtaProgressModal';
 import { useAuth } from './context/AuthContext';
+import { Privacy, Terms } from './components/Legal';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useFermenters } from './hooks/useFermenters';
@@ -82,7 +83,7 @@ const NavConfig = () => {
     if (role === 'admin') return null;
 
     // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/login', '/register', '/app-login', '/instalar', '/ajuda'];
+    const publicRoutes = ['/login', '/register', '/app-login', '/instalar', '/ajuda', '/privacidade', '/termos'];
     if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
@@ -451,6 +452,8 @@ const AppRoutes = () => {
                     {/* Instalador do firmware pelo navegador (publico) */}
                     <Route path="/instalar" element={<Installer />} />
                     <Route path="/ajuda" element={<Help />} />
+                    <Route path="/privacidade" element={<Privacy />} />
+                    <Route path="/termos" element={<Terms />} />
 
                     {/* Protected App Routes */}
                     <Route path="/*" element={

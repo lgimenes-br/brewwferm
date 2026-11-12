@@ -155,6 +155,11 @@ export const Register: React.FC = () => {
               </>
             )}
           </button>
+          <p className="mt-4 text-center text-xs leading-relaxed text-neutral-500">
+            Ao criar a conta, você concorda com os{' '}
+            <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-neutral-300 underline underline-offset-2">termos de uso</a>{' '}e a{' '}
+            <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-neutral-300 underline underline-offset-2">política de privacidade</a>.
+          </p>
         </form>
 
         <div className="mt-6 text-center pt-6 border-t border-neutral-800/80">

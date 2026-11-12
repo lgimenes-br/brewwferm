@@ -36,7 +36,11 @@ export const SiteFooter: React.FC = () => (
                 <Link to="/login" className="hover:text-white">Entrar</Link>
                 <Link to="/register" className="hover:text-white">Criar conta</Link>
             </nav>
-            <p className="text-sm">© {new Date().getFullYear()} Breww</p>
+            <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                <span>© {new Date().getFullYear()} Breww</span>
+                <Link to="/privacidade" className="hover:text-white">Privacidade</Link>
+                <Link to="/termos" className="hover:text-white">Termos</Link>
+            </p>
         </div>
     </footer>
 );

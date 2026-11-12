@@ -435,7 +435,7 @@ export const registerAdminRoutes = ({
     app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) => {
         try {
             const safeLimit = 100;
-            const [logs] = await pool.execute(`SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT ${safeLimit}`);
+            const [logs] = await pool.execute(`SELECT a.*, u.name as user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id WHERE a.action <> 'ACCESS' ORDER BY a.created_at DESC LIMIT ${safeLimit}`);
             res.json(logs);
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });

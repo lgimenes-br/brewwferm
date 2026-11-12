@@ -799,6 +799,20 @@ const auditLog = async (req, action, details) => {
     } catch (e) { console.error('Auditoria:', e.message); }
 };
 
+// Registro de acesso (Marco Civil, art. 15: IP e horario de uso guardados por 6 meses ou mais).
+// Um registro por usuario por hora, ou quando o IP muda; apagado depois de 12 meses (tarefa diaria).
+const accessSeen = new Map();
+const logAccess = (req) => {
+    const id = Number(req.user?.id); if (!id) return;
+    const ip = req.ip || null, now = Date.now(), prev = accessSeen.get(id);
+    if (prev && prev.ip === ip && now - prev.t < 3600e3) return;
+    accessSeen.set(id, { ip, t: now });
+    pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [id, 'ACCESS', String(req.path || '').slice(0, 120), ip]).catch(() => {});
+};
+setInterval(() => {
+    pool.execute("DELETE FROM audit_logs WHERE action = 'ACCESS' AND created_at < NOW() - INTERVAL 12 MONTH").catch(e => console.error('Registro de acesso:', e.message));
+}, 24 * 60 * 60 * 1000).unref();
+
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -807,6 +821,7 @@ const authenticateToken = (req, res, next) => {
         if (err) return res.sendStatus(403);
         if (trashedUsers.has(Number(user?.id))) return res.status(401).json({ error: 'Conta desativada' });
         req.user = user;
+        logAccess(req);
         next();
     });
 };
@@ -1027,6 +1042,30 @@ app.post('/api/me/password', authRateLimiter, authenticateToken, async (req, res
         res.json({ ok: true });
     } catch (err) {
         console.error('me password:', err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+});
+
+// Excluir a propria conta (LGPD e exigencia das lojas): vai para a lixeira de 30 dias (como a do admin)
+// e depois e apagada de vez. Conta com senha confirma com a senha; conta so do Google/Apple digita EXCLUIR.
+app.delete('/api/me', authRateLimiter, authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, email, role, password_hash FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1', [req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+        const u = rows[0];
+        if (u.role === 'admin') return res.status(400).json({ error: 'Conta de administrador: peça a outro admin para excluir.' });
+        const hash = String(u.password_hash || '');
+        if (hasRealPassword(hash)) {
+            if (!(await bcrypt.compare(String(req.body?.password ?? ''), hash))) return res.status(400).json({ error: 'Senha incorreta.' });
+        } else if (String(req.body?.confirm ?? '').trim().toUpperCase() !== 'EXCLUIR') {
+            return res.status(400).json({ error: 'Digite EXCLUIR para confirmar.' });
+        }
+        await pool.execute('UPDATE users SET deleted_at = NOW() WHERE id = ?', [u.id]);
+        trashedUsers.add(Number(u.id));
+        await auditLog(req, 'SELF_DELETE', `Conta ${u.id} excluida pelo proprio usuario (lixeira de 30 dias)`);
+        res.json({ ok: true, message: 'Conta excluída. Os dados são apagados de vez em 30 dias.' });
+    } catch (err) {
+        console.error('me delete:', err);
         res.status(500).json({ error: 'Erro interno no servidor' });
     }
 });
