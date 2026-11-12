@@ -1,10 +1,18 @@
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { ReactNode, Suspense } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+
+// Home de vendas para quem chega em "/" sem login (carregada so nesse caso)
+const Landing = React.lazy(() => import('./Landing'));
 import { useAuth } from '../context/AuthContext';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
     const { token } = useAuth();
+    const location = useLocation();
     if (!token) {
+        const pairing = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pair');
+        if (location.pathname === '/' && !pairing) {
+            return <Suspense fallback={<div className="min-h-screen bg-[#EEEFF1]" />}><Landing /></Suspense>;
+        }
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const pairCode = params.get('pair');

@@ -30,3 +30,35 @@
     font-size: 16px !important;
   }
 }
+
+/* ---- Home de vendas (components/Landing.tsx) ---- */
+.brew-landing {
+  --bg: #EEEFF1;
+  --ink: #0B0D12;
+  --card: #181C25;
+  --accent: #71FC8F;
+  --muted: #565A63; /* #6B6F78 da marca escurecido para 4.5:1 no fundo claro */
+  --font-display: 'Inter Tight', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+.brew-landing :focus-visible { outline-color: #0B0D12; }
+.landing-mark {
+  background: linear-gradient(transparent 40%, var(--accent) 40%, var(--accent) 92%, transparent 92%);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 0.06em;
+  border-radius: 0.1em;
+}
+
+/* Entrada unica: texto sobe, depois o celular; a curva se desenha uma vez */
+@keyframes landing-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes landing-draw { from { stroke-dashoffset: 520; } to { stroke-dashoffset: 0; } }
+@keyframes landing-fade { from { opacity: 0; } to { opacity: 1; } }
+.landing-rise { animation: landing-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.landing-rise-late { animation: landing-rise 0.9s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.landing-curve { stroke-dasharray: 520; animation: landing-draw 2.2s 0.6s ease-out both; }
+.landing-curve-fill, .landing-curve-dot { animation: landing-fade 0.8s 2.4s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  /* sem animacao nenhuma: nada fica invisivel esperando um atraso */
+  .landing-rise, .landing-rise-late, .landing-curve, .landing-curve-fill, .landing-curve-dot { animation: none !important; }
+}
