@@ -217,6 +217,7 @@ export const Installer: React.FC = () => {
                             )}
                             <p className="mt-6 text-sm leading-relaxed text-[var(--muted)]">
                                 Alimente os sensores no 3,3 V e todos os GND juntos. Dois DS18B20 podem dividir o mesmo pino.
+                                {board.id === 's3-35' && ' Montou o cabo e inverteu os fios do DS18B20 e do DHT22 no JST 4P? A placa percebe e troca sozinha.'}
                             </p>
                         </div>
                         <div className="space-y-4">
