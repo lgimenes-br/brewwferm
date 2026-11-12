@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { exec } from 'child_process';
 import util from 'util';
 import { deviceRegistry } from '../services/deviceRegistry.js';
+import { maxDevicesFor } from '../services/plans.js';
 
 /**
  * Resumo da frota para o admin. rows: { board, firmware_version, hw_modules (JSON), online }.
@@ -91,7 +92,7 @@ export const registerAdminRoutes = ({
     app.put('/api/admin/users/:id/plan', authenticateToken, requireAdmin, async (req, res) => {
         try {
             const plan_type = req.body?.plan_type === 'premium' ? 'premium' : 'free';
-            const max_devices = plan_type === 'premium' ? 9999 : 1;
+            const max_devices = maxDevicesFor(plan_type);
             await pool.execute('UPDATE users SET plan_type = ?, max_devices = ? WHERE id = ?', [plan_type, max_devices, req.params.id]);
             await audit(req, 'CHANGE_PLAN', `Conta ${req.params.id}: plano ${plan_type}`);
             res.json({ message: 'Plano atualizado' });

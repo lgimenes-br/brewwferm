@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { sanitizeCarry } from '../services/carrySettings.js';
 import { deviceRegistry } from '../services/deviceRegistry.js';
+import { FREE_MAX_DEVICES, deviceLimitMessage } from '../services/plans.js';
 
 // ============================================================================
 // Pareamento seguro de aparelhos
@@ -320,7 +321,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 return res.status(409).json({ status: 'conflict' });
             }
             const [userRows] = await pool.execute('SELECT max_devices FROM users WHERE id = ?', [pairing.userId]);
-            const maxDevices = userRows[0]?.max_devices ?? 1;
+            const maxDevices = userRows[0]?.max_devices ?? FREE_MAX_DEVICES;
             const [[{ count }]] = await pool.execute('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [pairing.userId]);
             if (!userRows.length || count >= maxDevices) {
                 store.resolve(pairing.id, 'limit');
@@ -363,7 +364,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
         try {
             const [userRows] = await pool.execute('SELECT email, max_devices FROM users WHERE id = ?', [req.user.id]);
             if (userRows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
-            const maxDevices = userRows[0].max_devices ?? 1;
+            const maxDevices = userRows[0].max_devices ?? FREE_MAX_DEVICES;
             const [[{ count }]] = await pool.execute('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [req.user.id]);
 
             const pairCode = normalizePairCode(req.body?.pairCode);
@@ -388,7 +389,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 }
                 mode = 'rekey';
             } else if (count >= maxDevices) {
-                return res.status(403).json({ error: 'Limite de equipamentos atingido. Atualize seu plano.' });
+                return res.status(403).json({ error: deviceLimitMessage(maxDevices) });
             }
 
             // Qual chave do aparelho passa a valer (codigo ou mesma internet; ver resolveUnclaimedKey)

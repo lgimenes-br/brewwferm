@@ -362,3 +362,17 @@ test('substituir aparelho: achado na mesma rede; placa com dono ou ausente e rec
     }
 });
 
+
+test('limite do plano: com a conta cheia, recusa com a mensagem do limite (e nao vincula)', async () => {
+    const { server, call, pool, announce } = await startServer();
+    try {
+        pool.db.devices.push({ serial_code: '111111111111', user_id: 1 }, { serial_code: '222222222222', user_id: 1 });
+        await announce(KEY);
+        const r = await call('POST', '/api/devices', { user: 1, body: { serialCode: SERIAL, pairCode: derivePairCode(KEY) } });
+        assert.equal(r.status, 403);
+        assert.match(r.body.error, /já tem 2 aparelhos, o limite do seu plano/);
+        assert.equal(pool.db.devices.length, 2);
+    } finally {
+        server.close();
+    }
+});

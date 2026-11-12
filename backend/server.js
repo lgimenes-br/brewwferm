@@ -16,6 +16,7 @@ const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
 import { deviceRegistry } from './services/deviceRegistry.js';
 import { runTelemetryRetention } from './services/telemetryRetention.js';
+import { FREE_MAX_DEVICES } from './services/plans.js';
 import { buildCarryCommands } from './services/carrySettings.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
@@ -91,7 +92,7 @@ const runMigration = async (sql) => {
 
 const initDb = async () => {
     try {
-        await pool.execute(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', plan_type ENUM('free', 'premium') DEFAULT 'free', max_devices INT DEFAULT 1, lat FLOAT DEFAULT NULL, lon FLOAT DEFAULT NULL, brewfather_webhook_url VARCHAR(255) DEFAULT NULL, alert_config JSON DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', plan_type ENUM('free', 'premium') DEFAULT 'free', max_devices INT DEFAULT ${FREE_MAX_DEVICES}, lat FLOAT DEFAULT NULL, lon FLOAT DEFAULT NULL, brewfather_webhook_url VARCHAR(255) DEFAULT NULL, alert_config JSON DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS devices (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, serial_code VARCHAR(100) NOT NULL UNIQUE, device_name VARCHAR(100), sensor1_name VARCHAR(50) DEFAULT 'Fermentador', sensor2_name VARCHAR(50) DEFAULT 'Geladeira', sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade', chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp', firmware_version VARCHAR(20) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS device_keys (serial_code VARCHAR(100) PRIMARY KEY, key_hash CHAR(64) NOT NULL, last_public_ip VARCHAR(64) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
         // Chaves ainda nao confirmadas no aparelho (pareamento seguro; ver routes/pairingRoutes.js)
@@ -121,6 +122,9 @@ const initDb = async () => {
         await runMigration('ALTER TABLE telemetry ADD COLUMN extra_sensors JSON');
         await runMigration('ALTER TABLE users ADD COLUMN plan_type ENUM("free", "premium") DEFAULT "free"');
         await runMigration('ALTER TABLE users ADD COLUMN max_devices INT DEFAULT 1');
+        // Plano gratis: ate FREE_MAX_DEVICES aparelhos (era 1). Contas novas pelo padrao da coluna; as gratis existentes sobem.
+        await runMigration(`ALTER TABLE users ALTER COLUMN max_devices SET DEFAULT ${FREE_MAX_DEVICES}`);
+        await runMigration(`UPDATE users SET max_devices = ${FREE_MAX_DEVICES} WHERE plan_type = 'free' AND (max_devices IS NULL OR max_devices < ${FREE_MAX_DEVICES})`);
         await runMigration('ALTER TABLE telemetry ADD COLUMN rssi INT DEFAULT NULL');
         await runMigration('ALTER TABLE users ADD COLUMN lat FLOAT DEFAULT NULL');
         await runMigration('ALTER TABLE users ADD COLUMN lon FLOAT DEFAULT NULL');
@@ -982,7 +986,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
             // Conta criada pelo Google tem uma senha interna aleatoria (nao serve para login por e-mail)
             hasPassword: hasRealPassword(u.password_hash),
             plan: u.plan_type || 'free',
-            maxDevices: Number(u.max_devices ?? 1),
+            maxDevices: Number(u.max_devices ?? FREE_MAX_DEVICES),
             deviceCount: Number(u.device_count ?? 0),
             createdAt: u.created_at,
         });

@@ -231,7 +231,7 @@ export const Landing: React.FC = () => {
                         <div className="mx-auto max-w-2xl text-center">
                             <p className="text-sm font-medium text-[var(--muted)]">Preços</p>
                             <h2 className="mt-2 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em] sm:text-5xl">Grátis durante o lançamento.</h2>
-                            <p className="mt-4 text-lg text-[var(--muted)]">Use tudo sem pagar nada enquanto o Breww cresce com a comunidade.</p>
+                            <p className="mt-4 text-lg text-[var(--muted)]">Use tudo sem pagar nada, com até 3 fermentadores, enquanto o Breww cresce com a comunidade.</p>
                         </div>
                         <div className="mx-auto mt-12 grid max-w-4xl gap-4 md:grid-cols-2">
                             <div className="rounded-3xl bg-[var(--ink)] p-8 text-white">
@@ -241,7 +241,7 @@ export const Landing: React.FC = () => {
                                 </div>
                                 <p className="mt-6 flex items-baseline gap-1"><span className="[font-family:var(--font-display)] text-6xl font-light tracking-[-0.04em]">R$ 0</span><span className="text-[#898E99]">/mês</span></p>
                                 <ul className="mt-8 space-y-3 text-[15px] text-[#c9ccd3]">
-                                    {['App iOS e Android', 'Perfis automáticos e alertas', 'Histórico de lotes', 'iSpindel, Brewfather e Telegram', 'Atualizações de firmware pelo app'].map(f => (
+                                    {['Até 3 fermentadores', 'App iOS e Android', 'Perfis automáticos e alertas', 'Histórico de lotes', 'iSpindel, Brewfather e Telegram', 'Atualizações de firmware pelo app'].map(f => (
                                         <li key={f} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{f}</li>
                                     ))}
                                 </ul>
@@ -253,7 +253,7 @@ export const Landing: React.FC = () => {
                                     <span className="rounded-full bg-[var(--bg)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">Em breve</span>
                                 </div>
                                 <p className="mt-6 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em]">Para quem produz mais.</p>
-                                <p className="mt-6 leading-relaxed text-[var(--muted)]">Recursos avançados para quem tem vários fermentadores e quer ir além. Quem já usa o Breww fica sabendo primeiro.</p>
+                                <p className="mt-6 leading-relaxed text-[var(--muted)]">Mais de 3 fermentadores e recursos avançados para quem quer ir além. Quem já usa o Breww fica sabendo primeiro.</p>
                             </div>
                         </div>
                     </div>

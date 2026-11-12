@@ -14,7 +14,7 @@ const FAILURE_TEXT: Record<Exclude<PairingStatus, 'pending' | 'confirmed'>, { ti
     expired: { title: 'Tempo esgotado', detail: 'Ninguém confirmou na tela do aparelho a tempo. Tente de novo com o aparelho por perto.' },
     superseded: { title: 'Pedido substituído', detail: 'Um novo pedido de vínculo foi feito para este aparelho.' },
     conflict: { title: 'Aparelho já vinculado', detail: 'Este aparelho já está vinculado a uma conta.' },
-    limit: { title: 'Limite de equipamentos atingido', detail: 'Atualize seu plano para adicionar mais aparelhos.' }
+    limit: { title: 'Limite de aparelhos atingido', detail: 'Sua conta já está no limite do plano (até 3 aparelhos no grátis). Remova um para adicionar outro.' }
 };
 
 export const PairingWaitModal: React.FC<PairingWaitModalProps> = ({ pairing, onConfirmed, onClose, pollMs = 2000 }) => {
