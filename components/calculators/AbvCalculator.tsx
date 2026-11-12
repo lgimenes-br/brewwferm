@@ -113,26 +113,26 @@ export const AbvCalculator: React.FC = () => {
                 <div className="space-y-6">
                     {/* Unit Toggle */}
                     <div>
-                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Unidade de Medida</span>
-                        <div className="flex bg-neutral-950 rounded-xl p-1 border border-neutral-800" role="group" aria-label="Unidade de medida">
+                        <span className="block text-xs font-bold text-[var(--muted)] mb-3">Unidade de Medida</span>
+                        <div className="flex bg-[var(--bg)] rounded-xl p-1 border border-black/[0.07]" role="group" aria-label="Unidade de medida">
                             <button 
                                 type="button"
                                 onClick={() => handleUnitToggle('SG')}
-                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'SG' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'SG' ? 'bg-[var(--bg)] text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
                             >
                                 Gravidade (SG)
                             </button>
                             <button 
                                 type="button"
                                 onClick={() => handleUnitToggle('Plato')}
-                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Plato' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Plato' ? 'bg-[var(--bg)] text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
                             >
                                 Graus Plato (°P)
                             </button>
                             <button 
                                 type="button"
                                 onClick={() => handleUnitToggle('Brix')}
-                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Brix' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${unit === 'Brix' ? 'bg-[var(--bg)] text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
                             >
                                 Brix
                             </button>
@@ -142,7 +142,7 @@ export const AbvCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* OG */}
                         <div>
-                            <label htmlFor="abv-og-input" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Gravity (OG)</label>
+                            <label htmlFor="abv-og-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Original Gravity (OG)</label>
                             <div className="relative">
                                 <input 
                                     id="abv-og-input"
@@ -150,15 +150,15 @@ export const AbvCalculator: React.FC = () => {
                                     step={unit === 'SG' ? "0.001" : "0.1"}
                                     value={ogInput}
                                     onChange={(e) => setOgInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-blue-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-blue-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : (unit === 'Plato' ? '°P' : 'Bx')}</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">{unit === 'SG' ? 'SG' : (unit === 'Plato' ? '°P' : 'Bx')}</span>
                             </div>
                         </div>
 
                         {/* FG */}
                         <div>
-                            <label htmlFor="abv-fg-input" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Final Gravity (FG)</label>
+                            <label htmlFor="abv-fg-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Final Gravity (FG)</label>
                             <div className="relative">
                                 <input 
                                     id="abv-fg-input"
@@ -166,66 +166,66 @@ export const AbvCalculator: React.FC = () => {
                                     step={unit === 'SG' ? "0.001" : "0.1"}
                                     value={fgInput}
                                     onChange={(e) => setFgInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-blue-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-blue-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">{unit === 'SG' ? 'SG' : (unit === 'Plato' ? '°P' : 'Bx')}</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">{unit === 'SG' ? 'SG' : (unit === 'Plato' ? '°P' : 'Bx')}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center gap-6">
+                <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-center gap-6">
                     
                     {/* Main ABV Result */}
                     <div className="text-center">
-                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Álcool por Volume</span>
-                        <div className="text-5xl font-black text-blue-400 tracking-tighter">
+                        <span className="block text-xs font-bold text-[var(--muted)] mb-2">Álcool por Volume</span>
+                        <div className="text-5xl font-semibold text-blue-600 tracking-tighter">
                             {results.abv.toFixed(1)}<span className="text-3xl text-blue-400/50">%</span>
                         </div>
-                        <span className="block text-xs text-neutral-500 mt-2">Álcool por Peso (ABW) {results.abw.toFixed(1)}%</span>
+                        <span className="block text-xs text-[var(--muted)] mt-2">Álcool por Peso (ABW) {results.abw.toFixed(1)}%</span>
                     </div>
 
                     {/* Extratos */}
-                    <div className="grid grid-cols-3 gap-2 border-t border-b border-neutral-800/50 py-4">
+                    <div className="grid grid-cols-3 gap-2 border-t border-b border-black/[0.07] py-4">
                         <div className="text-center">
-                            <span className="block text-[10px] font-bold text-neutral-600 uppercase tracking-widest mb-1">Ext. Original</span>
-                            <div className="text-sm font-bold text-white font-mono">{results.oe.toFixed(2)} °P</div>
+                            <span className="block text-[10px] font-bold text-black/40 mb-1">Ext. Original</span>
+                            <div className="text-sm font-bold text-[var(--ink)] font-mono">{results.oe.toFixed(2)} °P</div>
                         </div>
-                        <div className="text-center border-l border-r border-neutral-800/50 px-2">
-                            <span className="block text-[10px] font-bold text-neutral-600 uppercase tracking-widest mb-1">Ext. Aparente</span>
-                            <div className="text-sm font-bold text-white font-mono">{results.ae.toFixed(2)} °P</div>
+                        <div className="text-center border-l border-r border-black/[0.07] px-2">
+                            <span className="block text-[10px] font-bold text-black/40 mb-1">Ext. Aparente</span>
+                            <div className="text-sm font-bold text-[var(--ink)] font-mono">{results.ae.toFixed(2)} °P</div>
                         </div>
                         <div className="text-center">
-                            <span className="block text-[10px] font-bold text-neutral-600 uppercase tracking-widest mb-1">Ext. Real</span>
-                            <div className="text-sm font-bold text-white font-mono">{results.re.toFixed(2)} °P</div>
+                            <span className="block text-[10px] font-bold text-black/40 mb-1">Ext. Real</span>
+                            <div className="text-sm font-bold text-[var(--ink)] font-mono">{results.re.toFixed(2)} °P</div>
                         </div>
                     </div>
 
                     {/* Outras Infos */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex flex-col justify-center">
-                            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Calorias / Carb.</span>
-                            <div className="text-sm font-medium text-amber-400">
-                                {results.kcalPer100ml.toFixed(1)} <span className="text-xs text-neutral-500">kcal</span>
+                        <div className="bg-white rounded-xl p-3 border border-black/[0.07] flex flex-col justify-center">
+                            <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">Calorias / Carb.</span>
+                            <div className="text-sm font-medium text-[#b45309]">
+                                {results.kcalPer100ml.toFixed(1)} <span className="text-xs text-[var(--muted)]">kcal</span>
                             </div>
-                            <div className="text-xs text-neutral-500 mt-0.5">
+                            <div className="text-xs text-[var(--muted)] mt-0.5">
                                 / {results.kjPer100ml.toFixed(1)} kJ
                             </div>
-                            <div className="text-sm font-medium text-amber-400 mt-2">
-                                {results.carbsPer100ml.toFixed(1)} <span className="text-xs text-neutral-500">g carb.</span>
+                            <div className="text-sm font-medium text-[#b45309] mt-2">
+                                {results.carbsPer100ml.toFixed(1)} <span className="text-xs text-[var(--muted)]">g carb.</span>
                             </div>
-                            <span className="text-[9px] text-neutral-600 block mt-1">(por 100ml)</span>
+                            <span className="text-[9px] text-black/40 block mt-1">(por 100ml)</span>
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-1 flex flex-col justify-center">
-                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Aten. Aparente</span>
-                                <div className="text-lg font-bold text-white font-mono leading-none">{results.appAttenuation.toFixed(1)}%</div>
+                            <div className="bg-white rounded-xl p-3 border border-black/[0.07] flex-1 flex flex-col justify-center">
+                                <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">Aten. Aparente</span>
+                                <div className="text-lg font-bold text-[var(--ink)] font-mono leading-none">{results.appAttenuation.toFixed(1)}%</div>
                             </div>
-                            <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-1 flex flex-col justify-center">
-                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Aten. Real</span>
-                                <div className="text-lg font-bold text-white font-mono leading-none">{results.realAttenuation.toFixed(1)}%</div>
+                            <div className="bg-white rounded-xl p-3 border border-black/[0.07] flex-1 flex flex-col justify-center">
+                                <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">Aten. Real</span>
+                                <div className="text-lg font-bold text-[var(--ink)] font-mono leading-none">{results.realAttenuation.toFixed(1)}%</div>
                             </div>
                         </div>
                     </div>

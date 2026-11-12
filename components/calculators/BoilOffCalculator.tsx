@@ -85,128 +85,128 @@ export const BoilOffCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* Current Grav */}
                         <div>
-                            <label htmlFor="boil-current-grav" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Atual</label>
+                            <label htmlFor="boil-current-grav" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Densidade Atual</label>
                             <div className="relative">
                                 <input 
                                     id="boil-current-grav"
                                     type="number" step="0.001" value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">SG</span>
                             </div>
                         </div>
 
                         {/* Target Grav */}
                         <div>
-                            <label htmlFor="boil-target-grav" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Alvo</label>
+                            <label htmlFor="boil-target-grav" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Densidade Alvo</label>
                             <div className="relative">
                                 <input 
                                     id="boil-target-grav"
                                     type="number" step="0.001" value={targetGravInput} onChange={(e) => setTargetGravInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">SG</span>
                             </div>
                         </div>
 
                         {/* Current Vol */}
                         <div>
-                            <label htmlFor="boil-current-vol" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume Atual</label>
+                            <label htmlFor="boil-current-vol" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Volume Atual</label>
                             <div className="relative">
                                 <input 
                                     id="boil-current-vol"
                                     type="number" step="1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">L</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">L</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
+                    <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-5 space-y-4">
                         <div>
-                            <label htmlFor="boil-extract-type" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Qual Adição Usar?</label>
+                            <label htmlFor="boil-extract-type" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Qual Adição Usar?</label>
                             <select 
                                 id="boil-extract-type"
                                 value={extractType} onChange={(e) => setExtractType(e.target.value as any)} 
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                                className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] text-sm focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
                             >
-                                <option value="DME" className="bg-neutral-900">Extrato de Malte Seco (DME)</option>
-                                <option value="LME" className="bg-neutral-900">Extrato de Malte Líquido (LME)</option>
-                                <option value="Sugar" className="bg-neutral-900">Açúcar de Mesa / Dextrose</option>
+                                <option value="DME" className="bg-white">Extrato de Malte Seco (DME)</option>
+                                <option value="LME" className="bg-white">Extrato de Malte Líquido (LME)</option>
+                                <option value="Sugar" className="bg-white">Açúcar de Mesa / Dextrose</option>
                             </select>
                         </div>
                     </div>
 
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-6">
-                        <label className="flex items-center gap-3 text-neutral-300 text-sm cursor-pointer select-none">
+                    <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-5 space-y-6">
+                        <label className="flex items-center gap-3 text-[#2b2f37] text-sm cursor-pointer select-none">
                             <input 
                                 type="checkbox" checked={calcBoil} onChange={(e) => setCalcBoil(e.target.checked)} 
-                                className="w-4 h-4 rounded bg-neutral-800 border-neutral-700 text-cyan-500 focus:ring-0" 
+                                className="w-4 h-4 rounded bg-[var(--bg)] border-black/15 text-cyan-500 focus:ring-0" 
                             />
                             Calcular extensão da fervura?
                         </label>
 
                         <div>
-                            <label htmlFor="boil-off-rate" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Evaporação do Equipamento</label>
+                            <label htmlFor="boil-off-rate" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Evaporação do Equipamento</label>
                             <div className="relative">
                                 <input 
                                     id="boil-off-rate"
                                     type="number" step="1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)} disabled={!calcBoil}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs uppercase">L/hora</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs ">L/hora</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
+                <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-center">
                     
                     {results.isDilution ? (
                         <>
                             <div className="text-center mb-8">
-                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Diluição Necessária</span>
-                                <div className="text-6xl font-black text-cyan-400 tracking-tighter mb-2">
-                                    +{results.diluteNeeded.toFixed(2)}<span className="text-2xl text-cyan-400/50 ml-1">L</span>
+                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">Diluição Necessária</span>
+                                <div className="text-6xl font-semibold text-cyan-700 tracking-tighter mb-2">
+                                    +{results.diluteNeeded.toFixed(2)}<span className="text-2xl text-cyan-700/70 ml-1">L</span>
                                 </div>
-                                <div className="text-sm font-bold text-white">de Água Purificada</div>
+                                <div className="text-sm font-bold text-[var(--ink)]">de Água Purificada</div>
                             </div>
 
-                            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                                <span className="block text-xs text-neutral-400">
+                            <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
+                                <span className="block text-xs text-[var(--muted)]">
                                     Adicione essa quantidade de água para baixar a densidade de <strong>{currentGravInput}</strong> para <strong>{targetGravInput}</strong>.
                                 </span>
                             </div>
                         </>
                     ) : (
                         <>
-                            <div className="text-center mb-6 border-b border-neutral-800/50 pb-6">
-                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Adição de {extractType}</span>
-                                <div className="text-5xl font-black text-amber-400 tracking-tighter mb-2">
-                                    +{results.extractNeeded.toFixed(1)}<span className="text-2xl text-amber-400/50 ml-1">g</span>
+                            <div className="text-center mb-6 border-b border-black/[0.07] pb-6">
+                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">Adição de {extractType}</span>
+                                <div className="text-5xl font-semibold text-[#b45309] tracking-tighter mb-2">
+                                    +{results.extractNeeded.toFixed(1)}<span className="text-2xl text-[#b45309]/70 ml-1">g</span>
                                 </div>
-                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                                <div className="text-[10px] text-[var(--muted)] font-bold">
                                     Para atingir {targetGravInput} sem ferver a mais
                                 </div>
                             </div>
 
                             <div className="text-center mb-6">
-                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">OU: Evaporação por Fervura</span>
-                                <div className="text-5xl font-black text-cyan-400 tracking-tighter mb-2">
-                                    -{results.evapNeeded.toFixed(2)}<span className="text-2xl text-cyan-400/50 ml-1">L</span>
+                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">OU: Evaporação por Fervura</span>
+                                <div className="text-5xl font-semibold text-cyan-700 tracking-tighter mb-2">
+                                    -{results.evapNeeded.toFixed(2)}<span className="text-2xl text-cyan-700/70 ml-1">L</span>
                                 </div>
-                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                                <div className="text-[10px] text-[var(--muted)] font-bold">
                                     Volume de água a ser evaporado
                                 </div>
                             </div>
 
                             {calcBoil && (
-                                <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
+                                <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
                                     <div className="flex justify-between items-center py-1">
-                                        <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest">Estender a Fervura em</span>
-                                        <span className="font-mono font-bold text-white text-lg">+{results.boilTimeMins.toFixed(0)} mins</span>
+                                        <span className="text-xs text-[var(--muted)] font-bold ">Estender a Fervura em</span>
+                                        <span className="font-mono font-bold text-[var(--ink)] text-lg">+{results.boilTimeMins.toFixed(0)} mins</span>
                                     </div>
                                 </div>
                             )}

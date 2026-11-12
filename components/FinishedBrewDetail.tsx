@@ -185,7 +185,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         import('html2canvas'),
         import('jspdf')
       ]);
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' });
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#EEEFF1' });
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -257,20 +257,20 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   };
 
   return (
-    <div id="pdf-content" className="p-6 md:px-10 w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16 bg-[#0a0a0a] min-h-screen text-white">
+    <div id="pdf-content" className="p-6 md:px-10 w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16 bg-[var(--bg)] min-h-screen text-[var(--ink)]">
       <div className="flex justify-end items-center mb-8 no-print">
         <div className="flex items-center gap-3">
           <button
             onClick={handleShare}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-xl border border-neutral-800 transition-all text-xs font-bold uppercase tracking-wider"
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-[var(--bg)] text-[#2b2f37] hover:text-[var(--ink)] rounded-xl border border-black/[0.07] transition-all text-xs font-bold "
           >
-            {copied ? <CheckCircle size={14} className="text-green-500" /> : <Share2 size={14} />}
+            {copied ? <CheckCircle size={14} className="text-[#178a3f]" /> : <Share2 size={14} />}
             {copied ? 'Copiado' : 'Compartilhar'}
           </button>
 
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-white text-black rounded-xl transition-all text-xs font-bold uppercase tracking-wider"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-xl transition-all text-xs font-bold "
           >
             <FileDown size={14} />
             Exportar PDF
@@ -281,14 +281,14 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       {/* Hero Section */}
       <div className="mb-12">
         <div className="flex items-center gap-3 mb-2">
-          <span className="text-neutral-500 text-sm font-mono tracking-widest">{brew.batchNumber}</span>
-          <span className="h-px w-8 bg-neutral-800"></span>
-          <span className="text-neutral-500 text-sm font-light">{brew.endDate ? new Date(brew.endDate).toLocaleDateString() : 'Em andamento'}</span>
+          <span className="text-[var(--muted)] text-sm font-mono ">{brew.batchNumber}</span>
+          <span className="h-px w-8 bg-[var(--bg)]"></span>
+          <span className="text-[var(--muted)] text-sm font-light">{brew.endDate ? new Date(brew.endDate).toLocaleDateString() : 'Em andamento'}</span>
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-2">{brew.beerName || 'Sem Nome'}</h1>
-            <span className="inline-block px-3 py-1 bg-neutral-900 text-neutral-400 rounded-md text-sm border border-neutral-800">
+            <h1 className="text-5xl md:text-6xl font-semibold text-[var(--ink)] tracking-tighter mb-2">{brew.beerName || 'Sem Nome'}</h1>
+            <span className="inline-block px-3 py-1 bg-white text-[var(--muted)] rounded-md text-sm border border-black/[0.07]">
               {brew.style}
             </span>
           </div>
@@ -298,7 +298,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               <Award
                 key={i}
                 size={20}
-                className={i < (brew.rating || 0) ? "text-white fill-white/20" : "text-neutral-800"}
+                className={i < (brew.rating || 0) ? "text-[var(--ink)] fill-white/20" : "text-black/30"}
               />
             ))}
           </div>
@@ -308,9 +308,9 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       {/* Stats Grid - Matching Reference */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {/* Duração */}
-        <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Duração</span>
-          <span className="text-xl font-mono text-orange-500 font-medium">
+        <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
+          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">Duração</span>
+          <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {(() => {
               const start = new Date(brew.startDate).getTime();
               const end = brew.endDate ? new Date(brew.endDate).getTime() : Date.now();
@@ -324,63 +324,63 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         </div>
 
         {/* ABV Est. */}
-        <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">ABV Est.</span>
-          <span className="text-xl font-mono text-green-500 font-medium">
+        <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
+          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">ABV Est.</span>
+          <span className="text-xl font-mono text-[#178a3f] font-medium">
             {displayAbv.toFixed(1)}%
           </span>
         </div>
 
         {/* OG Inicial */}
-        <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">OG Inicial</span>
-          <span className="text-xl font-mono text-white font-medium">
+        <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
+          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">OG Inicial</span>
+          <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {normOg.toFixed(3)}
           </span>
         </div>
 
         {/* FG Final */}
-        <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">FG Final</span>
-          <span className="text-xl font-mono text-white font-medium">
+        <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
+          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">FG Final</span>
+          <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {normFg.toFixed(3)}
           </span>
         </div>
 
         {/* Max Temp */}
-        <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Máx Temp</span>
-          <span className="text-xl font-mono text-red-500 font-medium">
+        <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
+          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">Máx Temp</span>
+          <span className="text-xl font-mono text-[#d63a4d] font-medium">
             {maxTempFormatted}°C
           </span>
         </div>
 
         {/* Min Temp */}
-        <div className="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold mb-1">Min Temp</span>
-          <span className="text-xl font-mono text-blue-500 font-medium">
+        <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
+          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">Min Temp</span>
+          <span className="text-xl font-mono text-blue-600 font-medium">
             {minTempFormatted}°C
           </span>
         </div>
       </div>
       {/* Notes Quote */}
       {brew.notes && (
-        <div className="relative bg-neutral-900/20 rounded-2xl p-8 mb-12 border border-neutral-800/50">
-          <Quote className="absolute top-6 left-6 text-neutral-800 transform -scale-x-100 opacity-50" size={48} />
-          <p className="relative z-10 text-xl font-light text-neutral-300 italic text-center max-w-3xl mx-auto leading-relaxed">
+        <div className="relative bg-white rounded-2xl p-8 mb-12 border border-black/[0.07]">
+          <Quote className="absolute top-6 left-6 text-black/30 transform -scale-x-100 opacity-50" size={48} />
+          <p className="relative z-10 text-xl font-light text-[#2b2f37] italic text-center max-w-3xl mx-auto leading-relaxed">
             "{brew.notes}"
           </p>
         </div>
       )}
 
       {/* Tabs */}
-      <div role="tablist" className="flex gap-4 border-b border-neutral-800 mb-8 mt-12 no-print">
+      <div role="tablist" className="flex gap-4 border-b border-black/[0.07] mb-8 mt-12 no-print">
         <button 
           type="button"
           role="tab"
           aria-selected={activeTab === 'telemetry'}
           onClick={() => setActiveTab('telemetry')}
-          className={`pb-4 px-4 text-sm font-bold uppercase tracking-widest transition-colors ${activeTab === 'telemetry' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+          className={`pb-4 px-4 text-sm font-bold transition-colors ${activeTab === 'telemetry' ? 'text-[var(--ink)] border-b-2 border-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
         >
           Telemetria
         </button>
@@ -389,53 +389,53 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           role="tab"
           aria-selected={activeTab === 'recipe'}
           onClick={() => setActiveTab('recipe')}
-          className={`pb-4 px-4 text-sm font-bold uppercase tracking-widest transition-colors ${activeTab === 'recipe' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+          className={`pb-4 px-4 text-sm font-bold transition-colors ${activeTab === 'recipe' ? 'text-[var(--ink)] border-b-2 border-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
         >
           Receita & Ingredientes
         </button>
       </div>
 
       {activeTab === 'recipe' ? (
-        <div className="bg-neutral-900/20 rounded-2xl p-8 border border-neutral-800/50">
+        <div className="bg-white rounded-2xl p-8 border border-black/[0.07]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
             <div>
-              <label htmlFor="brew-malts-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Maltes / Fermentáveis</label>
+              <label htmlFor="brew-malts-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Maltes / Fermentáveis</label>
               <textarea 
                 id="brew-malts-input"
                 value={ingredients.malts}
                 onChange={e => setIngredients({...ingredients, malts: e.target.value})}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
+                className="w-full bg-white border border-black/[0.07] rounded-xl p-4 text-[var(--ink)] min-h-[120px] focus:outline-none focus:border-[var(--ink)] transition-colors"
                 placeholder="Ex: 5kg Pilsen, 500g Caramunich..."
               />
             </div>
             <div>
-              <label htmlFor="brew-hops-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Lúpulos</label>
+              <label htmlFor="brew-hops-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Lúpulos</label>
               <textarea 
                 id="brew-hops-input"
                 value={ingredients.hops}
                 onChange={e => setIngredients({...ingredients, hops: e.target.value})}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
+                className="w-full bg-white border border-black/[0.07] rounded-xl p-4 text-[var(--ink)] min-h-[120px] focus:outline-none focus:border-[var(--ink)] transition-colors"
                 placeholder="Ex: 20g Citra (60 min), 50g Mosaic (Dry Hop)..."
               />
             </div>
           </div>
           <div className="mb-6">
-            <label htmlFor="brew-yeast-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Levedura</label>
+            <label htmlFor="brew-yeast-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Levedura</label>
             <input 
               id="brew-yeast-input"
               value={ingredients.yeast}
               onChange={e => setIngredients({...ingredients, yeast: e.target.value})}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full bg-white border border-black/[0.07] rounded-xl p-4 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition-colors"
               placeholder="Ex: US-05 Fermentis"
             />
           </div>
           <div className="mb-8">
-            <label htmlFor="brew-notes-input" className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Anotações do Lote</label>
+            <label htmlFor="brew-notes-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Anotações do Lote</label>
             <textarea 
               id="brew-notes-input"
               value={ingredients.notes}
               onChange={e => setIngredients({...ingredients, notes: e.target.value})}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-white min-h-[120px] focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full bg-white border border-black/[0.07] rounded-xl p-4 text-[var(--ink)] min-h-[120px] focus:outline-none focus:border-[var(--ink)] transition-colors"
               placeholder="Ex: Mostura a 65°C por 60 minutos, fervura vigorosa..."
             />
           </div>
@@ -443,7 +443,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           <button 
             onClick={saveIngredients}
             disabled={savingIng}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-black px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-sm transition-colors no-print"
+            className="flex items-center gap-2 bg-[var(--ink)] hover:bg-black text-black px-6 py-3 rounded-xl font-bold text-sm transition-colors no-print"
           >
             {savingIng ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
             Salvar Receita
@@ -452,38 +452,38 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       ) : (
         <>
           {loading ? (
-            <div className="p-12 text-center text-neutral-500">
+            <div className="p-12 text-center text-[var(--muted)]">
               <Loader2 className="animate-spin mx-auto mb-2" />
               Carregando dados de telemetria...
             </div>
           ) : fetchError ? (
             <div role="alert" className="p-10 text-center bg-red-500/5 rounded-2xl border border-red-500/20 flex flex-col items-center">
-              <AlertTriangle className="text-red-400 mb-3" size={28} />
-              <p className="text-red-300 font-bold mb-1">Erro ao carregar telemetria</p>
-              <p className="text-neutral-400 text-sm mb-4">{fetchError}</p>
+              <AlertTriangle className="text-[#d63a4d] mb-3" size={28} />
+              <p className="text-[#d63a4d] font-bold mb-1">Erro ao carregar telemetria</p>
+              <p className="text-[var(--muted)] text-sm mb-4">{fetchError}</p>
               <button
                 type="button"
                 onClick={() => setRetryCount(c => c + 1)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 text-xs font-bold uppercase tracking-wider transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[var(--bg)] text-[var(--ink)] border border-black/15 text-xs font-bold transition-colors"
               >
                 <RefreshCw size={14} /> Tentar novamente
               </button>
             </div>
           ) : readings.length === 0 ? (
-            <div className="p-12 text-center bg-neutral-900/20 rounded-2xl border border-neutral-800 border-dashed">
-              <p className="text-neutral-500 mb-2">📊 Sem dados de telemetria disponíveis</p>
-              <p className="text-neutral-600 text-sm">
+            <div className="p-12 text-center bg-white rounded-2xl border border-black/[0.07] border-dashed">
+              <p className="text-[var(--muted)] mb-2">📊 Sem dados de telemetria disponíveis</p>
+              <p className="text-black/40 text-sm">
                 Este lote não possui registros de temperatura e gravidade salvos durante a fermentação.
               </p>
             </div>
           ) : (
             <>
-              <div className="mb-4 text-center text-neutral-600 text-xs">
+              <div className="mb-4 text-center text-black/40 text-xs">
                 {readings.length} leituras de telemetria carregadas
               </div>
               <div className="grid grid-cols-1 gap-8 min-w-0">
                 <div className="space-y-4 min-w-0">
-                  <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Perfil de Temperatura</h3>
+                  <h3 className="text-[var(--muted)] text-xs font-bold pl-2">Perfil de Temperatura</h3>
                   <TemperatureChart 
                     data={readings} 
                     sensor1Name={brew.sensor1_name || 'Fermentador'}
@@ -491,7 +491,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
                   />
                 </div>
                 <div className="space-y-4 min-w-0">
-                  <h3 className="text-neutral-500 text-xs font-bold uppercase tracking-widest pl-2">Curva de Atenuação</h3>
+                  <h3 className="text-[var(--muted)] text-xs font-bold pl-2">Curva de Atenuação</h3>
                   <GravityChart 
                     data={readings} 
                     og={brew.og} 
@@ -505,7 +505,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         </>
       )}
 
-      <div className="mt-16 pt-8 border-t border-neutral-900 flex justify-center text-xs text-neutral-600 font-mono uppercase tracking-widest">
+      <div className="mt-16 pt-8 border-t border-black/[0.07] flex justify-center text-xs text-black/40 font-mono ">
         Tempo Total de Fermentação: {(() => {
           const s = new Date(brew.startDate).getTime();
           const e = brew.endDate ? new Date(brew.endDate).getTime() : Date.now();

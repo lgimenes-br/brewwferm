@@ -143,37 +143,37 @@ const AppLoginFlow: React.FC = () => {
 
     if (direct && !error) {
         return (
-            <div className="min-h-screen min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
-                <div className="flex items-center gap-2 text-neutral-400 text-sm"><Loader2 size={16} className="animate-spin" /> Entrando com o Google…</div>
+            <div className="min-h-screen min-h-[100dvh] bg-[var(--bg)] flex items-center justify-center p-6">
+                <div className="flex items-center gap-2 text-[var(--muted)] text-sm"><Loader2 size={16} className="animate-spin" /> Entrando com o Google…</div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
-            <div className="w-full max-w-sm bg-neutral-900/50 border border-neutral-800 rounded-3xl p-7">
+        <div className="min-h-screen min-h-[100dvh] bg-[var(--bg)] flex items-center justify-center p-6">
+            <div className="w-full max-w-sm bg-white border border-black/[0.07] rounded-3xl p-7">
                 <div className="flex flex-col items-center text-center mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[var(--ink)] text-white flex items-center justify-center mb-4">
                         <Smartphone size={22} />
                     </div>
-                    <h1 className="text-white text-xl font-bold">Entrar no app Breww</h1>
-                    <p className="text-neutral-400 text-sm mt-1">Use a mesma conta do site.</p>
+                    <h1 className="text-[var(--ink)] text-xl font-bold">Entrar no app Breww</h1>
+                    <p className="text-[var(--muted)] text-sm mt-1">Use a mesma conta do site.</p>
                 </div>
 
                 {!valid ? (
-                    <p className="text-red-400 text-sm text-center">
+                    <p className="text-[#d63a4d] text-sm text-center">
                         Link de login inválido. Abra esta página pelo botão de login do app.
                     </p>
                 ) : token ? (
                     <div className="space-y-3">
-                        <p className="text-neutral-300 text-sm text-center">
-                            Conectar o app à conta <span className="text-white font-medium">{user || 'atual'}</span>?
+                        <p className="text-[#2b2f37] text-sm text-center">
+                            Conectar o app à conta <span className="text-[var(--ink)] font-medium">{user || 'atual'}</span>?
                         </p>
                         <button
                             type="button"
                             onClick={continueToApp}
                             disabled={busy}
-                            className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-neutral-200 disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                            className="w-full bg-[var(--ink)] text-white font-bold py-3 rounded-xl hover:bg-black disabled:opacity-60 inline-flex items-center justify-center gap-2"
                         >
                             {busy && <Loader2 size={16} className="animate-spin" />} Continuar no app
                         </button>
@@ -181,7 +181,7 @@ const AppLoginFlow: React.FC = () => {
                             type="button"
                             onClick={logout}
                             disabled={busy}
-                            className="w-full text-neutral-400 hover:text-white text-sm py-2 inline-flex items-center justify-center gap-2"
+                            className="w-full text-[var(--muted)] hover:text-[var(--ink)] text-sm py-2 inline-flex items-center justify-center gap-2"
                         >
                             <LogOut size={14} /> Usar outra conta
                         </button>
@@ -192,12 +192,12 @@ const AppLoginFlow: React.FC = () => {
                             type="button"
                             onClick={startGoogle}
                             disabled={busy}
-                            className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-neutral-200 disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                            className="w-full bg-[var(--ink)] text-white font-bold py-3 rounded-xl hover:bg-black disabled:opacity-60 inline-flex items-center justify-center gap-2"
                         >
                             {busy && <Loader2 size={16} className="animate-spin" />} Entrar com Google
                         </button>
-                        <div className="flex items-center gap-3 text-neutral-600 text-xs">
-                            <span className="flex-1 h-px bg-neutral-800" /> ou com e-mail <span className="flex-1 h-px bg-neutral-800" />
+                        <div className="flex items-center gap-3 text-black/40 text-xs">
+                            <span className="flex-1 h-px bg-[var(--bg)]" /> ou com e-mail <span className="flex-1 h-px bg-[var(--bg)]" />
                         </div>
                         <form onSubmit={submitEmail} className="space-y-3">
                             <input
@@ -206,7 +206,7 @@ const AppLoginFlow: React.FC = () => {
                                 placeholder="E-mail"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-neutral-600"
+                                className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-xl px-4 py-3 text-[var(--ink)] text-base focus:outline-none focus:border-black/25"
                             />
                             <input
                                 type="password"
@@ -214,12 +214,12 @@ const AppLoginFlow: React.FC = () => {
                                 placeholder="Senha"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-neutral-600"
+                                className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-xl px-4 py-3 text-[var(--ink)] text-base focus:outline-none focus:border-black/25"
                             />
                             <button
                                 type="submit"
                                 disabled={busy}
-                                className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-medium py-3 rounded-xl disabled:opacity-60"
+                                className="w-full bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] font-medium py-3 rounded-xl disabled:opacity-60"
                             >
                                 Entrar
                             </button>
@@ -227,7 +227,7 @@ const AppLoginFlow: React.FC = () => {
                     </div>
                 )}
 
-                {error && <p className="text-red-400 text-sm text-center mt-4" aria-live="polite">{error}</p>}
+                {error && <p className="text-[#d63a4d] text-sm text-center mt-4" aria-live="polite">{error}</p>}
             </div>
         </div>
     );
@@ -332,46 +332,46 @@ const AppLink: React.FC<{ initial: AppLinkParams }> = ({ initial }) => {
     };
 
     return (
-        <div className="min-h-screen min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
-            <div className="w-full max-w-sm bg-neutral-900/50 border border-neutral-800 rounded-3xl p-7">
+        <div className="min-h-screen min-h-[100dvh] bg-[var(--bg)] flex items-center justify-center p-6">
+            <div className="w-full max-w-sm bg-white border border-black/[0.07] rounded-3xl p-7">
                 <div className="flex flex-col items-center text-center mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[var(--ink)] text-white flex items-center justify-center mb-4">
                         <Link2 size={22} />
                     </div>
-                    <h1 className="text-white text-xl font-bold">Vincular o Google</h1>
-                    <p className="text-neutral-400 text-sm mt-1">Depois você poderá entrar com o Google nesta mesma conta.</p>
+                    <h1 className="text-[var(--ink)] text-xl font-bold">Vincular o Google</h1>
+                    <p className="text-[var(--muted)] text-sm mt-1">Depois você poderá entrar com o Google nesta mesma conta.</p>
                 </div>
 
                 {!valid ? (
-                    <p className="text-red-400 text-sm text-center">Link inválido. Abra esta página pelo app, em Minha conta.</p>
+                    <p className="text-[#d63a4d] text-sm text-center">Link inválido. Abra esta página pelo app, em Minha conta.</p>
                 ) : busy ? (
-                    <div className="flex items-center justify-center gap-2 text-neutral-300 text-sm"><Loader2 size={16} className="animate-spin" /> Vinculando…</div>
+                    <div className="flex items-center justify-center gap-2 text-[#2b2f37] text-sm"><Loader2 size={16} className="animate-spin" /> Vinculando…</div>
                 ) : account ? (
                     <div className="space-y-3">
-                        <p className="text-neutral-300 text-sm text-center">
-                            Conta Breww: <span className="text-white font-medium">{account.name}</span>
-                            <br /><span className="text-neutral-500">{account.email}</span>
+                        <p className="text-[#2b2f37] text-sm text-center">
+                            Conta Breww: <span className="text-[var(--ink)] font-medium">{account.name}</span>
+                            <br /><span className="text-[var(--muted)]">{account.email}</span>
                         </p>
                         <button
                             type="button"
                             onClick={startGoogle}
-                            className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-neutral-200 inline-flex items-center justify-center gap-2"
+                            className="w-full bg-[var(--ink)] text-white font-bold py-3 rounded-xl hover:bg-black inline-flex items-center justify-center gap-2"
                         >
                             Continuar com Google
                         </button>
                         <button
                             type="button"
                             onClick={() => backToApp(`error=${encodeURIComponent('Vínculo com o Google cancelado.')}`)}
-                            className="w-full text-neutral-400 hover:text-white text-sm py-2"
+                            className="w-full text-[var(--muted)] hover:text-[var(--ink)] text-sm py-2"
                         >
                             Cancelar
                         </button>
                     </div>
                 ) : !error ? (
-                    <div className="flex justify-center"><Loader2 size={18} className="animate-spin text-neutral-500" /></div>
+                    <div className="flex justify-center"><Loader2 size={18} className="animate-spin text-[var(--muted)]" /></div>
                 ) : null}
 
-                {error && <p className="text-red-400 text-sm text-center mt-4" aria-live="polite">{error}</p>}
+                {error && <p className="text-[#d63a4d] text-sm text-center mt-4" aria-live="polite">{error}</p>}
             </div>
         </div>
     );

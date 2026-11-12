@@ -152,21 +152,21 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                 <div className="space-y-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Pontos de Medição (Ângulo vs SG)</h4>
-                            <p className="text-[11px] text-neutral-500 mt-0.5">Insira ao menos {degree + 1} leituras de inclinação em graus e suas densidades reais.</p>
+                            <h4 className="text-xs font-bold text-[var(--muted)] ">Pontos de Medição (Ângulo vs SG)</h4>
+                            <p className="text-[11px] text-[var(--muted)] mt-0.5">Insira ao menos {degree + 1} leituras de inclinação em graus e suas densidades reais.</p>
                         </div>
-                        <div className="flex bg-neutral-800 p-1 rounded-lg border border-neutral-700">
+                        <div className="flex bg-[var(--bg)] p-1 rounded-lg border border-black/15">
                             <button
                                 type="button"
                                 onClick={() => setDegree(2)}
-                                className={`px-3 py-1 rounded text-xs font-bold transition-colors ${degree === 2 ? 'bg-cyan-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                                className={`px-3 py-1 rounded text-xs font-bold transition-colors ${degree === 2 ? 'bg-cyan-500 text-black' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
                             >
                                 Polinômio 2º Grau
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setDegree(3)}
-                                className={`px-3 py-1 rounded text-xs font-bold transition-colors ${degree === 3 ? 'bg-cyan-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+                                className={`px-3 py-1 rounded text-xs font-bold transition-colors ${degree === 3 ? 'bg-cyan-500 text-black' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
                             >
                                 Polinômio 3º Grau
                             </button>
@@ -175,30 +175,30 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
 
                     <div className="space-y-2.5">
                         {points.map((pt, idx) => (
-                            <div key={pt.id} className="flex items-center gap-3 bg-neutral-800/40 border border-neutral-800 rounded-xl p-3">
-                                <span className="w-6 h-6 rounded-full bg-neutral-800 text-neutral-400 text-xs font-bold flex items-center justify-center shrink-0">
+                            <div key={pt.id} className="flex items-center gap-3 bg-[var(--bg)] border border-black/[0.07] rounded-xl p-3">
+                                <span className="w-6 h-6 rounded-full bg-[var(--bg)] text-[var(--muted)] text-xs font-bold flex items-center justify-center shrink-0">
                                     {idx + 1}
                                 </span>
                                 <div className="flex-1">
-                                    <label htmlFor={`ispindel-angle-${pt.id}`} className="block text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Ângulo (Tilt °)</label>
+                                    <label htmlFor={`ispindel-angle-${pt.id}`} className="block text-[9px] text-[var(--muted)] font-bold mb-1">Ângulo (Tilt °)</label>
                                     <input
                                         id={`ispindel-angle-${pt.id}`}
                                         type="number"
                                         step="0.1"
                                         value={pt.angle}
                                         onChange={(e) => handleUpdatePoint(pt.id, 'angle', e.target.value)}
-                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-white font-mono text-sm focus:outline-none focus:border-cyan-500"
+                                        className="w-full bg-white border border-black/15 rounded-lg px-3 py-1.5 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-cyan-500"
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label htmlFor={`ispindel-grav-${pt.id}`} className="block text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Densidade (SG)</label>
+                                    <label htmlFor={`ispindel-grav-${pt.id}`} className="block text-[9px] text-[var(--muted)] font-bold mb-1">Densidade (SG)</label>
                                     <input
                                         id={`ispindel-grav-${pt.id}`}
                                         type="number"
                                         step="0.001"
                                         value={pt.gravity}
                                         onChange={(e) => handleUpdatePoint(pt.id, 'gravity', e.target.value)}
-                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-white font-mono text-sm focus:outline-none focus:border-cyan-500"
+                                        className="w-full bg-white border border-black/15 rounded-lg px-3 py-1.5 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-cyan-500"
                                     />
                                 </div>
                                 {points.length > 3 && (
@@ -206,7 +206,7 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                                         type="button"
                                         aria-label={`Remover ponto ${idx + 1}`}
                                         onClick={() => handleRemovePoint(pt.id)}
-                                        className="mt-4 p-2 text-neutral-500 hover:text-red-400 transition-colors"
+                                        className="mt-4 p-2 text-[var(--muted)] hover:text-[#d63a4d] transition-colors"
                                         title="Remover ponto"
                                     >
                                         <Trash2 size={16} />
@@ -219,71 +219,71 @@ export const ISpindelCalibrationCalculator: React.FC = () => {
                     <button
                         type="button"
                         onClick={handleAddPoint}
-                        className="w-full py-2.5 bg-neutral-800/60 hover:bg-neutral-800 border border-dashed border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center justify-center gap-2 transition-colors"
+                        className="w-full py-2.5 bg-[var(--bg)] hover:bg-[var(--bg)] border border-dashed border-black/15 rounded-xl text-xs font-bold text-[#2b2f37] flex items-center justify-center gap-2 transition-colors"
                     >
                         <Plus size={14} /> Adicionar Ponto de Calibração
                     </button>
                 </div>
 
                 {/* Right Column: Generated Formula & Simulator */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-between space-y-6">
+                <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-between space-y-6">
                     <div>
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Fórmula Polinomial p/ iSpindel</span>
+                            <span className="text-xs font-bold text-[var(--muted)] ">Fórmula Polinomial p/ iSpindel</span>
                             {fitResult && (
-                                <span className="inline-flex items-center gap-1 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 text-xs font-mono text-[#178a3f] bg-[var(--accent)]/25 border border-[#2fbf55]/30 px-2.5 py-0.5 rounded-full">
                                     <CheckCircle2 size={12} /> R² = {(fitResult.r2 * 100).toFixed(2)}%
                                 </span>
                             )}
                         </div>
 
                         {fitResult ? (
-                            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-3">
-                                <code className="block text-cyan-400 font-mono text-sm break-all select-all">
+                            <div className="bg-white border border-black/[0.07] rounded-xl p-4 space-y-3">
+                                <code className="block text-cyan-700 font-mono text-sm break-all select-all">
                                     {fitResult.formula}
                                 </code>
                                 <button
                                     type="button"
                                     onClick={handleCopyFormula}
-                                    className="w-full py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                                    className="w-full py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 border border-cyan-500/30 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
                                 >
                                     <Copy size={14} /> Copiar Polinômio
                                 </button>
                             </div>
                         ) : (
-                            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-xs">
+                            <div className="bg-white border border-black/[0.07] rounded-xl p-6 text-center text-[var(--muted)] text-xs">
                                 Insira ao menos {degree + 1} pontos distintos e válidos para gerar o polinômio de {degree}º grau.
                             </div>
                         )}
                     </div>
 
                     {/* Interactive Angle Simulator */}
-                    <div className="bg-neutral-900/70 border border-neutral-800 rounded-xl p-4 space-y-3">
-                        <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                    <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-4 space-y-3">
+                        <div className="text-[10px] font-bold text-[var(--muted)] ">
                             Simulador de Inclinação (Teste a Fórmula)
                         </div>
                         <div className="grid grid-cols-2 gap-4 items-center">
                             <div>
-                                <label htmlFor="ispindel-test-tilt" className="block text-[10px] text-neutral-500 uppercase font-bold mb-1">Ângulo de Teste (°)</label>
+                                <label htmlFor="ispindel-test-tilt" className="block text-[10px] text-[var(--muted)] font-bold mb-1">Ângulo de Teste (°)</label>
                                 <input
                                     id="ispindel-test-tilt"
                                     type="number"
                                     step="0.5"
                                     value={testTilt}
                                     onChange={(e) => setTestTilt(e.target.value)}
-                                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-white font-mono text-base focus:outline-none focus:border-cyan-500"
+                                    className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-3 py-2 text-[var(--ink)] font-mono text-base focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div className="text-center">
-                                <span className="block text-[10px] text-neutral-500 uppercase font-bold mb-1">SG Estimada</span>
-                                <span className="text-2xl font-black text-cyan-400 font-mono">
+                                <span className="block text-[10px] text-[var(--muted)] font-bold mb-1">SG Estimada</span>
+                                <span className="text-2xl font-semibold text-cyan-700 font-mono">
                                     {simulatedSg !== null && isFinite(simulatedSg) ? simulatedSg.toFixed(3) : '--'}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <p className="text-[10px] text-neutral-500 text-center">
+                    <p className="text-[10px] text-[var(--muted)] text-center">
                         Cole a fórmula acima no campo <strong>Polynomial</strong> do portal de configuração do seu iSpindel para converter automaticamente o ângulo em Specific Gravity (SG).
                     </p>
                 </div>

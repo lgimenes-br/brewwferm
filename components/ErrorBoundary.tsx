@@ -41,19 +41,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default Fallback UI
       return (
-        <div className="flex flex-col items-center justify-center p-8 bg-neutral-900/40 border border-red-900/50 rounded-2xl backdrop-blur-sm m-4">
-          <AlertTriangle size={48} className="text-red-500 mb-4 opacity-80" />
-          <h2 className="text-xl font-bold text-white mb-2 tracking-tight">
+        <div className="flex flex-col items-center justify-center p-8 bg-white border border-red-200 rounded-2xl backdrop-blur-sm m-4">
+          <AlertTriangle size={48} className="text-[#d63a4d] mb-4 opacity-80" />
+          <h2 className="text-xl font-bold text-[var(--ink)] mb-2 tracking-tight">
             Algo deu errado
           </h2>
-          <p className="text-neutral-400 text-sm mb-6 text-center max-w-md">
-            O componente <strong className="text-neutral-300">{this.props.name || 'da interface'}</strong> falhou ao carregar. 
+          <p className="text-[var(--muted)] text-sm mb-6 text-center max-w-md">
+            O componente <strong className="text-[#2b2f37]">{this.props.name || 'da interface'}</strong> falhou ao carregar. 
             Nossa equipe possivelmente não sabe, mas você pode tentar recarregar.
           </p>
           
           {this.state.error && (
-            <div className="bg-black/50 p-4 rounded-lg w-full mb-6 border border-red-900/30 overflow-x-auto">
-               <pre className="text-xs text-red-400 font-mono">
+            <div className="bg-[var(--bg)] p-4 rounded-lg w-full mb-6 border border-red-200 overflow-x-auto">
+               <pre className="text-xs text-[#d63a4d] font-mono">
                  {this.state.error.message || String(this.state.error)}
                </pre>
             </div>
@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
           <button
             onClick={this.handleReset}
-            className="flex items-center gap-2 px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl transition-colors text-sm font-bold uppercase tracking-wider"
+            className="flex items-center gap-2 px-6 py-2.5 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-xl transition-colors text-sm font-bold "
           >
             <RefreshCw size={16} />
             Tentar Novamente

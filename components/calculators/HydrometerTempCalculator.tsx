@@ -49,40 +49,40 @@ export const HydrometerTempCalculator: React.FC = () => {
                     <div className="grid grid-cols-1 gap-6">
                         
                         <div>
-                            <label htmlFor="hydro-measured-grav" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Densidade Mensurada</label>
+                            <label htmlFor="hydro-measured-grav" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Densidade Mensurada</label>
                             <div className="relative">
                                 <input 
                                     id="hydro-measured-grav"
                                     type="number" step="0.001" value={measuredGravInput} onChange={(e) => setMeasuredGravInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">SG</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">SG</span>
                             </div>
-                            <p className="text-[10px] text-neutral-600 mt-2">Você pode usar formato 1.010 ou 1010.</p>
+                            <p className="text-[10px] text-black/40 mt-2">Você pode usar formato 1.010 ou 1010.</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="hydro-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temperatura</label>
+                                <label htmlFor="hydro-temp" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Temperatura</label>
                                 <div className="relative">
                                     <input 
                                         id="hydro-temp"
                                         type="number" step="0.1" value={tempInput} onChange={(e) => setTempInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
+                                        className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">°C</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">°C</span>
                                 </div>
                             </div>
 
                             <div>
-                                <label htmlFor="hydro-calib-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. de Calibração</label>
+                                <label htmlFor="hydro-calib-temp" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Temp. de Calibração</label>
                                 <div className="relative">
                                     <input 
                                         id="hydro-calib-temp"
                                         type="number" step="0.1" value={calibTempInput} onChange={(e) => setCalibTempInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
+                                        className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-orange-500 transition-colors"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">°C</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">°C</span>
                                 </div>
                             </div>
                         </div>
@@ -91,25 +91,25 @@ export const HydrometerTempCalculator: React.FC = () => {
                 </div>
 
                 {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center relative">
+                <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-center relative">
                     
                     <div className="text-center mb-8">
-                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Corrigida</span>
-                        <div className="text-6xl font-black text-orange-400 tracking-tighter mb-2 font-mono">
+                        <span className="block text-xs font-bold text-[var(--muted)] mb-2">Densidade Corrigida</span>
+                        <div className="text-6xl font-semibold text-orange-600 tracking-tighter mb-2 font-mono">
                             {results.isPointsFormat ? (results.correctedGrav * 1000).toFixed(3) : results.correctedGrav.toFixed(4)}
                         </div>
-                        <div className="text-sm font-bold text-white uppercase tracking-widest">{results.isPointsFormat ? 'Pontos' : 'SG'}</div>
+                        <div className="text-sm font-bold text-[var(--ink)] ">{results.isPointsFormat ? 'Pontos' : 'SG'}</div>
                     </div>
 
-                    <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                        <span className="block text-xs text-neutral-400">
+                    <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
+                        <span className="block text-xs text-[var(--muted)]">
                             Ao medir o mosto a <strong>{tempInput}°C</strong> em um densímetro calibrado a <strong>{calibTempInput}°C</strong>, a leitura real de {measuredGravInput} corresponde a <strong>{results.isPointsFormat ? (results.correctedGrav * 1000).toFixed(3) : results.correctedGrav.toFixed(4)}</strong>.
                         </span>
                     </div>
 
                     <div className="text-center pt-8">
-                         <p className="text-[10px] text-neutral-500 flex items-center justify-center gap-2 max-w-2xl mx-auto">
-                            <span className="inline-block min-w-4 min-h-4 w-4 h-4 bg-neutral-700 text-neutral-300 rounded-full text-[9px] font-bold text-center leading-4">i</span>
+                         <p className="text-[10px] text-[var(--muted)] flex items-center justify-center gap-2 max-w-2xl mx-auto">
+                            <span className="inline-block min-w-4 min-h-4 w-4 h-4 bg-black/10 text-[#2b2f37] rounded-full text-[9px] font-bold text-center leading-4">i</span>
                             Entre com sua densidade e temperatura e obtenha sua medição de densidade corrigida pela temperatura. Opcionalmente, ajuste a temperatura de calibração do densímetro.
                         </p>
                     </div>

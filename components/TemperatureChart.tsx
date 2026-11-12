@@ -79,38 +79,38 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
     
     // Generate distinct colors for extra lines
     const getExtraColor = (index: number) => {
-        const colors = ['#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f43f5e'];
+        const colors = ['#f59e0b', '#3b82f6', '#ec4899', '#178a3f', '#14b8a6', '#f43f5e'];
         return colors[index % colors.length];
     };
 
   return (
-    <div className="w-full h-full flex flex-col bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
-      <h3 className="text-neutral-500 font-bold mb-6 text-xs uppercase tracking-widest pl-2">Histórico de Temperatura</h3>
+    <div className="w-full h-full flex flex-col bg-white p-8 rounded-3xl border border-black/[0.07] backdrop-blur-sm overflow-hidden">
+      <h3 className="text-[var(--muted)] font-bold mb-6 text-xs pl-2">Histórico de Temperatura</h3>
       
       {safeData.length === 0 ? (
         <div className="w-full flex-1 min-h-[350px] flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-full bg-neutral-800/50 flex items-center justify-center mb-4 border border-neutral-700/50">
-                <div className="w-8 h-8 rounded-full border-2 border-neutral-600 border-t-neutral-400 animate-spin" />
+            <div className="w-16 h-16 rounded-full bg-[var(--bg)] flex items-center justify-center mb-4 border border-black/10">
+                <div className="w-8 h-8 rounded-full border-2 border-black/25 border-t-neutral-400 animate-spin" />
             </div>
-            <h4 className="text-white font-medium mb-1">Aguardando dados...</h4>
-            <p className="text-neutral-500 text-sm max-w-[250px]">O equipamento já foi instruído. A telemetria aparecerá aqui em alguns segundos.</p>
+            <h4 className="text-[var(--ink)] font-medium mb-1">Aguardando dados...</h4>
+            <p className="text-[var(--muted)] text-sm max-w-[250px]">O equipamento já foi instruído. A telemetria aparecerá aqui em alguns segundos.</p>
         </div>
       ) : (
       <div className="w-full flex-1 min-h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={safeData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#404040" vertical={false} strokeWidth={0.5} opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#d6d8dc" vertical={false} strokeWidth={0.5} opacity={0.5} />
             <XAxis
               dataKey="timestamp"
               tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}
-              stroke="#525252"
+              stroke="#9a9ea6"
               fontSize={11}
               tickLine={false}
               axisLine={false}
               dy={10}
             />
             <YAxis
-              stroke="#525252"
+              stroke="#9a9ea6"
               domain={['auto', 'auto']}
               fontSize={11}
               unit="°C"
@@ -119,11 +119,11 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               dx={-10}
             />
             <Tooltip
-              contentStyle={{ backgroundColor: '#171717', borderColor: '#404040', color: '#f5f5f5', borderRadius: '16px', padding: '12px' }}
-              itemStyle={{ color: '#d4d4d4', fontSize: '12px', paddingBottom: '4px' }}
-              labelStyle={{ color: '#a3a3a3', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d6d8dc', color: '#0B0D12', borderRadius: '16px', padding: '12px' }}
+              itemStyle={{ color: '#2b2f37', fontSize: '12px', paddingBottom: '4px' }}
+              labelStyle={{ color: '#6b6f78', fontSize: '10px', marginBottom: '8px', textTransform: '', letterSpacing: '0.05em' }}
               labelFormatter={(label) => new Date(label).toLocaleString()}
-              cursor={{ stroke: '#525252', strokeWidth: 0.5, strokeDasharray: '4 4' }}
+              cursor={{ stroke: '#9a9ea6', strokeWidth: 0.5, strokeDasharray: '4 4' }}
             />
             <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} iconType="circle" />
 
@@ -131,10 +131,10 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               type="monotone"
               dataKey="beerTemp"
               name={sensor1Name}
-              stroke="#ffffff"
+              stroke="#0B0D12"
               strokeWidth={1.5}
               dot={false}
-              activeDot={{ r: 4, strokeWidth: 0, fill: '#ffffff' }}
+              activeDot={{ r: 4, strokeWidth: 0, fill: '#0B0D12' }}
             />
             <Line
               type="monotone"
@@ -173,13 +173,13 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               <ReferenceLine
                 key={event.id}
                 x={event.markTime}
-                stroke="#a855f7"
+                stroke="#6b6f78"
                 strokeDasharray="4 4"
                 strokeWidth={1}
                 label={{
                   value: event.type,
                   position: 'top',
-                  fill: '#a855f7',
+                  fill: '#6b6f78',
                   fontSize: 10,
                   fontWeight: 'bold'
                 }}

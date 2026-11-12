@@ -170,9 +170,9 @@ export const CarbonationCalculator: React.FC = () => {
                 {/* Left Column: Inputs */}
                 <div className="space-y-6">
                     
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
+                    <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-5 space-y-4">
                         <div>
-                            <label htmlFor="carb-style" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Estilo da Cerveja</label>
+                            <label htmlFor="carb-style" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Estilo da Cerveja</label>
                             <select 
                                 id="carb-style"
                                 value={styleInput} onChange={(e) => {
@@ -182,14 +182,14 @@ export const CarbonationCalculator: React.FC = () => {
                                         setCo2VolInput(((style.min + style.max) / 2).toFixed(1));
                                     }
                                 }} 
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-yellow-500 appearance-none cursor-pointer"
+                                className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] text-sm focus:outline-none focus:border-[#ca8a04] appearance-none cursor-pointer"
                             >
-                                {beerStyles.map(s => <option key={s.name} value={s.name} className="bg-neutral-900">{s.name}</option>)}
+                                {beerStyles.map(s => <option key={s.name} value={s.name} className="bg-white">{s.name}</option>)}
                             </select>
                             
                             {currentStyle.min > 0 && (
-                                <p className="text-xs text-neutral-400 mt-3">
-                                    Faixa sugerida: <span className="text-yellow-500 font-bold">{currentStyle.min} - {currentStyle.max} CO₂-vol</span>
+                                <p className="text-xs text-[var(--muted)] mt-3">
+                                    Faixa sugerida: <span className="text-[#a16207] font-bold">{currentStyle.min} - {currentStyle.max} CO₂-vol</span>
                                 </p>
                             )}
                         </div>
@@ -197,39 +197,39 @@ export const CarbonationCalculator: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="carb-co2-vol" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Carbonatação</label>
+                            <label htmlFor="carb-co2-vol" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Carbonatação</label>
                             <div className="relative">
                                 <input 
                                     id="carb-co2-vol"
                                     type="number" step="0.1" value={co2VolInput} onChange={(e) => setCo2VolInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-yellow-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#ca8a04] transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs uppercase">Vol</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs ">Vol</span>
                             </div>
                         </div>
                         <div>
-                            <label htmlFor="carb-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. de Carb.</label>
+                            <label htmlFor="carb-temp" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Temp. de Carb.</label>
                             <div className="relative">
                                 <input 
                                     id="carb-temp"
                                     type="number" step="1" value={tempInput} onChange={(e) => setTempInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-yellow-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#ca8a04] transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs uppercase">°C</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs ">°C</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
+                    <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-5 space-y-4">
                         <div>
-                            <label htmlFor="carb-type" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Tipo de Carbonatação</label>
+                            <label htmlFor="carb-type" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Tipo de Carbonatação</label>
                             <select 
                                 id="carb-type"
                                 value={typeInput} onChange={(e) => setTypeInput(e.target.value as any)} 
-                                className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-yellow-500 appearance-none cursor-pointer"
+                                className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] text-sm focus:outline-none focus:border-[#ca8a04] appearance-none cursor-pointer"
                             >
-                                <option value="Keg (Forçado)" className="bg-neutral-900">Keg (Forçado)</option>
-                                <option value="Priming (Açúcar)" className="bg-neutral-900">Priming (Açúcar)</option>
+                                <option value="Keg (Forçado)" className="bg-white">Keg (Forçado)</option>
+                                <option value="Priming (Açúcar)" className="bg-white">Priming (Açúcar)</option>
                             </select>
                         </div>
                     </div>
@@ -237,25 +237,25 @@ export const CarbonationCalculator: React.FC = () => {
                     {typeInput === 'Priming (Açúcar)' && (
                         <div className="grid grid-cols-2 gap-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
                             <div>
-                                <label htmlFor="carb-batch-vol" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Volume do Lote</label>
+                                <label htmlFor="carb-batch-vol" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Volume do Lote</label>
                                 <div className="relative">
                                     <input 
                                         id="carb-batch-vol"
                                         type="number" step="1" value={batchVolInput} onChange={(e) => setBatchVolInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-yellow-500 transition-colors"
+                                        className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-[#ca8a04] transition-colors"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">L</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">L</span>
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="carb-ferm-temp" className="block text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-2">Temp. Fermentação</label>
+                                <label htmlFor="carb-ferm-temp" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Temp. Fermentação</label>
                                 <div className="relative">
                                     <input 
                                         id="carb-ferm-temp"
                                         type="number" step="1" value={fermTempInput} onChange={(e) => setFermTempInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-yellow-500 transition-colors"
+                                        className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-[#ca8a04] transition-colors"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">°C</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">°C</span>
                                 </div>
                             </div>
                         </div>
@@ -264,51 +264,51 @@ export const CarbonationCalculator: React.FC = () => {
                 </div>
 
                 {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
+                <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-center">
                     
                     <div className="text-center mb-8">
                         {typeInput === 'Keg (Forçado)' ? (
                             <>
-                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Pressão do Barril</span>
-                                <div className="text-6xl font-black text-yellow-500 tracking-tighter mb-2">
-                                    {results.pressureBar.toFixed(2)}<span className="text-2xl text-yellow-500/50 ml-1">Bar</span>
+                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">Pressão do Barril</span>
+                                <div className="text-6xl font-semibold text-[#a16207] tracking-tighter mb-2">
+                                    {results.pressureBar.toFixed(2)}<span className="text-2xl text-[#a16207]/70 ml-1">Bar</span>
                                 </div>
-                                <div className="text-sm font-bold text-white uppercase tracking-widest">
+                                <div className="text-sm font-bold text-[var(--ink)] ">
                                     A {tempInput} °C
                                 </div>
                             </>
                         ) : (
                             <>
-                                <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Açúcar para Adicionar</span>
-                                <div className="text-6xl font-black text-yellow-500 tracking-tighter mb-2">
-                                    {results.sugarGrams.toFixed(1)}<span className="text-2xl text-yellow-500/50 ml-1">g</span>
+                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">Açúcar para Adicionar</span>
+                                <div className="text-6xl font-semibold text-[#a16207] tracking-tighter mb-2">
+                                    {results.sugarGrams.toFixed(1)}<span className="text-2xl text-[#a16207]/70 ml-1">g</span>
                                 </div>
-                                <div className="text-sm font-bold text-white uppercase tracking-widest">
+                                <div className="text-sm font-bold text-[var(--ink)] ">
                                     Diluídos em água fervida
                                 </div>
                             </>
                         )}
                     </div>
 
-                    <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 text-center">
+                    <div className="bg-white rounded-xl p-5 border border-black/[0.07] text-center">
                         {typeInput === 'Keg (Forçado)' ? (
                             <>
-                                <span className="block text-xs text-neutral-400 mb-4">
+                                <span className="block text-xs text-[var(--muted)] mb-4">
                                     Mantenha esta pressão por aproximadamente <strong>1 semana</strong> para alcançar <strong>{co2VolInput} vol</strong> de CO₂.
                                 </span>
-                                <div className="pt-4 border-t border-neutral-800/50 flex justify-between items-center text-xs">
-                                    <span className="text-neutral-500 font-bold uppercase tracking-widest">Equivalente a</span>
-                                    <span className="text-white font-mono">{results.pressurePsi.toFixed(1)} PSI</span>
+                                <div className="pt-4 border-t border-black/[0.07] flex justify-between items-center text-xs">
+                                    <span className="text-[var(--muted)] font-bold ">Equivalente a</span>
+                                    <span className="text-[var(--ink)] font-mono">{results.pressurePsi.toFixed(1)} PSI</span>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <span className="block text-xs text-neutral-400 mb-4">
+                                <span className="block text-xs text-[var(--muted)] mb-4">
                                     Adicione o açúcar no momento do envase para alcançar <strong>{co2VolInput} vol</strong> de CO₂ na garrafa.
                                 </span>
-                                <div className="pt-4 border-t border-neutral-800/50 flex justify-between items-center text-xs">
-                                    <span className="text-neutral-500 font-bold uppercase tracking-widest">CO₂ Residual (Estimado)</span>
-                                    <span className="text-white font-mono">{results.residualCo2.toFixed(2)} vol</span>
+                                <div className="pt-4 border-t border-black/[0.07] flex justify-between items-center text-xs">
+                                    <span className="text-[var(--muted)] font-bold ">CO₂ Residual (Estimado)</span>
+                                    <span className="text-[var(--ink)] font-mono">{results.residualCo2.toFixed(2)} vol</span>
                                 </div>
                             </>
                         )}

@@ -13,6 +13,7 @@ import { isOtaFinal } from './services/otaSession';
 import { OtaProgressModal } from './components/OtaProgressModal';
 import { useAuth } from './context/AuthContext';
 import { Privacy, Terms } from './components/Legal';
+import { BrewwLogo } from './components/BrewwMark';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useFermenters } from './hooks/useFermenters';
@@ -110,7 +111,7 @@ const NavConfig = () => {
         : (activeDevice?.currentDevice ? 'OFFLINE' : 'INATIVO');
 
     // Icon Styles
-    const iconOnlyBase = "flex items-center justify-center w-9 h-9 rounded-md border transition-all shrink-0 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white";
+    const iconOnlyBase = "flex items-center justify-center w-9 h-9 rounded-md border transition-all shrink-0 border-black/[0.07] text-[var(--muted)] hover:border-black/25 hover:text-[var(--ink)]";
 
     // Check if any device needs an update
     const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, f.currentDevice?.version));
@@ -140,7 +141,7 @@ const NavConfig = () => {
         >
             Pular para o conteúdo principal
         </a>
-        <nav className="bg-black py-4 md:py-6 border-b border-neutral-900">
+        <nav className="bg-[var(--bg)] py-4 md:py-6 border-b border-black/[0.07]">
             <div className="w-full mx-auto px-6 md:px-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 
                 {/* Top Row for Mobile (Logo + Hamburger) */}
@@ -159,20 +160,14 @@ const NavConfig = () => {
                             }
                         }}
                     >
-                        <div className="flex items-baseline">
-                            <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
-                            <div className="relative">
-                                <span className="text-4xl font-black text-white tracking-tighter">W</span>
-                                <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
-                            </div>
-                        </div>
+                        <BrewwLogo className="text-[var(--ink)]" />
                     </div>
 
                     {/* Mobile Hamburger Button */}
                     <button 
                         aria-label={isMobileMenuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação"}
                         aria-expanded={isMobileMenuOpen}
-                        className="md:hidden flex items-center justify-center w-10 h-10 text-neutral-400 hover:text-white transition-colors border border-neutral-800 rounded-md"
+                        className="md:hidden flex items-center justify-center w-10 h-10 text-[var(--muted)] hover:text-[var(--ink)] transition-colors border border-black/[0.07] rounded-md"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     >
                         {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -185,10 +180,10 @@ const NavConfig = () => {
                     {activeDevice && (
                         <div className="hidden md:flex items-center gap-2 mr-3 animate-in fade-in slide-in-from-right-4 duration-500">
                             {/* Online/Offline Badge */}
-                            <div className={`flex items-center gap-2 px-3 h-9 rounded-md border font-mono text-[11px] font-semibold tracking-wider uppercase transition-all ${
+                            <div className={`flex items-center gap-2 px-3 h-9 rounded-md border font-mono text-[11px] font-semibold transition-all ${
                                 isOnline 
-                                    ? 'border-emerald-500 text-emerald-500' 
-                                    : 'border-red-500 text-red-500'
+                                    ? 'border-[#2fbf55] text-[#178a3f]' 
+                                    : 'border-red-500 text-[#d63a4d]'
                             }`}>
                                 <div className={`w-2 h-2 rounded-full bg-current ${isOnline ? 'animate-pulse' : ''}`}></div>
                                 {activeDevice.name}
@@ -196,27 +191,27 @@ const NavConfig = () => {
 
                             {/* StatOp Badge */}
                             {statOp === 'AQUECENDO' && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-red-500 text-red-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-red-500 text-[#d63a4d] font-mono text-[11px] font-semibold ">
                                     <Flame size={14} /> AQUECENDO
                                 </div>
                             )}
                             {statOp === 'RESFRIANDO' && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-blue-500 text-blue-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-blue-500 text-blue-600 font-mono text-[11px] font-semibold ">
                                     <Snowflake size={14} /> RESFRIANDO
                                 </div>
                             )}
                             {statOp.startsWith('DELAY') && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-yellow-500 text-yellow-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-[#ca8a04] text-[#a16207] font-mono text-[11px] font-semibold ">
                                     <Timer size={14} /> {statOp}
                                 </div>
                             )}
                             {statOp === 'AGUARDANDO' && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-yellow-500 text-yellow-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-[#ca8a04] text-[#a16207] font-mono text-[11px] font-semibold ">
                                     <Circle size={14} /> AGUARDANDO
                                 </div>
                             )}
                             {(statOp !== 'AQUECENDO' && statOp !== 'RESFRIANDO' && statOp !== 'AGUARDANDO' && !statOp.startsWith('DELAY')) && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-zinc-500 text-zinc-500 font-mono text-[11px] font-semibold tracking-wider uppercase">
+                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-zinc-500 text-[var(--muted)] font-mono text-[11px] font-semibold ">
                                     <Circle size={14} /> {statOp === 'INATIVO' ? 'PARADO' : statOp}
                                 </div>
                             )}
@@ -225,45 +220,45 @@ const NavConfig = () => {
                             <div className="relative ml-1">
                                 <button 
                                     onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 h-9 rounded-md border border-neutral-800 hover:border-neutral-600 bg-black text-neutral-300 hover:text-white transition-all"
+                                    className="flex items-center gap-2 px-3 h-9 rounded-md border border-black/[0.07] hover:border-black/25 bg-[var(--bg)] text-[#2b2f37] hover:text-[var(--ink)] transition-all"
                                 >
                                     {activeDevice.mode === DeviceMode.FERMENTER && <FlaskConical size={14} />}
                                     {activeDevice.mode === DeviceMode.KEGERATOR && <Beer size={14} />}
                                     {activeDevice.mode === DeviceMode.FRIDGE && <Snowflake size={14} />}
                                     
-                                    <span className="text-[11px] font-bold uppercase tracking-widest hidden lg:block">
+                                    <span className="text-[11px] font-bold hidden lg:block">
                                         {activeDevice.mode === DeviceMode.FERMENTER ? 'Fermentador' : activeDevice.mode === DeviceMode.KEGERATOR ? 'Chopeira' : 'Geladeira'}
                                     </span>
-                                    <ChevronDown size={14} className={`text-neutral-500 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDown size={14} className={`text-[var(--muted)] transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} />
                                 </button>
 
                                 {isModeDropdownOpen && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setIsModeDropdownOpen(false)}></div>
-                                        <div className="absolute top-full right-0 mt-2 w-48 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-black/[0.07] rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                             <button
                                                 onClick={() => handleModeDropdownSelect(DeviceMode.FERMENTER)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-800 transition-colors text-left"
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
                                             >
-                                                <FlaskConical size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-white' : 'text-neutral-500'}`} />
-                                                <span className={`text-xs font-bold uppercase tracking-widest flex-1 transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-white' : 'text-neutral-400'}`}>Fermentador</span>
-                                                {activeDevice.mode === DeviceMode.FERMENTER && <Check size={14} className="text-emerald-500" />}
+                                                <FlaskConical size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`} />
+                                                <span className={`text-xs font-bold flex-1 transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>Fermentador</span>
+                                                {activeDevice.mode === DeviceMode.FERMENTER && <Check size={14} className="text-[#178a3f]" />}
                                             </button>
                                             <button
                                                 onClick={() => handleModeDropdownSelect(DeviceMode.KEGERATOR)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-800 transition-colors text-left"
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
                                             >
-                                                <Beer size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-white' : 'text-neutral-500'}`} />
-                                                <span className={`text-xs font-bold uppercase tracking-widest flex-1 transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-white' : 'text-neutral-400'}`}>Chopeira</span>
-                                                {activeDevice.mode === DeviceMode.KEGERATOR && <Check size={14} className="text-emerald-500" />}
+                                                <Beer size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`} />
+                                                <span className={`text-xs font-bold flex-1 transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>Chopeira</span>
+                                                {activeDevice.mode === DeviceMode.KEGERATOR && <Check size={14} className="text-[#178a3f]" />}
                                             </button>
                                             <button
                                                 onClick={() => handleModeDropdownSelect(DeviceMode.FRIDGE)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-800 transition-colors text-left"
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
                                             >
-                                                <Snowflake size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-white' : 'text-neutral-500'}`} />
-                                                <span className={`text-xs font-bold uppercase tracking-widest flex-1 transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-white' : 'text-neutral-400'}`}>Geladeira</span>
-                                                {activeDevice.mode === DeviceMode.FRIDGE && <Check size={14} className="text-emerald-500" />}
+                                                <Snowflake size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`} />
+                                                <span className={`text-xs font-bold flex-1 transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>Geladeira</span>
+                                                {activeDevice.mode === DeviceMode.FRIDGE && <Check size={14} className="text-[#178a3f]" />}
                                             </button>
                                         </div>
                                     </>
@@ -298,7 +293,7 @@ const NavConfig = () => {
                         )}
 
                         {location.pathname === '/' && (
-                            <button onClick={() => logout()} aria-label="Sair" className="ml-2 p-2 text-neutral-700 hover:text-red-500 transition-colors" title="Sair">
+                            <button onClick={() => logout()} aria-label="Sair" className="ml-2 p-2 text-black/35 hover:text-[#d63a4d] transition-colors" title="Sair">
                                 <LogOut size={18} />
                             </button>
                         )}
@@ -308,18 +303,12 @@ const NavConfig = () => {
 
             {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
-                <div role="dialog" aria-modal="true" aria-label="Menu de navegação" className="fixed inset-0 z-50 bg-black/95 flex flex-col md:hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between p-6 border-b border-neutral-900 bg-black">
-                        <div className="flex items-baseline">
-                            <span className="text-4xl font-black text-white tracking-tighter">BREW</span>
-                            <div className="relative">
-                                <span className="text-4xl font-black text-white tracking-tighter">W</span>
-                                <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
-                            </div>
-                        </div>
+                <div role="dialog" aria-modal="true" aria-label="Menu de navegação" className="fixed inset-0 z-50 bg-[var(--bg)] flex flex-col md:hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between p-6 border-b border-black/[0.07] bg-[var(--bg)]">
+                        <BrewwLogo className="text-[var(--ink)]" />
                         <button 
                             aria-label="Fechar menu de navegação"
-                            className="flex items-center justify-center w-10 h-10 text-neutral-400 hover:text-white transition-colors border border-neutral-800 rounded-md"
+                            className="flex items-center justify-center w-10 h-10 text-[var(--muted)] hover:text-[var(--ink)] transition-colors border border-black/[0.07] rounded-md"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
                             <X size={20} />
@@ -327,37 +316,37 @@ const NavConfig = () => {
                     </div>
 
                     <div className="flex-1 overflow-y-auto overscroll-contain p-6 flex flex-col gap-4">
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
-                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><LayoutGrid size={24} /></div>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
+                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><LayoutGrid size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Visão Geral</span>
                         </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/history'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
-                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><History size={24} /></div>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/history'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
+                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><History size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Histórico / Logs</span>
                         </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/calculators'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
-                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><Calculator size={24} /></div>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/calculators'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
+                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><Calculator size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Calculadoras</span>
                         </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/compare'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
-                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><GitCompare size={24} /></div>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/compare'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
+                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><GitCompare size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Comparar Lotes</span>
                         </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/settings'); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800">
-                            <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><SettingsIcon size={24} /></div>
+                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/settings'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
+                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><SettingsIcon size={24} /></div>
                             <span className="text-lg font-bold tracking-tight">Configurações</span>
                         </button>
                         
                         {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
-                            <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-white bg-neutral-900/50 hover:bg-neutral-800 rounded-xl transition-colors text-left border border-neutral-800 mt-auto">
-                                <div className="flex items-center justify-center w-12 h-12 bg-neutral-800 rounded-lg text-white"><ArrowLeft size={24} /></div>
+                            <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07] mt-auto">
+                                <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><ArrowLeft size={24} /></div>
                                 <span className="text-lg font-bold tracking-tight">Voltar</span>
                             </button>
                         )}
                         
                         {location.pathname === '/' && (
-                            <button onClick={() => { setIsMobileMenuOpen(false); logout(); }} className="flex items-center gap-4 p-4 text-red-500 bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-colors text-left border border-red-500/20 mt-auto">
-                                <div className="flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-lg text-red-500"><LogOut size={24} /></div>
+                            <button onClick={() => { setIsMobileMenuOpen(false); logout(); }} className="flex items-center gap-4 p-4 text-[#d63a4d] bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-colors text-left border border-red-500/20 mt-auto">
+                                <div className="flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-lg text-[#d63a4d]"><LogOut size={24} /></div>
                                 <span className="text-lg font-bold tracking-tight">Sair do Sistema</span>
                             </button>
                         )}
@@ -375,10 +364,10 @@ const NavConfig = () => {
             const showBanner = location.pathname !== '/settings';
             return (
                 <>
-                {showBanner && <div className="w-full bg-amber-950/40 border-b border-amber-900/50 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
+                {showBanner && <div className="w-full bg-amber-100 border-b border-amber-300 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                        <p className="text-amber-500 text-xs md:text-sm font-medium">
+                        <p className="text-[#b45309] text-xs md:text-sm font-medium">
                             Nova atualização de firmware ({latestFirmware!.version}) disponível para {devicesNeedingUpdate.length} equipamento{devicesNeedingUpdate.length > 1 ? 's' : ''}.
                         </p>
                     </div>
@@ -386,7 +375,7 @@ const NavConfig = () => {
                         <button 
                             onClick={handleUpdateAll}
                             disabled={isUpdating}
-                            className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 disabled:opacity-50 border border-amber-600/50 text-amber-400 hover:text-white rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+                            className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 disabled:opacity-50 border border-amber-600/50 text-[#b45309] hover:text-[var(--ink)] rounded-lg text-[10px] md:text-xs font-bold transition-colors shrink-0"
                         >
                             {isUpdating ? 'Instalando...' : 'Atualizar Agora'}
                         </button>
@@ -421,19 +410,20 @@ const NavConfig = () => {
 const AppRoutes = () => {
     const { role } = useAuth();
     return (
-        <div className="min-h-screen min-h-[100dvh] bg-black">
+        <div className="brew-landing brew-app min-h-screen min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
             <Toaster 
                 position="top-right"
                 toastOptions={{
                     style: {
-                        background: '#171717',
+                        background: '#0B0D12',
                         color: '#fff',
-                        border: '1px solid #262626'
+                        borderRadius: '14px',
+                        fontSize: '14px'
                     }
                 }}
             />
             <SystemBanner />
-            <Suspense fallback={<div className="min-h-screen min-h-[100dvh] bg-black" />}>
+            <Suspense fallback={<div className="min-h-screen min-h-[100dvh] bg-[var(--bg)]" />}>
                 <Routes>
                     {/* Public Auth Routes */}
                     <Route path="/login" element={
@@ -463,7 +453,7 @@ const AppRoutes = () => {
                             <NavConfig />
                             <main id="main-content" className="mt-0">
                                 <ErrorBoundary name="Rotas Principais">
-                                    <Suspense fallback={<div className="min-h-[50vh] bg-black" />}>
+                                    <Suspense fallback={<div className="min-h-[50vh] bg-[var(--bg)]" />}>
                                         <Routes>
                                             <Route path="/" element={role === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />} />
                                             <Route path="/fermenter/:id" element={<FermenterDetailWrapper />} />

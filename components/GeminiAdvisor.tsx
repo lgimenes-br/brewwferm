@@ -90,7 +90,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
       <div className="relative flex items-center justify-center w-32 h-32">
         <svg className="transform -rotate-90 w-32 h-32">
           <circle
-            className="text-neutral-800"
+            className="text-black/30"
             strokeWidth="8"
             stroke="currentColor"
             fill="transparent"
@@ -112,8 +112,8 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
           />
         </svg>
         <div className="absolute flex flex-col items-center">
-          <span className="text-2xl font-bold text-white">{score}</span>
-          <span className="text-xs text-neutral-400">SAÚDE</span>
+          <span className="text-2xl font-bold text-[var(--ink)]">{score}</span>
+          <span className="text-xs text-[var(--muted)]">SAÚDE</span>
         </div>
       </div>
     );
@@ -144,7 +144,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
   return (
     <>
-      <div className={`bg-gradient-to-br from-neutral-900 to-black border border-neutral-800 rounded-xl p-6 shadow-lg relative overflow-hidden group hover:border-indigo-900/50 transition-colors flex flex-col ${className}`}>
+      <div className={`bg-white border border-black/[0.07] rounded-xl p-6 shadow-lg relative overflow-hidden group hover:border-indigo-200 transition-colors flex flex-col ${className}`}>
         {/* Background decoration */}
         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
           <Brain size={120} />
@@ -153,15 +153,15 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
         <div className="relative z-10 flex flex-col h-full">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div className="flex items-center gap-2">
-              <Sparkles className="text-white" size={20} />
-              <h3 className="text-lg font-bold text-neutral-100">Breww.AI</h3>
+              <Sparkles className="text-[var(--ink)]" size={20} />
+              <h3 className="text-lg font-bold text-[#2b2f37]">Breww.AI</h3>
             </div>
             {!insight ? (
               <button
                 type="button"
                 onClick={handleAskAI}
                 disabled={loading}
-                className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-all disabled:opacity-50 text-sm font-medium border border-neutral-700"
+                className="flex items-center gap-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] px-4 py-2 rounded-lg transition-all disabled:opacity-50 text-sm font-medium border border-black/15"
               >
                 {loading ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} />}
                 {loading ? "Analisando..." : "Analisar Fermentação"}
@@ -170,7 +170,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-300 px-3 py-1.5 rounded-lg transition-all text-xs font-medium border border-indigo-500/30"
+                className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-50 text-[var(--ink)] px-3 py-1.5 rounded-lg transition-all text-xs font-medium border border-[var(--ink)]/20"
               >
                 <Maximize2 size={14} />
                 Ver Análise
@@ -180,16 +180,16 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
           <div className="flex-1 flex flex-col justify-center items-center text-center">
             {insight ? (
-              <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-800 w-full text-left">
-                <p className="text-neutral-400 text-sm line-clamp-3 italic">
+              <div className="bg-white rounded-lg p-4 border border-black/[0.07] w-full text-left">
+                <p className="text-[var(--muted)] text-sm line-clamp-3 italic">
                   "{isStructured(insight) ? insight.summary : String(insight).substring(0, 150) + '...'}"
                 </p>
-                <div className="mt-2 text-xs text-indigo-400 font-medium">
+                <div className="mt-2 text-xs text-[var(--ink)] font-medium">
                   Clique em "Ver Análise" para ler dashboard completo.
                 </div>
               </div>
             ) : (
-              <p className="text-neutral-500 text-sm max-w-md">
+              <p className="text-[var(--muted)] text-sm max-w-md">
                 Utilize a inteligência artificial do Gemini para analisar as curvas de temperatura e gravidade, identificar paradas de fermentação e sugerir correções de perfil.
               </p>
             )}
@@ -204,26 +204,26 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
           role="dialog"
           aria-modal="true"
           aria-labelledby="breww-ai-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B0D12]/40 backdrop-blur-sm animate-in fade-in duration-200"
         >
-          <div className="bg-neutral-950 border border-neutral-800 w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col relative overflow-hidden">
+          <div className="bg-[var(--bg)] border border-black/[0.07] w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col relative overflow-hidden">
 
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-neutral-800 bg-neutral-900/50">
+            <div className="flex items-center justify-between p-6 border-b border-black/[0.07] bg-white">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-500/10 rounded-lg">
-                  <Sparkles className="text-indigo-400" size={24} />
+                <div className="p-2 bg-[var(--accent)]/20 rounded-lg">
+                  <Sparkles className="text-[var(--ink)]" size={24} />
                 </div>
                 <div>
-                  <h2 id="breww-ai-modal-title" className="text-xl font-bold text-white">Análise Breww.AI</h2>
-                  <p className="text-neutral-500 text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString()}</p>
+                  <h2 id="breww-ai-modal-title" className="text-xl font-bold text-[var(--ink)]">Análise Breww.AI</h2>
+                  <p className="text-[var(--muted)] text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleDownloadPDF}
-                  className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-neutral-200 rounded-lg font-medium text-sm transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] text-white hover:bg-black rounded-lg font-medium text-sm transition-colors"
                 >
                   <Download size={16} />
                   Baixar PDF
@@ -232,7 +232,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                   type="button"
                   aria-label="Fechar análise"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
+                  className="p-2 hover:bg-[var(--bg)] rounded-lg text-[var(--muted)] hover:text-[var(--ink)] transition-colors"
                 >
                   <X size={24} />
                 </button>
@@ -240,18 +240,18 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
             </div>
 
             {/* Modal Content (Scrollable) */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar bg-black">
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-[var(--bg)]">
               <div ref={modalContentRef} className="p-8">
 
                 {/* Header Info */}
-                <div className="flex justify-between items-end mb-8 pb-6 border-b border-neutral-800">
+                <div className="flex justify-between items-end mb-8 pb-6 border-b border-black/[0.07]">
                   <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">{fermenter.beerName}</h1>
-                    <p className="text-neutral-400 text-lg">{fermenter.style} • Lote #{fermenter.batchId || fermenter.id || 'N/A'}</p>
+                    <h1 className="text-3xl font-bold text-[var(--ink)] mb-2">{fermenter.beerName}</h1>
+                    <p className="text-[var(--muted)] text-lg">{fermenter.style} • Lote #{fermenter.batchId || fermenter.id || 'N/A'}</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-neutral-500">Status Atual</div>
-                    <div className="text-xl text-white font-medium">{fermenter.status}</div>
+                    <div className="text-sm text-[var(--muted)]">Status Atual</div>
+                    <div className="text-xl text-[var(--ink)] font-medium">{fermenter.status}</div>
                   </div>
                 </div>
 
@@ -260,22 +260,22 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
                     {/* Left Column: Metrics & Gauge */}
                     <div className="space-y-6">
-                      <div className="bg-neutral-900/50 p-6 rounded-xl border border-neutral-800 flex flex-col items-center">
-                        <h3 className="text-neutral-400 text-sm mb-4 font-medium uppercase tracking-wider">Saúde da Fermentação</h3>
+                      <div className="bg-white p-6 rounded-xl border border-black/[0.07] flex flex-col items-center">
+                        <h3 className="text-[var(--muted)] text-sm mb-4 font-medium ">Saúde da Fermentação</h3>
                         {renderHealthGauge(insight.health_score)}
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-800">
-                          <div className="text-neutral-400 text-xs mb-1 flex items-center gap-1"><Calendar size={12} /> EST. TÉRMINO</div>
-                          <div className="text-2xl font-bold text-white">
-                            {insight.estimated_completion_days} <span className="text-sm font-normal text-neutral-500">dias</span>
+                        <div className="bg-white p-4 rounded-xl border border-black/[0.07]">
+                          <div className="text-[var(--muted)] text-xs mb-1 flex items-center gap-1"><Calendar size={12} /> EST. TÉRMINO</div>
+                          <div className="text-2xl font-bold text-[var(--ink)]">
+                            {insight.estimated_completion_days} <span className="text-sm font-normal text-[var(--muted)]">dias</span>
                           </div>
                         </div>
-                        <div className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-800">
-                          <div className="text-neutral-400 text-xs mb-1 flex items-center gap-1"><AlertTriangle size={12} /> RISCO</div>
-                          <div className={`text-xl font-bold capitalize ${insight.risk_level === 'high' ? 'text-red-500' :
-                              insight.risk_level === 'medium' ? 'text-orange-500' : 'text-green-500'
+                        <div className="bg-white p-4 rounded-xl border border-black/[0.07]">
+                          <div className="text-[var(--muted)] text-xs mb-1 flex items-center gap-1"><AlertTriangle size={12} /> RISCO</div>
+                          <div className={`text-xl font-bold capitalize ${insight.risk_level === 'high' ? 'text-[#d63a4d]' :
+                              insight.risk_level === 'medium' ? 'text-orange-600' : 'text-[#178a3f]'
                             }`}>
                             {insight.risk_level === 'high' ? 'Alto' : insight.risk_level === 'medium' ? 'Médio' : 'Baixo'}
                           </div>
@@ -284,10 +284,10 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                     </div>
 
                     {/* Middle Column: Chart */}
-                    <div className="md:col-span-2 bg-neutral-900/50 p-6 rounded-xl border border-neutral-800">
-                      <h3 className="text-neutral-400 text-sm mb-4 font-medium uppercase tracking-wider flex justify-between">
+                    <div className="md:col-span-2 bg-white p-6 rounded-xl border border-black/[0.07]">
+                      <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex justify-between">
                         <span>Gravidade: Real vs. Ideal</span>
-                        <span className="text-xs normal-case text-indigo-400">Linha Roxa: Ideal IA</span>
+                        <span className="text-xs normal-case text-[var(--ink)]">Linha Roxa: Ideal IA</span>
                       </h3>
                       <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -309,25 +309,25 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
                     {/* Bottom Row: Insights & Summary */}
                     <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="bg-neutral-900/50 p-6 rounded-xl border border-neutral-800">
-                        <h3 className="text-neutral-400 text-sm mb-4 font-medium uppercase tracking-wider flex items-center gap-2">
-                          <CheckCircle size={16} className="text-indigo-400" /> Recomendações da IA
+                      <div className="bg-white p-6 rounded-xl border border-black/[0.07]">
+                        <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex items-center gap-2">
+                          <CheckCircle size={16} className="text-[var(--ink)]" /> Recomendações da IA
                         </h3>
                         <ul className="space-y-3">
                           {(Array.isArray(insight.insights) ? insight.insights : []).map((item, idx) => (
-                            <li key={idx} className="text-neutral-300 text-sm leading-relaxed flex items-start gap-2">
-                              <span className="text-indigo-500 mt-1">•</span>
+                            <li key={idx} className="text-[#2b2f37] text-sm leading-relaxed flex items-start gap-2">
+                              <span className="text-[var(--ink)] mt-1">•</span>
                               {item}
                             </li>
                           ))}
                         </ul>
                       </div>
 
-                      <div className="bg-neutral-900/50 p-6 rounded-xl border border-neutral-800">
-                        <h3 className="text-neutral-400 text-sm mb-4 font-medium uppercase tracking-wider flex items-center gap-2">
-                          <Activity size={16} className="text-indigo-400" /> Resumo Breww.AI
+                      <div className="bg-white p-6 rounded-xl border border-black/[0.07]">
+                        <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex items-center gap-2">
+                          <Activity size={16} className="text-[var(--ink)]" /> Resumo Breww.AI
                         </h3>
-                        <p className="text-neutral-300 text-sm leading-relaxed italic">
+                        <p className="text-[#2b2f37] text-sm leading-relaxed italic">
                           "{insight.summary}"
                         </p>
                       </div>
@@ -335,7 +335,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                   </div>
                 ) : (
                   // Fallback for error messages or raw strings
-                  <div className="bg-neutral-900/50 p-6 rounded-xl border border-red-900/30 text-red-200">
+                  <div className="bg-white p-6 rounded-xl border border-red-200 text-red-700">
                     <h3 className="font-bold mb-2 flex items-center gap-2">
                       <AlertTriangle size={20} /> Resposta não estruturada
                     </h3>
@@ -343,7 +343,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                   </div>
                 )}
 
-                <div className="mt-8 pt-8 border-t border-neutral-800 text-center text-neutral-500 text-sm italic">
+                <div className="mt-8 pt-8 border-t border-black/[0.07] text-center text-[var(--muted)] text-sm italic">
                   Relatório Visual gerado em {new Date().toLocaleTimeString()}
                 </div>
               </div>

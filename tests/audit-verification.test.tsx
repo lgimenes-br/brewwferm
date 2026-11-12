@@ -224,12 +224,12 @@ describe('2. AuthContext, Login, Register, SystemBanner, ErrorBoundary & Service
 
     it('Login and Register components render and validate inputs cleanly', () => {
         renderUI(<Login />);
-        expect(container.textContent).toContain('Smart Brewing');
+        expect(container.textContent).toContain('Acompanhe e controle seus fermentadores');
         expect(container.textContent).toContain('Entrar');
 
         renderUI(<Register />);
-        expect(container.textContent).toContain('Criar Nova Conta');
-        expect(container.textContent).toContain('Confirmar Registro');
+        expect(container.textContent).toContain('Criar conta');
+        expect(container.textContent).toContain('Grátis até 3 fermentadores');
     });
 
     it('SystemBanner displays active broadcast and persists dismissal in localStorage', async () => {

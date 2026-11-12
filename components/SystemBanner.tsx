@@ -39,7 +39,7 @@ export const SystemBanner = () => {
     return (
         <div
             role={isWarning ? 'alert' : 'status'}
-            className={`w-full ${isWarning ? 'bg-amber-500' : 'bg-indigo-600'} text-white px-4 py-3 relative z-[100] shadow-md animate-in slide-in-from-top duration-300`}
+            className={`w-full ${isWarning ? 'bg-amber-500' : 'bg-[var(--ink)]'} text-[var(--ink)] px-4 py-3 relative z-[100] shadow-md animate-in slide-in-from-top duration-300`}
         >
             <div className="max-w-7xl mx-auto flex items-start sm:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-3">
@@ -53,7 +53,7 @@ export const SystemBanner = () => {
                     type="button"
                     onClick={handleClose} 
                     aria-label="Fechar aviso"
-                    className={`shrink-0 p-1 rounded-md transition-colors ${isWarning ? 'hover:bg-amber-600' : 'hover:bg-indigo-700'}`}
+                    className={`shrink-0 p-1 rounded-md transition-colors ${isWarning ? 'hover:bg-amber-600' : 'hover:bg-black'}`}
                 >
                     <X size={18} />
                 </button>

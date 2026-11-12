@@ -27,10 +27,10 @@ interface WifiSignalProps {
 export const WifiSignal: React.FC<WifiSignalProps> = ({ rssi, showWarning = true, className = '' }) => {
     const q = wifiQuality(rssi);
     const Icon = q === 'excelente' ? Wifi : q === 'bom' ? WifiHigh : q === 'fraco' ? WifiLow : q === 'muito fraco' ? WifiZero : WifiOff;
-    const color = q === 'excelente' || q === 'bom' ? 'text-neutral-500'
-        : q === 'fraco' ? 'text-amber-500'
-        : q === 'muito fraco' ? 'text-red-500'
-        : 'text-neutral-700';
+    const color = q === 'excelente' || q === 'bom' ? 'text-[var(--muted)]'
+        : q === 'fraco' ? 'text-[#b45309]'
+        : q === 'muito fraco' ? 'text-[#d63a4d]'
+        : 'text-black/35';
     const title = q === 'sem dados'
         ? 'Sinal Wi-Fi: sem dados'
         : `Sinal Wi-Fi ${q} (${rssi} dBm)${isWeakWifi(rssi) ? ' — comandos e atualizações podem ficar lentos. Aproxime o aparelho do roteador/nó da rede.' : ''}`;
@@ -38,7 +38,7 @@ export const WifiSignal: React.FC<WifiSignalProps> = ({ rssi, showWarning = true
         <span className={`inline-flex items-center gap-1 ${color} ${className}`} title={title} aria-label={title} data-testid="wifi-signal" data-quality={q}>
             <Icon size={14} />
             <span className="text-xs font-mono">{q === 'sem dados' ? '--' : `${rssi} dBm`}</span>
-            {showWarning && isWeakWifi(rssi) && <span className="text-[10px] font-bold uppercase tracking-wide">Sinal fraco</span>}
+            {showWarning && isWeakWifi(rssi) && <span className="text-[10px] font-bold tracking-wide">Sinal fraco</span>}
         </span>
     );
 };

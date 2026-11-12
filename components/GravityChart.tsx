@@ -72,8 +72,8 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
   ];
 
   return (
-    <div className="w-full h-full flex flex-col bg-neutral-900/30 p-8 rounded-3xl border border-neutral-800 backdrop-blur-sm overflow-hidden">
-      <h3 className="text-neutral-500 font-bold mb-6 text-xs uppercase tracking-widest pl-2">Curva de Atenuação (Gravidade)</h3>
+    <div className="w-full h-full flex flex-col bg-white p-8 rounded-3xl border border-black/[0.07] backdrop-blur-sm overflow-hidden">
+      <h3 className="text-[var(--muted)] font-bold mb-6 text-xs pl-2">Curva de Atenuação (Gravidade)</h3>
       {/* Fixed height container for Recharts */}
       <div className="w-full flex-1 min-h-[350px] relative">
         {shouldRenderChart ? (
@@ -81,15 +81,15 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
             <AreaChart data={safeData.length > 0 ? safeData : mockData} margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#2fbf55" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#2fbf55" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#404040" vertical={false} strokeWidth={0.5} opacity={0.5} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#d6d8dc" vertical={false} strokeWidth={0.5} opacity={0.5} />
               <XAxis
                 dataKey="timestamp"
                 tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}
-                stroke="#525252"
+                stroke="#9a9ea6"
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}
@@ -97,7 +97,7 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                 hide={safeData.length === 0} // Hide X axis if mock data is used
               />
               <YAxis
-                stroke="#525252"
+                stroke="#9a9ea6"
                 domain={[yDomainMin, yDomainMax]}
                 fontSize={11}
                 tickFormatter={(val) => Number.isFinite(Number(val)) ? Number(val).toFixed(3) : ''}
@@ -107,16 +107,16 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
               />
               {safeData.length > 0 && (
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#171717', borderColor: '#404040', color: '#f5f5f5', borderRadius: '16px', padding: '12px' }}
-                  itemStyle={{ color: '#d4d4d4', fontSize: '12px', paddingBottom: '4px' }}
-                  labelStyle={{ color: '#a3a3a3', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d6d8dc', color: '#0B0D12', borderRadius: '16px', padding: '12px' }}
+                  itemStyle={{ color: '#2b2f37', fontSize: '12px', paddingBottom: '4px' }}
+                  labelStyle={{ color: '#6b6f78', fontSize: '10px', marginBottom: '8px', textTransform: '', letterSpacing: '0.05em' }}
                   labelFormatter={(label) => new Date(label).toLocaleString()}
                   formatter={(value: any, _name: any, props: any) => {
                     const original = props?.payload?.originalGravity;
                     const displayVal = Number(original !== undefined ? original : value);
                     return [Number.isFinite(displayVal) ? displayVal.toFixed(3) : '--', 'SG'];
                   }}
-                  cursor={{ stroke: '#525252', strokeWidth: 0.5, strokeDasharray: '4 4' }}
+                  cursor={{ stroke: '#9a9ea6', strokeWidth: 0.5, strokeDasharray: '4 4' }}
                 />
               )}
               <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} iconType="circle" />
@@ -126,30 +126,30 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                 type="monotone"
                 dataKey="gravity"
                 name={sensorSgName}
-                stroke={safeData.length > 0 ? "#8b5cf6" : "none"}
+                stroke={safeData.length > 0 ? "#178a3f" : "none"}
                 fillOpacity={safeData.length > 0 ? 1 : 0}
                 fill={`url(#${gradId})`}
                 strokeWidth={1.5}
-                activeDot={safeData.length > 0 ? { r: 4, strokeWidth: 0, fill: '#8b5cf6' } : false}
+                activeDot={safeData.length > 0 ? { r: 4, strokeWidth: 0, fill: '#178a3f' } : false}
               />
 
               {/* Reference Lines rendered LAST (on top) */}
               {safeOG !== undefined && !isNaN(safeOG) && safeOG > 0 && (
                 <ReferenceLine
                   y={safeOG}
-                  stroke="#d4d4d4"
+                  stroke="#9a9ea6"
                   strokeDasharray="3 3"
                   strokeWidth={1}
-                  label={{ position: 'insideTopRight', value: `OG: ${safeOG.toFixed(3)}`, fill: '#d4d4d4', fontSize: 10, fontWeight: 600 }}
+                  label={{ position: 'insideTopRight', value: `OG: ${safeOG.toFixed(3)}`, fill: '#6b6f78', fontSize: 10, fontWeight: 600 }}
                 />
               )}
               {safeFG !== undefined && !isNaN(safeFG) && safeFG > 0 && (
                 <ReferenceLine
                   y={safeFG}
-                  stroke="#ffffff"
+                  stroke="#0B0D12"
                   strokeDasharray="3 3"
                   strokeWidth={1}
-                  label={{ position: 'insideBottomRight', value: `Meta FG: ${safeFG.toFixed(3)}`, fill: '#ffffff', fontSize: 10, fontWeight: 600 }}
+                  label={{ position: 'insideBottomRight', value: `Meta FG: ${safeFG.toFixed(3)}`, fill: '#0B0D12', fontSize: 10, fontWeight: 600 }}
                 />
               )}
 
@@ -157,13 +157,13 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
                 <ReferenceLine
                   key={e.id}
                   x={e.markTime}
-                  stroke="#a855f7"
+                  stroke="#6b6f78"
                   strokeDasharray="4 4"
                   strokeWidth={1}
                   label={{
                     value: e.type,
                     position: 'top',
-                    fill: '#a855f7',
+                    fill: '#6b6f78',
                     fontSize: 10,
                     fontWeight: 'bold'
                   }}
@@ -172,15 +172,15 @@ export const GravityChart: React.FC<GravityChartProps> = React.memo(({ data, og,
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-500">
-            <span className="text-sm uppercase tracking-widest font-bold opacity-50">Sem dados de gravidade</span>
+          <div className="flex flex-col items-center justify-center h-full text-[var(--muted)]">
+            <span className="text-sm font-bold opacity-50">Sem dados de gravidade</span>
           </div>
         )}
 
         {/* Helper message overlay if we have OG/FG but no curve data */}
         {shouldRenderChart && safeData.length === 0 && (
           <div className="absolute inset-x-0 bottom-4 flex justify-center pointer-events-none">
-            <span className="text-[10px] text-neutral-500 bg-neutral-900/80 px-3 py-1 rounded-full border border-neutral-800 backdrop-blur-md">
+            <span className="text-[10px] text-[var(--muted)] bg-white px-3 py-1 rounded-full border border-black/[0.07] backdrop-blur-md">
               Aguardando leituras para gerar curva...
             </span>
           </div>

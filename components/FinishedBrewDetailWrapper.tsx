@@ -39,14 +39,14 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
     });
 
     if (isLoading) {
-        return <div className="p-12 text-center text-white">Carregando detalhes...</div>;
+        return <div className="p-12 text-center text-[var(--ink)]">Carregando detalhes...</div>;
     }
 
     if (!brew) {
         return (
             <div className="flex flex-col items-center justify-center h-64">
-                <p className="text-white mb-4">Lote não encontrado.</p>
-                <button onClick={() => navigate('/history')} className="text-blue-500 hover:underline">Voltar</button>
+                <p className="text-[var(--ink)] mb-4">Lote não encontrado.</p>
+                <button onClick={() => navigate('/history')} className="text-blue-600 hover:underline">Voltar</button>
             </div>
         );
     }
@@ -55,7 +55,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
         <div className="animate-in fade-in duration-300">
             <button
                 onClick={() => navigate('/history')}
-                className="mb-4 ml-6 flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white rounded-xl transition-all text-xs font-bold uppercase tracking-wider relative z-10"
+                className="mb-4 ml-6 flex items-center gap-2 px-4 py-2 bg-white border border-black/[0.07] hover:bg-[var(--bg)] text-[var(--ink)] rounded-xl transition-all text-xs font-bold relative z-10"
             >
                 Voltar
             </button>

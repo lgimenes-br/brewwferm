@@ -74,56 +74,56 @@ export const PairingWaitModal: React.FC<PairingWaitModalProps> = ({ pairing, onC
             role="dialog"
             aria-modal="true"
             aria-labelledby="pairing-wait-title"
-            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-[#0B0D12]/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
             onClick={onClose}
         >
             <div
-                className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
+                className="bg-white border border-black/[0.07] p-6 rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex justify-end -mt-2 -mr-2">
-                    <button type="button" onClick={onClose} aria-label="Fechar" className="text-neutral-500 hover:text-white p-1">
+                    <button type="button" onClick={onClose} aria-label="Fechar" className="text-[var(--muted)] hover:text-[var(--ink)] p-1">
                         <X size={18} />
                     </button>
                 </div>
                 <div className="flex flex-col items-center text-center">
                     {status === 'pending' && (
                         <>
-                            <div className="relative w-14 h-14 bg-white/5 text-white rounded-full flex items-center justify-center mb-4">
+                            <div className="relative w-14 h-14 bg-black/[0.04] text-[var(--ink)] rounded-full flex items-center justify-center mb-4">
                                 <Smartphone size={26} />
-                                <Loader2 size={58} className="absolute inset-0 m-auto animate-spin text-neutral-600" strokeWidth={1} />
+                                <Loader2 size={58} className="absolute inset-0 m-auto animate-spin text-black/40" strokeWidth={1} />
                             </div>
-                            <h3 id="pairing-wait-title" className="text-lg font-medium text-white mb-2">Confirme na tela do aparelho</h3>
-                            <p className="text-neutral-400 text-sm mb-1">
-                                Toque em <span className="text-white font-medium">Confirmar</span> na tela do seu Breww para concluir o vínculo.
+                            <h3 id="pairing-wait-title" className="text-lg font-medium text-[var(--ink)] mb-2">Confirme na tela do aparelho</h3>
+                            <p className="text-[var(--muted)] text-sm mb-1">
+                                Toque em <span className="text-[var(--ink)] font-medium">Confirmar</span> na tela do seu Breww para concluir o vínculo.
                             </p>
-                            <p className="text-neutral-600 text-xs font-mono mb-5">{pairing.serial}</p>
-                            <p className="text-neutral-500 text-xs mb-5" aria-live="polite">Expira em {mm}:{ss}</p>
-                            <button type="button" onClick={onClose} className="w-full bg-neutral-800 hover:bg-neutral-700 text-white py-3 rounded-xl font-medium transition-colors">
+                            <p className="text-black/40 text-xs font-mono mb-5">{pairing.serial}</p>
+                            <p className="text-[var(--muted)] text-xs mb-5" aria-live="polite">Expira em {mm}:{ss}</p>
+                            <button type="button" onClick={onClose} className="w-full bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] py-3 rounded-xl font-medium transition-colors">
                                 Cancelar
                             </button>
                         </>
                     )}
                     {status === 'confirmed' && (
                         <>
-                            <div className="w-14 h-14 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-4">
+                            <div className="w-14 h-14 bg-[var(--accent)]/25 text-[#178a3f] rounded-full flex items-center justify-center mb-4">
                                 <CheckCircle2 size={28} />
                             </div>
-                            <h3 id="pairing-wait-title" className="text-lg font-medium text-white mb-2">Aparelho vinculado!</h3>
-                            <p className="text-neutral-400 text-sm mb-5">Ele já aparece no seu painel.</p>
-                            <button type="button" onClick={onClose} className="w-full bg-white text-black hover:bg-neutral-200 py-3 rounded-xl font-bold transition-colors">
+                            <h3 id="pairing-wait-title" className="text-lg font-medium text-[var(--ink)] mb-2">Aparelho vinculado!</h3>
+                            <p className="text-[var(--muted)] text-sm mb-5">Ele já aparece no seu painel.</p>
+                            <button type="button" onClick={onClose} className="w-full bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-bold transition-colors">
                                 Concluir
                             </button>
                         </>
                     )}
                     {failure && (
                         <>
-                            <div className="w-14 h-14 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mb-4">
+                            <div className="w-14 h-14 bg-red-500/10 text-[#d63a4d] rounded-full flex items-center justify-center mb-4">
                                 <XCircle size={28} />
                             </div>
-                            <h3 id="pairing-wait-title" className="text-lg font-medium text-white mb-2">{failure.title}</h3>
-                            <p className="text-neutral-400 text-sm mb-5">{failure.detail}</p>
-                            <button type="button" onClick={onClose} className="w-full bg-neutral-800 hover:bg-neutral-700 text-white py-3 rounded-xl font-medium transition-colors">
+                            <h3 id="pairing-wait-title" className="text-lg font-medium text-[var(--ink)] mb-2">{failure.title}</h3>
+                            <p className="text-[var(--muted)] text-sm mb-5">{failure.detail}</p>
+                            <button type="button" onClick={onClose} className="w-full bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] py-3 rounded-xl font-medium transition-colors">
                                 Fechar
                             </button>
                         </>

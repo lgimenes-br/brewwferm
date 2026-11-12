@@ -3,6 +3,7 @@ import { Lock, Mail, ArrowRight, Loader2, KeyRound, X, CheckCircle2 } from 'luci
 
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { AuthShell } from './AuthShell';
 import { useGoogleLogin } from '@react-oauth/google';
 import { requestPasswordReset, confirmPasswordReset } from '../services/api';
 import toast from 'react-hot-toast';
@@ -147,30 +148,12 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Ambience - Monochrome/Subtle */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-neutral-800/10 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-neutral-800/10 rounded-full blur-[100px]"></div>
-      </div>
-
-      <div className="bg-neutral-900/30 backdrop-blur-sm border border-neutral-800 p-8 rounded-3xl shadow-2xl w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
-        <div className="flex flex-col items-center mb-10">
-          <div className="flex items-baseline mb-2">
-            <span className="text-5xl font-black text-white tracking-tighter">BREW</span>
-            <div className="relative">
-              <span className="text-5xl font-black text-white tracking-tighter">W</span>
-              <div className="absolute top-0 -right-2 w-3 h-2 bg-white rounded-tr-sm"></div>
-            </div>
-          </div>
-          <p className="text-neutral-400 text-sm mt-1 uppercase tracking-widest font-bold">Smart Brewing</p>
-        </div>
-
+    <AuthShell title="Entrar" subtitle="Acompanhe e controle seus fermentadores.">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label htmlFor="login-email" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-1">Email</label>
+            <label htmlFor="login-email" className="text-[10px] font-bold text-[var(--muted)] ml-1">Email</label>
             <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--muted)] group-focus-within:text-[var(--ink)] transition-colors">
                 <Mail size={18} />
               </div>
               <input
@@ -181,7 +164,7 @@ export const Login: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700"
+                className="w-full bg-[var(--bg)] border border-black/[0.07] text-[#2b2f37] rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-black/20 focus:border-black/30 transition-all placeholder-black/30"
                 placeholder="seu@email.com"
               />
             </div>
@@ -189,17 +172,17 @@ export const Login: React.FC = () => {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between ml-1">
-              <label htmlFor="login-password" className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Senha</label>
+              <label htmlFor="login-password" className="text-[10px] font-bold text-[var(--muted)] ">Senha</label>
               <button
                 type="button"
                 onClick={openRecoveryModal}
-                className="text-[11px] font-medium text-neutral-400 hover:text-white underline underline-offset-4 transition-colors"
+                className="text-[11px] font-medium text-[var(--muted)] hover:text-[var(--ink)] underline underline-offset-4 transition-colors"
               >
                 Esqueci minha senha
               </button>
             </div>
             <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 group-focus-within:text-white transition-colors">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--muted)] group-focus-within:text-[var(--ink)] transition-colors">
                 <Lock size={18} />
               </div>
               <input
@@ -210,7 +193,7 @@ export const Login: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full bg-black/50 border border-neutral-800 text-neutral-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 transition-all placeholder-neutral-700"
+                className="w-full bg-[var(--bg)] border border-black/[0.07] text-[#2b2f37] rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-black/20 focus:border-black/30 transition-all placeholder-black/30"
                 placeholder="••••••••"
               />
             </div>
@@ -219,7 +202,7 @@ export const Login: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-neutral-100 hover:bg-white text-black font-bold py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+            className="w-full bg-[var(--ink)] hover:bg-black text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed mt-4"
           >
             {loading ? (
               <Loader2 className="animate-spin" size={20} />
@@ -235,9 +218,9 @@ export const Login: React.FC = () => {
         <div className="mt-6 flex flex-col gap-3">
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-800"></div>
+              <div className="w-full border-t border-black/[0.07]"></div>
             </div>
-            <div className="relative px-3 bg-black text-[10px] text-neutral-600 font-bold uppercase tracking-widest">
+            <div className="relative px-3 bg-white text-[10px] text-black/40 font-bold ">
               Ou entrar com
             </div>
           </div>
@@ -245,7 +228,7 @@ export const Login: React.FC = () => {
           <button
             type="button"
             onClick={() => googleLogin()}
-            className="w-full bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-3 group"
+            className="w-full bg-white border border-black/[0.07] hover:bg-[var(--bg)] text-[var(--ink)] font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-3 group"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -269,12 +252,11 @@ export const Login: React.FC = () => {
           </button>
         </div>
 
-        <div className="mt-8 text-center pt-6 border-t border-neutral-800/50">
-          <p className="text-neutral-500 text-sm">
-            Novo por aqui? <button type="button" onClick={() => navigate('/register')} className="text-neutral-300 hover:text-white font-medium underline underline-offset-4 transition-colors">Criar conta</button>
+        <div className="mt-8 text-center pt-6 border-t border-black/[0.07]">
+          <p className="text-[var(--muted)] text-sm">
+            Novo por aqui? <button type="button" onClick={() => navigate('/register')} className="text-[#2b2f37] hover:text-[var(--ink)] font-medium underline underline-offset-4 transition-colors">Criar conta</button>
           </p>
         </div>
-      </div>
 
       {/* Password Recovery Modal */}
       {isRecoveryOpen && (
@@ -282,22 +264,22 @@ export const Login: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="recovery-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B0D12]/40 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsRecoveryOpen(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') setIsRecoveryOpen(false); }}
         >
           <div
-            className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5"
+            className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-neutral-900 pb-4">
+            <div className="flex items-center justify-between border-b border-black/[0.07] pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-neutral-900 border border-neutral-800 text-white">
+                <div className="p-2 rounded-lg bg-white border border-black/[0.07] text-[var(--ink)]">
                   <KeyRound size={18} />
                 </div>
                 <div>
-                  <h2 id="recovery-modal-title" className="text-base font-bold text-white">Recuperar Senha</h2>
-                  <p className="text-xs text-neutral-500">
+                  <h2 id="recovery-modal-title" className="text-base font-bold text-[var(--ink)]">Recuperar Senha</h2>
+                  <p className="text-xs text-[var(--muted)]">
                     {recoveryStep === 'request'
                       ? 'Enviaremos um código de 6 dígitos para sua conta'
                       : 'Digite o código de 6 dígitos e sua nova senha'}
@@ -308,7 +290,7 @@ export const Login: React.FC = () => {
                 type="button"
                 aria-label="Fechar modal de recuperação"
                 onClick={() => setIsRecoveryOpen(false)}
-                className="text-neutral-500 hover:text-white p-1 rounded-lg transition-colors"
+                className="text-[var(--muted)] hover:text-[var(--ink)] p-1 rounded-lg transition-colors"
               >
                 <X size={18} />
               </button>
@@ -317,7 +299,7 @@ export const Login: React.FC = () => {
             {recoveryStep === 'request' ? (
               <form onSubmit={handleRequestCode} className="space-y-4">
                 <div>
-                  <label htmlFor="recovery-email" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  <label htmlFor="recovery-email" className="block text-[10px] font-bold text-[var(--muted)] mb-1.5">
                     E-mail da Conta
                   </label>
                   <input
@@ -327,24 +309,24 @@ export const Login: React.FC = () => {
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
                     placeholder="seu@email.com"
-                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-neutral-500"
+                    className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-black/30"
                   />
                 </div>
-                <p className="text-xs text-neutral-500 leading-relaxed">
+                <p className="text-xs text-[var(--muted)] leading-relaxed">
                   O código de 6 dígitos será enviado por e-mail e também entregue instantaneamente via WebPush e Bot do Telegram (caso configurados na sua conta).
                 </p>
                 <div className="flex items-center justify-between pt-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setRecoveryStep('verify')}
-                    className="text-xs text-neutral-400 hover:text-white underline underline-offset-4"
+                    className="text-xs text-[var(--muted)] hover:text-[var(--ink)] underline underline-offset-4"
                   >
                     Já tenho um código
                   </button>
                   <button
                     type="submit"
                     disabled={recoveryLoading}
-                    className="px-5 py-2.5 bg-white hover:bg-neutral-200 text-black font-bold text-sm rounded-xl transition-colors flex items-center gap-2 disabled:opacity-60"
+                    className="px-5 py-2.5 bg-[var(--ink)] hover:bg-black text-white font-bold text-sm rounded-xl transition-colors flex items-center gap-2 disabled:opacity-60"
                   >
                     {recoveryLoading ? <Loader2 size={16} className="animate-spin" /> : 'Enviar Código'}
                   </button>
@@ -353,7 +335,7 @@ export const Login: React.FC = () => {
             ) : (
               <form onSubmit={handleConfirmReset} className="space-y-4">
                 <div>
-                  <label htmlFor="recovery-verify-email" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  <label htmlFor="recovery-verify-email" className="block text-[10px] font-bold text-[var(--muted)] mb-1.5">
                     E-mail
                   </label>
                   <input
@@ -362,11 +344,11 @@ export const Login: React.FC = () => {
                     required
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
-                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500"
+                    className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-black/30"
                   />
                 </div>
                 <div>
-                  <label htmlFor="recovery-code" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  <label htmlFor="recovery-code" className="block text-[10px] font-bold text-[var(--muted)] mb-1.5">
                     Código de 6 Dígitos
                   </label>
                   <input
@@ -378,11 +360,11 @@ export const Login: React.FC = () => {
                     value={recoveryCode}
                     onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="000000"
-                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-3 text-center font-mono text-lg tracking-[0.35em] focus:outline-none focus:border-neutral-500"
+                    className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-3 text-center font-mono text-lg tracking-[0.35em] focus:outline-none focus:border-black/30"
                   />
                 </div>
                 <div>
-                  <label htmlFor="recovery-new-password" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  <label htmlFor="recovery-new-password" className="block text-[10px] font-bold text-[var(--muted)] mb-1.5">
                     Nova Senha (mín. 6 caracteres)
                   </label>
                   <input
@@ -392,11 +374,11 @@ export const Login: React.FC = () => {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500"
+                    className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-black/30"
                   />
                 </div>
                 <div>
-                  <label htmlFor="recovery-confirm-password" className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  <label htmlFor="recovery-confirm-password" className="block text-[10px] font-bold text-[var(--muted)] mb-1.5">
                     Confirmar Nova Senha
                   </label>
                   <input
@@ -406,21 +388,21 @@ export const Login: React.FC = () => {
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-black border border-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500"
+                    className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-black/30"
                   />
                 </div>
                 <div className="flex items-center justify-between pt-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setRecoveryStep('request')}
-                    className="text-xs text-neutral-400 hover:text-white underline underline-offset-4"
+                    className="text-xs text-[var(--muted)] hover:text-[var(--ink)] underline underline-offset-4"
                   >
                     Reenviar código
                   </button>
                   <button
                     type="submit"
                     disabled={recoveryLoading}
-                    className="px-5 py-2.5 bg-white hover:bg-neutral-200 text-black font-bold text-sm rounded-xl transition-colors flex items-center gap-2 disabled:opacity-60"
+                    className="px-5 py-2.5 bg-[var(--ink)] hover:bg-black text-white font-bold text-sm rounded-xl transition-colors flex items-center gap-2 disabled:opacity-60"
                   >
                     {recoveryLoading ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -436,6 +418,6 @@ export const Login: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </AuthShell>
   );
 };

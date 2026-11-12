@@ -33,49 +33,49 @@ const calculators: CalculatorItem[] = [
         title: 'Álcool / Atenuação / Calorias',
         description: 'Estime o teor alcoólico (ABV), atenuação e calorias da sua cerveja.',
         icon: Percent,
-        color: 'text-blue-400 bg-blue-400/10'
+        color: 'text-blue-600 bg-blue-400/10'
     },
     {
         id: 'yeast',
         title: 'Taxa de Inoculação / Propagação',
         description: 'Calcule a quantidade ideal de levedura e starters necessários.',
         icon: FlaskConical,
-        color: 'text-amber-400 bg-amber-400/10'
+        color: 'text-[#b45309] bg-amber-500/15'
     },
     {
         id: 'refractometer',
         title: 'Refratômetro / Brix',
         description: 'Corrija leituras do refratômetro considerando o fator de correção e presença de álcool.',
         icon: Pipette,
-        color: 'text-emerald-400 bg-emerald-400/10'
+        color: 'text-[#178a3f] bg-emerald-400/10'
     },
     {
         id: 'density',
         title: 'Correção da Densidade / Evaporação',
         description: 'Ajuste o volume de fervura para atingir a OG desejada.',
         icon: Scale,
-        color: 'text-purple-400 bg-purple-400/10'
+        color: 'text-purple-600 bg-purple-400/10'
     },
     {
         id: 'hydrometer',
         title: 'Correção de Temp. do Densímetro',
         description: 'Ajuste a leitura de densidade baseada na temperatura da amostra.',
         icon: Thermometer,
-        color: 'text-red-400 bg-red-400/10'
+        color: 'text-[#d63a4d] bg-red-400/10'
     },
     {
         id: 'carbonation',
         title: 'Carbonatação',
         description: 'Calcule a pressão de CO2 ou quantidade de primming para o estilo.',
         icon: Beer,
-        color: 'text-yellow-500 bg-yellow-500/10'
+        color: 'text-[#a16207] bg-yellow-500/10'
     },
     {
         id: 'ispindel',
         title: 'Calibração Polinomial (iSpindel / Tilt)',
         description: 'Gere o polinômio de 2º ou 3º grau (R²) a partir dos ângulos de inclinação e densidades medidas.',
         icon: Compass,
-        color: 'text-cyan-400 bg-cyan-400/10'
+        color: 'text-cyan-700 bg-cyan-400/10'
     }
 ];
 
@@ -87,18 +87,18 @@ export const BrewingCalculators: React.FC = () => {
             {/* Header */}
             <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-neutral-800 rounded-lg">
-                        <Calculator className="text-white" size={24} />
+                    <div className="p-2 bg-[var(--bg)] rounded-lg">
+                        <Calculator className="text-[var(--ink)]" size={24} />
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tighter">Calculadoras</h1>
+                    <h1 className="text-3xl font-semibold text-[var(--ink)] tracking-tighter">Calculadoras</h1>
                 </div>
-                <p className="text-neutral-500">
+                <p className="text-[var(--muted)]">
                     Ferramentas essenciais para ajustes e cálculos precisos durante sua brassagem.
                 </p>
             </div>
 
             {/* List */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden divide-y divide-neutral-800/50 shadow-2xl">
+            <div className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden divide-y divide-neutral-800/50 shadow-2xl">
                 {calculators.map((calc) => {
                     const Icon = calc.icon;
                     const isActive = activeCalculator === calc.id;
@@ -108,7 +108,7 @@ export const BrewingCalculators: React.FC = () => {
                             <button 
                                 type="button"
                                 aria-expanded={isActive}
-                                className={`w-full flex items-center justify-between p-5 hover:bg-neutral-800/50 transition-colors group text-left ${isActive ? 'bg-neutral-800/30' : ''}`}
+                                className={`w-full flex items-center justify-between p-5 hover:bg-[var(--bg)] transition-colors group text-left ${isActive ? 'bg-[var(--bg)]' : ''}`}
                                 onClick={() => {
                                     if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation', 'ispindel'].includes(calc.id)) {
                                         setActiveCalculator(isActive ? null : calc.id);
@@ -122,18 +122,18 @@ export const BrewingCalculators: React.FC = () => {
                                         <Icon size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="text-white font-bold tracking-tight text-lg group-hover:text-neutral-200 transition-colors">{calc.title}</h3>
-                                        <p className="text-neutral-500 text-sm mt-0.5 max-w-xl">{calc.description}</p>
+                                        <h3 className="text-[var(--ink)] font-bold tracking-tight text-lg group-hover:text-[#2b2f37] transition-colors">{calc.title}</h3>
+                                        <p className="text-[var(--muted)] text-sm mt-0.5 max-w-xl">{calc.description}</p>
                                     </div>
                                 </div>
-                                <div className={`text-neutral-600 transition-transform duration-300 ${isActive ? 'rotate-90 text-white' : 'group-hover:text-white group-hover:translate-x-1'}`}>
+                                <div className={`text-black/40 transition-transform duration-300 ${isActive ? 'rotate-90 text-[var(--ink)]' : 'group-hover:text-[var(--ink)] group-hover:translate-x-1'}`}>
                                     <ChevronRight size={20} />
                                 </div>
                             </button>
                             
                             {/* Accordion Content */}
                             {isActive && (
-                                <div className="p-4 md:p-6 border-t border-neutral-800/50 animate-in fade-in slide-in-from-top-4 duration-300">
+                                <div className="p-4 md:p-6 border-t border-black/[0.07] animate-in fade-in slide-in-from-top-4 duration-300">
                                     {calc.id === 'abv' && <AbvCalculator />}
                                     {calc.id === 'refractometer' && <RefractometerCalculator />}
                                     {calc.id === 'yeast' && <YeastCalculator />}

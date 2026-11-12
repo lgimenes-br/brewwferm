@@ -71,13 +71,13 @@ export const RefractometerCalculator: React.FC = () => {
                         role="switch"
                         aria-checked={isFermented}
                         onClick={() => setIsFermented(!isFermented)}
-                        className="w-full flex items-center justify-between p-4 bg-neutral-950 border border-neutral-800 rounded-xl cursor-pointer select-none text-left focus:outline-none focus:border-emerald-500 transition-colors"
+                        className="w-full flex items-center justify-between p-4 bg-[var(--bg)] border border-black/[0.07] rounded-xl cursor-pointer select-none text-left focus:outline-none focus:border-[#2fbf55] transition-colors"
                     >
                         <div>
-                            <span className="block text-sm font-bold text-white">Mosto Fermentado?</span>
-                            <span className="text-xs text-neutral-500">Ative se a fermentação já começou</span>
+                            <span className="block text-sm font-bold text-[var(--ink)]">Mosto Fermentado?</span>
+                            <span className="text-xs text-[var(--muted)]">Ative se a fermentação já começou</span>
                         </div>
-                        <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isFermented ? 'bg-emerald-500' : 'bg-neutral-800'}`}>
+                        <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isFermented ? 'bg-[#2fbf55]' : 'bg-[var(--bg)]'}`}>
                             <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isFermented ? 'translate-x-6' : 'translate-x-0'}`} />
                         </div>
                     </button>
@@ -86,7 +86,7 @@ export const RefractometerCalculator: React.FC = () => {
                         {/* OG SG - Only if Fermented */}
                         {isFermented && (
                             <div className="col-span-2">
-                                <label htmlFor="refract-og-sg" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Original (OG)</label>
+                                <label htmlFor="refract-og-sg" className="block text-xs font-bold text-[var(--muted)] mb-2">Densidade Original (OG)</label>
                                 <div className="relative">
                                     <input 
                                         id="refract-og-sg"
@@ -94,16 +94,16 @@ export const RefractometerCalculator: React.FC = () => {
                                         step="0.001"
                                         value={ogSgInput}
                                         onChange={(e) => setOgSgInput(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
+                                        className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#2fbf55] transition-colors"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">SG</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">SG</span>
                                 </div>
                             </div>
                         )}
 
                         {/* Current/FG Brix */}
                         <div>
-                            <label htmlFor="refract-brix-wri" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Brix WRI</label>
+                            <label htmlFor="refract-brix-wri" className="block text-xs font-bold text-[var(--muted)] mb-2">Brix WRI</label>
                             <div className="relative">
                                 <input 
                                     id="refract-brix-wri"
@@ -111,15 +111,15 @@ export const RefractometerCalculator: React.FC = () => {
                                     step="0.1"
                                     value={brixWriInput}
                                     onChange={(e) => setBrixWriInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#2fbf55] transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">Bx</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">Bx</span>
                             </div>
                         </div>
 
                         {/* WCF */}
                         <div>
-                            <label htmlFor="refract-wcf" className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Fator de Correção</label>
+                            <label htmlFor="refract-wcf" className="block text-xs font-bold text-[var(--muted)] mb-2">Fator de Correção</label>
                             <div className="relative">
                                 <input 
                                     id="refract-wcf"
@@ -127,21 +127,21 @@ export const RefractometerCalculator: React.FC = () => {
                                     step="0.01"
                                     value={wcfInput}
                                     onChange={(e) => setWcfInput(e.target.value)}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3.5 text-white font-mono text-lg focus:outline-none focus:border-emerald-500 transition-colors"
+                                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#2fbf55] transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">WCF</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">WCF</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Right Column: Results */}
-                <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800/50 flex flex-col justify-center">
+                <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-center">
                     
                     {/* Main FG Result */}
                     <div className="text-center mb-8">
-                        <span className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Densidade Corrigida</span>
-                        <div className="text-6xl font-black text-emerald-400 tracking-tighter font-mono">
+                        <span className="block text-xs font-bold text-[var(--muted)] mb-2">Densidade Corrigida</span>
+                        <div className="text-6xl font-semibold text-[#178a3f] tracking-tighter font-mono">
                             {results.sg.toFixed(3)}
                         </div>
                     </div>
@@ -149,13 +149,13 @@ export const RefractometerCalculator: React.FC = () => {
                     {/* Secondary Results */}
                     {isFermented && (
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">ABV Estimado</span>
-                                <div className="text-xl font-bold text-white font-mono">{results.abv.toFixed(2)}%</div>
+                            <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
+                                <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">ABV Estimado</span>
+                                <div className="text-xl font-bold text-[var(--ink)] font-mono">{results.abv.toFixed(2)}%</div>
                             </div>
-                            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 text-center">
-                                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">ABW Estimado</span>
-                                <div className="text-xl font-bold text-amber-400 font-mono">{results.abw.toFixed(2)}%</div>
+                            <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
+                                <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">ABW Estimado</span>
+                                <div className="text-xl font-bold text-[#b45309] font-mono">{results.abw.toFixed(2)}%</div>
                             </div>
                         </div>
                     )}

@@ -172,72 +172,72 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="sensor-scan-title"
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-[#0B0D12]/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
             onClick={onClose}
         >
             <div
-                className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
+                className="bg-white border border-black/[0.07] p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white/5 text-white rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-black/[0.04] text-[var(--ink)] rounded-full flex items-center justify-center">
                             <Search size={20} />
                         </div>
                         <div>
-                            <h3 id="sensor-scan-title" className="text-lg font-medium text-white">Escanear Sensores</h3>
-                            <p className="text-neutral-500 text-xs">{deviceId}</p>
+                            <h3 id="sensor-scan-title" className="text-lg font-medium text-[var(--ink)]">Escanear Sensores</h3>
+                            <p className="text-[var(--muted)] text-xs">{deviceId}</p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} aria-label="Fechar" className="text-neutral-500 hover:text-white p-1">
+                    <button type="button" onClick={onClose} aria-label="Fechar" className="text-[var(--muted)] hover:text-[var(--ink)] p-1">
                         <X size={18} />
                     </button>
                 </div>
 
                 {phase === 'scanning' && (
-                    <div className="flex items-center gap-3 text-neutral-300 text-sm bg-neutral-800/50 rounded-xl p-4 mb-4">
+                    <div className="flex items-center gap-3 text-[#2b2f37] text-sm bg-[var(--bg)] rounded-xl p-4 mb-4">
                         <Loader2 size={16} className="animate-spin" /> Procurando sensores DS18B20 no barramento 1-Wire...
                     </div>
                 )}
                 {phase === 'timeout' && (
-                    <div className="flex items-start gap-3 text-red-300 text-sm bg-red-950/40 border border-red-900/50 rounded-xl p-4 mb-4">
+                    <div className="flex items-start gap-3 text-[#d63a4d] text-sm bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
                         <XCircle size={16} className="mt-0.5 shrink-0" />
                         <div>
                             <p className="font-medium">Sem resposta do aparelho</p>
-                            <p className="text-red-300/70 text-xs">Nenhuma resposta em {Math.round(timeoutMs / 1000)}s. Verifique se o aparelho está ligado, conectado ao Wi-Fi e com o firmware atualizado.</p>
+                            <p className="text-[#d63a4d]/80 text-xs">Nenhuma resposta em {Math.round(timeoutMs / 1000)}s. Verifique se o aparelho está ligado, conectado ao Wi-Fi e com o firmware atualizado.</p>
                         </div>
                     </div>
                 )}
                 {phase === 'done' && sensors.length === 0 && (
-                    <div className="flex items-start gap-3 text-amber-300 text-sm bg-amber-950/30 border border-amber-900/50 rounded-xl p-4 mb-4">
+                    <div className="flex items-start gap-3 text-[#b45309] text-sm bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
                         <XCircle size={16} className="mt-0.5 shrink-0" />
                         <div>
                             <p className="font-medium">Nenhum sensor encontrado</p>
-                            <p className="text-amber-300/70 text-xs">Confira o conector JST (sinal no GPIO17), alimentação, GND e o resistor de pull-up de 4.7kΩ.</p>
+                            <p className="text-amber-700 text-xs">Confira o conector JST (sinal no GPIO17), alimentação, GND e o resistor de pull-up de 4.7kΩ.</p>
                         </div>
                     </div>
                 )}
 
                 {sensors.length > 0 && (
                     <>
-                        <p className="text-neutral-400 text-xs mb-3">
-                            {sensors.length} {sensors.length === 1 ? 'sensor encontrado' : 'sensores encontrados'}. O <span className="text-white">Sensor 1</span> controla aquecimento e resfriamento.
+                        <p className="text-[var(--muted)] text-xs mb-3">
+                            {sensors.length} {sensors.length === 1 ? 'sensor encontrado' : 'sensores encontrados'}. O <span className="text-[var(--ink)]">Sensor 1</span> controla aquecimento e resfriamento.
                         </p>
                         <div className="space-y-2 mb-3">
                             {sensors.map(s => {
                                 const role = roles[s.mac] ?? 'none';
                                 return (
-                                    <div key={s.mac} data-testid={`scan-row-${s.mac}`} className="bg-neutral-800/40 border border-neutral-800 rounded-xl p-3">
+                                    <div key={s.mac} data-testid={`scan-row-${s.mac}`} className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-3">
                                         <div className="flex items-center justify-between gap-3 mb-2">
                                             <div className="min-w-0 flex items-center gap-2">
-                                                <Thermometer size={14} className="text-neutral-500 shrink-0" />
-                                                <span className="font-mono text-[11px] text-neutral-400 truncate">{s.mac}</span>
+                                                <Thermometer size={14} className="text-[var(--muted)] shrink-0" />
+                                                <span className="font-mono text-[11px] text-[var(--muted)] truncate">{s.mac}</span>
                                             </div>
-                                            <span className="text-white font-mono text-sm shrink-0">
+                                            <span className="text-[var(--ink)] font-mono text-sm shrink-0">
                                                 {s.temp !== null ? `${s.temp.toFixed(2)} °C` : '--'}
                                             </span>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded-lg" role="radiogroup" aria-label={`Função do sensor ${s.mac}`}>
+                                        <div className="grid grid-cols-3 gap-1 bg-[var(--bg)] p-1 rounded-lg" role="radiogroup" aria-label={`Função do sensor ${s.mac}`}>
                                             {ROLE_OPTIONS.map(opt => (
                                                 <button
                                                     key={opt.value}
@@ -245,7 +245,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                                                     role="radio"
                                                     aria-checked={role === opt.value}
                                                     onClick={() => setRole(s.mac, opt.value)}
-                                                    className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${role === opt.value ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
+                                                    className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${role === opt.value ? 'bg-[var(--ink)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
                                                 >
                                                     {opt.label}
                                                 </button>
@@ -259,19 +259,19 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                                                 maxLength={30}
                                                 value={role === 's1' ? name1 : name2}
                                                 onChange={(e) => (role === 's1' ? setName1 : setName2)(e.target.value)}
-                                                className="mt-2 w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:border-white focus:outline-none"
+                                                className="mt-2 w-full bg-[var(--bg)] border border-black/15 rounded-lg p-2 text-sm text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
                                             />
                                         )}
                                     </div>
                                 );
                             })}
                         </div>
-                        <p className="flex items-start gap-2 text-neutral-500 text-[11px] mb-4">
+                        <p className="flex items-start gap-2 text-[var(--muted)] text-[11px] mb-4">
                             <Info size={12} className="mt-0.5 shrink-0" />
                             Não sabe qual é qual? Segure um sensor na mão por alguns segundos e clique em "Escanear novamente": o que esquentar é ele.
                         </p>
                         {!hasS1 && (
-                            <p className="text-amber-300/80 text-xs mb-4">Escolha um sensor como Sensor 1 para o controle de temperatura funcionar.</p>
+                            <p className="text-[#b45309] text-xs mb-4">Escolha um sensor como Sensor 1 para o controle de temperatura funcionar.</p>
                         )}
                     </>
                 )}
@@ -281,7 +281,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                         type="button"
                         onClick={runScan}
                         disabled={phase === 'scanning'}
-                        className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white py-3 rounded-xl font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                        className="flex-1 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] py-3 rounded-xl font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     >
                         <RotateCcw size={16} /> Escanear novamente
                     </button>
@@ -289,7 +289,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                         type="button"
                         onClick={handleSave}
                         disabled={!hasS1 || saving || phase !== 'done'}
-                        className="flex-1 bg-white text-black hover:bg-neutral-200 py-3 rounded-xl font-bold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                        className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-bold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar
                     </button>

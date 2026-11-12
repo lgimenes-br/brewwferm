@@ -252,8 +252,8 @@ export const FermenterDetailWrapper: React.FC = () => {
     if (isWorking) {
         return (
             <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                <Loader2 size={32} className="text-blue-500 animate-spin" />
-                <p className="text-neutral-400 text-sm animate-pulse">Carregando dados do fermentador...</p>
+                <Loader2 size={32} className="text-blue-600 animate-spin" />
+                <p className="text-[var(--muted)] text-sm animate-pulse">Carregando dados do fermentador...</p>
             </div>
         );
     }
@@ -261,8 +261,8 @@ export const FermenterDetailWrapper: React.FC = () => {
     if (!fermenter) {
         return (
             <div className="flex flex-col items-center justify-center h-64">
-                <p className="text-white mb-4">Fermentador não encontrado.</p>
-                <button onClick={() => navigate('/')} className="text-blue-500 hover:underline">Voltar</button>
+                <p className="text-[var(--ink)] mb-4">Fermentador não encontrado.</p>
+                <button onClick={() => navigate('/')} className="text-blue-600 hover:underline">Voltar</button>
             </div>
         );
     }

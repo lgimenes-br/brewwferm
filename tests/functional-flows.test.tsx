@@ -1298,7 +1298,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
 
         // Inicialmente 0 / 1 unidades conectadas (aguardando pacote MQTT ao vivo)
-        expect(container.textContent).toContain('0 / 1 UNIDADES CONECTADAS');
+        expect(container.textContent).toContain('0 de 1 aparelho online');
         expect(container.textContent).toContain('18.0');
 
         // Simula pacote MQTT ao vivo chegando em brewbrother/ESP32_MQTT/data
@@ -1325,7 +1325,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
 
         // Verifica que o Dashboard atualizou IMEDIATAMENTE para Online (1 / 1) e refletiu todas as leituras ao vivo!
-        expect(container.textContent).toContain('1 / 1 UNIDADES CONECTADAS');
+        expect(container.textContent).toContain('1 de 1 aparelho online');
         expect(container.textContent).toContain('19.7');
         expect(container.textContent).toContain('Alvo: 19.5°');
         expect(container.textContent).toContain('Geladeira: 11.4°');

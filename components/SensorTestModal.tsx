@@ -163,9 +163,9 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
     };
 
     const StatusBadge: React.FC<{ status: SensorStatus }> = ({ status }) => {
-        if (status === 'ok') return <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-bold uppercase"><CheckCircle2 size={14} /> OK</span>;
-        if (status === 'suspect') return <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-bold uppercase"><AlertTriangle size={14} /> Suspeito</span>;
-        return <span className="inline-flex items-center gap-1 text-neutral-500 text-xs font-bold uppercase"><XCircle size={14} /> Ausente</span>;
+        if (status === 'ok') return <span className="inline-flex items-center gap-1 text-[#178a3f] text-xs font-bold "><CheckCircle2 size={14} /> OK</span>;
+        if (status === 'suspect') return <span className="inline-flex items-center gap-1 text-[#b45309] text-xs font-bold "><AlertTriangle size={14} /> Suspeito</span>;
+        return <span className="inline-flex items-center gap-1 text-[var(--muted)] text-xs font-bold "><XCircle size={14} /> Ausente</span>;
     };
 
     return (
@@ -173,39 +173,39 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="sensor-test-title"
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-[#0B0D12]/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
             onClick={onClose}
         >
             <div
-                className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
+                className="bg-white border border-black/[0.07] p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white/5 text-white rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-black/[0.04] text-[var(--ink)] rounded-full flex items-center justify-center">
                             <Activity size={20} />
                         </div>
                         <div>
-                            <h3 id="sensor-test-title" className="text-lg font-medium text-white">Teste de Sensores</h3>
-                            <p className="text-neutral-500 text-xs">{deviceId}</p>
+                            <h3 id="sensor-test-title" className="text-lg font-medium text-[var(--ink)]">Teste de Sensores</h3>
+                            <p className="text-[var(--muted)] text-xs">{deviceId}</p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} aria-label="Fechar" className="text-neutral-500 hover:text-white p-1">
+                    <button type="button" onClick={onClose} aria-label="Fechar" className="text-[var(--muted)] hover:text-[var(--ink)] p-1">
                         <X size={18} />
                     </button>
                 </div>
 
                 {phase === 'waiting' && (
-                    <div className="flex items-center gap-3 text-neutral-300 text-sm bg-neutral-800/50 rounded-xl p-4 mb-4">
+                    <div className="flex items-center gap-3 text-[#2b2f37] text-sm bg-[var(--bg)] rounded-xl p-4 mb-4">
                         <Loader2 size={16} className="animate-spin" /> Solicitando leitura ao aparelho...
                     </div>
                 )}
                 {phase === 'timeout' && (
-                    <div className="flex items-start gap-3 text-red-300 text-sm bg-red-950/40 border border-red-900/50 rounded-xl p-4 mb-4">
+                    <div className="flex items-start gap-3 text-[#d63a4d] text-sm bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
                         <XCircle size={16} className="mt-0.5 shrink-0" />
                         <div>
                             <p className="font-medium">Sem resposta do aparelho</p>
-                            <p className="text-red-300/70 text-xs">Nenhum pacote novo em {Math.round(timeoutMs / 1000)}s. Verifique se o aparelho está ligado e conectado ao Wi-Fi.{Object.keys(raw).length > 0 ? ' Abaixo, a última leitura conhecida.' : ''}</p>
+                            <p className="text-[#d63a4d]/80 text-xs">Nenhum pacote novo em {Math.round(timeoutMs / 1000)}s. Verifique se o aparelho está ligado e conectado ao Wi-Fi.{Object.keys(raw).length > 0 ? ' Abaixo, a última leitura conhecida.' : ''}</p>
                         </div>
                     </div>
                 )}
@@ -215,19 +215,19 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
                         {rows.map(row => {
                             const c = classifySensor(row.kind, row.raw);
                             return (
-                                <div key={row.key} data-testid={`sensor-row-${row.key}`} data-status={c.status} className="bg-neutral-800/40 border border-neutral-800 rounded-xl p-3">
+                                <div key={row.key} data-testid={`sensor-row-${row.key}`} data-status={c.status} className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-3">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-white text-sm font-medium truncate">{row.label}</p>
-                                            <p className="text-neutral-500 text-[11px] font-mono">bruto: {row.raw === undefined ? '—' : JSON.stringify(row.raw)}</p>
+                                            <p className="text-[var(--ink)] text-sm font-medium truncate">{row.label}</p>
+                                            <p className="text-[var(--muted)] text-[11px] font-mono">bruto: {row.raw === undefined ? '—' : JSON.stringify(row.raw)}</p>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-white font-mono text-sm">{c.value !== undefined ? `${c.value}${row.unit ? ' ' + row.unit : ''}` : '--'}</p>
+                                            <p className="text-[var(--ink)] font-mono text-sm">{c.value !== undefined ? `${c.value}${row.unit ? ' ' + row.unit : ''}` : '--'}</p>
                                             <StatusBadge status={c.status} />
                                         </div>
                                     </div>
                                     {c.hint && c.status !== 'ok' && (
-                                        <p className={`text-xs mt-2 ${c.status === 'suspect' ? 'text-amber-300/80' : 'text-neutral-500'}`}>{c.hint}</p>
+                                        <p className={`text-xs mt-2 ${c.status === 'suspect' ? 'text-[#b45309]' : 'text-[var(--muted)]'}`}>{c.hint}</p>
                                     )}
                                 </div>
                             );
@@ -236,7 +236,7 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
                 )}
 
                 {hasData && (
-                    <div className="text-[11px] text-neutral-500 grid grid-cols-2 gap-2 mb-4">
+                    <div className="text-[11px] text-[var(--muted)] grid grid-cols-2 gap-2 mb-4">
                         <span>RSSI: {raw.rssi ?? '--'} dBm</span>
                         <span>Firmware: {raw.ver || raw.fw || '--'}</span>
                         <span className="col-span-2">Último pacote: {lastPacketMs ? new Date(lastPacketMs).toLocaleTimeString() : '--'}</span>
@@ -245,25 +245,25 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
 
                 {Object.keys(raw).length > 0 && (
                     <details className="mb-4">
-                        <summary className="text-xs text-neutral-400 cursor-pointer select-none">Payload bruto (JSON)</summary>
+                        <summary className="text-xs text-[var(--muted)] cursor-pointer select-none">Payload bruto (JSON)</summary>
                         <div className="relative mt-2">
-                            <button type="button" onClick={copyPayload} className="absolute top-2 right-2 text-neutral-400 hover:text-white" aria-label="Copiar payload">
+                            <button type="button" onClick={copyPayload} className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--ink)]" aria-label="Copiar payload">
                                 <Copy size={14} />
                             </button>
-                            <pre className="bg-black/60 text-neutral-300 text-[11px] p-3 rounded-lg overflow-x-auto max-h-60">{rawJson}</pre>
+                            <pre className="bg-[var(--bg)] text-[#2b2f37] text-[11px] p-3 rounded-lg overflow-x-auto max-h-60">{rawJson}</pre>
                         </div>
                     </details>
                 )}
 
                 <div className="flex gap-3">
-                    <button type="button" onClick={onClose} className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white py-3 rounded-xl font-medium transition-colors">
+                    <button type="button" onClick={onClose} className="flex-1 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] py-3 rounded-xl font-medium transition-colors">
                         Fechar
                     </button>
                     <button
                         type="button"
                         onClick={runTest}
                         disabled={phase === 'waiting'}
-                        className="flex-1 bg-white text-black hover:bg-neutral-200 py-3 rounded-xl font-bold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                        className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-bold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     >
                         <RotateCcw size={16} /> Testar novamente
                     </button>

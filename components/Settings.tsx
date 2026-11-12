@@ -33,9 +33,9 @@ interface SystemSettings {
 }
 
 const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
-  <div className="flex items-center gap-2 mb-6 border-b border-neutral-800 pb-2">
-    <Icon size={18} className="text-neutral-400" />
-    <h3 className="text-white font-bold text-sm uppercase tracking-widest">{title}</h3>
+  <div className="flex items-center gap-2 mb-6 border-b border-black/[0.07] pb-2">
+    <Icon size={18} className="text-[var(--muted)]" />
+    <h3 className="text-[var(--ink)] font-bold text-sm ">{title}</h3>
   </div>
 );
 
@@ -61,7 +61,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
 
   return (
     <div className="space-y-2">
-      <label htmlFor={inputId} className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">{label}</label>
+      <label htmlFor={inputId} className="text-[10px] font-bold text-[var(--muted)] block">{label}</label>
       <input 
         id={inputId}
         type={type === 'number' ? 'text' : type}
@@ -78,7 +78,7 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
           }
         }}
         placeholder={placeholder}
-        className="w-full bg-black border border-neutral-800 text-neutral-200 rounded-xl px-4 py-3 focus:outline-none focus:border-neutral-600 focus-visible:ring-2 focus-visible:ring-amber-500/60 transition-colors font-mono text-sm"
+        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[#2b2f37] rounded-xl px-4 py-3 focus:outline-none focus:border-black/25 focus-visible:ring-2 focus-visible:ring-amber-500/60 transition-colors font-mono text-sm"
       />
     </div>
   );
@@ -574,20 +574,20 @@ export const Settings: React.FC = () => {
       
       <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-           <h1 className="text-4xl font-light tracking-tight text-white mb-2">Configurações</h1>
-           <p className="text-neutral-500 font-light">Parâmetros do controlador ESP32 e calibração de sensores.</p>
+           <h1 className="text-4xl font-light tracking-tight text-[var(--ink)] mb-2">Configurações</h1>
+           <p className="text-[var(--muted)] font-light">Parâmetros do controlador ESP32 e calibração de sensores.</p>
         </div>
         
         {/* Device Selector */}
         <div className="relative min-w-[250px]">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Cpu size={16} className="text-neutral-400" />
+                <Cpu size={16} className="text-[var(--muted)]" />
             </div>
             <select
                 aria-label="Selecionar controlador"
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="w-full pl-11 pr-10 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-700 transition-all appearance-none cursor-pointer text-sm font-bold tracking-wider"
+                className="w-full pl-11 pr-10 py-3 bg-white border border-black/15 hover:border-black/30 text-[var(--ink)] rounded-xl focus:outline-none focus:ring-2 focus:ring-black/15 transition-all appearance-none cursor-pointer text-sm font-bold "
             >
                 {fermenters.length === 0 ? (
                     <option value="" disabled>Nenhum controlador</option>
@@ -600,26 +600,26 @@ export const Settings: React.FC = () => {
                 )}
             </select>
             <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                <ChevronDown size={16} className="text-neutral-400" />
+                <ChevronDown size={16} className="text-[var(--muted)]" />
             </div>
         </div>
       </header>
 
       {/* 0. Notificações */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Bell} title="Notificações no Celular" />
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-                <p className="text-neutral-300 text-sm mb-1">Receba alertas de temperatura, fim de rampa e quedas de energia (offline) diretamente no seu dispositivo.</p>
-                <p className="text-neutral-500 text-xs">Requer permissão do navegador. Funciona nativamente no iOS (adicionado à tela inicial) e Android.</p>
+                <p className="text-[#2b2f37] text-sm mb-1">Receba alertas de temperatura, fim de rampa e quedas de energia (offline) diretamente no seu dispositivo.</p>
+                <p className="text-[var(--muted)] text-xs">Requer permissão do navegador. Funciona nativamente no iOS (adicionado à tela inicial) e Android.</p>
             </div>
             <button 
                 onClick={handleSubscribePush}
                 disabled={isSubscribed}
-                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 border whitespace-nowrap ${
+                className={`px-6 py-3 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 border whitespace-nowrap ${
                     isSubscribed 
-                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/50 cursor-not-allowed' 
-                        : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/50'
+                        ? 'bg-[var(--accent)]/25 text-[#178a3f] border-emerald-500/50 cursor-not-allowed' 
+                        : 'bg-amber-500/15 hover:bg-amber-500/20 text-[#b45309] border-amber-500/50'
                 }`}
             >
                 <Bell size={14} /> {isSubscribed ? 'Alertas Ativos' : 'Ativar Alertas'}
@@ -627,11 +627,11 @@ export const Settings: React.FC = () => {
         </div>
 
         {/* Regras Customizáveis de Alerta (Bateria, Desvio Térmico, SG Alvo e Telegram) */}
-        <div className="mt-8 pt-6 border-t border-neutral-800/80 space-y-6">
+        <div className="mt-8 pt-6 border-t border-black/[0.07] space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-black/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+            <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Bateria Fraca (iSpindel)</span>
+                <span className="text-xs font-bold text-[#2b2f37]">Bateria Fraca (iSpindel)</span>
                 <input
                   type="checkbox"
                   checked={alertConfig.lowBatteryEnabled}
@@ -648,9 +648,9 @@ export const Settings: React.FC = () => {
               />
             </div>
 
-            <div className="bg-black/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+            <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Desvio de Temperatura</span>
+                <span className="text-xs font-bold text-[#2b2f37]">Desvio de Temperatura</span>
                 <input
                   type="checkbox"
                   checked={alertConfig.tempDeviationEnabled}
@@ -667,9 +667,9 @@ export const Settings: React.FC = () => {
               />
             </div>
 
-            <div className="bg-black/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+            <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Alerta de SG Alvo</span>
+                <span className="text-xs font-bold text-[#2b2f37]">Alerta de SG Alvo</span>
                 <input
                   type="checkbox"
                   checked={alertConfig.sgTargetEnabled}
@@ -705,14 +705,14 @@ export const Settings: React.FC = () => {
                 type="button"
                 onClick={handleTestTelegram}
                 disabled={isTestingTelegram}
-                className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+                className="px-4 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
               >
                 <Send size={14} /> Testar Telegram
               </button>
               <button
                 type="button"
                 onClick={handleSaveAlertConfig}
-                className="px-5 py-3 bg-neutral-100 hover:bg-white text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap"
+                className="px-5 py-3 bg-[var(--ink)] hover:bg-black text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 whitespace-nowrap"
               >
                 <Save size={14} /> Salvar Alertas
               </button>
@@ -722,9 +722,9 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 0.5 Integrações Externas (Brewfather Custom Stream) */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Link2} title="Integrações Externas (Brewfather Custom Stream)" />
-        <p className="text-neutral-400 text-xs mb-4 -mt-3">
+        <p className="text-[var(--muted)] text-xs mb-4 -mt-3">
           Espelhe automaticamente a temperatura do mosto, geladeira, densidade (SG) e bateria do seu controlador para o seu lote no <strong>Brewfather</strong> a cada 15 minutos.
         </p>
         <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4">
@@ -741,14 +741,14 @@ export const Settings: React.FC = () => {
               type="button"
               onClick={handleTestBrewfather}
               disabled={isTestingBrewfather}
-              className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+              className="px-4 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
             >
               <Send size={14} /> Testar Brewfather
             </button>
             <button
               type="button"
               onClick={handleSaveBrewfather}
-              className="px-5 py-3 bg-neutral-100 hover:bg-white text-black rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap"
+              className="px-5 py-3 bg-[var(--ink)] hover:bg-black text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <Save size={14} /> Salvar Integração
             </button>
@@ -757,7 +757,7 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 1. Configurações Gerais */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Sliders} title="Configurações Gerais" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InputField 
@@ -779,14 +779,14 @@ export const Settings: React.FC = () => {
               onChange={(v: number) => handleChange('chartPoints', v)} 
               type="number" 
             />
-            <p className="text-[10px] text-neutral-600">Define quantos pontos históricos aparecem.</p>
+            <p className="text-[10px] text-black/40">Define quantos pontos históricos aparecem.</p>
           </div>
         </div>
         <div className="mt-6 flex justify-end">
           <button 
             onClick={handleSaveGeneral}
             disabled={!selectedDeviceId}
-            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-neutral-100 hover:bg-white text-black'}`}
+            className={`px-6 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-[var(--bg)] text-[var(--muted)] cursor-not-allowed' : 'bg-[var(--ink)] hover:bg-black text-white'}`}
           >
             <Save size={14} /> Salvar Gerais
           </button>
@@ -794,7 +794,7 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 2. Configurações SG */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Thermometer} title="Configurações de Densidade / Gravidade" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InputField 
@@ -807,7 +807,7 @@ export const Settings: React.FC = () => {
           <button 
             onClick={handleSaveSensorNames}
             disabled={!selectedDeviceId}
-            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700'}`}
+            className={`px-6 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 ${!selectedDeviceId ? 'bg-[var(--bg)] text-[var(--muted)] cursor-not-allowed' : 'bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] border border-black/15'}`}
           >
             <Save size={14} /> Salvar Nome SG
           </button>
@@ -815,9 +815,9 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 3. Calibração (Offset) */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Activity} title="Calibração (Offset)" />
-        <p className="text-neutral-500 text-xs mb-6 -mt-4">Ajuste fino adicionado à leitura bruta dos sensores. Use valores positivos ou negativos (ex: -0.5).</p>
+        <p className="text-[var(--muted)] text-xs mb-6 -mt-4">Ajuste fino adicionado à leitura bruta dos sensores. Use valores positivos ou negativos (ex: -0.5).</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InputField 
             label="Offset S1 (°C)" 
@@ -842,7 +842,7 @@ export const Settings: React.FC = () => {
           <button 
             onClick={handleSaveCalibration}
             disabled={!selectedDeviceId}
-            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-neutral-100 hover:bg-white text-black'}`}
+            className={`px-6 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] ${!selectedDeviceId ? 'bg-[var(--bg)] text-[var(--muted)] cursor-not-allowed' : 'bg-[var(--ink)] hover:bg-black text-white'}`}
           >
             <Save size={14} /> Salvar Calibração
           </button>
@@ -850,18 +850,18 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 4. Parâmetros PID */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Cpu} title="Parâmetros PID" />
         
         <div className="mb-6">
-            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+            <h4 className="text-xs font-bold text-[var(--muted)] mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-neutral-600"></span> Aquecimento (Resistência)
+                    <span className="w-2 h-2 rounded-full bg-black/20"></span> Aquecimento (Resistência)
                 </div>
                 <button 
                     onClick={() => handleStartAutotune('heat')}
                     disabled={!selectedDeviceId}
-                    className="px-3 py-1 bg-amber-500/20 text-amber-500 border border-amber-500/50 rounded text-[10px] hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+                    className="px-3 py-1 bg-amber-500/20 text-[#b45309] border border-amber-500/50 rounded text-[10px] hover:bg-amber-500/30 transition-colors disabled:opacity-50"
                 >
                     Iniciar Auto-Tune
                 </button>
@@ -874,15 +874,15 @@ export const Settings: React.FC = () => {
             </div>
         </div>
 
-        <div className="border-t border-neutral-800/50 pt-6">
-            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+        <div className="border-t border-black/[0.07] pt-6">
+            <h4 className="text-xs font-bold text-[var(--muted)] mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-neutral-600"></span> Refrigeração (Compressor)
+                    <span className="w-2 h-2 rounded-full bg-black/20"></span> Refrigeração (Compressor)
                 </div>
                 <button 
                     onClick={() => handleStartAutotune('cool')}
                     disabled={!selectedDeviceId}
-                    className="px-3 py-1 bg-blue-500/20 text-blue-500 border border-blue-500/50 rounded text-[10px] hover:bg-blue-500/30 transition-colors disabled:opacity-50"
+                    className="px-3 py-1 bg-blue-500/20 text-blue-600 border border-blue-500/50 rounded text-[10px] hover:bg-blue-500/30 transition-colors disabled:opacity-50"
                 >
                     Iniciar Auto-Tune
                 </button>
@@ -898,7 +898,7 @@ export const Settings: React.FC = () => {
           <button 
             onClick={handleUpdatePID}
             disabled={!selectedDeviceId}
-            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] ${!selectedDeviceId ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-neutral-100 hover:bg-white text-black'}`}
+            className={`px-6 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] ${!selectedDeviceId ? 'bg-[var(--bg)] text-[var(--muted)] cursor-not-allowed' : 'bg-[var(--ink)] hover:bg-black text-white'}`}
           >
             <Save size={14} /> Atualizar PID
           </button>
@@ -906,49 +906,49 @@ export const Settings: React.FC = () => {
       </section>
 
       {/* 6. Teste de Relés */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Zap} title="Teste de Relés" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button 
                 onClick={() => handleTestRelay(1, 'HEAT')}
                 disabled={!selectedDeviceId}
-                className={`py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 border ${!selectedDeviceId ? 'opacity-50 cursor-not-allowed' : ''} ${relayState === 'HEAT' ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-transparent border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'}`}
+                className={`py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 border ${!selectedDeviceId ? 'opacity-50 cursor-not-allowed' : ''} ${relayState === 'HEAT' ? 'bg-[var(--ink)] text-white border-[var(--ink)] shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-transparent border-black/[0.07] text-[var(--muted)] hover:border-black/25 hover:text-[#2b2f37]'}`}
             >
                 <Thermometer size={14} /> Aquecer
             </button>
             <button 
                 onClick={() => handleTestRelay(2, 'COOL')}
                 disabled={!selectedDeviceId}
-                className={`py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 border ${!selectedDeviceId ? 'opacity-50 cursor-not-allowed' : ''} ${relayState === 'COOL' ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-transparent border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'}`}
+                className={`py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 border ${!selectedDeviceId ? 'opacity-50 cursor-not-allowed' : ''} ${relayState === 'COOL' ? 'bg-[var(--ink)] text-white border-[var(--ink)] shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-transparent border-black/[0.07] text-[var(--muted)] hover:border-black/25 hover:text-[#2b2f37]'}`}
             >
                 <Power size={14} /> Refrigerar
             </button>
             <button 
                 onClick={() => handleTestRelay(0, 'AUTO')}
                 disabled={!selectedDeviceId}
-                className={`py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 border ${!selectedDeviceId ? 'opacity-50 cursor-not-allowed' : ''} ${relayState === 'AUTO' ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-transparent border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'}`}
+                className={`py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 border ${!selectedDeviceId ? 'opacity-50 cursor-not-allowed' : ''} ${relayState === 'AUTO' ? 'bg-[var(--ink)] text-white border-[var(--ink)] shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-transparent border-black/[0.07] text-[var(--muted)] hover:border-black/25 hover:text-[#2b2f37]'}`}
             >
                 <Cpu size={14} /> Auto
             </button>
         </div>
-        <p className="text-xs text-neutral-600 mt-4">* O modo AUTO retorna o controle para o algoritmo PID.</p>
+        <p className="text-xs text-black/40 mt-4">* O modo AUTO retorna o controle para o algoritmo PID.</p>
       </section>
 
       {/* 5.5 Mapeamento de Sensores */}
-      <section id="sensor-mapping-section" className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8 mb-8">
+      <section id="sensor-mapping-section" className="bg-white border border-black/[0.07] rounded-3xl p-8 mb-8">
         <SectionHeader icon={Thermometer} title="Mapeamento de Sensores (1-Wire)" />
         <div className="flex flex-wrap items-center gap-4 mb-6">
             <button 
                 onClick={() => setShowSensorScan(true)}
                 disabled={!selectedDeviceId}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                className="bg-[var(--ink)] hover:bg-black text-white py-2 px-4 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
             >
                 <Search size={14} className="inline mr-2" /> Escanear Sensores
             </button>
             <button 
                 onClick={() => setShowSensorTest(true)}
                 disabled={!selectedDeviceId}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                className="bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] py-2 px-4 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
             >
                 <Activity size={14} className="inline mr-2" /> Testar Sensores
             </button>
@@ -959,19 +959,19 @@ export const Settings: React.FC = () => {
                 { label: 'Sensor 1 · Controle', name: settings.sensor1Name, mac: currentMacCtrl },
                 { label: 'Sensor 2', name: settings.sensor2Name, mac: currentMac2 }
             ].map(row => (
-                <div key={row.label} className="flex items-center justify-between gap-4 bg-neutral-800/40 p-4 rounded-xl border border-neutral-800">
+                <div key={row.label} className="flex items-center justify-between gap-4 bg-[var(--bg)] p-4 rounded-xl border border-black/[0.07]">
                     <div className="min-w-0">
-                        <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-bold">{row.label}</p>
-                        <p className="text-white text-sm truncate">{row.name}</p>
+                        <p className="text-[11px] text-[var(--muted)] font-bold">{row.label}</p>
+                        <p className="text-[var(--ink)] text-sm truncate">{row.name}</p>
                     </div>
-                    <span className="font-mono text-[11px] text-neutral-400 shrink-0">{row.mac || 'automático (ordem do barramento)'}</span>
+                    <span className="font-mono text-[11px] text-[var(--muted)] shrink-0">{row.mac || 'automático (ordem do barramento)'}</span>
                 </div>
             ))}
         </div>
       </section>
 
       {/* 6. Sistema */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Power} title="Sistema" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button 
@@ -983,21 +983,21 @@ export const Settings: React.FC = () => {
                     }
                 }}
                 disabled={!selectedDeviceId}
-                className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="bg-[var(--bg)] hover:bg-black/10 border border-black/15 text-[var(--ink)] py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
                 <RotateCcw size={14} /> Reiniciar
             </button>
             <button 
                 onClick={handleDownloadLogs}
                 disabled={!selectedDeviceId}
-                className="bg-white hover:bg-neutral-200 text-black py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500"
+                className="bg-[var(--ink)] hover:bg-black text-white py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:bg-[var(--bg)] disabled:text-[var(--muted)]"
             >
                 <Download size={14} /> Baixar Logs
             </button>
             <button 
                 onClick={handleClearLogs}
                 disabled={!selectedDeviceId}
-                className="bg-transparent border border-neutral-800 hover:border-red-900/50 hover:bg-red-900/10 hover:text-red-500 text-neutral-500 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="bg-transparent border border-black/[0.07] hover:border-red-200 hover:bg-red-50 hover:text-[#d63a4d] text-[var(--muted)] py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
                 <Trash2 size={14} /> Limpar Logs
             </button>
@@ -1010,7 +1010,7 @@ export const Settings: React.FC = () => {
                     }
                 }}
                 disabled={!selectedDeviceId}
-                className="bg-transparent border border-neutral-800 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 text-neutral-500 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="bg-transparent border border-black/[0.07] hover:border-red-500/50 hover:bg-red-500/10 hover:text-[#d63a4d] text-[var(--muted)] py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
                 <Power size={14} /> Reset Fábrica
             </button>
@@ -1020,21 +1020,21 @@ export const Settings: React.FC = () => {
 
 
       {/* 8. Atualização de Firmware (OTA) */}
-      <section className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-8">
+      <section className="bg-white border border-black/[0.07] rounded-3xl p-8">
         <SectionHeader icon={Download} title="Atualização Remota (OTA)" />
         
         {latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, activeDevice?.currentDevice?.version) && (
-            <div className="bg-emerald-950/20 border border-emerald-900/50 rounded-xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-500">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-500">
                 <div>
-                    <h4 className="text-emerald-500 font-bold text-sm mb-1 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h4 className="text-[#178a3f] font-bold text-sm mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#2fbf55] animate-pulse"></span>
                         Nova Versão Oficial Disponível: {latestFirmware.version}
                     </h4>
                     <p className="text-emerald-500/70 text-xs">Seu equipamento está na versão {activeDevice?.currentDevice?.version}. Atualize para obter as últimas melhorias.</p>
-                    <div className="mt-4 w-full bg-emerald-950 rounded-full h-2.5 overflow-hidden">
-                        <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${Math.max(0, otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!] ?? 0)}%` }}></div>
+                    <div className="mt-4 w-full bg-emerald-50 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-[#2fbf55] h-2.5 rounded-full transition-all duration-300" style={{ width: `${Math.max(0, otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!] ?? 0)}%` }}></div>
                     </div>
-                    {(otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!] ?? 0) > 0 && <p className="text-emerald-400 text-[10px] text-right mt-1 font-bold">{otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!]}%</p>}
+                    {(otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!] ?? 0) > 0 && <p className="text-[#178a3f] text-[10px] text-right mt-1 font-bold">{otaProgress[(selectedDeviceId || '').toUpperCase()] ?? otaProgress[selectedDeviceId!]}%</p>}
                 </div>
                 <button 
                     onClick={() => {
@@ -1044,7 +1044,7 @@ export const Settings: React.FC = () => {
                             sendCommand(selectedDeviceId, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
                         }
                     }}
-                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0 shadow-[0_0_15px_rgba(5,150,105,0.3)]"
+                    className="px-6 py-2 bg-emerald-600 hover:bg-[#2fbf55] text-white rounded-lg text-xs font-bold transition-colors shrink-0 shadow-[0_0_15px_rgba(5,150,105,0.3)]"
                 >
                     Instalar Automático
                 </button>
