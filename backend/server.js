@@ -72,6 +72,9 @@ const ingredientsPool = mysql.createPool({
 });
 
 // Inicialização de Tabelas (Base Schema + Migrações Seguras)
+// Contas na lixeira (ver loadTrashedUsers / authenticateToken)
+const trashedUsers = new Set();
+
 const runMigration = async (sql) => {
     try {
         await pool.execute(sql);
@@ -120,6 +123,9 @@ const initDb = async () => {
         await runMigration('ALTER TABLE devices ADD COLUMN firmware_version VARCHAR(20) DEFAULT NULL');
         // Frota (admin): placa e hardware detectado, vindos da telemetria (firmware 2.9+)
         await runMigration('ALTER TABLE devices ADD COLUMN board VARCHAR(32) DEFAULT NULL');
+        // Lixeira de contas (admin): conta "excluida" fica 30 dias sem login, podendo ser restaurada
+        await runMigration('ALTER TABLE users ADD COLUMN deleted_at DATETIME DEFAULT NULL');
+        await loadTrashedUsers();
         await runMigration('ALTER TABLE devices ADD COLUMN hw_modules VARCHAR(255) DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20');
@@ -737,12 +743,30 @@ mqttClient.on('message', async (topic, message, packet) => {
 });
 
 // --- 3. API ROUTES ---
+// Contas na lixeira (users.deleted_at): sessoes derrubadas na hora, sem consultar o banco a cada pedido
+async function loadTrashedUsers() {
+    try {
+        const [rows] = await pool.execute('SELECT id FROM users WHERE deleted_at IS NOT NULL');
+        trashedUsers.clear();
+        for (const r of rows) trashedUsers.add(Number(r.id));
+    } catch (e) { console.error('Lixeira: falha ao carregar', e.message); }
+}
+
+/** Registro de auditoria (acoes de admin e operacoes sensiveis). req = null para acoes do sistema. */
+const auditLog = async (req, action, details) => {
+    try {
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+            [req?.user?.id ?? null, action, String(details ?? '').slice(0, 250), req ? (req.ip || null) : null]);
+    } catch (e) { console.error('Auditoria:', e.message); }
+};
+
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
     jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, (err, user) => {
         if (err) return res.sendStatus(403);
+        if (trashedUsers.has(Number(user?.id))) return res.status(401).json({ error: 'Conta desativada' });
         req.user = user;
         next();
     });
@@ -786,6 +810,7 @@ app.post('/api/login', authRateLimiter, async (req, res) => {
         if (users.length === 0) {
             return res.status(401).json({ error: 'E-mail ou senha incorretos' });
         }
+        if (users[0].deleted_at) return res.status(403).json({ error: 'Esta conta foi desativada. Fale com o suporte.' });
         if (users[0].password_hash && await bcrypt.compare(String(password), users[0].password_hash)) {
             const token = jwt.sign({ id: users[0].id, name: users[0].name, role: users[0].role }, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
             
@@ -1145,6 +1170,7 @@ app.post('/api/devices/:serial/command', authenticateToken, async (req, res) => 
 
         const targetSerial = devs[0].serial_code || rawSerial;
         const cmdPayload = { ...payload, type, cmd: type };
+        if (type === 'update_firmware') await auditLog(req, 'OTA_COMMAND', `${devs[0].serial_code}: ${String(payload.url || '').slice(0, 160)}`);
         const msg = JSON.stringify(cmdPayload);
         mqttClient.publish(`brewbrother/${targetSerial}/comando`, msg);
         mqttClient.publish(`brewbrother/${targetSerial}/command`, msg);
@@ -1808,20 +1834,29 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
 // ==========================================
 // INGREDIENTS API (BeerJSON) & ADMIN INGREDIENTS
 // ==========================================
-registerIngredientRoutes(app, ingredientsPool, authenticateToken, requireAdmin);
+registerIngredientRoutes(app, ingredientsPool, authenticateToken, requireAdmin, auditLog);
 
 // ==========================================
 // ADMIN API & BI ANALYTICS
 // ==========================================
-registerAdminRoutes({
+const adminApi = registerAdminRoutes({
     app,
     pool,
     authenticateToken,
     requireAdmin,
     deleteDeviceCascade,
     loadActiveBatches,
-    sendPushToUser
+    sendPushToUser,
+    audit: auditLog,
+    onTrash: (id) => trashedUsers.add(Number(id)),
+    onRestore: (id) => trashedUsers.delete(Number(id)),
 });
+// Lixeira: apaga de vez as contas com mais de 30 dias (1x por dia)
+setInterval(() => {
+    adminApi.purgeExpiredTrash()
+        .then(n => { if (n) { console.log(`🗑️ [Lixeira] ${n} conta(s) apagadas apos 30 dias`); loadTrashedUsers(); } })
+        .catch(e => console.error('Lixeira:', e.message));
+}, 24 * 60 * 60 * 1000).unref();
 
 // Firmware OTA: publicacao pelo GitHub Actions + arquivos servidos a placa (com x-MD5)
 registerFirmwareRoutes(app, { firmwareDir: path.resolve(__dirname, 'firmware') });

@@ -29,6 +29,7 @@ const DATA: Record<string, any> = {
         { id: 1, name: 'Ana Teste', email: 'ana@exemplo.com', role: 'user', plan_type: 'free', device_count: 1 },
         { id: 2, name: 'Bruno Teste', email: 'bruno@exemplo.com', role: 'user', plan_type: 'premium', device_count: 0 },
     ],
+    'GET /admin/users/trash': [{ id: 3, name: 'Carlos Lixeira', email: 'carlos@exemplo.com', device_count: 2, days_left: 27 }],
     'GET /admin/devices': [{ id: 10, serial_code: 'AABBCCDDEEFF', device_name: 'Fermentador', user_id: 1 }],
     'GET /admin/telemetry': [{ id: 10, serial_code: 'AABBCCDDEEFF', device_name: 'Fermentador', owner_name: 'Ana Teste', is_online: 1 }],
     'GET /admin/broadcasts': [{ id: 5, title: 'Manutenção', message: 'Hoje às 23h', is_active: 1, created_at: '2026-11-12T10:00:00Z' }],
@@ -138,8 +139,23 @@ describe('Painel de admin: todas as acoes', () => {
         expect(last('PUT', '/admin/users/1/plan')?.body).toMatchObject({ plan_type: 'premium' });
 
         await click(q('button[aria-label="Excluir Bruno Teste"]'));
-        await click(byText('Excluir Conta', document.body));
-        expect(last('DELETE', '/admin/users/2')).toBeTruthy();
+        await click(byText('Mover para a lixeira', document.body));
+        const del = last('DELETE', '/admin/users/2');
+        expect(del && !del.url.includes('permanent')).toBe(true); // vai para a lixeira, nao apaga
+    });
+
+    it('lixeira: restaurar e excluir definitivamente (com confirmacao)', async () => {
+        await open('contas');
+        expect(container.textContent).toContain('Carlos Lixeira');
+        expect(container.textContent).toContain('apagada em 27 dias');
+
+        await click(q('button[aria-label="Restaurar Carlos Lixeira"]'));
+        expect(last('POST', '/admin/users/3/restore')).toBeTruthy();
+
+        await click(q('button[aria-label="Excluir definitivamente Carlos Lixeira"]'));
+        expect(last('DELETE', '/admin/users/3')).toBeFalsy(); // so depois de confirmar
+        await click(byText('Apagar para sempre', document.body));
+        expect(last('DELETE', '/admin/users/3')?.url).toContain('permanent=1');
     });
 
     it('aparelhos de uma conta: vincular, editar e remover', async () => {

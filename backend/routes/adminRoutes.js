@@ -46,13 +46,42 @@ export const registerAdminRoutes = ({
     requireAdmin,
     deleteDeviceCascade,
     loadActiveBatches,
-    sendPushToUser
+    sendPushToUser,
+    // Auditoria das acoes de admin (audit_logs): audit(req, acao, detalhes)
+    audit = async () => {},
+    // Lixeira: avisa o servidor para derrubar/liberar sessoes da conta
+    onTrash = () => {},
+    onRestore = () => {},
 }) => {
+    const TRASH_DAYS = 30;
+
+    /** Apaga a conta e tudo dela (receitas, push, aparelhos, lotes, leituras). Sem volta. */
+    const hardDeleteUser = async (id) => {
+        await pool.execute('DELETE FROM recipe_steps WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)', [id]);
+        await pool.execute('DELETE FROM recipes WHERE user_id = ?', [id]);
+        await pool.execute('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
+        const [devices] = await pool.execute('SELECT id, serial_code FROM devices WHERE user_id = ?', [id]);
+        for (const dev of devices) await deleteDeviceCascade(dev.id, dev.serial_code);
+        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        await loadActiveBatches();
+    };
+
+    /** Apaga de vez as contas que estao na lixeira ha mais de 30 dias (chamado 1x por dia). */
+    const purgeExpiredTrash = async () => {
+        const [rows] = await pool.execute(`SELECT id, email FROM users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL ${TRASH_DAYS} DAY`);
+        for (const u of rows) {
+            await hardDeleteUser(u.id);
+            await audit(null, 'PURGE_USER_AUTO', `Conta ${u.id} (${u.email}) apagada apos ${TRASH_DAYS} dias na lixeira`);
+        }
+        return rows.length;
+    };
+
     app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
         try {
             const [rows] = await pool.execute(`
                 SELECT u.id, u.name, u.email, u.role, u.plan_type, u.max_devices, u.created_at, COUNT(d.id) as device_count 
                 FROM users u LEFT JOIN devices d ON u.id = d.user_id 
+                WHERE u.deleted_at IS NULL
                 GROUP BY u.id ORDER BY u.id DESC
             `);
             res.json(rows);
@@ -64,6 +93,7 @@ export const registerAdminRoutes = ({
             const plan_type = req.body?.plan_type === 'premium' ? 'premium' : 'free';
             const max_devices = plan_type === 'premium' ? 9999 : 1;
             await pool.execute('UPDATE users SET plan_type = ?, max_devices = ? WHERE id = ?', [plan_type, max_devices, req.params.id]);
+            await audit(req, 'CHANGE_PLAN', `Conta ${req.params.id}: plano ${plan_type}`);
             res.json({ message: 'Plano atualizado' });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -88,6 +118,7 @@ export const registerAdminRoutes = ({
             const safeRole = role === 'admin' ? 'admin' : 'user';
             const hashedPassword = await bcrypt.hash(String(password), 10);
             await pool.execute('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [cleanName, cleanEmail, hashedPassword, safeRole]);
+            await audit(req, 'CREATE_USER', `${cleanEmail} (${safeRole})`);
             res.status(201).json({ message: 'User created' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -106,32 +137,56 @@ export const registerAdminRoutes = ({
             } else {
                 await pool.execute('UPDATE users SET name=?, email=?, role=? WHERE id=?', [cleanName, cleanEmail, safeRole, id]);
             }
+            await audit(req, 'UPDATE_USER', `Conta ${id}: ${cleanEmail} (${safeRole})${password ? ', senha trocada' : ''}`);
             res.json({ message: 'User updated' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
 
+    // Lixeira de contas: "excluir" guarda por 30 dias (sem login); ?permanent=1 apaga de vez
     app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
         try {
-            const { id } = req.params;
-
-            // 1. Bulk delete recipe_steps & recipes without N+1 loop
-            await pool.execute('DELETE FROM recipe_steps WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)', [id]);
-            await pool.execute('DELETE FROM recipes WHERE user_id = ?', [id]);
-
-            // 2. Delete push_subscriptions
-            await pool.execute('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
-
-            // 3. Delete devices, batches, batch_events and readings
-            const [devices] = await pool.execute('SELECT id, serial_code FROM devices WHERE user_id = ?', [id]);
-            for (const dev of devices) {
-                await deleteDeviceCascade(dev.id, dev.serial_code);
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Conta inválida' });
+            if (id === Number(req.user.id)) return res.status(400).json({ error: 'Você não pode excluir a própria conta.' });
+            const [rows] = await pool.execute('SELECT id, email, deleted_at FROM users WHERE id = ?', [id]);
+            if (!rows.length) return res.status(404).json({ error: 'Conta não encontrada' });
+            const u = rows[0];
+            if (req.query.permanent === '1') {
+                if (!u.deleted_at) return res.status(409).json({ error: 'Mande para a lixeira antes de excluir definitivamente.' });
+                await hardDeleteUser(id);
+                await audit(req, 'PURGE_USER', `Conta ${id} (${u.email}) apagada definitivamente`);
+                return res.json({ message: 'Conta apagada definitivamente' });
             }
+            if (!u.deleted_at) {
+                await pool.execute('UPDATE users SET deleted_at = NOW() WHERE id = ?', [id]);
+                onTrash(id);
+                await audit(req, 'TRASH_USER', `Conta ${id} (${u.email}) na lixeira por ${TRASH_DAYS} dias`);
+            }
+            res.json({ message: `Conta na lixeira. Pode ser restaurada por ${TRASH_DAYS} dias.` });
+        } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
+    });
 
-            // 4. Finally delete the user
-            await pool.execute('DELETE FROM users WHERE id = ?', [id]);
-            await loadActiveBatches();
+    app.get('/api/admin/users/trash', authenticateToken, requireAdmin, async (req, res) => {
+        try {
+            const [rows] = await pool.execute(`
+                SELECT u.id, u.name, u.email, u.plan_type, u.deleted_at, COUNT(d.id) AS device_count,
+                       GREATEST(0, ${TRASH_DAYS} - DATEDIFF(NOW(), u.deleted_at)) AS days_left
+                FROM users u LEFT JOIN devices d ON u.id = d.user_id
+                WHERE u.deleted_at IS NOT NULL
+                GROUP BY u.id ORDER BY u.deleted_at DESC
+            `);
+            res.json(rows);
+        } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
+    });
 
-            res.json({ message: 'User and all related data deleted' });
+    app.post('/api/admin/users/:id/restore', authenticateToken, requireAdmin, async (req, res) => {
+        try {
+            const id = Number(req.params.id);
+            const [r] = await pool.execute('UPDATE users SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL', [id]);
+            if (!r.affectedRows) return res.status(404).json({ error: 'Conta não está na lixeira' });
+            onRestore(id);
+            await audit(req, 'RESTORE_USER', `Conta ${id} restaurada da lixeira`);
+            res.json({ message: 'Conta restaurada' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
 
@@ -141,6 +196,7 @@ export const registerAdminRoutes = ({
             if (!serial_code || !user_id) return res.status(400).json({ error: 'Faltam dados obrigatórios' });
             await pool.execute('INSERT INTO devices (serial_code, device_name, user_id) VALUES (?, ?, ?)', [serial_code.trim().toUpperCase(), device_name || null, user_id]);
             deviceRegistry.invalidate(serial_code);
+            await audit(req, 'ADMIN_CREATE_DEVICE', `${serial_code.trim().toUpperCase()} para a conta ${user_id}`);
             res.status(201).json({ message: 'Device created' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -155,6 +211,7 @@ export const registerAdminRoutes = ({
             if (prevDev[0]) deviceRegistry.invalidate(prevDev[0].serial_code);
             deviceRegistry.invalidate(serial_code);
             await loadActiveBatches();
+            await audit(req, 'ADMIN_UPDATE_DEVICE', `Aparelho ${id}: ${serial_code.trim().toUpperCase()} (${device_name || 'sem nome'}), conta ${user_id}`);
             res.json({ message: 'Device updated' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -165,6 +222,7 @@ export const registerAdminRoutes = ({
             const [devs] = await pool.execute('SELECT serial_code FROM devices WHERE id = ?', [id]);
             await deleteDeviceCascade(id, devs[0]?.serial_code);
             await loadActiveBatches();
+            await audit(req, 'ADMIN_DELETE_DEVICE', `Aparelho ${id} (${devs[0]?.serial_code || '?'}) e todo o historico`);
             res.json({ message: 'Device deleted' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -180,7 +238,7 @@ export const registerAdminRoutes = ({
                 [[{ active_batches }]],
                 [[{ online_devices }]]
             ] = await Promise.all([
-                pool.execute('SELECT COUNT(*) as total_users FROM users'),
+                pool.execute('SELECT COUNT(*) as total_users FROM users WHERE deleted_at IS NULL'),
                 pool.execute('SELECT COUNT(*) as total_devices FROM devices'),
                 pool.execute('SELECT COUNT(*) as active_batches FROM batches WHERE is_active = 1'),
                 pool.execute('SELECT COUNT(*) as online_devices FROM devices WHERE last_seen > NOW() - INTERVAL 1 HOUR')
@@ -249,7 +307,7 @@ export const registerAdminRoutes = ({
 
     app.get('/api/admin/financials', authenticateToken, requireAdmin, async (req, res) => {
         try {
-            const [users] = await pool.execute('SELECT plan_type, COUNT(*) as count FROM users GROUP BY plan_type');
+            const [users] = await pool.execute('SELECT plan_type, COUNT(*) as count FROM users WHERE deleted_at IS NULL GROUP BY plan_type');
             let free = 0; let premium = 0;
             users.forEach(u => {
                 if (u.plan_type === 'premium') premium += Number(u.count) || 0;
@@ -294,7 +352,7 @@ export const registerAdminRoutes = ({
                 [[{ total_users }]],
                 [[{ opt_in }]]
             ] = await Promise.all([
-                pool.execute('SELECT COUNT(*) as total_users FROM users'),
+                pool.execute('SELECT COUNT(*) as total_users FROM users WHERE deleted_at IS NULL'),
                 pool.execute('SELECT COUNT(DISTINCT user_id) as opt_in FROM push_subscriptions')
             ]);
             res.json({ total_users, opt_in });
@@ -310,6 +368,7 @@ export const registerAdminRoutes = ({
                 subs.map(sub => sendPushToUser(pool, sub.user_id, title, message))
             );
             const sent = results.filter(r => r.status === 'fulfilled').length;
+            await audit(req, 'BROADCAST_PUSH', `"${String(title).slice(0, 80)}" para ${subs.length} conta(s)`);
             res.json({ success: true, sent });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -392,7 +451,7 @@ export const registerAdminRoutes = ({
             const { title, message, type, is_active, send_push } = req.body || {};
             if (!message) return res.status(400).json({ error: 'Mensagem é obrigatória' });
             await pool.execute('INSERT INTO system_broadcasts (title, message, type, is_active) VALUES (?, ?, ?, ?)', [title ?? null, message, type || 'info', is_active ? 1 : 0]);
-            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'CREATE_BROADCAST', `Title: ${title || ''}`, req.ip || null]);
+            await audit(req, 'CREATE_BROADCAST', `"${title || ''}"${send_push ? ' + push' : ''}${is_active ? ' (ativo)' : ''}`);
 
             if (send_push) {
                 const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
@@ -408,7 +467,10 @@ export const registerAdminRoutes = ({
         try {
             const { is_active } = req.body;
             await pool.execute('UPDATE system_broadcasts SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, req.params.id]);
+            await audit(req, 'TOGGLE_BROADCAST', `Aviso ${req.params.id} ${is_active ? 'ativado' : 'desativado'}`);
             res.json({ message: 'Atualizado' });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
+
+    return { purgeExpiredTrash, hardDeleteUser };
 };

@@ -1,5 +1,5 @@
 // BeerJSON Ingredients Catalog & Admin Management Routes
-export const registerIngredientRoutes = (app, ingredientsPool, authenticateToken, requireAdmin) => {
+export const registerIngredientRoutes = (app, ingredientsPool, authenticateToken, requireAdmin, audit = async () => {}) => {
     const validTables = ['fermentables', 'hops', 'yeasts', 'miscs'];
 
     for (const tableName of validTables) {
@@ -22,6 +22,7 @@ export const registerIngredientRoutes = (app, ingredientsPool, authenticateToken
             const { name, name_pt } = req.body || {};
             if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
             const [result] = await ingredientsPool.execute(`INSERT INTO ${table} (name, name_pt) VALUES (?, ?)`, [name, name_pt ?? null]);
+            await audit(req, 'CREATE_INGREDIENT', `${table}: ${name}`);
             res.json({ id: result.insertId, message: 'Ingrediente criado' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -34,6 +35,7 @@ export const registerIngredientRoutes = (app, ingredientsPool, authenticateToken
             const { name, name_pt } = req.body || {};
             if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
             await ingredientsPool.execute(`UPDATE ${table} SET name = ?, name_pt = ? WHERE id = ?`, [name, name_pt ?? null, id]);
+            await audit(req, 'UPDATE_INGREDIENT', `${table} ${id}: ${name}`);
             res.json({ message: 'Ingrediente atualizado' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
@@ -44,6 +46,7 @@ export const registerIngredientRoutes = (app, ingredientsPool, authenticateToken
             if (!validTables.includes(table)) return res.status(400).json({ error: 'Tabela inválida' });
             
             await ingredientsPool.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+            await audit(req, 'DELETE_INGREDIENT', `${table} ${id}`);
             res.json({ message: 'Ingrediente deletado' });
         } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });

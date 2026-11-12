@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HardDrive, Edit2, Trash2, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { HardDrive, Edit2, Trash2, Plus, X, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
@@ -207,6 +207,7 @@ export const UsersTab: React.FC = () => {
     const [deviceModal, setDeviceModal] = useState<{ isOpen: boolean, data: any, userId: number | null }>({ isOpen: false, data: null, userId: null });
     const [devicesRefreshKey, setDevicesRefreshKey] = useState(0);
     const [pendingDeleteUserId, setPendingDeleteUserId] = useState<number | null>(null);
+    const [trashKey, setTrashKey] = useState(0); // recarrega a lixeira depois de excluir
     const [pendingDeleteDeviceId, setPendingDeleteDeviceId] = useState<number | null>(null);
 
     const loadUsers = async (signal?: AbortSignal) => {
@@ -255,8 +256,9 @@ export const UsersTab: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-                toast.success('Usuário apagado com sucesso');
+                toast.success('Conta movida para a lixeira (pode ser restaurada por 30 dias)');
                 loadUsers();
+                setTrashKey(k => k + 1);
             } else {
                 const err = await res.json();
                 toast.error(`Erro do Servidor: ${err.error}`);
@@ -266,7 +268,7 @@ export const UsersTab: React.FC = () => {
 
     const deleteUser = async (id: number) => {
         if (typeof window !== 'undefined' && (window.confirm as any)?.mock) {
-            if (window.confirm('ATENÇÃO: Deletar este usuário apagará TODOS os dispositivos, lotes e leituras dele. Continuar?')) {
+            if (window.confirm('Mover esta conta para a lixeira?')) {
                 await executeDeleteUser(id);
             }
             return;
@@ -436,11 +438,13 @@ export const UsersTab: React.FC = () => {
                 />
             )}
 
+            <TrashSection refreshKey={trashKey} onRestored={() => loadUsers()} />
+
             <ConfirmDialog
                 open={pendingDeleteUserId !== null}
-                title="Excluir Conta de Usuário"
-                description="ATENÇÃO: Deletar este usuário apagará TODOS os dispositivos, lotes e leituras dele. Continuar?"
-                confirmLabel="Excluir Conta"
+                title="Mover conta para a lixeira"
+                description="A conta deixa de entrar no app e no site na hora, mas os aparelhos, lotes e leituras ficam guardados. Dá para restaurar por 30 dias; depois disso ela é apagada de vez."
+                confirmLabel="Mover para a lixeira"
                 variant="danger"
                 onConfirm={() => { if (pendingDeleteUserId !== null) void executeDeleteUser(pendingDeleteUserId); }}
                 onCancel={() => setPendingDeleteUserId(null)}
@@ -458,3 +462,82 @@ export const UsersTab: React.FC = () => {
         </div>
     );
 };
+
+// Lixeira de contas: restaurar ou excluir definitivamente (antes dos 30 dias)
+function TrashSection({ refreshKey, onRestored }: { refreshKey: number; onRestored: () => void }) {
+    const { token } = useAuth();
+    const [items, setItems] = useState<any[]>([]);
+    const [pendingPurge, setPendingPurge] = useState<any | null>(null);
+    const [busy, setBusy] = useState<number | null>(null);
+
+    const load = async () => {
+        try {
+            const res = await fetch(`${API_URL}/admin/users/trash`, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok) { const d = await res.json(); setItems(Array.isArray(d) ? d : []); }
+        } catch { /* lista fica como esta */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { load(); }, [token, refreshKey]);
+
+    const restore = async (u: any) => {
+        setBusy(u.id);
+        try {
+            const res = await fetch(`${API_URL}/admin/users/${u.id}/restore`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok) { toast.success(`${u.name} restaurada`); await load(); onRestored(); }
+            else toast.error((await res.json().catch(() => ({}))).error || 'Não foi possível restaurar');
+        } finally { setBusy(null); }
+    };
+    const purge = async (u: any) => {
+        setPendingPurge(null);
+        setBusy(u.id);
+        try {
+            const res = await fetch(`${API_URL}/admin/users/${u.id}?permanent=1`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok) { toast.success(`${u.name} apagada definitivamente`); await load(); }
+            else toast.error((await res.json().catch(() => ({}))).error || 'Não foi possível apagar');
+        } finally { setBusy(null); }
+    };
+
+    return (
+        <section aria-labelledby="trash-title" className="mt-10">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="trash-title" className="text-lg font-semibold text-[var(--ink)]">Lixeira</h2>
+                <p className="text-sm text-[var(--muted)]">Contas excluídas ficam 30 dias aqui antes de serem apagadas.</p>
+            </div>
+            {items.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-black/10 bg-white/60 px-5 py-6 text-sm text-[var(--muted)]">A lixeira está vazia.</p>
+            ) : (
+                <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-2xl border border-black/[0.06] bg-white">
+                    {items.map(u => (
+                        <li key={u.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
+                            <div className="min-w-0 flex-1">
+                                <p className="font-medium text-[var(--ink)]">{u.name}</p>
+                                <p className="text-sm text-[var(--muted)]">{u.email} · {u.device_count || 0} aparelho(s)</p>
+                            </div>
+                            <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-[#b45309]">
+                                apagada em {u.days_left} {Number(u.days_left) === 1 ? 'dia' : 'dias'}
+                            </span>
+                            <button type="button" onClick={() => restore(u)} disabled={busy === u.id} aria-label={`Restaurar ${u.name}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--ink)] px-3 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-50">
+                                <RotateCcw size={15} /> Restaurar
+                            </button>
+                            <button type="button" onClick={() => setPendingPurge(u)} disabled={busy === u.id} aria-label={`Excluir definitivamente ${u.name}`}
+                                className="rounded-lg px-3 py-2 text-sm font-medium text-[#d63a4d] hover:bg-red-500/10 disabled:opacity-50">
+                                Excluir definitivamente
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            <ConfirmDialog
+                open={pendingPurge !== null}
+                title="Excluir definitivamente"
+                description={pendingPurge ? `Apagar ${pendingPurge.name} e todos os aparelhos, lotes e leituras dela. Isso não pode ser desfeito.` : ''}
+                confirmLabel="Apagar para sempre"
+                variant="danger"
+                onConfirm={() => { if (pendingPurge) void purge(pendingPurge); }}
+                onCancel={() => setPendingPurge(null)}
+            />
+        </section>
+    );
+}
+
