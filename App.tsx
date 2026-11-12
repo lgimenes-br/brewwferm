@@ -24,6 +24,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 const FermenterDetailWrapper = React.lazy(() => import('./components/FermenterDetailWrapper').then(m => ({ default: m.FermenterDetailWrapper })));
 const FermentationHistory = React.lazy(() => import('./components/FermentationHistory').then(m => ({ default: m.FermentationHistory })));
 const FinishedBrewDetailWrapper = React.lazy(() => import('./components/FinishedBrewDetailWrapper').then(m => ({ default: m.FinishedBrewDetailWrapper })));
+const InstallWizard = React.lazy(() => import('./components/InstallWizard').then(m => ({ default: m.InstallWizard })));
 const Settings = React.lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 const BrewingCalculators = React.lazy(() => import('./components/BrewingCalculators').then(m => ({ default: m.BrewingCalculators })));
 const CompareBatches = React.lazy(() => import('./components/CompareBatches').then(m => ({ default: m.CompareBatches })));
@@ -83,7 +84,7 @@ const NavConfig = () => {
     if (role === 'admin') return null;
 
     // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/login', '/register', '/app-login', '/instalar', '/ajuda', '/privacidade', '/termos'];
+    const publicRoutes = ['/login', '/register', '/app-login', '/instalar', '/instalar/assistente', '/ajuda', '/privacidade', '/termos'];
     if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
@@ -451,6 +452,7 @@ const AppRoutes = () => {
                     <Route path="/app-login" element={<AppLogin />} />
                     {/* Instalador do firmware pelo navegador (publico) */}
                     <Route path="/instalar" element={<Installer />} />
+                    <Route path="/instalar/assistente" element={<InstallWizard />} />
                     <Route path="/ajuda" element={<Help />} />
                     <Route path="/privacidade" element={<Privacy />} />
                     <Route path="/termos" element={<Terms />} />

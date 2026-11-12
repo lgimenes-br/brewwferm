@@ -4,22 +4,14 @@ import { AlertTriangle, ArrowRight, Check, Cpu, Smartphone, Thermometer, ToggleR
 import { SiteHeader, SiteFooter } from './SiteChrome';
 
 // "Monte o seu" + instalador pelo navegador (Fases 3.1 e 3.5), no estilo da home (.brew-landing).
-// O ESP Web Tools grava a imagem completa da placa: /firmware/manifest/<placa>.json (servidor).
+// A gravacao fica no assistente (/instalar/assistente, components/InstallWizard.tsx); aqui e o guia.
 
-declare module 'react' {
-    namespace JSX {
-        interface IntrinsicElements {
-            'esp-web-install-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & { manifest?: string };
-        }
-    }
-}
-
-type Wire = { pin: string; to: string; note?: string; free?: boolean }; // free = o firmware acha sozinho (contorno tracejado)
+export type Wire = { pin: string; to: string; note?: string; free?: boolean }; // free = o firmware acha sozinho (contorno tracejado)
 // sensorPins: onde o DS18B20 e o DHT22 podem ir (o firmware procura sozinho; igual a pins_sensor_candidate)
-type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string; sensorPins?: number[] };
+export type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string; sensorPins?: number[] };
 
 // Reles e I2C: pinos fixos de boards/*.h. Sensores: qualquer pino de sensorPins (detectados sozinhos, v2.9.2+)
-const BOARDS: Board[] = [
+export const BOARDS: Board[] = [
     {
         id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'O mais barato e fácil de achar (WROOM-32 / DevKit V1).',
         wires: [
@@ -91,7 +83,6 @@ const StepLabel: React.FC<{ n: string; children: React.ReactNode; dark?: boolean
 
 export const Installer: React.FC = () => {
     const [boardId, setBoardId] = useState(BOARDS[0].id);
-    const [ready, setReady] = useState(false);
     const [version, setVersion] = useState<string | null>(null);
     const [manifestMissing, setManifestMissing] = useState(false);
     const board = BOARDS.find(b => b.id === boardId)!;
@@ -99,11 +90,6 @@ export const Installer: React.FC = () => {
 
     useEffect(() => { document.title = 'Monte o seu Breww — Instalador'; }, []);
 
-    // Componente do ESP Web Tools so nesta pagina
-    useEffect(() => {
-        if (!supportsWebSerial) return;
-        import('esp-web-tools').then(() => setReady(true)).catch(() => setReady(false));
-    }, []);
 
     useEffect(() => {
         setVersion(null);
@@ -249,22 +235,17 @@ export const Installer: React.FC = () => {
                             </ul>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8">
-                            <p className="text-sm text-[#898E99]">Placa selecionada</p>
-                            <p className="mt-1 text-2xl font-medium">{board.name}</p>
-                            <p className="mt-1 text-sm text-[#898E99]">{version ? `Versão ${version}` : manifestMissing ? 'Instalador indisponível' : 'Carregando versão…'}</p>
+                            <p className="text-sm text-[#898E99]">Assistente de instalação</p>
+                            <p className="mt-1 text-2xl font-medium">Não sabe qual placa tem?</p>
+                            <p className="mt-2 text-[15px] leading-relaxed text-[#c9ccd3]">O assistente descobre pelo USB, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e coloca o aparelho na sua conta.</p>
+                            <p className="mt-3 text-sm text-[#898E99]">{version ? `Firmware ${version}` : manifestMissing ? 'Firmware indisponível no momento' : 'Carregando versão…'}</p>
                             <div className="mt-8">
                                 {!supportsWebSerial ? (
                                     <p className="rounded-2xl bg-white/5 p-4 text-sm text-[#c9ccd3]">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</p>
-                                ) : manifestMissing ? (
-                                    <p className="rounded-2xl bg-white/5 p-4 text-sm text-[#c9ccd3]">O instalador desta placa ainda não foi publicado. Tente mais tarde.</p>
-                                ) : ready ? (
-                                    <esp-web-install-button key={board.id} manifest={`/firmware/manifest/${board.id}.json`}>
-                                        <button slot="activate" className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 py-4 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
-                                            <Usb size={18} /> Instalar no {board.name}
-                                        </button>
-                                    </esp-web-install-button>
                                 ) : (
-                                    <p className="text-sm text-[#898E99]">Carregando o instalador…</p>
+                                    <Link to="/instalar/assistente" className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 py-4 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
+                                        <Usb size={18} /> Instalar no seu ESP32 <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+                                    </Link>
                                 )}
                             </div>
                             <p className="mt-4 text-xs text-[#6B6F78]">A instalação apaga o que estiver gravado na placa.</p>
