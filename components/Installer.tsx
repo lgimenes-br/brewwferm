@@ -226,7 +226,7 @@ export const Installer: React.FC = () => {
                                 Um clique e o firmware <span className="text-[var(--accent)]">está gravado.</span>
                             </h2>
                             <ul className="mt-8 space-y-3 text-[#c9ccd3]">
-                                {['Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Se a placa não aparecer, segure o BOOT ao conectar'].map(t => (
+                                {['Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Se a placa não aparecer, segure o BOOT ao conectar', ...(headless ? ['Ao terminar, o instalador já pede o Wi-Fi da sua casa'] : [])].map(t => (
                                     <li key={t} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{t}</li>
                                 ))}
                             </ul>
@@ -259,12 +259,15 @@ export const Installer: React.FC = () => {
                 <section id="app" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
                     <StepLabel n="04">Wi-Fi e app</StepLabel>
                     <h2 className="mt-2 [font-family:var(--font-display)] text-4xl font-light tracking-[-0.03em] sm:text-5xl">Do celular, em três toques.</h2>
+                    {headless && (
+                        <p className="mt-6 max-w-2xl text-lg text-[var(--muted)]">Configurou o Wi-Fi no instalador? Então pule direto para o app. Se pulou essa etapa, use a rede Breww:</p>
+                    )}
                     {headless ? (
                         <ol className="mt-10 grid gap-4 md:grid-cols-3">
                             {[
                                 { icon: Wifi, title: 'Conecte na rede Breww', text: 'No celular, entre na rede Breww-XXXX. A página abre sozinha: escolha o Wi-Fi da sua casa e digite a senha.' },
                                 { icon: Smartphone, title: 'Abra o app', text: 'Volte para o Wi-Fi de casa e toque em Adicionar aparelho.' },
-                                { icon: Check, title: 'Pronto', text: 'Escolha o aparelho em Buscar na rede ou digite o código da página de Wi-Fi. Ele entra na hora.' },
+                                { icon: Check, title: 'Pronto', text: 'Escolha o aparelho em Buscar na rede (ou digite o código da página de Wi-Fi). Ele entra na hora.' },
                             ].map(({ icon: Icon, title, text }, i) => (
                                 <li key={title} className="rounded-3xl border border-black/5 bg-white p-7">
                                     <div className="flex items-center justify-between">

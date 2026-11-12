@@ -26,6 +26,10 @@ const GROUPS: Group[] = [
         title: 'Wi-Fi e app',
         items: [
             {
+                q: 'Dá para configurar o Wi-Fi sem a rede Breww?',
+                a: <>Sim, nas placas sem tela: logo depois de gravar em <b>breww.live/instalar</b>, o instalador pergunta o Wi-Fi da sua casa pelo próprio cabo USB. Para trocar depois, abra o instalador de novo, conecte a placa e escolha a opção de trocar o Wi-Fi (<b>Change Wi-Fi</b>), sem regravar nada.</>,
+            },
+            {
                 q: 'A rede Breww-XXXX não aparece no celular',
                 a: <>Ela aparece quando a placa não tem Wi-Fi salvo, ou quando não consegue conectar por 3 minutos. Para forçar, segure o botão <b>BOOT por 10 segundos</b>: o Wi-Fi salvo é apagado e a placa reinicia com a rede Breww aberta.</>,
             },

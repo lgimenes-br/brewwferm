@@ -126,6 +126,7 @@ test('instalador: imagem completa por placa e manifest do ESP Web Tools', async 
         assert.equal(m.version, '2.9.0');
         assert.equal(m.builds[0].chipFamily, 'ESP32');
         assert.equal(m.builds[0].parts[0].path, '/firmware/install/esp32-devkit.bin');
+        assert.equal(m.new_install_improv_wait_time, 15, 'sem tela: Wi-Fi pelo USB (Improv)');
         assert.equal((await (await fetch(`${base}/firmware/manifest/c3-headless.json`)).json()).builds[0].chipFamily, 'ESP32-C3');
 
         const dl = await fetch(`${base}/firmware/install/esp32-devkit.bin`);

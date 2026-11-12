@@ -173,6 +173,9 @@ export const registerFirmwareRoutes = (app, {
             name: 'Breww Controller',
             version: meta.version,
             new_install_prompt_erase: true,
+            // Placas sem tela respondem Improv Serial: o instalador pede o Wi-Fi logo depois de gravar.
+            // A de tela configura o Wi-Fi nela mesma; 0 = nem tenta.
+            new_install_improv_wait_time: board === 's3-35' ? 0 : 15,
             builds: [{ chipFamily: BOARD_CHIP_FAMILY[board], parts: [{ path: `/firmware/install/${board}.bin`, offset: 0 }] }]
         });
     });
