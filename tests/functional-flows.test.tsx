@@ -878,7 +878,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('*tilt^3');
     });
 
-    it('Fluxo 5: Configurações (Settings) e Painel Admin (AdminDashboard — todas as 8 abas e disparo de Push)', async () => {
+    it('Fluxo 5: Configurações (Settings) e Painel Admin (AdminDashboard — todas as seções e disparo de Push)', async () => {
         localStorage.setItem('token', 'admin-token');
         localStorage.setItem('user', 'Admin');
         localStorage.setItem('role', 'admin');
@@ -1041,37 +1041,34 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         clickElement(findButtonByText('Reset Fábrica'));
         expectCommand('ESP32_CFG', '"action":"resetconfig"');
 
-        // Parte B: AdminDashboard -> Navegar pelas 8 abas e testar ações administrativas
-        renderWithProviders(<AdminDashboard />);
+        // Parte B: AdminDashboard -> Navegar pelas secoes (menu lateral com links /admin/<secao>)
+        renderWithProviders(<AdminDashboard />, ['/admin/visao-geral']);
+        const goTo = async (slug: string) => {
+            await act(async () => {
+                (container.querySelector(`a[href="/admin/${slug}"]`) as HTMLAnchorElement).click();
+                await new Promise(r => setTimeout(r, 30));
+            });
+        };
         await act(async () => {
             await new Promise(r => setTimeout(r, 60));
         });
 
-        expect(container.textContent).toContain('Métricas e Inteligência de Negócio');
+        expect(container.textContent).toContain('Aparelhos online');
         expect(container.textContent).toContain('R$ 89.70');
 
         // Aba 2: Telemetria
-        await act(async () => {
-            (container.querySelector('button[title="Telemetria"]') as HTMLButtonElement).click();
-            await new Promise(r => setTimeout(r, 30));
-        });
-        expect(container.textContent).toContain('Monitoramento em Tempo Real');
+        await goTo('telemetria');
+        expect(container.textContent).toContain('Últimas leituras e sinal de cada aparelho.');
 
         // Aba 3: Contas e Dispositivos (abrir modal Nova Conta)
-        await act(async () => {
-            (container.querySelector('button[title="Contas e Dispositivos"]') as HTMLButtonElement).click();
-            await new Promise(r => setTimeout(r, 30));
-        });
-        expect(container.textContent).toContain('Gerenciamento de Contas');
+        await goTo('contas');
+        expect(container.textContent).toContain('Usuários, planos e aparelhos vinculados.');
         clickElement(findButtonByText('Nova Conta'));
         expect(container.textContent).toContain('Nível de Acesso');
         clickElement(findButtonByText('Cancelar'));
 
         // Aba 4: Segurança e Avisos (publicar aviso global)
-        await act(async () => {
-            (container.querySelector('button[title="Segurança e Avisos"]') as HTMLButtonElement).click();
-            await new Promise(r => setTimeout(r, 30));
-        });
+        await goTo('seguranca');
         expect(container.textContent).toContain('Enviar Aviso Global');
         const broadcastTitle = container.querySelector('input[placeholder="Ex: Manutenção Programada"]') as HTMLInputElement;
         const broadcastMsg = container.querySelector('textarea[placeholder*="O servidor será reiniciado"]') as HTMLTextAreaElement;
@@ -1084,19 +1081,13 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(apiCalls.some(c => c.url.includes('/admin/broadcasts') && c.method === 'POST')).toBe(true);
 
         // Aba 5: Firmware (OTA)
-        await act(async () => {
-            (container.querySelector('button[title="Firmware (OTA)"]') as HTMLButtonElement).click();
-            await new Promise(r => setTimeout(r, 30));
-        });
-        expect(container.textContent).toContain('Atualização Remota Forçada (OTA)');
+        await goTo('firmware');
+        expect(container.textContent).toContain('Atualização manual (OTA) de um aparelho.');
         const otaBtn = findButtonByText('Disparar Atualização Forçada')!;
         expect(otaBtn.disabled).toBe(true); // Desabilitado até selecionar dispositivo e URL
 
         // Aba 6: Banco de Ingredientes (alternar sub-abas e abrir modal Novo Ingrediente)
-        await act(async () => {
-            (container.querySelector('button[title="Banco de Ingredientes"]') as HTMLButtonElement).click();
-            await new Promise(r => setTimeout(r, 30));
-        });
+        await goTo('ingredientes');
         expect(container.textContent).toContain('Fermentáveis');
         clickElement(findButtonByText('Lúpulos'));
         clickElement(container.querySelector('button[title="Adicionar Novo"]'));
@@ -1104,19 +1095,12 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         clickElement(findButtonByText('Cancelar'));
 
         // Aba 7: Terminal do Servidor
-        await act(async () => {
-            (container.querySelector('button[title="Terminal do Servidor"]') as HTMLButtonElement).click();
-            await new Promise(r => setTimeout(r, 30));
-        });
-        expect(container.textContent).toContain('Terminal & Processos');
+        await goTo('terminal');
+        expect(container.textContent).toContain('Processos e registros do backend.');
 
         // Aba 8: Marketing e Saúde
-        const marketingTabBtn = container.querySelector('button[title="Marketing e Saúde"]') as HTMLButtonElement;
-        await act(async () => {
-            marketingTabBtn.click();
-            await new Promise(r => setTimeout(r, 40));
-        });
-        expect(container.textContent).toContain('Radar de Saúde & Marketing');
+        await goTo('saude');
+        expect(container.textContent).toContain('Engajamento, notificações e avisos para os usuários.');
         expect(container.textContent).toContain('Disparo de Push em Massa');
 
         const titleInput = container.querySelector('input[placeholder="Ex: Oferta Especial!"]') as HTMLInputElement;
