@@ -286,7 +286,7 @@ export const Installer: React.FC = () => {
                         <Link to="/register" className="group inline-flex items-center gap-2 rounded-full bg-[var(--ink)] px-6 py-3.5 text-[15px] font-medium text-white hover:bg-black">
                             Criar conta grátis <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                         </Link>
-                        <span className="text-sm text-[var(--muted)]">Você vai precisar de uma conta no app.</span>
+                        <span className="text-sm text-[var(--muted)]">Você vai precisar de uma conta no app. Algo deu errado? Veja a <Link to="/ajuda" className="font-medium text-[var(--ink)] underline underline-offset-4">ajuda</Link>.</span>
                     </div>
                 </section>
             </main>

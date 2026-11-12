@@ -14,6 +14,7 @@ export const SiteHeader: React.FC = () => (
                 <a href="/#recursos" className="hover:text-[var(--ink)]">Recursos</a>
                 <Link to="/instalar" className="hover:text-[var(--ink)]">Monte o seu</Link>
                 <a href="/#precos" className="hover:text-[var(--ink)]">Preços</a>
+                <Link to="/ajuda" className="hover:text-[var(--ink)]">Ajuda</Link>
             </div>
             <div className="flex items-center gap-2">
                 <Link to="/login" className="rounded-full px-4 py-2 text-sm font-medium hover:bg-black/5">Entrar</Link>
@@ -30,6 +31,7 @@ export const SiteFooter: React.FC = () => (
             <nav className="flex flex-wrap gap-x-8 gap-y-3 text-sm" aria-label="Rodapé">
                 <a href="/#recursos" className="hover:text-white">Recursos</a>
                 <Link to="/instalar" className="hover:text-white">Monte o seu</Link>
+                <Link to="/ajuda" className="hover:text-white">Ajuda</Link>
                 <Link to="/login" className="hover:text-white">Entrar</Link>
                 <Link to="/register" className="hover:text-white">Criar conta</Link>
             </nav>

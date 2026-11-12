@@ -27,6 +27,7 @@ const Settings = React.lazy(() => import('./components/Settings').then(m => ({ d
 const BrewingCalculators = React.lazy(() => import('./components/BrewingCalculators').then(m => ({ default: m.BrewingCalculators })));
 const CompareBatches = React.lazy(() => import('./components/CompareBatches').then(m => ({ default: m.CompareBatches })));
 const PublicLiveBatch = React.lazy(() => import('./components/PublicLiveBatch').then(m => ({ default: m.PublicLiveBatch })));
+const Help = React.lazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const Installer = React.lazy(() => import('./components/Installer').then(m => ({ default: m.Installer })));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 
@@ -81,7 +82,7 @@ const NavConfig = () => {
     if (role === 'admin') return null;
 
     // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/login', '/register', '/app-login', '/instalar'];
+    const publicRoutes = ['/login', '/register', '/app-login', '/instalar', '/ajuda'];
     if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
@@ -449,6 +450,7 @@ const AppRoutes = () => {
                     <Route path="/app-login" element={<AppLogin />} />
                     {/* Instalador do firmware pelo navegador (publico) */}
                     <Route path="/instalar" element={<Installer />} />
+                    <Route path="/ajuda" element={<Help />} />
 
                     {/* Protected App Routes */}
                     <Route path="/*" element={
