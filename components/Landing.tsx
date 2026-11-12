@@ -225,6 +225,48 @@ export const Landing: React.FC = () => {
                     </dl>
                 </section>
 
+                {/* Firmware aberto (GPL) */}
+                <section id="codigo" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-24 sm:px-6">
+                    <div className="grid items-center gap-10 rounded-[32px] bg-[var(--ink)] px-6 py-12 text-white sm:px-12 sm:py-16 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
+                        <div>
+                            <h2 className="[font-family:var(--font-display)] text-4xl font-light leading-[1.05] tracking-[-0.03em] sm:text-5xl">
+                                Firmware aberto no GitHub. <span className="text-[#8e9199]">Licença <span className="whitespace-nowrap">GPL-3.0.</span></span>
+                            </h2>
+                            <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-[#c9ccd3]">
+                                O código que roda no ESP32 está publicado. Placas novas, sensores e correções entram por pull request, e cada um é compilado nas 4 placas antes de entrar.
+                            </p>
+                            <a href="https://github.com/lgimenes-br/breww-firmware" target="_blank" rel="noopener noreferrer"
+                                className="group mt-8 inline-flex items-center gap-2 border-b border-white/30 pb-1 text-[15px] font-medium hover:border-[var(--accent)]">
+                                Ver o código no GitHub <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+                            </a>
+                        </div>
+                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0e1117] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7)]" role="img" aria-label="Trecho do firmware: a função que procura o sensor DS18B20 em um pino">
+                            <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5 text-[13px]">
+                                <span className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white"><span className="rounded border border-white/15 px-1 font-mono text-[11px] text-[#a3a7b0]">C++</span>hal_sensors.cpp</span>
+                                <span className="hidden items-center gap-1.5 px-2.5 py-1 text-[#8e9199] sm:flex"><span className="rounded border border-white/10 px-1 font-mono text-[11px]">C++</span>board_pins.cpp</span>
+                                <span className="ml-auto rounded-md border border-white/10 px-2 py-0.5 font-mono text-[12px] text-[#a3a7b0]">v2.9.5</span>
+                            </div>
+                            <pre className="overflow-x-auto py-4 text-[13px] leading-[1.8] text-[#c9ccd3] [font-family:ui-monospace,SFMono-Regular,Menlo,monospace]" aria-hidden="true">
+{[
+    ['152', <><b className="font-medium text-white">static bool</b> probe_ds18b20(<b className="font-medium text-white">int</b> pin) {'{'}</>],
+    ['153', <>{'    '}OneWire w(pin);</>],
+    ['154', <>{'    '}<b className="font-medium text-white">uint8_t</b> a[8];</>],
+    ['155', <>{'    '}w.reset_search();</>],
+    ['156', <>{'    '}<b className="font-medium text-white">bool</b> found = w.search(a) &amp;&amp; OneWire::crc8(a, 7) == a[7] &amp;&amp;</>, true],
+    ['157', <>{'                 '}(a[0] == 0x28 || a[0] == 0x10 || a[0] == 0x22 || a[0] == 0x3B); <span className="italic text-[#6b6f78]">// familias DS18x20</span></>, true],
+    ['158', <>{'    '}pinMode(pin, INPUT);</>],
+    ['159', <>{'    '}<b className="font-medium text-white">return</b> found;</>],
+    ['160', <>{'}'}</>],
+].map(([n, code, mark]) => (
+    <div key={n as string} className={`flex pr-4 ${mark ? 'bg-[var(--accent)]/[0.08] shadow-[inset_2px_0_0_var(--accent)]' : ''}`}>
+        <span className="w-12 shrink-0 select-none pr-4 text-right text-[#565a63]">{n}</span><span className="whitespace-pre">{code}</span>
+    </div>
+))}
+                            </pre>
+                        </div>
+                    </div>
+                </section>
+
                 {/* Precos */}
                 <section id="precos" className="scroll-mt-20 border-t border-black/5 bg-white/50">
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
