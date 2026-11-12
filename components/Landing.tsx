@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SiteHeader, SiteFooter } from './SiteChrome';
-import { ArrowRight, Bell, Activity, Layers, History, Radio, Cpu, Usb, Wifi, Smartphone, Check, Download } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bell, Activity, Layers, History, Radio, Cpu, Usb, Wifi, Smartphone, Check, Download } from 'lucide-react';
 
 // Home de vendas (visitante sem login em "/").
 // Direcao: editorial de laboratorio — fundo claro, tipografia grande e leve, verde #71FC8F como
@@ -80,7 +80,7 @@ const FEATURES = [
 
 const STEPS = [
     { icon: Usb, n: '01', title: 'Grave pelo navegador', text: 'Ligue o ESP32 no computador e clique em Instalar. Sem Arduino, sem compilar.' },
-    { icon: Wifi, n: '02', title: 'Conecte ao Wi-Fi', text: 'No celular, entre na rede Breww e escolha o Wi-Fi da sua casa.' },
+    { icon: Wifi, n: '02', title: 'Conecte ao Wi-Fi', text: 'O instalador já pede o Wi-Fi da sua casa. Ou, pelo celular, entre na rede Breww.' },
     { icon: Smartphone, n: '03', title: 'Adicione no app', text: 'Ele aparece sozinho na busca da sua rede. Um toque e pronto.' },
 ];
 
@@ -204,6 +204,9 @@ export const Landing: React.FC = () => {
                             <Link to="/instalar" className="group inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3.5 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
                                 Abrir o instalador <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                             </Link>
+                            <a href="https://github.com/lgimenes-br/breww-firmware" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-2 text-[15px] font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-[var(--accent)]">
+                                Código aberto no GitHub <ArrowUpRight size={16} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                            </a>
                             <span className="text-sm text-[#898E99]">ESP32 DevKit · ESP32-S3 · ESP32-C3 · Breww com tela 3,5"</span>
                         </div>
                     </div>

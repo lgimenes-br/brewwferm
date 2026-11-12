@@ -32,6 +32,7 @@ export const SiteFooter: React.FC = () => (
                 <a href="/#recursos" className="hover:text-white">Recursos</a>
                 <Link to="/instalar" className="hover:text-white">Monte o seu</Link>
                 <Link to="/ajuda" className="hover:text-white">Ajuda</Link>
+                <a href="https://github.com/lgimenes-br/breww-firmware" target="_blank" rel="noopener noreferrer" className="hover:text-white">Firmware no GitHub</a>
                 <Link to="/login" className="hover:text-white">Entrar</Link>
                 <Link to="/register" className="hover:text-white">Criar conta</Link>
             </nav>
