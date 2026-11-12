@@ -1021,7 +1021,19 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
 });
 
 // Descoberta por rede (mesmo IP publico), pedido de vinculo e confirmacao na tela do aparelho
-registerPairingRoutes(app, { pool, mqttClient, authenticateToken, notifyUpdate, provisionMqtt: createMqttProvisioner() });
+registerPairingRoutes(app, {
+    pool, mqttClient, authenticateToken, notifyUpdate,
+    provisionMqtt: createMqttProvisioner(),
+    removeMqtt: (serial) => removeMqttCredential(serial),
+    // Substituir aparelho: caches em memoria sao por serial
+    onSerialChanged: async (oldSerial, newSerial) => {
+        for (const map of [alertState, lastLogTimes, lastSeenTimes, lastBrewfatherPushTimes, lastProfileSyncAt]) {
+            delete map[oldSerial];
+            delete map[newSerial];
+        }
+        await loadActiveBatches(); // lote ativo passa a ser do serial novo
+    }
+});
 // Fluxo ao vivo para o navegador (substitui a conexao MQTT direta do browser)
 registerLiveRoutes(app, { pool, mqttClient, authenticateToken });
 // Diagnosticos das placas (travamentos/quedas de MQTT), guardados 30 dias

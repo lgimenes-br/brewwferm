@@ -46,6 +46,9 @@ const createFakePool = () => {
             if (q.startsWith('DELETE FROM device_key_candidates')) { db.candidates = db.candidates.filter(c => c.serial_code !== params[0]); return [{}]; }
             if (q.startsWith('SELECT user_id FROM devices WHERE serial_code')) return [db.devices.filter(d => d.serial_code === params[0])];
             if (q.startsWith('SELECT id FROM devices WHERE serial_code')) return [db.devices.filter(d => d.serial_code === params[0])];
+            if (q.startsWith('SELECT id, user_id FROM devices WHERE serial_code')) return [db.devices.filter(d => d.serial_code === params[0])];
+            if (q.startsWith('UPDATE devices SET serial_code')) { db.devices.filter(d => d.id === params[1]).forEach(d => { d.serial_code = params[0]; }); return [{}]; }
+            if (q.startsWith('DELETE FROM device_keys WHERE serial_code')) { db.device_keys = db.device_keys.filter(k => k.serial_code !== params[0]); return [{}]; }
             if (q.startsWith('SELECT serial_code FROM devices WHERE serial_code IN')) return [db.devices.filter(d => params.includes(d.serial_code))];
             if (q.startsWith('SELECT email, max_devices FROM users') || q.startsWith('SELECT max_devices FROM users')) return [db.users.filter(u => u.id === params[0])];
             if (q.startsWith('SELECT COUNT(*) as count FROM devices')) return [[{ count: db.devices.filter(d => d.user_id === params[0]).length }]];
@@ -71,8 +74,14 @@ const startServer = async () => {
         next();
     };
     const provisioned = [];
+    const removed = [];
+    const serialChanges = [];
     const provisionMqtt = async (serial, key, opts) => { provisioned.push([serial, key, opts]); return true; };
-    registerPairingRoutes(app, { pool, mqttClient: { publish: (t, m) => published.push([t, m]) }, authenticateToken, notifyUpdate: () => {}, provisionMqtt });
+    registerPairingRoutes(app, {
+        pool, mqttClient: { publish: (t, m) => published.push([t, m]) }, authenticateToken, notifyUpdate: () => {}, provisionMqtt,
+        removeMqtt: async (serial) => { removed.push(serial); },
+        onSerialChanged: async (a, b) => { serialChanges.push([a, b]); }
+    });
     const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
     const base = `http://127.0.0.1:${server.address().port}`;
     const call = async (method, path, { body, user, ip = '203.0.113.10' } = {}) => {
@@ -89,7 +98,8 @@ const startServer = async () => {
     };
     const announce = (key, extra = {}, ip) => call('POST', '/api/device/announce', { body: { serial: SERIAL, key, ...extra }, ...(ip ? { ip } : {}) });
     const respond = (key, pairingId, accept = true) => call('POST', '/api/device/pairing/respond', { body: { serial: SERIAL, key, pairingId, accept } });
-    return { server, call, pool, published, provisioned, announce, respond };
+    const announceAs = (serial, key, ip) => call('POST', '/api/device/announce', { body: { serial, key }, ...(ip ? { ip } : {}) });
+    return { server, call, pool, published, provisioned, announce, respond, removed, serialChanges, announceAs };
 };
 
 const SERIAL = '288485495464';
@@ -285,3 +295,69 @@ test('limite de chaves candidatas por serial', async () => {
         server.close();
     }
 });
+
+test('substituir aparelho: placa nova assume o mesmo registro (historico) e a antiga perde o acesso', async () => {
+    const { server, call, pool, provisioned, announce, announceAs, removed, serialChanges } = await startServer();
+    const NEW_SERIAL = 'AABBCCDDEEFF';
+    try {
+        // Aparelho antigo do dono, com chave e registro id 7
+        pool.db.device_keys.push({ serial_code: SERIAL, key_hash: hashDeviceKey(KEY) });
+        pool.db.devices.push({ id: 7, serial_code: SERIAL, user_id: 1, device_name: 'Fermentador' });
+        // Placa nova liga e anuncia (sem dono)
+        await announceAs(NEW_SERIAL, NEW_KEY);
+
+        // Outro usuario nao substitui o aparelho de ninguem
+        let r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 2, body: { pairCode: derivePairCode(NEW_KEY) } });
+        assert.equal(r.status, 404);
+        // Codigo errado
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: NEW_SERIAL, pairCode: '00000000' } });
+        assert.equal(r.status, 422);
+
+        // Pelo codigo de confirmacao da placa nova
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { pairCode: derivePairCode(NEW_KEY) } });
+        assert.equal(r.status, 200);
+        assert.deepEqual(r.body, { status: 'replaced', serial: NEW_SERIAL, oldSerial: SERIAL });
+        assert.deepEqual(pool.db.devices, [{ id: 7, serial_code: NEW_SERIAL, user_id: 1, device_name: 'Fermentador' }], 'mesmo registro, serial novo');
+        assert.deepEqual(pool.db.device_keys, [{ serial_code: NEW_SERIAL, key_hash: hashDeviceKey(NEW_KEY) }]);
+        assert.deepEqual(removed, [SERIAL], 'credencial MQTT da antiga removida');
+        assert.deepEqual(serialChanges, [[SERIAL, NEW_SERIAL]]);
+
+        // Placa nova ganha MQTT no proximo anuncio; a antiga nao e mais reconhecida como vinculada
+        r = await announceAs(NEW_SERIAL, NEW_KEY);
+        assert.equal(r.body.mqtt, true);
+        assert.deepEqual(provisioned.at(-1), [NEW_SERIAL, NEW_KEY, { force: true }]);
+        r = await announce(KEY);
+        assert.equal(r.body.bound, false);
+        assert.equal(r.body.mqtt, false);
+    } finally {
+        server.close();
+    }
+});
+
+test('substituir aparelho: achado na mesma rede; placa com dono ou ausente e recusada', async () => {
+    const { server, call, pool, announceAs } = await startServer();
+    const NEW_SERIAL = 'AABBCCDDEEFF';
+    try {
+        pool.db.devices.push({ id: 7, serial_code: SERIAL, user_id: 1, device_name: 'Fermentador' });
+        pool.db.devices.push({ id: 8, serial_code: '112233445566', user_id: 2, device_name: 'Do vizinho' });
+
+        let r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: NEW_SERIAL } });
+        assert.equal(r.status, 422, 'placa nova ainda nao se conectou');
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: '112233445566' } });
+        assert.equal(r.status, 409, 'placa de outra conta');
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: SERIAL } });
+        assert.equal(r.status, 400, 'a mesma placa');
+
+        await announceAs(NEW_SERIAL, NEW_KEY, '198.51.100.7');
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: NEW_SERIAL } });
+        assert.equal(r.status, 422, 'de outra internet, sem codigo');
+
+        await announceAs(NEW_SERIAL, NEW_KEY); // agora da mesma internet do dono
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: NEW_SERIAL } });
+        assert.equal(r.status, 200);
+        assert.equal(pool.db.devices.find(d => d.id === 7).serial_code, NEW_SERIAL);
+    } finally {
+        server.close();
+    }
+});
+

@@ -173,9 +173,52 @@ const deviceRateLimiter = (req, res, next) => {
     next();
 };
 
-export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken, notifyUpdate, store = createPairingStore(), provisionMqtt = null }) => {
+export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken, notifyUpdate, store = createPairingStore(), provisionMqtt = null, removeMqtt = null, onSerialChanged = null }) => {
     // Aparelhos vinculados pelo app que precisam ter a senha MQTT (re)gravada no proximo anuncio
     const forceMqttProvision = new Set();
+
+    /** Serial pelo codigo de confirmacao (placa sem tela): anuncio dos ultimos 15 min. */
+    const serialFromPairCode = async (pairCode) => {
+        const [found] = await pool.execute(
+            'SELECT DISTINCT serial_code FROM device_key_candidates WHERE pair_code = ? AND last_seen > NOW() - INTERVAL 15 MINUTE',
+            [pairCode]
+        );
+        if (found.length === 0) return { error: 'Nenhum aparelho ligado com esse código. Confira o código e se o aparelho está com Wi-Fi.' };
+        if (found.length > 1) return { error: 'Informe também o código de 12 caracteres do aparelho.', needsSerial: true };
+        return { serial: normalizeSerial(found[0].serial_code) };
+    };
+
+    /**
+     * Chave que passa a valer para um aparelho SEM dono (decisao do dono, 12/11/2026: sem
+     * confirmacao no aparelho). Vale o codigo de confirmacao (so aparece na tela/portal do
+     * aparelho) ou o aparelho achado na mesma internet (mesmo IP publico, uma unica chave).
+     * Retorna { keyHash, bound } ou { error, needsPairCode }.
+     */
+    const resolveUnclaimedKey = async (serial, pairCode, req) => {
+        const [cands] = await pool.execute('SELECT key_hash, pair_code, last_public_ip FROM device_key_candidates WHERE serial_code = ?', [serial]);
+        if (pairCode) {
+            const match = cands.find(c => c.pair_code === pairCode);
+            if (!match) return { error: 'O código de confirmação não confere. Confira o código mostrado no aparelho e se ele está ligado e com Wi-Fi.' };
+            return { keyHash: match.key_hash, bound: false };
+        }
+        const [boundRows] = await pool.execute('SELECT key_hash FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
+        if (boundRows.length) return { keyHash: boundRows[0].key_hash, bound: true }; // chave vinculada antes, sem dono
+        const myIp = normalizeIp(req.ip);
+        const sameNet = store.discover(req.ip).some(f => f.serial === serial);
+        const local = cands.filter(c => normalizeIp(c.last_public_ip) === myIp);
+        if (sameNet && local.length === 1) return { keyHash: local[0].key_hash, bound: false };
+        if (cands.length === 0) return { error: 'Este aparelho ainda não se conectou ao servidor. Confira o código, se ele está ligado e com Wi-Fi, e se o firmware está atualizado.' };
+        return { error: 'Não achamos este aparelho na sua rede. Use o código de confirmação mostrado nele.', needsPairCode: true };
+    };
+
+    /** Passa a valer a chave escolhida (se ainda era candidata). false = outra chave ganhou antes. */
+    const bindKey = async (serial, keyHash) => {
+        await pool.execute('INSERT IGNORE INTO device_keys (serial_code, key_hash, created_at) VALUES (?, ?, NOW())', [serial, keyHash]);
+        const [bound] = await pool.execute('SELECT key_hash FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
+        if (!bound.length || !safeEqualHex(bound[0].key_hash, keyHash)) return false;
+        await pool.execute('DELETE FROM device_key_candidates WHERE serial_code = ?', [serial]);
+        return true;
+    };
     const readDeviceAuth = async (req, res) => {
         const serial = normalizeSerial(req.body?.serial);
         const key = String(req.body?.key || '').toLowerCase();
@@ -330,17 +373,9 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
             // Placa sem tela: so o codigo de 8 caracteres (portal Wi-Fi / tela pequena). O serial sai do
             // anuncio recente do aparelho. A confirmacao fisica (botao BOOT) continua obrigatoria.
             if (!serial && pairCode) {
-                const [found] = await pool.execute(
-                    'SELECT DISTINCT serial_code FROM device_key_candidates WHERE pair_code = ? AND last_seen > NOW() - INTERVAL 15 MINUTE',
-                    [pairCode]
-                );
-                if (found.length === 0) {
-                    return res.status(422).json({ error: 'Nenhum aparelho ligado com esse código. Confira o código e se o aparelho está com Wi-Fi.' });
-                }
-                if (found.length > 1) {
-                    return res.status(422).json({ error: 'Informe também o código de 12 caracteres do aparelho.', needsSerial: true });
-                }
-                serial = normalizeSerial(found[0].serial_code);
+                const found = await serialFromPairCode(pairCode);
+                if (found.error) return res.status(422).json(found);
+                serial = found.serial;
             }
             if (!serial) return res.status(400).json({ error: 'Código serial é obrigatório' });
             if (!isValidSerial(serial)) return res.status(400).json({ error: 'Código inválido. Use o código de 12 caracteres da tela do aparelho.' });
@@ -357,34 +392,18 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 return res.status(403).json({ error: 'Limite de equipamentos atingido. Atualize seu plano.' });
             }
 
-            // Qual chave do aparelho passa a valer. Decisao do dono (12/11/2026): sem confirmacao no
-            // aparelho. Vale (a) o codigo de confirmacao, que so aparece na tela/portal do aparelho, ou
-            // (b) o aparelho achado na busca da mesma internet (anunciou do mesmo IP publico ha pouco).
+            // Qual chave do aparelho passa a valer (codigo ou mesma internet; ver resolveUnclaimedKey)
             let keyHash = null;
-            const [cands] = await pool.execute('SELECT key_hash, pair_code, last_public_ip FROM device_key_candidates WHERE serial_code = ?', [serial]);
-            const [boundRows] = await pool.execute('SELECT key_hash FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
-            if (pairCode) {
+            if (mode === 'rekey') {
+                const [cands] = await pool.execute('SELECT key_hash, pair_code, last_public_ip FROM device_key_candidates WHERE serial_code = ?', [serial]);
                 const match = cands.find(c => c.pair_code === pairCode);
-                if (!match) {
-                    return res.status(422).json({ error: 'O código de confirmação não confere. Confira o código mostrado no aparelho e se ele está ligado e com Wi-Fi.' });
-                }
+                if (!match) return res.status(422).json({ error: 'O código de confirmação não confere. Confira o código mostrado no aparelho e se ele está ligado e com Wi-Fi.' });
                 keyHash = match.key_hash;
-            } else if (mode === 'new' && boundRows.length) {
-                keyHash = boundRows[0].key_hash; // chave vinculada antes (aparelho antigo, sem dono)
-                mode = 'bound';
-            } else if (mode === 'new') {
-                const myIp = normalizeIp(req.ip);
-                const sameNet = store.discover(req.ip).some(f => f.serial === serial);
-                const local = cands.filter(c => normalizeIp(c.last_public_ip) === myIp);
-                if (sameNet && local.length === 1) {
-                    keyHash = local[0].key_hash;
-                } else if (cands.length === 0) {
-                    return res.status(422).json({ error: 'Este aparelho ainda não se conectou ao servidor. Confira o código, se ele está ligado e com Wi-Fi, e se o firmware está atualizado.' });
-                } else {
-                    return res.status(422).json({ error: 'Não achamos este aparelho na sua rede. Use o código de confirmação mostrado nele.', needsPairCode: true });
-                }
             } else {
-                return res.status(422).json({ error: 'Informe o código de confirmação mostrado na tela do aparelho.', needsPairCode: true });
+                const r = await resolveUnclaimedKey(serial, pairCode, req);
+                if (r.error) return res.status(422).json(r);
+                keyHash = r.keyHash;
+                if (r.bound) mode = 'bound';
             }
 
             const deviceName = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 100) || null : null;
@@ -402,13 +421,8 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 return res.status(201).json({ status: 'confirmed', serial });
             }
 
-            if (mode !== 'bound') {
-                await pool.execute('INSERT IGNORE INTO device_keys (serial_code, key_hash, created_at) VALUES (?, ?, NOW())', [serial, keyHash]);
-                const [bound] = await pool.execute('SELECT key_hash FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
-                if (!bound.length || !safeEqualHex(bound[0].key_hash, keyHash)) {
-                    return res.status(409).json({ error: 'Este aparelho já está vinculado a outra chave.' });
-                }
-                await pool.execute('DELETE FROM device_key_candidates WHERE serial_code = ?', [serial]);
+            if (mode !== 'bound' && !(await bindKey(serial, keyHash))) {
+                return res.status(409).json({ error: 'Este aparelho já está vinculado a outra chave.' });
             }
             await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())',
                 [serial, req.user.id, deviceName]);
@@ -422,6 +436,56 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
         } catch (err) {
             if (err?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Este código serial já está vinculado a uma conta.' });
             console.error('❌ [Pairing] create:', err);
+            res.status(500).json({ error: 'Erro interno' });
+        }
+    });
+
+    // --- Usuario: substituir aparelho (Fase 3.6) ---
+    // A placa nova assume o lugar da antiga: o registro do aparelho (id) e o mesmo, so muda o serial,
+    // entao historico, lote ativo, nomes e integracoes continuam. A placa antiga perde o acesso.
+    app.post('/api/devices/:serial/replace', authenticateToken, async (req, res) => {
+        try {
+            const oldSerial = normalizeSerial(req.params.serial);
+            const [oldRows] = await pool.execute('SELECT id, user_id FROM devices WHERE serial_code = ? LIMIT 1', [oldSerial]);
+            if (!oldRows.length || Number(oldRows[0].user_id) !== Number(req.user.id)) {
+                return res.status(404).json({ error: 'Aparelho não encontrado na sua conta.' });
+            }
+            const pairCode = normalizePairCode(req.body?.pairCode);
+            if (pairCode && !PAIR_CODE_RE.test(pairCode)) return res.status(400).json({ error: 'Código de confirmação inválido (8 caracteres).' });
+            let newSerial = normalizeSerial(req.body?.serialCode);
+            if (!newSerial && pairCode) {
+                const found = await serialFromPairCode(pairCode);
+                if (found.error) return res.status(422).json(found);
+                newSerial = found.serial;
+            }
+            if (!newSerial || !isValidSerial(newSerial)) return res.status(400).json({ error: 'Informe o aparelho novo (achado na rede ou pelo código de confirmação).' });
+            if (newSerial === oldSerial) return res.status(400).json({ error: 'Este já é o aparelho atual.' });
+            if (await isClaimed(newSerial)) return res.status(409).json({ error: 'O aparelho novo já está vinculado a uma conta. Remova-o antes de usar na substituição.' });
+
+            const r = await resolveUnclaimedKey(newSerial, pairCode, req);
+            if (r.error) return res.status(422).json(r);
+            if (!r.bound && !(await bindKey(newSerial, r.keyHash))) {
+                return res.status(409).json({ error: 'O aparelho novo já está vinculado a outra chave.' });
+            }
+
+            // Mesmo registro, serial novo: historico e lote ativo continuam
+            await pool.execute('UPDATE devices SET serial_code = ?, firmware_version = NULL, last_seen = NULL WHERE id = ?', [newSerial, oldRows[0].id]);
+            // Placa antiga: sem chave e sem credencial MQTT
+            await pool.execute('DELETE FROM device_keys WHERE serial_code = ?', [oldSerial]);
+            await pool.execute('DELETE FROM device_key_candidates WHERE serial_code = ?', [oldSerial]);
+            if (removeMqtt) await removeMqtt(oldSerial).catch(e => console.error('Substituir: limpeza MQTT', e?.message || e));
+            forceMqttProvision.add(newSerial);
+            deviceRegistry.invalidate(oldSerial);
+            deviceRegistry.invalidate(newSerial);
+            if (onSerialChanged) await onSerialChanged(oldSerial, newSerial);
+            await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+                [req.user.id, 'REPLACE_DEVICE', `Device: ${oldSerial} -> ${newSerial}`, normalizeIp(req.ip) || null]);
+            notifyUpdate();
+            console.log(`🔁 [Pairing] ${oldSerial} substituido por ${newSerial} (usuario ${req.user.id})`);
+            res.json({ status: 'replaced', serial: newSerial, oldSerial });
+        } catch (err) {
+            if (err?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'O aparelho novo já está vinculado a uma conta.' });
+            console.error('❌ [Pairing] replace:', err);
             res.status(500).json({ error: 'Erro interno' });
         }
     });
