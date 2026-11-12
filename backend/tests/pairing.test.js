@@ -29,6 +29,9 @@ const createFakePool = () => {
             if (q.startsWith('UPDATE device_keys')) return [{}];
             if (q.startsWith('SELECT key_hash FROM device_key_candidates')) return [db.candidates.filter(c => c.serial_code === params[0])];
             if (q.startsWith('SELECT key_hash, pair_code FROM device_key_candidates')) return [db.candidates.filter(c => c.serial_code === params[0])];
+            if (q.startsWith('SELECT DISTINCT serial_code FROM device_key_candidates WHERE pair_code')) {
+                return [[...new Set(db.candidates.filter(c => c.pair_code === params[0]).map(c => c.serial_code))].map(serial_code => ({ serial_code }))];
+            }
             if (q.startsWith('INSERT IGNORE INTO device_key_candidates')) {
                 if (!db.candidates.some(c => c.serial_code === params[0] && c.key_hash === params[1])) {
                     db.candidates.push({ serial_code: params[0], key_hash: params[1], pair_code: params[2] });
@@ -275,6 +278,28 @@ test('limite de chaves candidatas por serial', async () => {
             assert.equal((await announce(String(i).repeat(64).slice(0, 64).replace(/[^0-9a-f]/g, 'd'))).status, 200);
         }
         assert.equal((await announce('e'.repeat(64))).status, 429);
+    } finally {
+        server.close();
+    }
+});
+
+test('placa sem tela: vincula so com o codigo de 8 caracteres (serial vem do anuncio)', async () => {
+    const { server, call, pool, announce, respond } = await startServer();
+    try {
+        await announce(KEY);
+        // Codigo que nenhum aparelho anunciou
+        let r = await call('POST', '/api/devices', { user: 1, body: { pairCode: '00000000' } });
+        assert.equal(r.status, 422);
+        // Sem serial e sem codigo continua exigindo o serial
+        r = await call('POST', '/api/devices', { user: 1, body: {} });
+        assert.equal(r.status, 400);
+        // Codigo certo: acha o serial e cria o pedido, que ainda precisa da confirmacao no aparelho
+        r = await call('POST', '/api/devices', { user: 1, body: { pairCode: derivePairCode(KEY), name: 'DevKit' } });
+        assert.equal(r.status, 202);
+        assert.equal(pool.db.devices.length, 0, 'nada vinculado antes do botao');
+        r = await respond(KEY, r.body.pairingId, true);
+        assert.equal(r.status, 200);
+        assert.deepEqual(pool.db.devices.map(d => d.serial_code), [SERIAL]);
     } finally {
         server.close();
     }

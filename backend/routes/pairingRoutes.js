@@ -321,11 +321,26 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
             const maxDevices = userRows[0].max_devices ?? 1;
             const [[{ count }]] = await pool.execute('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [req.user.id]);
 
-            const serial = normalizeSerial(req.body?.serialCode);
-            if (!serial) return res.status(400).json({ error: 'Código serial é obrigatório' });
-            if (!isValidSerial(serial)) return res.status(400).json({ error: 'Código inválido. Use o código de 12 caracteres da tela do aparelho.' });
             const pairCode = normalizePairCode(req.body?.pairCode);
             if (pairCode && !PAIR_CODE_RE.test(pairCode)) return res.status(400).json({ error: 'Código de confirmação inválido (8 caracteres).' });
+            let serial = normalizeSerial(req.body?.serialCode);
+            // Placa sem tela: so o codigo de 8 caracteres (portal Wi-Fi / tela pequena). O serial sai do
+            // anuncio recente do aparelho. A confirmacao fisica (botao BOOT) continua obrigatoria.
+            if (!serial && pairCode) {
+                const [found] = await pool.execute(
+                    'SELECT DISTINCT serial_code FROM device_key_candidates WHERE pair_code = ? AND last_seen > NOW() - INTERVAL 15 MINUTE',
+                    [pairCode]
+                );
+                if (found.length === 0) {
+                    return res.status(422).json({ error: 'Nenhum aparelho ligado com esse código. Confira o código e se o aparelho está com Wi-Fi.' });
+                }
+                if (found.length > 1) {
+                    return res.status(422).json({ error: 'Informe também o código de 12 caracteres do aparelho.', needsSerial: true });
+                }
+                serial = normalizeSerial(found[0].serial_code);
+            }
+            if (!serial) return res.status(400).json({ error: 'Código serial é obrigatório' });
+            if (!isValidSerial(serial)) return res.status(400).json({ error: 'Código inválido. Use o código de 12 caracteres da tela do aparelho.' });
 
             // Ja vinculado: so o proprio dono, com o codigo novo, pode trocar a chave (aparelho resetado)
             const [ownerRows] = await pool.execute('SELECT user_id FROM devices WHERE serial_code = ? LIMIT 1', [serial]);
@@ -370,6 +385,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
 
             res.status(202).json({
                 status: 'pending',
+                serial, // quem vinculou so pelo codigo (placa sem tela) fica sabendo qual aparelho e
                 pairingId: pairing.id,
                 expiresIn: Math.round(PAIRING_TTL_MS / 1000)
             });
