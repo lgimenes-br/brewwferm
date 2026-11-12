@@ -16,6 +16,7 @@ const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
 import { deviceRegistry } from './services/deviceRegistry.js';
 import { runTelemetryRetention } from './services/telemetryRetention.js';
+import { buildCarryCommands } from './services/carrySettings.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
@@ -75,6 +76,8 @@ const ingredientsPool = mysql.createPool({
 // Inicialização de Tabelas (Base Schema + Migrações Seguras)
 // Contas na lixeira (ver loadTrashedUsers / authenticateToken)
 const trashedUsers = new Set();
+// Aparelhos substituidos com configuracoes a aplicar na primeira telemetria
+const pendingCarry = new Set();
 
 const runMigration = async (sql) => {
     try {
@@ -128,6 +131,12 @@ const initDb = async () => {
         await runMigration('ALTER TABLE users ADD COLUMN deleted_at DATETIME DEFAULT NULL');
         await loadTrashedUsers();
         await runMigration('ALTER TABLE devices ADD COLUMN hw_modules VARCHAR(255) DEFAULT NULL');
+        // Substituir aparelho: configuracoes da placa antiga a aplicar na nova (services/carrySettings.js)
+        await runMigration('ALTER TABLE devices ADD COLUMN pending_settings VARCHAR(255) DEFAULT NULL');
+        try {
+            const [ps] = await pool.execute('SELECT serial_code FROM devices WHERE pending_settings IS NOT NULL');
+            for (const r of ps) pendingCarry.add(String(r.serial_code).toUpperCase());
+        } catch (e) { console.error('pending_settings:', e.message); }
         await runMigration('ALTER TABLE batches ADD COLUMN public_token VARCHAR(64) DEFAULT NULL');
         await runMigration('ALTER TABLE batches ADD COLUMN volume FLOAT DEFAULT 20');
         await runMigration('ALTER TABLE recipe_steps ADD COLUMN trigger_gravity FLOAT DEFAULT NULL');
@@ -326,6 +335,26 @@ const mqttClient = mqtt.connect(brokerUrl, {
     // Note: MQTT.js handles ws/wss protocols automatically based on URL scheme
 });
 
+/** Placa nova (substituir aparelho) acabou de falar: manda modo/alvo/tipo de rele da antiga, uma vez. */
+const applyCarriedSettings = async (serialCode, deviceId, payload) => {
+    pendingCarry.delete(serialCode); // uma vez so, mesmo se algo falhar
+    const [rows] = await pool.execute('SELECT pending_settings FROM devices WHERE id = ?', [deviceId]);
+    let carry = null;
+    try { carry = JSON.parse(rows[0]?.pending_settings || 'null'); } catch { carry = null; }
+    await pool.execute('UPDATE devices SET pending_settings = NULL WHERE id = ?', [deviceId]);
+    const cmds = buildCarryCommands(carry, { board: payload.board, hasActiveBatch: Boolean(activeBatches[serialCode]) });
+    for (const c of cmds) {
+        const msg = JSON.stringify(c);
+        mqttClient.publish(`brewbrother/${serialCode}/command`, msg);
+        mqttClient.publish(`brewbrother/${serialCode}/comando`, msg);
+    }
+    if (cmds.length) {
+        await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+            [null, 'CARRY_SETTINGS', `${serialCode}: ${cmds.map(c => c.cmd).join(', ')}`, null]).catch(() => {});
+        console.log(`🔁 [Substituir] ${serialCode}: configuracoes da placa antiga aplicadas (${cmds.map(c => c.cmd).join(', ')})`);
+    }
+};
+
 const notifyUpdate = (serialCode) => {
     mqttClient.publish('brewbrother/global/update', JSON.stringify({
         ts: Date.now(),
@@ -492,6 +521,7 @@ mqttClient.on('message', async (topic, message, packet) => {
         if (deviceId) {
             delete discoveredUnknowns[serialCode];
             await deviceRegistry.touch(pool, serialCode, deviceId, payload.fw || payload.ver, { board: payload.board, mods: payload.mods });
+            if (pendingCarry.has(serialCode)) applyCarriedSettings(serialCode, deviceId, payload).catch(e => console.error('Carry:', e.message));
 
             const now = Date.now();
             lastSeenTimes[serialCode] = now;
@@ -1059,6 +1089,7 @@ registerPairingRoutes(app, {
     removeMqtt: (serial) => removeMqttCredential(serial),
     // Substituir aparelho: caches em memoria sao por serial
     onSerialChanged: async (oldSerial, newSerial) => {
+        pendingCarry.add(String(newSerial).toUpperCase()); // aplica as configuracoes da antiga na 1a telemetria
         for (const map of [alertState, lastLogTimes, lastSeenTimes, lastBrewfatherPushTimes, lastProfileSyncAt]) {
             delete map[oldSerial];
             delete map[newSerial];

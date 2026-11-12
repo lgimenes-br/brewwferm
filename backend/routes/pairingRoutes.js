@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { sanitizeCarry } from '../services/carrySettings.js';
 import { deviceRegistry } from '../services/deviceRegistry.js';
 
 // ============================================================================
@@ -21,9 +22,8 @@ import { deviceRegistry } from '../services/deviceRegistry.js';
 // esse codigo (tela/QR/instalador); quem pede o vinculo informa serial + codigo, e so a chave
 // candidata que gera aquele codigo recebe o pedido. Um impostor nao tem a chave certa.
 //
-// Transicao (firmware que ainda nao mostra o codigo): sem codigo, o pedido so e aceito se
-// houver UMA unica chave candidata para o serial. Desligar com ALLOW_LEGACY_PAIRING=0 no
-// lancamento publico.
+// Sem codigo, o vinculo so vale para o aparelho achado na mesma internet (mesmo IP publico)
+// e com uma unica chave candidata (decisao do dono de 12/11/2026; ver resolveUnclaimedKey).
 // ============================================================================
 
 export const PAIRING_TTL_MS = 2 * 60 * 1000;
@@ -44,7 +44,6 @@ export const derivePairCode = (key) =>
 export const normalizePairCode = (code) => String(code || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
 /** Chaves candidatas guardadas por serial (protege contra enxurrada de chaves falsas) */
 export const MAX_KEY_CANDIDATES = 5;
-export const allowLegacyPairing = () => process.env.ALLOW_LEGACY_PAIRING !== '0';
 
 export const maskEmail = (email) => {
     const [user, domain] = String(email || '').split('@');
@@ -469,7 +468,10 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
             }
 
             // Mesmo registro, serial novo: historico e lote ativo continuam
-            await pool.execute('UPDATE devices SET serial_code = ?, firmware_version = NULL, last_seen = NULL WHERE id = ?', [newSerial, oldRows[0].id]);
+            // Modo/alvo/tipo de rele da placa antiga: aplicados quando a nova mandar a 1a telemetria
+            const carry = sanitizeCarry(req.body?.carry);
+            await pool.execute('UPDATE devices SET serial_code = ?, firmware_version = NULL, last_seen = NULL, pending_settings = ? WHERE id = ?',
+                [newSerial, carry ? JSON.stringify(carry) : null, oldRows[0].id]);
             // Placa antiga: sem chave e sem credencial MQTT
             await pool.execute('DELETE FROM device_keys WHERE serial_code = ?', [oldSerial]);
             await pool.execute('DELETE FROM device_key_candidates WHERE serial_code = ?', [oldSerial]);
@@ -482,7 +484,7 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 [req.user.id, 'REPLACE_DEVICE', `Device: ${oldSerial} -> ${newSerial}`, normalizeIp(req.ip) || null]);
             notifyUpdate();
             console.log(`🔁 [Pairing] ${oldSerial} substituido por ${newSerial} (usuario ${req.user.id})`);
-            res.json({ status: 'replaced', serial: newSerial, oldSerial });
+            res.json({ status: 'replaced', serial: newSerial, oldSerial, carried: carry || null });
         } catch (err) {
             if (err?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'O aparelho novo já está vinculado a uma conta.' });
             console.error('❌ [Pairing] replace:', err);

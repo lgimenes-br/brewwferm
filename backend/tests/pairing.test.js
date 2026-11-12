@@ -47,7 +47,7 @@ const createFakePool = () => {
             if (q.startsWith('SELECT user_id FROM devices WHERE serial_code')) return [db.devices.filter(d => d.serial_code === params[0])];
             if (q.startsWith('SELECT id FROM devices WHERE serial_code')) return [db.devices.filter(d => d.serial_code === params[0])];
             if (q.startsWith('SELECT id, user_id FROM devices WHERE serial_code')) return [db.devices.filter(d => d.serial_code === params[0])];
-            if (q.startsWith('UPDATE devices SET serial_code')) { db.devices.filter(d => d.id === params[1]).forEach(d => { d.serial_code = params[0]; }); return [{}]; }
+            if (q.startsWith('UPDATE devices SET serial_code')) { db.devices.filter(d => d.id === params[2]).forEach(d => { d.serial_code = params[0]; d.pending_settings = params[1]; }); return [{}]; }
             if (q.startsWith('DELETE FROM device_keys WHERE serial_code')) { db.device_keys = db.device_keys.filter(k => k.serial_code !== params[0]); return [{}]; }
             if (q.startsWith('SELECT serial_code FROM devices WHERE serial_code IN')) return [db.devices.filter(d => params.includes(d.serial_code))];
             if (q.startsWith('SELECT email, max_devices FROM users') || q.startsWith('SELECT max_devices FROM users')) return [db.users.filter(u => u.id === params[0])];
@@ -314,10 +314,10 @@ test('substituir aparelho: placa nova assume o mesmo registro (historico) e a an
         assert.equal(r.status, 422);
 
         // Pelo codigo de confirmacao da placa nova
-        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { pairCode: derivePairCode(NEW_KEY) } });
+        r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { pairCode: derivePairCode(NEW_KEY), carry: { mode: 1, setpoint: 4, relInv: 3 } } });
         assert.equal(r.status, 200);
-        assert.deepEqual(r.body, { status: 'replaced', serial: NEW_SERIAL, oldSerial: SERIAL });
-        assert.deepEqual(pool.db.devices, [{ id: 7, serial_code: NEW_SERIAL, user_id: 1, device_name: 'Fermentador' }], 'mesmo registro, serial novo');
+        assert.deepEqual(r.body, { status: 'replaced', serial: NEW_SERIAL, oldSerial: SERIAL, carried: { mode: 1, setpoint: 4, relInv: 3 } });
+        assert.deepEqual(pool.db.devices, [{ id: 7, serial_code: NEW_SERIAL, user_id: 1, device_name: 'Fermentador', pending_settings: '{"mode":1,"setpoint":4,"relInv":3}' }], 'mesmo registro, serial novo, configuracoes guardadas');
         assert.deepEqual(pool.db.device_keys, [{ serial_code: NEW_SERIAL, key_hash: hashDeviceKey(NEW_KEY) }]);
         assert.deepEqual(removed, [SERIAL], 'credencial MQTT da antiga removida');
         assert.deepEqual(serialChanges, [[SERIAL, NEW_SERIAL]]);
@@ -356,6 +356,7 @@ test('substituir aparelho: achado na mesma rede; placa com dono ou ausente e rec
         r = await call('POST', `/api/devices/${SERIAL}/replace`, { user: 1, body: { serialCode: NEW_SERIAL } });
         assert.equal(r.status, 200);
         assert.equal(pool.db.devices.find(d => d.id === 7).serial_code, NEW_SERIAL);
+        assert.equal(pool.db.devices.find(d => d.id === 7).pending_settings, null, 'sem carry, nada pendente');
     } finally {
         server.close();
     }
