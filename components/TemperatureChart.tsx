@@ -20,13 +20,10 @@ interface TemperatureChartProps {
   sensor2Name?: string;
 }
 
-export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ data, events = [], sensor1Name = 'Cerveja', sensor2Name = 'Geladeira' }) => {
-  // Safe parsing of data points
-  const safeData = React.useMemo(() => {
+/** Pontos do grafico: temperaturas numericas e um campo extra_<nome> por sensor extra (funcao pura, testavel). */
+export const prepareTemperatureData = (data: any[] | null | undefined, maxPoints = 50): any[] => {
     if (!data || !Array.isArray(data)) return [];
     
-    const chartPoints = parseInt(localStorage.getItem('breww_chartPoints') || '50', 10);
-    const safeChartPoints = !isNaN(chartPoints) && chartPoints > 0 ? chartPoints : 50;
     
     const mapped = data.map(d => {
       // Map extra sensors
@@ -53,8 +50,10 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
       const parsedTarget = rawTarget !== null && rawTarget !== undefined ? parseFloat(String(rawTarget)) : NaN;
       const parsedFridge = rawFridge !== null && rawFridge !== undefined ? parseFloat(String(rawFridge)) : NaN;
 
+      // o campo bruto extra_sensors (ex.: {hum: 61}) nao vira linha: so os extras numericos acima
+      const { extra_sensors: _rawExtras, ...rest } = d as any;
       return {
-        ...d,
+        ...rest,
         timestamp: d.timestamp || (d as any).recorded_at,
         beerTemp: parsedBeer,
         targetTemp: !isNaN(parsedTarget) ? parsedTarget : null,
@@ -63,19 +62,25 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
       };
     }).filter(d => !isNaN(d.beerTemp));
 
-      return mapped.slice(-safeChartPoints);
-    }, [data]);
+      return mapped.slice(-maxPoints);
+};
+
+/** Linhas extras: so campos extra_<nome> numericos (nunca o campo bruto extra_sensors). */
+export const extraSensorKeys = (points: any[]): string[] => {
+    const keys = new Set<string>();
+    points.forEach(d => Object.keys(d).forEach(k => { if (k.startsWith('extra_') && k !== 'extra_sensors' && typeof d[k] === 'number') keys.add(k); }));
+    return Array.from(keys);
+};
+
+export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ data, events = [], sensor1Name = 'Cerveja', sensor2Name = 'Geladeira' }) => {
+  // Safe parsing of data points
+  const safeData = React.useMemo(() => {
+    const chartPoints = parseInt(localStorage.getItem('breww_chartPoints') || '50', 10);
+    return prepareTemperatureData(data, !isNaN(chartPoints) && chartPoints > 0 ? chartPoints : 50);
+  }, [data]);
 
     // Extract unique extra sensor keys to render dynamic lines
-    const extraKeys = React.useMemo(() => {
-        const keys = new Set<string>();
-        safeData.forEach(d => {
-            Object.keys(d).forEach(k => {
-                if (k.startsWith('extra_')) keys.add(k);
-            });
-        });
-        return Array.from(keys);
-    }, [safeData]);
+    const extraKeys = React.useMemo(() => extraSensorKeys(safeData), [safeData]);
     
     // Generate distinct colors for extra lines
     const getExtraColor = (index: number) => {
