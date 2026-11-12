@@ -1856,8 +1856,8 @@ const adminApi = registerAdminRoutes({
     onRestore: (id) => trashedUsers.delete(Number(id)),
 });
 // Retencao da telemetria (services/telemetryRetention.js): 1x por dia, 10 min depois de ligar.
-// TELEMETRY_RETENTION: 'on' aplica | 'dry' so conta (padrao ate conferir em producao) | 'off'
-const retentionMode = process.env.TELEMETRY_RETENTION || 'dry';
+// TELEMETRY_RETENTION: 'on' aplica (padrao; ativado em 12/11/2026 apos conferencia) | 'dry' so conta | 'off'
+const retentionMode = process.env.TELEMETRY_RETENTION || 'on';
 const runRetention = () => {
     if (retentionMode === 'off') return;
     runTelemetryRetention(pool, { dryRun: retentionMode !== 'on', log: (m) => console.log('🧹 ' + m) })
