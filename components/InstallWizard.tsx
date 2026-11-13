@@ -317,7 +317,7 @@ export const InstallWizard: React.FC = () => {
 
     return (
         <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
-            <SiteHeader minimal={{ label: 'Voltar ao guia', to: board ? `/instalar?placa=${board}` : '/instalar', locked: flashing }} />
+            <SiteHeader minimal={{ label: 'Voltar ao guia', to: (board || guideBoard) ? `/instalar?placa=${board || guideBoard}` : '/instalar', locked: flashing }} />
             <p className="sr-only" aria-live="polite">{announce}</p>
             <main>
                 <div style={paperGrid}>

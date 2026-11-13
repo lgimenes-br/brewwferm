@@ -363,7 +363,7 @@ export const Installer: React.FC = () => {
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
                         <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-end">
                             <StepTitle n={3} label="Sensores">Ligue os sensores. <span className="text-[var(--muted)]">Confira no app.</span></StepTitle>
-                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e veja a temperatura aparecer no app antes de partir para os relés. Não apareceu? Confira o resistor e o pino de dados.</p>
+                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e veja a temperatura aparecer no app antes de partir para os relés. Não apareceu? {official ? 'Confira se o cabo está bem encaixado no JST 4P.' : 'Confira o resistor e o pino de dados.'}</p>
                         </div>
                         <div className="mt-12 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
                             <div className="rounded-3xl bg-white p-6 sm:p-8">
