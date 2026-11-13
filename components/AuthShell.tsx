@@ -15,15 +15,6 @@ export const AuthShell: React.FC<{ title: string; subtitle?: React.ReactNode; ch
                 <p className="mt-5 max-w-sm text-lg leading-relaxed text-[#a3a7b0]">
                     Temperatura, perfis e alertas do seu controlador, ao vivo no celular e no computador.
                 </p>
-                <div className="mt-10 inline-flex items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4">
-                    <div>
-                        <p className="text-xs text-[#898E99]">IPA Citra · Fermentação</p>
-                        <p className="mt-1 [font-family:var(--font-display)] text-[40px] font-light leading-none tabular-nums">18,0<span className="text-base text-[#898E99]"> °C</span></p>
-                    </div>
-                    <span className="flex items-center gap-1.5 rounded-full bg-[var(--accent)]/15 px-2.5 py-1 text-xs text-[var(--accent)]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> No alvo
-                    </span>
-                </div>
             </div>
             <BrewwMark className="pointer-events-none absolute -bottom-16 -right-10 h-[420px] w-auto text-white/[0.04]" />
         </aside>
