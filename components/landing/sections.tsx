@@ -3,19 +3,15 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, Check, Cpu, Loader2, Thermometer, ToggleRight, Usb, Wifi, Smartphone } from 'lucide-react';
 import { API_URL } from '../../config';
 import { useScrollVar } from './useScrollVar';
-import { paperGrid } from './FermentationStory';
 
-// Blocos da home depois da curva, no mesmo mundo: papel milimetrado, a linha verde como fio condutor,
-// paineis de instrumento em Grafite e camadas que andam em velocidades diferentes com a rolagem (--p).
+// Blocos da home depois da curva: a linha verde como fio condutor, paineis de instrumento em Grafite e camadas
+// que andam em velocidades diferentes com a rolagem (--p). Sem malha (so na secao da curva); cada secao tem
+// seu tom de cinza: montagem quase branca, codigo em Grafite, projecao em Nevoa, precos mais fundo, fecho em Tinta.
 
 type PVar = React.CSSProperties & { [k: `--${string}`]: string | number };
 
 const textLink = 'group inline-flex min-h-11 items-center gap-1.5 text-[15px] font-medium underline decoration-current/30 underline-offset-[5px] hover:decoration-current';
 const h2 = 'text-balance [font-family:var(--font-display)] text-4xl font-light leading-[1.02] tracking-[-0.035em] sm:text-6xl';
-const darkGrid = {
-    backgroundImage: 'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)',
-    backgroundSize: '96px 96px',
-} as const;
 
 // ---------- Lista de espera ----------
 export const WaitlistForm: React.FC<{ interest: 'pronto' | 'pro'; dark?: boolean; cta: string }> = ({ interest, dark, cta }) => {
@@ -89,7 +85,7 @@ const PARTS = [
 export const InstallTimeline: React.FC = () => {
     const ref = useScrollVar<HTMLElement>(0.15);
     return (
-        <section id="monte" ref={ref} className="relative scroll-mt-16 border-t border-black/5" style={{ ...paperGrid, '--p': 0 } as PVar}>
+        <section id="monte" ref={ref} className="relative scroll-mt-16 bg-[#F7F7F8]" style={{ '--p': 0 } as PVar}>
             <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
                 <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-end">
                     <h2 className={h2}>Antes do Dia 1, <span className="text-[var(--muted)]">meia hora na bancada.</span></h2>
@@ -102,7 +98,7 @@ export const InstallTimeline: React.FC = () => {
                     <div className="absolute bottom-6 left-[14px] top-6 w-[3px] origin-top rounded-full bg-[#1fa84a] [transform:scaleY(var(--p))] lg:bottom-auto lg:left-0 lg:right-0 lg:top-[14px] lg:h-[3px] lg:w-auto lg:origin-left lg:[transform:scaleX(var(--p))]" aria-hidden />
                     {INSTALL.map(({ icon: Icon, title, text, screen }, i) => (
                         <li key={title} className="relative" style={{ '--i': i } as PVar}>
-                            <span className="absolute -left-10 top-0 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-[#1fa84a] bg-[var(--bg)] lg:relative lg:left-auto" aria-hidden>
+                            <span className="absolute -left-10 top-0 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-[#1fa84a] bg-[#F7F7F8] lg:relative lg:left-auto" aria-hidden>
                                 <span className="absolute inset-0 rounded-full bg-[#1fa84a] [opacity:clamp(0,calc((var(--p)*5-var(--i))*3),1)]" />
                                 <Icon size={15} className="relative text-[var(--ink)]" />
                             </span>
@@ -120,7 +116,7 @@ export const InstallTimeline: React.FC = () => {
                     <ul className="grid gap-x-10 gap-y-4 sm:grid-cols-2">
                         {PARTS.map(({ icon: Icon, text }) => (
                             <li key={text} className="flex items-center gap-3 text-[15px]">
-                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white"><Icon size={17} strokeWidth={1.75} /></span>{text}
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg)]"><Icon size={17} strokeWidth={1.75} /></span>{text}
                             </li>
                         ))}
                     </ul>
@@ -144,7 +140,7 @@ export const OpenSource: React.FC = () => {
     const ref = useScrollVar<HTMLElement>(0.25);
     const total = BOARDS.length * VERSIONS.length;
     return (
-        <section ref={ref} className="on-dark relative overflow-hidden bg-[var(--card)] text-white" style={{ ...darkGrid, '--p': 0 } as PVar}>
+        <section ref={ref} className="on-dark relative overflow-hidden bg-[var(--card)] text-white" style={{ '--p': 0 } as PVar}>
             <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
                 <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-end">
                     <h2 className={h2}>O código da placa é aberto. <span className="text-[var(--accent)]">De verdade.</span></h2>
@@ -189,7 +185,7 @@ export const OpenSource: React.FC = () => {
 export const Projection: React.FC = () => {
     const ref = useScrollVar<HTMLElement>(0.25);
     return (
-        <section id="pronto" ref={ref} className="relative scroll-mt-16" style={{ ...paperGrid, '--p': 0 } as PVar}>
+        <section id="pronto" ref={ref} className="relative scroll-mt-16 bg-[var(--bg)]" style={{ '--p': 0 } as PVar}>
             <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
                 <h2 className={`${h2} max-w-4xl`}>Prefere o controlador pronto? <span className="text-[var(--muted)]">Estamos preparando.</span></h2>
 
@@ -229,7 +225,7 @@ export const Projection: React.FC = () => {
 export const Pricing: React.FC = () => {
     const ref = useScrollVar<HTMLElement>(0.3);
     return (
-        <section id="precos" ref={ref} className="relative scroll-mt-16 border-t border-black/5" style={{ ...paperGrid, '--p': 0 } as PVar}>
+        <section id="precos" ref={ref} className="relative scroll-mt-16 bg-[#E4E6E9]" style={{ '--p': 0 } as PVar}>
             <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
                 <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-end">
                     <h2 className={h2}>Grátis durante o lançamento.</h2>
@@ -281,7 +277,7 @@ export const Pricing: React.FC = () => {
 export const Closing = React.forwardRef<HTMLElement>((_, outer) => {
     const ref = useScrollVar<HTMLDivElement>(0.4);
     return (
-        <section ref={outer} className="on-dark relative overflow-hidden bg-[var(--ink)] text-white" style={darkGrid}>
+        <section ref={outer} className="on-dark relative overflow-hidden bg-[var(--ink)] text-white">
             <div ref={ref} style={{ '--p': 0 } as PVar}>
                 {/* a cauda do lote chega ao fim e o proximo comeca, de ponta a ponta */}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[220px] sm:h-[42%]" aria-hidden>

@@ -182,7 +182,8 @@ const Hero: React.FC<{ ctaRef?: React.Ref<HTMLDivElement> }> = ({ ctaRef }) => (
     </>
 );
 
-export const paperGrid = {
+// Malha milimetrada: so nesta secao, como o papel do grafico
+const paperGrid = {
     backgroundImage: 'linear-gradient(rgba(11,13,18,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,13,18,0.05) 1px, transparent 1px)',
     backgroundSize: '48px 48px',
 } as const;

@@ -71,7 +71,7 @@ export const SiteHeader: React.FC = () => {
 const footLink = 'inline-flex min-h-11 min-w-11 items-center hover:text-white';
 
 export const SiteFooter: React.FC = () => (
-    <footer className="on-dark bg-[var(--ink)] text-[#a3a7b0]">
+    <footer className="on-dark border-t border-white/[0.08] bg-[var(--ink)] text-[#a3a7b0]">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 pb-[max(3.5rem,env(safe-area-inset-bottom))] pt-14 sm:px-6 md:flex-row md:items-center md:justify-between">
             <BrewwLogo className="text-white" />
             <nav className="flex flex-wrap gap-x-7 text-sm" aria-label="Rodapé">
