@@ -41,7 +41,10 @@
   --font-display: 'Inter Tight', 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 }
-.brew-landing :focus-visible { outline-color: #0B0D12; }
+/* Areas escuras (cartoes Grafite, Tinta, rodape): contorno de foco verde, senao some no fundo.
+   O contorno global (index.html) usa var(--focus-ring) com !important; aqui so se troca a cor. */
+.on-dark { --focus-ring: #71FC8F; }
+.brew-landing ::selection { background: #71FC8F; color: #0B0D12; }
 .landing-mark {
   background: linear-gradient(transparent 40%, var(--accent) 40%, var(--accent) 92%, transparent 92%);
   -webkit-box-decoration-break: clone;

@@ -28,6 +28,7 @@ import { registerPairingRoutes } from './routes/pairingRoutes.js';
 import { registerLiveRoutes } from './routes/liveRoutes.js';
 import { registerFirmwareRoutes } from './routes/firmwareRoutes.js';
 import { registerLibraryRoutes } from './routes/libraryRoutes.js';
+import { registerWaitlistRoutes } from './routes/waitlistRoutes.js';
 import { createMqttProvisioner, removeMqttCredential } from './services/mqttCredentials.js';
 import { registerDeviceDiagnostics } from './services/deviceDiagnostics.js';
 import { registerAppAuthRoutes } from './routes/appAuthRoutes.js';
@@ -1928,6 +1929,9 @@ const libraryApi = registerLibraryRoutes(app, {
     },
 });
 dbReady.then(() => libraryApi.ensureTables()).catch(e => console.error('Biblioteca (tabelas):', e.message));
+// Lista de espera da home (controlador pronto e plano Pro)
+const waitlistApi = registerWaitlistRoutes(app, { pool, authenticateToken, requireAdmin, rateLimiter: authRateLimiter, audit: auditLog });
+dbReady.then(() => waitlistApi.ensureTable()).catch(e => console.error('Lista de espera (tabela):', e.message));
 
 // Retencao da telemetria (services/telemetryRetention.js): 1x por dia, 10 min depois de ligar.
 // TELEMETRY_RETENTION: 'on' aplica (padrao; ativado em 12/11/2026 apos conferencia) | 'dry' so conta | 'off'

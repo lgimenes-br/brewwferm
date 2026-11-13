@@ -43,6 +43,7 @@ export const Privacy: React.FC = () => {
                     <li><b>Leituras e lotes:</b> temperaturas, umidade, densidade e bateria do iSpindel, estado dos relés, sinal do Wi-Fi, lotes, perfis de fermentação, receitas importadas e anotações.</li>
                     <li><b>Biblioteca de perfis:</b> os perfis que você publica aparecem para outros usuários com o seu primeiro nome.</li>
                     <li><b>Notificações:</b> o token de notificação do celular ou do navegador.</li>
+                    <li><b>Lista de espera:</b> se você pede aviso do controlador pronto ou do plano Pro na página inicial, guardamos só o e-mail e o que você pediu, sem precisar de conta.</li>
                     <li><b>Integrações que você ativa:</b> o endereço de envio do Brewfather e os dados do bot do Telegram.</li>
                     <li><b>Segurança e diagnóstico:</b> endereço IP e horário de logins e de ações administrativas, e registros técnicos dos aparelhos (reinícios, falhas de conexão, lentidão).</li>
                     <li><b>Erros técnicos:</b> quando o site, o app ou o servidor falham, registramos a mensagem do erro, a tela, o tipo de aparelho e a versão, sem o conteúdo dos seus lotes.</li>
@@ -85,6 +86,7 @@ export const Privacy: React.FC = () => {
                 <ul>
                     <li><b>Conta e lotes:</b> enquanto a conta existir. Lotes encerrados há mais de 30 dias são resumidos para uma leitura a cada 15 minutos.</li>
                     <li><b>Leituras fora de um lote:</b> 30 dias.</li>
+                    <li><b>Lista de espera:</b> até o aviso ser enviado, ou antes, se você pedir para sair escrevendo para {LEGAL_EMAIL}.</li>
                     <li><b>Registros técnicos dos aparelhos:</b> 30 dias.</li>
                     <li><b>Registros de acesso</b> (endereço IP e horário de uso): 12 meses, acima dos 6 meses que o Marco Civil da Internet exige.</li>
                     <li><b>Conta excluída:</b> fica 30 dias desativada, para o caso de engano, e depois é apagada com os aparelhos, lotes e leituras. Cópias de segurança são substituídas em até 2 meses.</li>

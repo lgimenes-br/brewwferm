@@ -3,6 +3,7 @@ import { Battery, WifiOff, BellRing, HeartPulse, Megaphone } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
 import toast from 'react-hot-toast';
+import { WaitlistCard } from './WaitlistCard';
 
 export const MarketingTab = () => {
     const { token } = useAuth();
@@ -169,6 +170,8 @@ export const MarketingTab = () => {
                     </div>
                 </div>
             </div>
+
+            <WaitlistCard />
         </div>
     );
 };
