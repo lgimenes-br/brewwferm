@@ -61,7 +61,9 @@
 .landing-rise-late { animation: landing-rise 0.9s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .landing-curve { stroke-dasharray: 520; animation: landing-draw 2.2s 0.6s ease-out both; }
 .landing-curve-fill, .landing-curve-dot { animation: landing-fade 0.8s 2.4s ease-out both; }
+/* Capitulo da curva: entra subindo quando a ponta da linha chega nele */
+.landing-chapter { animation: landing-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   /* sem animacao nenhuma: nada fica invisivel esperando um atraso */
-  .landing-rise, .landing-rise-late, .landing-curve, .landing-curve-fill, .landing-curve-dot { animation: none !important; }
+  .landing-rise, .landing-rise-late, .landing-curve, .landing-curve-fill, .landing-curve-dot, .landing-chapter { animation: none !important; }
 }
