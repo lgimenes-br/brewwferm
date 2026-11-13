@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 export const MarketingTab = () => {
     const { token } = useAuth();
     const [health, setHealth] = useState<any[]>([]);
-    const [pushStats, setPushStats] = useState<any>({ total_users: 0, opt_in: 0 });
+    const [pushStats, setPushStats] = useState<any>({ total_users: 0, opt_in: 0, phones: 0 });
     const [pushTitle, setPushTitle] = useState('');
     const [pushMessage, setPushMessage] = useState('');
     const [sending, setSending] = useState(false);
@@ -62,7 +62,7 @@ export const MarketingTab = () => {
             }
             if (res.ok) {
                 const data = await res.json();
-                toast.success(`Push enviado para ${data.sent} dispositivos`);
+                toast.success(`Notificação enviada para ${data.sent} conta(s)`);
                 setPushTitle(''); setPushMessage('');
             } else {
                 toast.error('Erro ao enviar push');
@@ -128,7 +128,7 @@ export const MarketingTab = () => {
                     <div className="flex items-center justify-between mb-6 p-4 bg-[var(--bg)] rounded-lg border border-black/[0.07]">
                         <div>
                             <div className="text-2xl font-semibold text-[var(--ink)]">{pushStats.opt_in}</div>
-                            <div className="text-xs text-[var(--muted)] font-semibold">Usuários Opt-in</div>
+                            <div className="text-xs text-[var(--muted)] font-semibold">Contas com notificações ligadas · {pushStats.phones ?? 0} celular(es) com o app</div>
                         </div>
                         <div className="text-right">
                             <div className="text-2xl font-semibold text-[var(--muted)]">{pushStats.total_users}</div>

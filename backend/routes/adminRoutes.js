@@ -8,6 +8,11 @@ import { maxDevicesFor } from '../services/plans.js';
  * Resumo da frota para o admin. rows: { board, firmware_version, hw_modules (JSON), online }.
  * Modulos "ds18b20:N" viram contagem de aparelhos por numero de sensores ("ds18b20 x2").
  */
+// Quem recebe o disparo em massa: contas com o app (iOS/Android) registrado para notificacoes ou com push no navegador
+// (contas na lixeira ficam de fora)
+const PUSH_AUDIENCE_SQL = `SELECT a.user_id FROM (SELECT user_id FROM push_subscriptions UNION SELECT user_id FROM app_push_tokens) a
+    JOIN users u ON u.id = a.user_id WHERE u.deleted_at IS NULL`;
+
 export const summarizeFleet = (rows) => {
     const tally = (map, key, online) => {
         const e = map.get(key) || { name: key, count: 0, online: 0 };
@@ -351,12 +356,14 @@ export const registerAdminRoutes = ({
         try {
             const [
                 [[{ total_users }]],
-                [[{ opt_in }]]
+                [[{ opt_in }]],
+                [[{ phones }]]
             ] = await Promise.all([
                 pool.execute('SELECT COUNT(*) as total_users FROM users WHERE deleted_at IS NULL'),
-                pool.execute('SELECT COUNT(DISTINCT user_id) as opt_in FROM push_subscriptions')
+                pool.execute(`SELECT COUNT(*) as opt_in FROM (${PUSH_AUDIENCE_SQL}) a`),
+                pool.execute('SELECT COUNT(*) as phones FROM app_push_tokens')
             ]);
-            res.json({ total_users, opt_in });
+            res.json({ total_users, opt_in, phones });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Erro interno no servidor' }); }
     });
 
@@ -364,7 +371,7 @@ export const registerAdminRoutes = ({
         try {
             const { title, message } = req.body || {};
             if (!title || !message) return res.status(400).json({ error: 'Título e mensagem são obrigatórios' });
-            const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
+            const [subs] = await pool.execute(PUSH_AUDIENCE_SQL);
             const results = await Promise.allSettled(
                 subs.map(sub => sendPushToUser(pool, sub.user_id, title, message))
             );
@@ -448,7 +455,7 @@ export const registerAdminRoutes = ({
             await audit(req, 'CREATE_BROADCAST', `"${title || ''}"${send_push ? ' + push' : ''}${is_active ? ' (ativo)' : ''}`);
 
             if (send_push) {
-                const [subs] = await pool.execute('SELECT DISTINCT user_id FROM push_subscriptions');
+                const [subs] = await pool.execute(PUSH_AUDIENCE_SQL);
                 await Promise.allSettled(
                     subs.map(sub => sendPushToUser(pool, sub.user_id, title || 'Aviso da Plataforma', message))
                 );
