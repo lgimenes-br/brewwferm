@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Check, Cpu, Smartphone, Thermometer, ToggleRight, Usb, Wifi, Plug, Monitor, Droplets, CircleDot, Gauge } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Cpu, Smartphone, Thermometer, ToggleRight, Usb, Wifi, Plug, Monitor, Droplets, CircleDot, Gauge, Link2, Unplug, Box, Power } from 'lucide-react';
 import { SiteHeader, SiteFooter } from './SiteChrome';
 
-// Guia "Monte o seu" (/instalar), no mundo da home ("a curva e a pagina"): malha milimetrada so no topo,
-// uma trilha fixa dos 4 passos com a linha verde enchendo conforme a leitura avanca, e cada secao no seu tom
-// de cinza. Cheio = obrigatorio/ja existe; tracejado = opcional/ainda nao. A gravacao fica no assistente.
+// Guia "Monte o seu" (/instalar), no mundo da home: malha so no topo, trilha fixa dos passos na linha verde,
+// um tom de cinza por secao. Ordem segura (boas praticas de ESP32 com reles): pecas -> gravar e conectar a placa
+// sozinha no USB -> sensores (baixa tensao) -> reles e tomada por ultimo, desligado -> primeiro lote no app.
+// Cheio = fixo/ja existe; tracejado = nao fixo (opcional, a sua escolha ou ainda nao). A gravacao e no assistente.
 
 export type Wire = { pin: string; to: string; note?: string; free?: boolean }; // free = o firmware acha sozinho (contorno tracejado)
 // sensorPins: onde o DS18B20 e o DHT22 podem ir (o firmware procura sozinho; igual a pins_sensor_candidate)
@@ -14,7 +15,7 @@ export type Board = { id: string; name: string; hint: string; wires: Wire[]; rel
 // Reles e I2C: pinos fixos de boards/*.h. Sensores: qualquer pino de sensorPins (detectados sozinhos, v2.9.2+)
 export const BOARDS: Board[] = [
     {
-        id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'O mais barato e fácil de achar (WROOM-32 / DevKit V1).',
+        id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'A mais barata e fácil de achar (WROOM-32 / DevKit V1).',
         wires: [
             { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V', free: true },
             { pin: 'GPIO 26', to: 'Relé de aquecer · IN' },
@@ -38,7 +39,7 @@ export const BOARDS: Board[] = [
         sensorPins: [1, 2, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 21, 38, 39, 40, 41, 42, 47],
     },
     {
-        id: 'c3-headless', name: 'ESP32-C3 SuperMini', hint: 'Bem pequeno. Poucos pinos, mas suficiente.',
+        id: 'c3-headless', name: 'ESP32-C3', hint: 'SuperMini e parecidas. Bem pequena, poucos pinos, mas suficiente.',
         wires: [
             { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V', free: true },
             { pin: 'GPIO 5', to: 'Relé de aquecer · IN' },
@@ -50,7 +51,7 @@ export const BOARDS: Board[] = [
         sensorPins: [0, 1, 3, 4, 20, 21],
     },
     {
-        id: 's3-35', name: 'Breww com tela 3,5"', hint: 'A placa oficial com tela touch.',
+        id: 's3-35', name: 'Breww com tela 3,5"', hint: 'A placa oficial com tela touch. À venda em breve.',
         wires: [
             { pin: 'JST 4P · 3 ou 4', to: 'Sensor DS18B20 · dados', free: true },
             { pin: 'JST 8P · pino 1', to: 'Relé de aquecer' },
@@ -62,41 +63,44 @@ export const BOARDS: Board[] = [
 ];
 
 const PARTS = [
-    { icon: Cpu, title: 'Uma placa ESP32', text: 'DevKit, S3 ou C3. Qualquer uma das placas abaixo.' },
-    { icon: Thermometer, title: 'Sensor DS18B20', text: 'A versão à prova d’água, com cabo. Mais um resistor de 4,7 kΩ.' },
-    { icon: ToggleRight, title: 'Relés', text: 'Módulo de 2 canais (aquecer e resfriar) ou SSR.' },
-    { icon: Plug, title: 'Fonte 5 V', text: 'Um carregador USB comum serve para a placa.' },
+    { icon: Thermometer, title: 'Sensor DS18B20', text: 'A versão à prova d’água, com cabo, e um resistor de 4,7 kΩ.' },
+    { icon: ToggleRight, title: 'Módulo de relé de 2 canais', text: 'Um canal liga o aquecimento, o outro a geladeira. Escolha um que aguente a corrente do aparelho.' },
+    { icon: Plug, title: 'Fonte 5 V', text: 'Um carregador USB comum alimenta a placa e o módulo de relé.' },
+    { icon: Box, title: 'Fios e uma caixa fechada', text: 'Jumpers para os sensores e uma caixa para a parte que vai na tomada.' },
 ];
 const EXTRAS = [
     { icon: Monitor, title: 'Tela OLED 0,96" ou LCD 20x4', text: 'I²C. Reconhecida sozinha ao ligar.' },
     { icon: Droplets, title: 'Umidade', text: 'SHT3x, AHT20, BME280 ou DHT22.' },
     { icon: CircleDot, title: 'Dois botões', text: 'Para ajustar o alvo e o menu na telinha.' },
-    { icon: Gauge, title: 'iSpindel', text: 'Densímetro Wi-Fi para acompanhar a gravidade.' },
+    { icon: Gauge, title: 'iSpindel', text: 'Densímetro Wi-Fi para acompanhar a densidade.' },
 ];
 
 const supportsWebSerial = typeof navigator !== 'undefined' && 'serial' in navigator;
+const isRelay = (w: Wire) => w.to.startsWith('Relé');
 
 const STEPS = [
     { id: 'pecas', label: 'Peças' },
-    { id: 'ligacoes', label: 'Ligações' },
-    { id: 'instalar', label: 'Instalar' },
-    { id: 'app', label: 'Wi-Fi e app' },
+    { id: 'gravar', label: 'Gravar' },
+    { id: 'sensores', label: 'Sensores' },
+    { id: 'reles', label: 'Relés' },
+    { id: 'app', label: 'No app' },
 ];
 const paperGrid = {
     backgroundImage: 'linear-gradient(rgba(11,13,18,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,13,18,0.05) 1px, transparent 1px)',
     backgroundSize: '48px 48px',
 } as const;
 const h2 = 'text-balance [font-family:var(--font-display)] text-4xl font-light leading-[1.02] tracking-[-0.035em] sm:text-6xl';
+const warnBox = 'flex gap-3 rounded-3xl border border-[#d63a4d]/30 bg-[#d63a4d]/[0.07] p-5 text-[15px] leading-relaxed text-[#7a1f2b] sm:p-6';
 
-/** Titulo de passo: o numero e um no da linha verde, nao um rotulo acima do titulo */
-const StepTitle: React.FC<{ n: number; children: React.ReactNode; dark?: boolean }> = ({ n, children, dark }) => (
+/** Titulo de passo: o numero e um no da linha (Verde No Alvo com Tinta: contraste alto) e faz parte do titulo para leitor de tela */
+const StepTitle: React.FC<{ n: number; label: string; children: React.ReactNode; dark?: boolean }> = ({ n, label, children, dark }) => (
     <div className="flex items-start gap-4 sm:gap-5">
-        <span className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums sm:mt-2 sm:h-11 sm:w-11 sm:text-base ${dark ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-[#1fa84a] text-white'}`} aria-hidden>{n}</span>
-        <h2 className={h2}>{children}</h2>
+        <span className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums sm:mt-2 sm:h-11 sm:w-11 sm:text-base ${dark ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/15'}`} aria-hidden>{n}</span>
+        <h2 className={h2}><span className="sr-only">Passo {n}, {label}: </span>{children}</h2>
     </div>
 );
 
-/** Trilha fixa dos passos: o passo da secao visivel acende e a linha verde enche com a leitura */
+/** Trilha fixa: mostra onde a leitura esta (nao marca como "feito" so por rolar) e permite pular de passo */
 const StepRail: React.FC = () => {
     const [active, setActive] = useState(-1);
     const fill = useRef<HTMLDivElement>(null);
@@ -122,18 +126,15 @@ const StepRail: React.FC = () => {
         return () => { window.removeEventListener('scroll', on); window.removeEventListener('resize', on); cancelAnimationFrame(raf); };
     }, []);
     return (
-        <nav aria-label="Passos do guia" className="sticky top-[60px] z-20 border-b border-black/5 bg-[var(--bg)]/90 backdrop-blur-md">
+        <nav aria-label="Passos do guia" className="sticky top-[60px] z-20 border-b border-black/5 bg-[var(--bg)]">
             <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-                <ol className="grid grid-cols-4">
+                <ol className="grid grid-cols-5">
                     {STEPS.map((s, k) => (
                         <li key={s.id}>
                             <a href={`#${s.id}`} aria-current={k === active ? 'step' : undefined}
-                                className={`flex min-h-12 items-center gap-2 text-sm transition-colors ${k === active ? 'font-medium text-[var(--ink)]' : k < active ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
-                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k <= active ? 'bg-[#1fa84a] text-white' : 'border border-dashed border-[var(--ink)]/35'}`}>
-                                    {k < active ? <Check size={13} strokeWidth={2.5} /> : k + 1}
-                                </span>
-                                <span className="truncate max-sm:sr-only">{s.label}</span>
-                                {k === active && <span className="truncate text-xs sm:hidden">{s.label}</span>}
+                                className={`flex min-h-12 items-center gap-2 text-sm transition-colors ${k === active ? 'font-medium text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k === active ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : k < active ? 'bg-[var(--accent)]/60 text-[var(--ink)]' : 'border border-dashed border-[var(--ink)]/35'}`}>{k + 1}</span>
+                                <span className={`truncate ${k === active ? '' : 'max-md:sr-only'}`}>{s.label}</span>
                             </a>
                         </li>
                     ))}
@@ -146,15 +147,63 @@ const StepRail: React.FC = () => {
     );
 };
 
+/** Mapa de fios em colunas fixas: pino | fio | destino (+ nota) */
+const WireMap: React.FC<{ wires: Wire[] }> = ({ wires }) => (
+    <ul className="space-y-3">
+        {wires.map(w => (
+            <li key={w.to} className="grid grid-cols-[8.5rem_1fr] items-center gap-x-3 gap-y-1 sm:grid-cols-[8.5rem_2rem_1fr]">
+                <span className={`rounded-full px-3 py-1.5 text-center text-sm ${w.free ? 'border border-dashed border-[var(--ink)]/40 text-[var(--ink)]' : 'bg-[var(--ink)] font-mono text-white'}`}>{w.pin}</span>
+                <span aria-hidden className="hidden h-[2px] rounded-full bg-[#1fa84a] sm:block" />
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-medium">{w.to}</span>
+                    {w.note && <span className={`rounded-full px-2.5 py-0.5 text-xs ${w.note === 'opcional' ? 'border border-dashed border-[var(--ink)]/25 text-[var(--muted)]' : 'border border-[var(--ink)]/20 text-[var(--ink)]'}`}>{w.note}</span>}
+                </span>
+            </li>
+        ))}
+    </ul>
+);
+
+const WireLegend: React.FC = () => (
+    <span className="flex items-center gap-3 text-xs text-[var(--muted)]">
+        <span className="flex items-center gap-1.5"><span className="h-3 w-5 rounded-full bg-[var(--ink)]" />pino fixo</span>
+        <span className="flex items-center gap-1.5"><span className="h-3 w-5 rounded-full border border-dashed border-[var(--ink)]/50" />à sua escolha</span>
+    </span>
+);
+
+/** Celular sem USB: manda o link desta etapa para abrir no computador */
+const SendToComputer: React.FC<{ dark?: boolean; url: string }> = ({ dark, url }) => {
+    const [copied, setCopied] = useState(false);
+    const share = async () => {
+        try {
+            if (navigator.share) { await navigator.share({ title: 'Instalar o Breww', text: 'Abra no computador, com Chrome ou Edge:', url }); return; }
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2500);
+        } catch { /* fechou o compartilhamento */ }
+    };
+    return (
+        <div className={`rounded-2xl p-4 text-sm ${dark ? 'bg-white/5 text-[#c9ccd3]' : 'bg-[var(--bg)] text-[var(--muted)]'}`}>
+            <p>A gravação é feita no computador, com <b className={dark ? 'text-white' : 'text-[var(--ink)]'}>Chrome</b> ou <b className={dark ? 'text-white' : 'text-[var(--ink)]'}>Edge</b> e a placa no USB.</p>
+            <button type="button" onClick={share} className={`mt-3 inline-flex min-h-11 items-center gap-2 rounded-full px-4 font-medium ${dark ? 'bg-white text-[var(--ink)]' : 'bg-[var(--ink)] text-white'}`}>
+                <Link2 size={16} /> {copied ? 'Link copiado' : 'Mandar o link para o computador'}
+            </button>
+        </div>
+    );
+};
+
 export const Installer: React.FC = () => {
     const [boardId, setBoardId] = useState(BOARDS[0].id);
     const [version, setVersion] = useState<string | null>(null);
     const [manifestMissing, setManifestMissing] = useState(false);
+    const boardButtons = useRef<(HTMLButtonElement | null)[]>([]);
     const board = BOARDS.find(b => b.id === boardId)!;
     const headless = board.id !== 's3-35';
+    const sensorWires = board.wires.filter(w => !isRelay(w));
+    const relayWires = board.wires.filter(isRelay);
+    const wizardUrl = `/instalar/assistente?placa=${board.id}`;
+    const absWizardUrl = typeof window !== 'undefined' ? `${window.location.origin}${wizardUrl}` : wizardUrl;
 
-    useEffect(() => { document.title = 'Monte o seu Breww — Instalador'; }, []);
-
+    useEffect(() => { document.title = 'Monte o seu Breww — Guia de montagem'; }, []);
 
     useEffect(() => {
         setVersion(null);
@@ -164,6 +213,16 @@ export const Installer: React.FC = () => {
             .then(m => setVersion(m.version))
             .catch(() => setManifestMissing(true));
     }, [board.id]);
+
+    // Radio de placas com setas (foco itinerante)
+    const onBoardKey = (e: React.KeyboardEvent, k: number) => {
+        const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        const n = (k + d + BOARDS.length) % BOARDS.length;
+        setBoardId(BOARDS[n].id);
+        boardButtons.current[n]?.focus();
+    };
 
     return (
         <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
@@ -176,187 +235,239 @@ export const Installer: React.FC = () => {
                             Monte o seu Breww. <span className="landing-mark">Sem compilar nada.</span>
                         </h1>
                         <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-[var(--muted)]">
-                            Compre as peças, ligue os fios, grave o firmware pelo navegador e configure o Wi-Fi. Em menos de meia hora ele aparece no app.
+                            Compre as peças, grave o firmware pelo navegador e só depois ligue os fios. Sem instalar programa, do pacote à primeira leitura em cerca de meia hora.
                         </p>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                             <a href="#pecas" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--ink)] px-6 text-[15px] font-medium text-white hover:bg-black">
                                 Começar pela lista de peças <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                             </a>
-                            {supportsWebSerial && (
-                                <Link to="/instalar/assistente" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-black/15 bg-[var(--bg)]/70 px-6 text-[15px] font-medium backdrop-blur-sm hover:bg-white">
-                                    <Usb size={17} /> Já montei: instalar
-                                </Link>
-                            )}
+                            <a href="#gravar" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-black/15 bg-[var(--bg)]/70 px-6 text-[15px] font-medium backdrop-blur-sm hover:bg-white">
+                                <Usb size={17} /> Já tenho as peças: gravar
+                            </a>
                         </div>
                     </div>
                 </section>
 
                 <StepRail />
 
-                {/* 1. Pecas */}
+                {/* 1. Pecas, com a escolha da placa */}
                 <section id="pecas" className="scroll-mt-28 bg-[#F7F7F8]">
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
                         <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-end">
-                            <StepTitle n={1}>O essencial <span className="text-[var(--muted)]">cabe na palma da mão.</span></StepTitle>
-                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Quatro peças fáceis de achar. O resto é opcional e entra quando você quiser.</p>
+                            <StepTitle n={1} label="Peças">O essencial <span className="text-[var(--muted)]">cabe na palma da mão.</span></StepTitle>
+                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Escolha a placa e junte mais quatro coisas. O resto é opcional e entra quando você quiser.</p>
                         </div>
-                        <ul className="mt-14 grid gap-x-12 sm:grid-cols-2">
+
+                        <h3 className="mt-14 text-lg font-semibold tracking-tight" id="placa-titulo">Qual placa?</h3>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-labelledby="placa-titulo">
+                            {BOARDS.map((b, k) => {
+                                const on = b.id === boardId;
+                                return (
+                                    <button
+                                        key={b.id}
+                                        ref={el => { boardButtons.current[k] = el; }}
+                                        role="radio"
+                                        aria-checked={on}
+                                        tabIndex={on ? 0 : -1}
+                                        onClick={() => setBoardId(b.id)}
+                                        onKeyDown={e => onBoardKey(e, k)}
+                                        className={`rounded-2xl border p-4 text-left transition-colors ${on ? 'border-[var(--card)] bg-[var(--card)] text-white' : 'border-black/10 bg-white hover:border-black/25'}`}
+                                    >
+                                        <span className="flex items-center justify-between gap-2">
+                                            <span className="font-semibold">{b.name}</span>
+                                            {on && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={13} strokeWidth={2.5} className="text-[var(--ink)]" /></span>}
+                                        </span>
+                                        <span className={`mt-1 block text-sm ${on ? 'text-[#a3a7b0]' : 'text-[var(--muted)]'}`}>{b.hint}</span>
+                                        {b.id === 'esp32-devkit' && <span className={`mt-3 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-[var(--accent)]/60 text-[var(--ink)]'}`}>Recomendada</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <ul className="mt-12 grid gap-x-12 sm:grid-cols-2">
                             {PARTS.map(({ icon: Icon, title, text }) => (
                                 <li key={title} className="flex gap-4 border-t border-black/10 py-6">
                                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-[var(--accent)]"><Icon size={20} strokeWidth={1.75} /></span>
-                                    <div><h3 className="text-lg font-semibold tracking-tight">{title}</h3><p className="mt-1 leading-relaxed text-[var(--muted)]">{text}</p></div>
+                                    <div><h3 className="text-lg font-semibold tracking-tight">{title}</h3><p className="mt-1 text-pretty leading-relaxed text-[var(--muted)]">{text}</p></div>
                                 </li>
                             ))}
                         </ul>
-                        <h3 className="mt-14 text-lg font-semibold tracking-tight">Se quiser mais <span className="font-normal text-[var(--muted)]">· opcionais</span></h3>
+                        <h3 className="mt-12 text-lg font-semibold tracking-tight">Se quiser mais <span className="font-normal text-[var(--muted)]">· opcionais</span></h3>
                         <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             {EXTRAS.map(({ icon: Icon, title, text }) => (
                                 <li key={title} className="flex gap-3 rounded-2xl border border-dashed border-[var(--ink)]/25 p-4">
                                     <Icon size={18} strokeWidth={1.75} className="mt-0.5 shrink-0 text-[var(--muted)]" />
-                                    <div><p className="font-medium">{title}</p><p className="text-sm text-[var(--muted)]">{text}</p></div>
+                                    <div><p className="font-medium">{title}</p><p className="text-pretty text-sm text-[var(--muted)]">{text}</p></div>
                                 </li>
                             ))}
                         </ul>
                     </div>
                 </section>
 
-                {/* 2. Ligacoes */}
-                <section id="ligacoes" className="scroll-mt-28 bg-[var(--bg)]">
-                    <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
-                        <StepTitle n={2}>Escolha a placa. <span className="text-[var(--muted)]">Cada fio no seu lugar.</span></StepTitle>
-                        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Placa">
-                            {BOARDS.map(b => (
-                                <button
-                                    key={b.id}
-                                    role="radio"
-                                    aria-checked={b.id === boardId}
-                                    onClick={() => setBoardId(b.id)}
-                                    className={`rounded-2xl border p-4 text-left transition-colors ${b.id === boardId ? 'border-[var(--card)] bg-[var(--card)] text-white' : 'border-black/10 bg-white/60 hover:bg-white'}`}
-                                >
-                                    <span className="flex items-center justify-between gap-2">
-                                        <span className="font-semibold">{b.name}</span>
-                                        {b.id === boardId && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={13} strokeWidth={2.5} className="text-[var(--ink)]" /></span>}
-                                    </span>
-                                    <span className={`mt-1 block text-sm ${b.id === boardId ? 'text-[#a3a7b0]' : 'text-[var(--muted)]'}`}>{b.hint}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-                            <div className="rounded-3xl bg-white p-6 sm:p-8">
-                                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                    <h3 className="text-lg font-semibold tracking-tight">Mapa de ligações · {board.name}</h3>
-                                    <span className="flex items-center gap-3 text-xs text-[var(--muted)]">
-                                        <span className="flex items-center gap-1.5"><span className="h-3 w-5 rounded-full bg-[var(--ink)]" />pino fixo</span>
-                                        <span className="flex items-center gap-1.5"><span className="h-3 w-5 rounded-full border border-dashed border-[var(--ink)]/50" />qualquer livre</span>
-                                    </span>
-                                </div>
-                                <ul className="mt-6 space-y-3">
-                                    {board.wires.map(w => (
-                                        <li key={w.to} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                            <span className={`w-[8.5rem] shrink-0 rounded-full px-3 py-1.5 text-center text-sm ${w.free ? 'border border-dashed border-[var(--ink)]/40 text-[var(--ink)]' : 'bg-[var(--ink)] font-mono text-white'}`}>{w.pin}</span>
-                                            <span aria-hidden className="hidden h-[2px] flex-1 rounded-full bg-[#1fa84a]/70 sm:block" />
-                                            <span className="font-medium">{w.to}</span>
-                                            {w.note && <span className={`rounded-full px-2.5 py-0.5 text-xs ${w.note === 'opcional' ? 'border border-dashed border-[var(--ink)]/25 text-[var(--muted)]' : 'bg-[var(--accent)] text-[var(--ink)]'}`}>{w.note}</span>}
-                                        </li>
-                                    ))}
-                                </ul>
-                                {board.sensorPins && (
-                                    <div className="mt-6 rounded-2xl bg-[var(--bg)] p-4">
-                                        <p className="text-sm font-medium">Pinos livres para os sensores</p>
-                                        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Pinos livres para os sensores">
-                                            {board.sensorPins.map(n => (
-                                                <li key={n} className="rounded-full border border-dashed border-[var(--ink)]/30 bg-white px-2.5 py-0.5 font-mono text-xs">{n}</li>
-                                            ))}
-                                        </ul>
-                                        <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-                                            Ligue o DS18B20 e o DHT22 em qualquer um deles: a placa procura e acha sozinha. Os outros pinos são da própria placa (memória, boot, USB) ou dos relés e do I²C. Não ligue sensor neles.
-                                        </p>
-                                    </div>
-                                )}
-                                <p className="mt-6 text-sm leading-relaxed text-[var(--muted)]">
-                                    Alimente os sensores no 3,3 V e todos os GND juntos. Dois DS18B20 podem dividir o mesmo pino.
-                                    {board.id === 's3-35' && ' Os fios de dados do DS18B20 e do DHT22 podem ir em qualquer ordem nos pinos 3 e 4 do JST 4P: a placa percebe e se ajusta sozinha.'}
-                                </p>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white shadow-[0_30px_60px_-35px_rgba(11,13,18,0.7)]">
-                                    <p className="text-sm text-[#a3a7b0]">Tipo de relé padrão</p>
-                                    <p className="mt-2 text-lg font-medium">{board.relayDefault}</p>
-                                    <p className="mt-2 text-sm leading-relaxed text-[#a3a7b0]">Usa SSR ou outro tipo? Troque no app, em Hardware, depois de instalar.</p>
-                                </div>
-                                <div className="flex gap-3 rounded-3xl border border-[#FF5A6E]/30 bg-[#FF5A6E]/10 p-6 text-sm leading-relaxed text-[#7a1f2b]" role="note">
-                                    <AlertTriangle size={20} className="mt-0.5 shrink-0 text-[#d63a4d]" />
-                                    <span>Os relés comandam aparelhos na tomada (110/220 V). Faça a parte elétrica com tudo desligado, use caixa fechada e, sem experiência, peça ajuda a um eletricista.</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* 3. Instalar (Grafite) */}
-                <section id="instalar" className="on-dark scroll-mt-28 bg-[var(--card)] text-white">
-                    <div className="mx-auto grid max-w-6xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-28">
+                {/* 2. Gravar e conectar: a placa sozinha no USB, pelo assistente (Grafite) */}
+                <section id="gravar" className="on-dark scroll-mt-28 bg-[var(--card)] text-white">
+                    <div className="mx-auto grid max-w-6xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:items-start lg:py-28">
                         <div>
-                            <StepTitle n={3} dark>Um clique e o firmware <span className="text-[var(--accent)]">está gravado.</span></StepTitle>
-                            <ul className="mt-10 space-y-3 text-[#c9ccd3]">
-                                {['Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Se a placa não aparecer, segure o BOOT ao conectar', ...(headless ? ['Ao terminar, o instalador já pede o Wi-Fi da sua casa'] : [])].map(t => (
+                            <StepTitle n={2} label="Gravar e conectar" dark>Grave e conecte <span className="text-[var(--accent)]">pelo navegador.</span></StepTitle>
+                            <p className="mt-6 max-w-[34rem] text-pretty text-lg leading-relaxed text-[#c9ccd3]">
+                                Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente descobre qual é, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e coloca o aparelho na sua conta.
+                            </p>
+                            <ul className="mt-8 space-y-3 text-[#c9ccd3]">
+                                {['Placa sem nenhum fio ligado', 'Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Rede Wi-Fi de 2,4 GHz e a senha dela'].map(t => (
                                     <li key={t} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{t}</li>
                                 ))}
                             </ul>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-[#0e1117]/70 p-7 sm:p-8">
-                            <p className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Firmware para {board.name}</p>
-                            <p className="mt-2 [font-family:var(--font-display)] text-[56px] font-light leading-none tracking-[-0.04em] tabular-nums">
-                                {version ?? (manifestMissing ? '—' : '…')}
-                            </p>
-                            <p className="mt-2 text-sm text-[#a3a7b0]">{version ? 'versão atual, gravada direto pelo navegador' : manifestMissing ? 'Firmware indisponível no momento' : 'Carregando a versão…'}</p>
-                            <p className="mt-6 border-t border-white/10 pt-6 text-[15px] leading-relaxed text-[#c9ccd3]">Não sabe qual placa tem? O assistente descobre pelo USB, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e coloca o aparelho na sua conta.</p>
+                            <p className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Assistente de instalação</p>
+                            <p className="mt-2 text-2xl font-medium">{board.name}</p>
+                            <p className="mt-1 text-sm tabular-nums text-[#a3a7b0]">{version ? `Firmware ${version}` : manifestMissing ? 'Firmware indisponível no momento' : 'Carregando a versão…'}</p>
                             <div className="mt-7">
-                                {!supportsWebSerial ? (
-                                    <p className="rounded-2xl bg-white/5 p-4 text-sm text-[#c9ccd3]">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</p>
-                                ) : (
-                                    <Link to="/instalar/assistente" className="group inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
-                                        <Usb size={18} /> Instalar no seu ESP32 <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+                                {supportsWebSerial ? (
+                                    <Link to={wizardUrl} className="group inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
+                                        <Usb size={18} /> Abrir o assistente <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                                     </Link>
+                                ) : (
+                                    <SendToComputer dark url={absWizardUrl} />
                                 )}
                             </div>
-                            <p className="mt-4 text-xs text-[#a3a7b0]">A instalação apaga o que estiver gravado na placa.</p>
+                            <p className="mt-5 flex gap-2 text-sm leading-relaxed text-[#c9ccd3]"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-[#ff8f9c]" />A gravação apaga o que estiver na placa.</p>
+                            <details className="group mt-6 rounded-2xl border border-dashed border-white/20 px-4">
+                                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
+                                    {headless ? 'O Wi-Fi não deu certo? Configure pelo celular' : 'Wi-Fi e app na placa com tela'}
+                                    <ArrowRight size={16} className="shrink-0 transition-transform group-open:rotate-90" />
+                                </summary>
+                                {headless ? (
+                                    <ol className="space-y-2 pb-4 text-sm leading-relaxed text-[#c9ccd3]">
+                                        <li>1. No celular, entre na rede <b className="text-white">Breww-XXXX</b> (o final aparece no nome da rede). A página abre sozinha.</li>
+                                        <li>2. Escolha o Wi-Fi da sua casa e digite a senha.</li>
+                                        <li>3. LED piscando devagar = sem Wi-Fi; aceso = conectado. Segurar o BOOT por 10 s apaga o Wi-Fi e abre a rede Breww de novo.</li>
+                                    </ol>
+                                ) : (
+                                    <p className="pb-4 text-sm leading-relaxed text-[#c9ccd3]">Depois de gravada, a placa reinicia mostrando o assistente na tela: escolha o Wi-Fi ali mesmo e, no app, leia o QR code que aparece.</p>
+                                )}
+                            </details>
                         </div>
                     </div>
                 </section>
 
-                {/* 4. Wi-Fi e app (Cinza Regua) */}
-                <section id="app" className="scroll-mt-28 bg-[#E4E6E9]">
+                {/* 3. Sensores (baixa tensao) */}
+                <section id="sensores" className="scroll-mt-28 bg-[var(--bg)]">
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
-                        <StepTitle n={4}>Do celular, <span className="text-[var(--muted)]">em três toques.</span></StepTitle>
-                        {headless ? (
-                            <>
-                                <p className="mt-6 max-w-2xl text-pretty text-lg text-[var(--muted)]">Configurou o Wi-Fi no instalador? Então pule direto para o app. Se pulou essa etapa, use a rede Breww:</p>
-                                <ol className="relative mt-14 grid gap-8 max-md:pl-12 md:grid-cols-3 md:gap-6">
-                                    <div className="absolute bottom-4 left-[17px] top-4 w-[3px] rounded-full bg-[#1fa84a] md:bottom-auto md:left-0 md:right-0 md:top-[17px] md:h-[3px] md:w-auto" aria-hidden />
-                                    {[
-                                        { icon: Wifi, title: 'Conecte na rede Breww', text: 'No celular, entre na rede Breww-XXXX. A página abre sozinha: escolha o Wi-Fi da sua casa e digite a senha.' },
-                                        { icon: Smartphone, title: 'Abra o app', text: 'Volte para o Wi-Fi de casa e toque em Adicionar aparelho.' },
-                                        { icon: Check, title: 'Pronto', text: 'Escolha o aparelho em Buscar na rede (ou digite o código da página de Wi-Fi). Ele entra na hora.' },
-                                    ].map(({ icon: Icon, title, text }) => (
-                                        <li key={title} className="relative">
-                                            <span className="absolute -left-12 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-[#1fa84a] text-white md:static" aria-hidden><Icon size={16} /></span>
-                                            <h3 className="text-xl font-semibold tracking-tight md:mt-6">{title}</h3>
-                                            <p className="mt-2 leading-relaxed text-[var(--muted)]">{text}</p>
-                                        </li>
+                        <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-end">
+                            <StepTitle n={3} label="Sensores">Ligue os sensores. <span className="text-[var(--muted)]">Confira no app.</span></StepTitle>
+                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e veja a temperatura aparecer no app antes de partir para os relés.</p>
+                        </div>
+                        <div className="mt-12 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                            <div className="rounded-3xl bg-white p-6 sm:p-8">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <h3 className="text-lg font-semibold tracking-tight">Sensores · {board.name}</h3>
+                                    <WireLegend />
+                                </div>
+                                <div className="mt-6"><WireMap wires={sensorWires} /></div>
+                                <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">
+                                    Alimente os sensores no 3,3 V e todos os GND juntos. O resistor de 4,7 kΩ vai entre o fio de dados e o 3,3 V. Dois DS18B20 podem dividir o mesmo pino.
+                                    {board.id === 's3-35' && ' Os fios de dados do DS18B20 e do DHT22 podem ir em qualquer ordem nos pinos 3 e 4 do JST 4P: a placa percebe e se ajusta sozinha.'}
+                                </p>
+                            </div>
+                            {board.sensorPins ? (
+                                <div className="rounded-3xl border border-black/10 p-6 sm:p-8">
+                                    <h3 className="text-lg font-semibold tracking-tight">Pinos à sua escolha</h3>
+                                    <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Pinos livres para os sensores">
+                                        {board.sensorPins.map(n => (
+                                            <li key={n} className="rounded-full border border-dashed border-[var(--ink)]/30 bg-white px-2.5 py-0.5 font-mono text-xs">{n}</li>
+                                        ))}
+                                    </ul>
+                                    <p className="mt-4 text-pretty text-sm leading-relaxed text-[var(--muted)]">
+                                        Ligue o DS18B20 e o DHT22 em qualquer um deles: a placa procura e acha sozinha. Os outros pinos são da própria placa (memória, boot, USB) ou dos relés e do I²C.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="rounded-3xl border border-black/10 p-6 sm:p-8 text-pretty text-sm leading-relaxed text-[var(--muted)]">
+                                    A placa com tela tem os conectores prontos: é só encaixar os cabos nos JST.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
+                {/* 4. Reles e tomada: por ultimo, sempre desligado */}
+                <section id="reles" className="scroll-mt-28 bg-[#E4E6E9]">
+                    <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
+                        <StepTitle n={4} label="Relés e tomada">Relés e tomada, <span className="text-[var(--muted)]">por último.</span></StepTitle>
+                        <div className={`mt-10 ${warnBox}`} role="note">
+                            <AlertTriangle size={22} className="mt-0.5 shrink-0 text-[#d63a4d]" />
+                            <div>
+                                <p className="font-semibold">Aqui entra a tensão da tomada (110/220 V).</p>
+                                <p className="mt-1">Faça tudo com a extensão fora da tomada e a placa desligada do computador. Use caixa fechada e, sem experiência com elétrica, chame um eletricista.</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                            <div className="min-w-0 rounded-3xl bg-white p-6 sm:p-8">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <h3 className="text-lg font-semibold tracking-tight">Placa → módulo de relé</h3>
+                                    <WireLegend />
+                                </div>
+                                <div className="mt-6"><WireMap wires={relayWires} /></div>
+                                <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">
+                                    O módulo também recebe o 5 V e o GND da fonte. Tipo de relé padrão: <b className="text-[var(--ink)]">{board.relayDefault}</b>. Usa SSR ou outro tipo? Troque no app, em Hardware.
+                                </p>
+                            </div>
+                            <div className="min-w-0 rounded-3xl bg-white p-6 sm:p-8">
+                                <h3 className="text-lg font-semibold tracking-tight">Lado da tomada</h3>
+                                {/* esquema: a fase passa pelo rele; o neutro vai direto */}
+                                <div className="mt-6 space-y-4 text-sm" role="img" aria-label="Esquema: a fase da tomada vai ao COM do relé, sai pelo NA e chega ao aparelho; o neutro vai direto da tomada ao aparelho.">
+                                    {[['Fase (L)', 'COM do relé', 'NA do relé', 'Aparelho'], ['Neutro (N)', '', '', 'Aparelho']].map((row, r) => (
+                                        <div key={r} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[6rem_1fr] sm:gap-3">
+                                            <span className="justify-self-start rounded-full bg-[var(--ink)] px-3 py-1.5 text-center text-white sm:justify-self-stretch">{row[0]}</span>
+                                            <span className="flex items-center gap-2">
+                                                {r === 0 ? (<>
+                                                    <span className="h-[3px] w-4 shrink-0 bg-[var(--ink)]" />
+                                                    <span className="shrink-0 rounded-lg border border-[var(--ink)]/20 px-2 py-1">COM</span>
+                                                    <span className="h-[3px] w-4 shrink-0 bg-[var(--ink)]" />
+                                                    <span className="shrink-0 rounded-lg border border-[var(--ink)]/20 px-2 py-1">NA</span>
+                                                    <span className="h-[3px] flex-1 bg-[var(--ink)]" />
+                                                </>) : <span className="h-[2px] flex-1 bg-[var(--ink)]/50" />}
+                                                <span className="shrink-0 rounded-lg bg-[var(--bg)] px-2 py-1 font-medium">{row[3]}</span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="mt-5 text-pretty text-sm leading-relaxed text-[var(--muted)]">Um relé para a geladeira, outro para o aquecedor. NA = normalmente aberto: o aparelho só liga quando o Breww manda.</p>
+                                <ol className="mt-5 grid gap-2 border-t border-black/10 pt-5 text-sm sm:grid-cols-2">
+                                    {[[Unplug, 'Tire tudo da tomada'], [ToggleRight, 'Ligue os fios no relé'], [Box, 'Feche a caixa'], [Power, 'Só então ligue na tomada']].map(([Icon, t]: any, i) => (
+                                        <li key={t} className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg)]"><Icon size={14} /></span><span><span className="tabular-nums text-[var(--muted)]">{i + 1}.</span> {t}</span></li>
                                     ))}
                                 </ol>
-                                <p className="mt-10 text-sm text-[var(--muted)]">LED da placa: piscando devagar = sem Wi-Fi; aceso = conectado. Segurar o BOOT por 10 segundos apaga o Wi-Fi e abre a rede Breww de novo.</p>
-                            </>
-                        ) : (
-                            <p className="mt-6 max-w-2xl text-pretty text-lg text-[var(--muted)]">Siga o assistente na tela do aparelho para escolher o Wi-Fi. Depois, no app, toque em Adicionar aparelho e leia o QR code da tela.</p>
-                        )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 5. No app: o primeiro lote */}
+                <section id="app" className="scroll-mt-28 bg-[#F7F7F8]">
+                    <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
+                        <StepTitle n={5} label="No app">No app, <span className="text-[var(--muted)]">comece o primeiro lote.</span></StepTitle>
+                        <ol className="relative mt-14 grid gap-8 max-md:pl-12 md:grid-cols-3 md:gap-6">
+                            <div className="absolute bottom-4 left-[17px] top-4 w-[3px] rounded-full bg-[#1fa84a] md:bottom-auto md:left-0 md:right-0 md:top-[17px] md:h-[3px] md:w-auto" aria-hidden />
+                            {[
+                                { icon: Smartphone, title: 'Abra o app Breww', text: 'Entre com a mesma conta. O app para iPhone e Android está em teste e chega às lojas em breve.' },
+                                { icon: Wifi, title: 'Confira o aparelho', text: headless ? 'Se o assistente já colocou na conta, ele aparece na lista. Se não, toque em Adicionar aparelho e escolha em Buscar na rede.' : 'Toque em Adicionar aparelho e leia o QR code da tela da placa.' },
+                                { icon: Check, title: 'Escolha o perfil e comece', text: 'Primária, diacetil, cold crash: o controlador troca a temperatura sozinho e avisa se algo sair do ponto.' },
+                            ].map(({ icon: Icon, title, text }) => (
+                                <li key={title} className="relative">
+                                    <span className="absolute -left-12 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--ink)] md:static" aria-hidden><Icon size={16} /></span>
+                                    <h3 className="text-xl font-semibold tracking-tight md:mt-6">{title}</h3>
+                                    <p className="mt-2 text-pretty leading-relaxed text-[var(--muted)]">{text}</p>
+                                </li>
+                            ))}
+                        </ol>
                         <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center">
                             <Link to="/register" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--ink)] px-6 text-[15px] font-medium text-white hover:bg-black">
-                                Criar conta grátis <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+                                Ainda não tem conta? Criar grátis <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                             </Link>
-                            <p className="text-sm text-[var(--muted)]">Você vai precisar de uma conta no app. Algo deu errado? Veja a <Link to="/ajuda" className="font-medium text-[var(--ink)] underline underline-offset-4">ajuda</Link>.</p>
+                            <p className="text-sm text-[var(--muted)]">Algo deu errado? Veja a <Link to="/ajuda" className="py-3 font-medium text-[var(--ink)] underline underline-offset-4">ajuda</Link>.</p>
                         </div>
                     </div>
                 </section>

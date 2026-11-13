@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Cpu, Eye, EyeOff, Loader2, Lock, Monitor, RefreshCw, Smartphone, Usb, Wifi } from 'lucide-react';
 import { SiteHeader, SiteFooter } from './SiteChrome';
 import { BOARDS } from './Installer';
@@ -36,16 +36,16 @@ const btnGhost = `${btn} border border-black/10 bg-white text-[var(--ink)] hover
 
 const Notice: React.FC<{ kind?: 'error' | 'warn' | 'info'; children: React.ReactNode }> = ({ kind = 'info', children }) => (
     <div role={kind === 'error' ? 'alert' : undefined} className={`flex gap-3 rounded-2xl px-4 py-3.5 text-[15px] leading-relaxed ${
-        kind === 'error' ? 'bg-[#fdecea] text-[#8a2418]' : kind === 'warn' ? 'bg-[#fff5e0] text-[#7a4a00]' : 'bg-[var(--bg)] text-[#2b2f37]'}`}>
-        {kind !== 'info' && <AlertTriangle size={18} className="mt-0.5 shrink-0" />}
+        kind === 'error' ? 'bg-[#fdecea] text-[#8a2418]' : kind === 'warn' ? 'border border-[#d63a4d]/30 bg-[#d63a4d]/[0.07] text-[#7a1f2b]' : 'bg-[var(--bg)] text-[#2b2f37]'}`}>
+        {kind !== 'info' && <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[#d63a4d]" />}
         <div>{children}</div>
     </div>
 );
 
 const Heading: React.FC<{ title: React.ReactNode; text?: React.ReactNode }> = ({ title, text }) => (
     <div>
-        <h2 className="text-balance [font-family:var(--font-display)] text-4xl font-light leading-tight tracking-[-0.03em]">{title}</h2>
-        {text && <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted)]">{text}</p>}
+        <h2 id="etapa-titulo" tabIndex={-1} className="text-balance [font-family:var(--font-display)] text-4xl font-light leading-tight tracking-[-0.03em] outline-none">{title}</h2>
+        {text && <p className="mt-3 max-w-[38rem] text-pretty text-[15px] leading-relaxed text-[var(--muted)]">{text}</p>}
     </div>
 );
 
@@ -58,7 +58,10 @@ const Bars: React.FC<{ rssi: number }> = ({ rssi }) => {
     );
 };
 
-const BOARD_NAME: Record<BoardId, string> = { 'esp32-devkit': 'ESP32 DevKit', 's3-headless': 'ESP32-S3 sem tela', 'c3-headless': 'ESP32-C3', 's3-35': 'Breww com tela 3,5"' };
+// Mesmos nomes do guia (components/Installer.tsx)
+const BOARD_NAME = Object.fromEntries(BOARDS.map(b => [b.id, b.name])) as Record<BoardId, string>;
+// Chip lido do firmware (Improv) -> placa sem tela
+const boardFromChip = (chip?: string): BoardId => { const c = (chip || '').toUpperCase(); return c.includes('C3') ? 'c3-headless' : c.includes('S3') ? 's3-headless' : 'esp32-devkit'; };
 
 export const InstallWizard: React.FC = () => {
     const { token: authToken } = useAuth();
@@ -70,7 +73,10 @@ export const InstallWizard: React.FC = () => {
         window.addEventListener('storage', onStorage);
         return () => window.removeEventListener('storage', onStorage);
     }, []);
+    const [params] = useSearchParams();
+    const guideBoard = params.get('placa') as BoardId | null;
     const [step, setStep] = useState<Step>('connect');
+    const [announce, setAnnounce] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<React.ReactNode | null>(null);
 
@@ -94,12 +100,34 @@ export const InstallWizard: React.FC = () => {
 
     const [pair, setPair] = useState<{ code: string; id: string } | null>(null);
     const [pairFailed, setPairFailed] = useState(false);
+    const [pairTry, setPairTry] = useState(0);
     const [name, setName] = useState('Meu Breww');
     const [linked, setLinked] = useState(false);
 
     useEffect(() => { document.title = 'Instalar o Breww — Assistente'; }, []);
     useEffect(() => () => { linkRef.current?.close(); }, []);
-    useEffect(() => { setError(null); window.scrollTo({ top: 0 }); }, [step]);
+    useEffect(() => {
+        setError(null);
+        window.scrollTo({ top: 0 });
+        const k = STEPS.findIndex(s => s.id === step);
+        setAnnounce(`Passo ${k + 1} de ${STEPS.length}: ${STEPS[k].label}`);
+        if (step !== 'connect') requestAnimationFrame(() => document.getElementById('etapa-titulo')?.focus());
+    }, [step]);
+    // Gravando: avisa antes de fechar ou recarregar (a gravacao recomeca do zero)
+    const flashing = stage !== 'idle' && stage !== 'reboot';
+    useEffect(() => {
+        if (!flashing) return;
+        const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [flashing]);
+    // Leitor de tela: a gravacao e anunciada so nos marcos
+    const lastMark = useRef(0);
+    useEffect(() => {
+        if (stage !== 'write') { lastMark.current = 0; return; }
+        const mark = [25, 50, 75, 100].filter(m => progress * 100 >= m).pop() || 0;
+        if (mark > lastMark.current) { lastMark.current = mark; setAnnounce(`Gravação em ${mark}%`); }
+    }, [progress, stage]);
 
     const headless = board !== 's3-35';
     const current = STEPS.findIndex(s => s.id === step);
@@ -115,7 +143,7 @@ export const InstallWizard: React.FC = () => {
             const info = await detectChip(port);
             setChip(info);
             const options = boardsForChip(info.chip);
-            setBoard(options.length === 1 ? options[0] : null);
+            setBoard(options.length === 1 ? options[0] : guideBoard && options.includes(guideBoard) ? guideBoard : null);
             setStep('board');
         } catch (e) {
             const msg = String((e as Error)?.message || e);
@@ -125,12 +153,36 @@ export const InstallWizard: React.FC = () => {
         } finally { setBusy(false); }
     };
 
+    // ---------- 1b. A placa ja tem o Breww: so Wi-Fi e conta ----------
+    const connectExisting = async () => {
+        setError(null);
+        let port;
+        try { port = await requestPort(); } catch { return; }
+        portRef.current = port;
+        setBusy(true);
+        try {
+            linkRef.current?.close();
+            const link = await DeviceLink.open(port, 8000);
+            linkRef.current = link;
+            await link.waitImprov(12000);
+            const info = await link.info();
+            setBoard(boardFromChip(info?.chip));
+            if (info?.name) setDeviceName(info.name);
+            setImprovOk(true);
+            setStep('wifi');
+        } catch {
+            linkRef.current?.close(); linkRef.current = null;
+            setError(<>Não encontrei o Breww nessa placa. Se ela ainda não foi gravada, use <b>Conectar a placa</b> para gravar.</>);
+        } finally { setBusy(false); }
+    };
+
     // ---------- 3. Gravar ----------
     const flash = async () => {
         if (!board || !portRef.current) return;
         setError(null);
         setBusy(true);
         setProgress(0);
+        setStep('flash');
         try {
             setStage('download');
             const fw = await fetchFirmware(board);
@@ -150,7 +202,8 @@ export const InstallWizard: React.FC = () => {
             setStep('wifi');
         } catch (e) {
             setStage('idle');
-            setError(<>A gravação parou: {String((e as Error)?.message || e)}. Confira o cabo (de preferência direto no computador, sem hub) e tente de novo. A gravação recomeça do zero, sem problema.</>);
+            console.error('Gravação:', e);
+            setError(<>A gravação parou no meio. Confira o cabo (de preferência direto no computador, sem hub) e tente de novo: ela recomeça do zero, sem problema.</>);
         } finally { setBusy(false); }
     };
 
@@ -190,7 +243,7 @@ export const InstallWizard: React.FC = () => {
             if (!ok) { setError(<>A placa não conseguiu entrar em <b>{ssid}</b>. Confira a senha. Lembre que o ESP32 só funciona em redes de 2,4 GHz.</>); return; }
             setStep('link');
         } catch {
-            setError('A placa não respondeu a tempo. Tente de novo; se continuar, reconecte o cabo.');
+            setError(<>A placa não respondeu a tempo. Tente de novo; se continuar, use <b>Reconectar a placa</b> logo abaixo.</>);
         } finally { setBusy(false); }
     };
 
@@ -203,7 +256,7 @@ export const InstallWizard: React.FC = () => {
         setPairFailed(false);
         link.pairCode(25000).then(p => { if (!alive) return; if (p) setPair(p); else setPairFailed(true); });
         return () => { alive = false; };
-    }, [step, headless, pair]);
+    }, [step, headless, pair, pairTry]);
 
     const bind = async () => {
         if (!token || !pair) return;
@@ -233,19 +286,39 @@ export const InstallWizard: React.FC = () => {
     };
 
     const wires = BOARDS.find(b => b.id === board)?.wires ?? [];
+    const PairPanel = pair ? (
+        <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white sm:p-7">
+            <p className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Código do aparelho</p>
+            <p className="mt-1.5 font-mono text-4xl tracking-[0.12em] text-[var(--accent)] tabular-nums">{pair.code}</p>
+            <p className="mt-1 text-sm tabular-nums text-[#a3a7b0]">ID {pair.id}</p>
+        </div>
+    ) : null;
+    const ReconnectButton = (
+        <button type="button" className={btnGhost} onClick={async () => { await reconnectPort(); setPairTry(t => t + 1); }} disabled={busy}>
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Reconectar a placa
+        </button>
+    );
+
     const stageLabel = { idle: '', download: 'Baixando o firmware…', connect: 'Conectando à placa…', erase: 'Apagando a memória…', write: 'Gravando o firmware…', reboot: 'Reiniciando a placa…' }[stage];
 
     return (
         <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
-            <SiteHeader />
+            <SiteHeader minimal={{ label: 'Sair do assistente', to: '/instalar', locked: flashing }} />
+            <p className="sr-only" aria-live="polite">{announce}</p>
             <main>
                 <div style={paperGrid}>
-                    <div className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6 lg:pb-14 lg:pt-12">
-                        <Link to="/instalar" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]"><ArrowLeft size={15} /> Guia de montagem</Link>
-                        <h1 className="mt-2 text-balance [font-family:var(--font-display)] text-[44px] font-light leading-[0.98] tracking-[-0.035em] sm:text-6xl lg:text-[72px]">
-                            Instalar o Breww <span className="text-[var(--muted)]">no seu ESP32.</span>
-                        </h1>
-                    </div>
+                    {step === 'connect' ? (
+                        <div className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6 lg:pb-14 lg:pt-12">
+                            <Link to="/instalar" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]"><ArrowLeft size={15} /> Guia de montagem</Link>
+                            <h1 className="mt-2 text-balance [font-family:var(--font-display)] text-[44px] font-light leading-[0.98] tracking-[-0.035em] sm:text-6xl lg:text-[72px]">
+                                Instalar o Breww <span className="text-[var(--muted)]">no seu ESP32.</span>
+                            </h1>
+                        </div>
+                    ) : (
+                        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+                            <h1 className="[font-family:var(--font-display)] text-2xl font-light tracking-[-0.02em]">Instalar o Breww <span className="text-[var(--muted)]">{board ? `· ${BOARD_NAME[board]}` : 'no seu ESP32'}</span></h1>
+                        </div>
+                    )}
                 </div>
                 <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
 
@@ -277,7 +350,7 @@ export const InstallWizard: React.FC = () => {
                         ))}
                     </ol>
 
-                    <section className="rounded-[28px] bg-white p-6 sm:p-10" aria-live="polite">
+                    <section className="rounded-[28px] bg-white p-6 sm:p-10">
                         {/* 1. CONECTAR */}
                         {step === 'connect' && (
                             <div className="space-y-7">
@@ -297,22 +370,29 @@ export const InstallWizard: React.FC = () => {
                                 {!webSerialSupported() ? (
                                     <Notice kind="warn">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</Notice>
                                 ) : (
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <button type="button" className={btnPrimary} onClick={connect} disabled={busy}>
-                                            {busy ? <><Loader2 size={18} className="animate-spin" /> Lendo a placa…</> : <><Usb size={18} /> Conectar a placa</>}
-                                        </button>
-                                        <span className="text-sm text-[var(--muted)]">O navegador vai pedir para você escolher a porta da placa.</span>
+                                    <div className="space-y-3">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button type="button" className={btnPrimary} onClick={connect} disabled={busy}>
+                                                {busy ? <><Loader2 size={18} className="animate-spin" /> Lendo a placa…</> : <><Usb size={18} /> Conectar a placa</>}
+                                            </button>
+                                            <button type="button" className={btnGhost} onClick={connectExisting} disabled={busy}>Minha placa já tem o Breww</button>
+                                        </div>
+                                        <p className="max-w-[38rem] text-sm text-[var(--muted)]">O navegador vai pedir para você escolher a porta da placa. Já gravou antes? O segundo botão pula direto para o Wi-Fi, sem gravar de novo.</p>
                                     </div>
                                 )}
                                 {error && <Notice kind="error">{error}</Notice>}
-                                <details className="text-sm text-[var(--muted)]">
-                                    <summary className="flex min-h-11 cursor-pointer items-center font-medium text-[var(--ink)]">A placa não aparece na lista</summary>
+                                <details className="group rounded-2xl border border-dashed border-[var(--ink)]/20 px-4 text-sm text-[var(--muted)]">
+                                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 font-medium text-[var(--ink)] [&::-webkit-details-marker]:hidden">
+                                        A placa não aparece na lista
+                                        <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" />
+                                    </summary>
                                     <ul className="mt-3 list-disc space-y-1.5 pl-5">
                                         <li>Troque o cabo USB: os que vêm com fones e luminárias costumam só carregar.</li>
                                         <li>Algumas placas precisam do driver do chip USB: <b>CH340</b> ou <b>CP210x</b>, no site do fabricante.</li>
                                         <li>Segure o botão <b>BOOT</b> enquanto liga o cabo.</li>
                                         <li>Feche a Arduino IDE e qualquer monitor serial aberto.</li>
                                     </ul>
+                                    <div className="h-4" />
                                 </details>
                             </div>
                         )}
@@ -324,15 +404,15 @@ export const InstallWizard: React.FC = () => {
                                     <>
                                         <Heading title={<>Essa placa é um {chip.chip}</>} text="O Breww funciona com ESP32, ESP32-S3 e ESP32-C3. Essa placa não tem o que o firmware precisa." />
                                         <Notice kind="warn">A mais fácil de achar é a <b>ESP32 DevKit (WROOM-32)</b>. Veja as opções no <Link to="/instalar#pecas" className="underline">guia de montagem</Link>.</Notice>
-                                        <button type="button" className={btnGhost} onClick={restart}><RefreshCw size={16} /> Tentar outra placa</button>
+                                        <button type="button" className={btnGhost} onClick={restart}><RefreshCw size={16} /> Conectar outra placa</button>
                                     </>
                                 ) : (
                                     <>
                                         <Heading title={<>Encontramos um <span className="landing-mark">{chip.chip}</span></>} />
-                                        <dl className="on-dark grid gap-5 rounded-3xl bg-[var(--card)] p-6 text-white shadow-[0_30px_60px_-35px_rgba(11,13,18,0.7)] sm:grid-cols-[1.2fr_0.8fr_1.4fr] sm:p-7">
-                                            <div><dt className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Chip</dt><dd className="mt-1.5 text-lg font-medium">{chip.description}</dd></div>
+                                        <dl className="on-dark grid gap-5 rounded-3xl bg-[var(--card)] p-6 text-white sm:grid-cols-[1fr_1fr_1.4fr] sm:p-7">
+                                            <div><dt className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Placa</dt><dd className="mt-1.5 text-lg font-medium">{board ? BOARD_NAME[board] : chip.chip}</dd></div>
                                             <div><dt className="text-sm text-[#a3a7b0]">Memória</dt><dd className="mt-1.5 text-lg font-medium tabular-nums">{chip.flashSize || '—'}</dd></div>
-                                            <div><dt className="text-sm text-[#a3a7b0]">Recursos</dt><dd className="mt-1.5 text-sm leading-snug text-[#c9ccd3]">{chip.features.slice(0, 3).join(' · ') || '—'}</dd></div>
+                                            <div><dt className="text-sm text-[#a3a7b0]">Chip</dt><dd className="mt-1.5 text-sm leading-snug text-[#c9ccd3]">{chip.description}</dd></div>
                                         </dl>
 
                                         {chip.chip.toUpperCase() === 'ESP32-S3' && (
@@ -353,7 +433,7 @@ export const InstallWizard: React.FC = () => {
                                         {board && (
                                             <div className="rounded-2xl border border-black/[0.07]">
                                                 <button type="button" onClick={() => setMapOpen(o => !o)} className="flex w-full items-center justify-between px-5 py-4 text-left" aria-expanded={mapOpen}>
-                                                    <span><span className="font-medium">Ligações do {BOARD_NAME[board]}</span><span className="block text-sm text-[var(--muted)]">Pode ligar agora ou depois. Os sensores são achados sozinhos.</span></span>
+                                                    <span><span className="font-medium">Ligações do {BOARD_NAME[board]}</span><span className="block text-sm text-[var(--muted)]">Para depois de gravar, com a placa desligada. Os sensores são achados sozinhos.</span></span>
                                                     <ChevronDown size={18} className={`shrink-0 transition-transform ${mapOpen ? 'rotate-180' : ''}`} />
                                                 </button>
                                                 {mapOpen && (
@@ -370,10 +450,12 @@ export const InstallWizard: React.FC = () => {
                                             </div>
                                         )}
 
+                                        <Notice kind="warn">A gravação apaga tudo o que estiver na placa e leva cerca de um minuto.</Notice>
                                         <div className="flex flex-wrap gap-3">
-                                            <button type="button" className={btnPrimary} disabled={!board} onClick={() => setStep('flash')}>Continuar <ArrowRight size={18} /></button>
-                                            <button type="button" className={btnGhost} onClick={restart}>Usar outra placa</button>
+                                            <button type="button" className={btnPrimary} disabled={!board || busy} onClick={flash}><Usb size={18} /> Gravar o firmware</button>
+                                            <button type="button" className={btnGhost} onClick={restart}>Conectar outra placa</button>
                                         </div>
+                                        {!board && <p className="text-sm text-[var(--muted)]">Responda acima se a placa tem tela para continuar.</p>}
                                     </>
                                 )}
                             </div>
@@ -383,13 +465,8 @@ export const InstallWizard: React.FC = () => {
                         {step === 'flash' && board && (
                             <div className="space-y-7">
                                 <Heading title={<>Gravar o Breww no {BOARD_NAME[board]}</>} text="Leva cerca de um minuto. Não desligue o cabo até terminar." />
-                                {stage === 'idle' ? (
-                                    <>
-                                        <Notice kind="warn">A gravação apaga tudo o que estiver na placa.</Notice>
-                                        <button type="button" className={btnPrimary} onClick={flash} disabled={busy}><Usb size={18} /> Gravar o firmware</button>
-                                    </>
-                                ) : (
-                                    <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white shadow-[0_30px_60px_-35px_rgba(11,13,18,0.7)] sm:p-7" role="status">
+                                {stage === 'idle' ? null : (
+                                    <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white sm:p-7">
                                         <div className="flex items-end justify-between gap-4">
                                             <span className="flex items-center gap-2 text-[15px] text-[#c9ccd3]"><Loader2 size={16} className="animate-spin text-[var(--accent)]" />{stageLabel}</span>
                                             <span className="[font-family:var(--font-display)] text-[56px] font-light leading-none tracking-[-0.04em] tabular-nums">
@@ -426,27 +503,27 @@ export const InstallWizard: React.FC = () => {
                                             <div>
                                                 <div className="mb-2 flex items-center justify-between">
                                                     <p className="font-medium">Redes encontradas</p>
-                                                    <button type="button" onClick={scan} className="inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]" disabled={!networks}><RefreshCw size={14} /> Procurar de novo</button>
+                                                    <button type="button" onClick={scan} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]" disabled={!networks}><RefreshCw size={14} /> Procurar de novo</button>
                                                 </div>
+                                                <p className="mb-3 text-sm text-[var(--muted)]">Duas redes com o mesmo nome e "5G" ou "2G" no fim? Escolha a que não tem "5G".</p>
                                                 {!networks ? (
                                                     <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> Procurando redes…</p>
                                                 ) : networks.length === 0 ? (
                                                     <Notice>Nenhuma rede encontrada. Procure de novo ou digite o nome da rede.</Notice>
                                                 ) : (
-                                                    <ul className="max-h-72 divide-y divide-black/[0.06] overflow-auto rounded-2xl border border-black/[0.07]" role="radiogroup" aria-label="Redes Wi-Fi">
+                                                    <fieldset className="max-h-72 divide-y divide-black/[0.06] overflow-auto rounded-2xl border border-black/[0.07]">
+                                                        <legend className="sr-only">Redes Wi-Fi</legend>
                                                         {networks.map(n => (
-                                                            <li key={n.ssid}>
-                                                                <button type="button" role="radio" aria-checked={ssid === n.ssid} onClick={() => setSsid(n.ssid)}
-                                                                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px] ${ssid === n.ssid ? 'bg-[var(--bg)] font-medium' : 'hover:bg-black/[0.02]'}`}>
-                                                                    <Wifi size={17} className="shrink-0 text-[var(--muted)]" />
-                                                                    <span className="flex-1 truncate">{n.ssid}</span>
-                                                                    {n.secured && <Lock size={14} className="text-[var(--muted)]" aria-label="Com senha" />}
-                                                                    <Bars rssi={n.rssi} />
-                                                                    {ssid === n.ssid && <Check size={17} />}
-                                                                </button>
-                                                            </li>
+                                                            <label key={n.ssid} className={`flex min-h-12 cursor-pointer items-center gap-3 px-4 py-3 text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-[var(--ink)] ${ssid === n.ssid ? 'bg-[var(--bg)] font-medium' : 'hover:bg-black/[0.02]'}`}>
+                                                                <input type="radio" name="rede" className="sr-only" checked={ssid === n.ssid} onChange={() => setSsid(n.ssid)} />
+                                                                <Wifi size={17} className="shrink-0 text-[var(--muted)]" />
+                                                                <span className="flex-1 truncate">{n.ssid}</span>
+                                                                {n.secured && <Lock size={14} className="text-[var(--muted)]" aria-label="Com senha" />}
+                                                                <Bars rssi={n.rssi} />
+                                                                {ssid === n.ssid && <Check size={17} className="text-[#1fa84a]" />}
+                                                            </label>
                                                         ))}
-                                                    </ul>
+                                                    </fieldset>
                                                 )}
                                             </div>
                                         )}
@@ -456,7 +533,7 @@ export const InstallWizard: React.FC = () => {
                                                 <input value={ssid} onChange={e => setSsid(e.target.value)} autoComplete="off" className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]" />
                                             </label>
                                         )}
-                                        <button type="button" className="text-sm font-medium underline underline-offset-4" onClick={() => { setManualSsid(m => !m); setSsid(''); }}>
+                                        <button type="button" className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4" onClick={() => { if (manualSsid) setSsid(''); setManualSsid(m => !m); }}>
                                             {manualSsid ? 'Escolher da lista' : 'Minha rede não aparece (rede oculta)'}
                                         </button>
                                         <label className="block">
@@ -468,9 +545,13 @@ export const InstallWizard: React.FC = () => {
                                             </span>
                                         </label>
                                         {error && <Notice kind="error">{error}</Notice>}
-                                        <button type="button" className={btnPrimary} onClick={sendWifi} disabled={busy || !ssid.trim()}>
-                                            {busy ? <><Loader2 size={18} className="animate-spin" /> Conectando…</> : <>Conectar ao Wi-Fi <ArrowRight size={18} /></>}
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button type="button" className={btnPrimary} onClick={sendWifi} disabled={busy || !ssid.trim()}>
+                                                {busy ? <><Loader2 size={18} className="animate-spin" /> Conectando…</> : <>Conectar ao Wi-Fi <ArrowRight size={18} /></>}
+                                            </button>
+                                            {ReconnectButton}
+                                        </div>
+                                        {!ssid.trim() && <p className="text-sm text-[var(--muted)]">Escolha uma rede para continuar.</p>}
                                     </>
                                 )}
                             </div>
@@ -488,16 +569,13 @@ export const InstallWizard: React.FC = () => {
                                     <>
                                         <Heading title="Coloque o aparelho na sua conta" text="O Wi-Fi conectou. Falta dizer de quem é este Breww." />
                                         {!pair && pairFailed ? (
-                                            <Notice kind="warn">Não consegui ler o código pelo cabo. Sem problema: no app, toque em <b>Adicionar aparelho</b> e escolha o Breww em <b>Buscar na rede</b>.</Notice>
+                                            <>
+                                                <Notice kind="warn">Não consegui ler o código pelo cabo. Tente reconectar, ou siga sem ele: no app, <b>Adicionar aparelho</b> encontra o Breww em <b>Buscar na rede</b>.</Notice>
+                                                <div>{ReconnectButton}</div>
+                                            </>
                                         ) : !pair ? (
                                             <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> Buscando o código do aparelho…</p>
-                                        ) : (
-                                            <div className="rounded-2xl bg-[var(--card)] p-6 text-white">
-                                                <p className="text-sm text-[#898E99]">Código do aparelho</p>
-                                                <p className="mt-1 font-mono text-4xl tracking-[0.12em] text-[var(--accent)] tabular-nums">{pair.code}</p>
-                                                <p className="mt-1 text-sm text-[#898E99]">ID {pair.id}</p>
-                                            </div>
-                                        )}
+                                        ) : PairPanel}
                                         {token ? (
                                             <>
                                                 <label className="block">
@@ -511,14 +589,14 @@ export const InstallWizard: React.FC = () => {
                                             </>
                                         ) : (
                                             <>
-                                                <Notice>
-                                                    <b>No app:</b> toque em <b>Adicionar aparelho</b> e escolha o Breww em <b>Buscar na rede</b> (o celular precisa estar no mesmo Wi-Fi), ou digite o código acima.
-                                                </Notice>
-                                                <div className="flex flex-wrap gap-3">
-                                                    <a href="/register" target="_blank" rel="noopener noreferrer" className={btnDark}>Criar conta grátis</a>
+                                                <ol className="space-y-2 text-[15px] leading-relaxed">
+                                                    <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold tabular-nums">1</span>Abra o app Breww no celular e entre na sua conta.</li>
+                                                    <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold tabular-nums">2</span><span>Toque em <b>Adicionar aparelho</b> e escolha o Breww em <b>Buscar na rede</b> (no mesmo Wi-Fi) ou digite o código acima.</span></li>
+                                                </ol>
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <button type="button" className={btnPrimary} onClick={() => setStep('done')}>Pronto, adicionei no app <ArrowRight size={18} /></button>
+                                                    <a href="/register" target="_blank" rel="noopener noreferrer" className={btnGhost}>Ainda não tenho conta</a>
                                                 </div>
-                                                <p className="text-sm text-[var(--muted)]">Depois de criar a conta, entre no app Breww e adicione o aparelho com o código acima.</p>
-                                                <button type="button" className="text-sm font-medium underline underline-offset-4" onClick={() => setStep('done')}>Vou adicionar pelo app</button>
                                             </>
                                         )}
                                     </>
@@ -530,12 +608,12 @@ export const InstallWizard: React.FC = () => {
                         {step === 'done' && (
                             <div className="space-y-7">
                                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={28} className="text-[var(--ink)]" /></span>
-                                <Heading title={linked ? 'Seu Breww está na sua conta' : 'Instalação concluída'}
-                                    text={linked ? 'Ele já manda as leituras. Ligue o sensor e os relés (com a placa desligada) e comece o primeiro lote pelo app.' : 'Agora é só adicionar o aparelho no app e ligar o sensor e os relés, com a placa desligada da tomada.'} />
+                                <Heading title={linked ? 'Seu Breww está na sua conta' : 'A placa está pronta'}
+                                    text={linked ? 'Ele já aparece no app. Agora desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.' : 'Se ainda não adicionou no app, use o código abaixo. Depois desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'} />
+                                {!linked && PairPanel}
+                                <p className="flex items-center gap-2 text-sm text-[var(--muted)]"><Smartphone size={16} className="shrink-0" />O app Breww está em teste para iPhone e Android e chega às lojas em breve.</p>
                                 <div className="flex flex-wrap gap-3">
-                                    {linked ? <Link to="/" className={btnPrimary}>Abrir o painel <ArrowRight size={18} /></Link>
-                                        : <span className={`${btnDark} cursor-default`}><Smartphone size={18} /> Abra o app Breww</span>}
-                                    <Link to="/instalar#pecas" className={btnGhost}>Ver o guia de ligações</Link>
+                                    <Link to="/instalar#sensores" className={btnPrimary}>Ligar os sensores <ArrowRight size={18} /></Link>
                                     <button type="button" className={btnGhost} onClick={restart}>Instalar outra placa</button>
                                 </div>
                             </div>

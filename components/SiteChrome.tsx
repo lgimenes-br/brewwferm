@@ -18,7 +18,8 @@ const NavLink: React.FC<{ item: typeof NAV[number]; className: string; onClick?:
         ? <a href={item.to} className={className} onClick={onClick}>{item.label}</a>
         : <Link to={item.to} className={className} onClick={onClick}>{item.label}</Link>;
 
-export const SiteHeader: React.FC = () => {
+/** minimal: modo tarefa (assistente). So o logo e uma saida; com locked (gravando) nem isso, para nao abandonar a gravacao. */
+export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locked?: boolean } }> = ({ minimal }) => {
     const [open, setOpen] = useState(false);
     const { pathname, hash } = useLocation();
 
@@ -29,6 +30,21 @@ export const SiteHeader: React.FC = () => {
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [open]);
+
+    if (minimal) {
+        return (
+            <header className="sticky top-0 z-30 border-b border-black/5 bg-[var(--bg)]">
+                <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:px-6" aria-label="Assistente">
+                    {minimal.locked
+                        ? <span className="-ml-1 flex min-h-11 items-center px-1" aria-label="Breww"><BrewwLogo /></span>
+                        : <Link to="/" aria-label="Breww, início" className="-ml-1 flex min-h-11 items-center px-1"><BrewwLogo /></Link>}
+                    {minimal.locked
+                        ? <span className="text-sm text-[var(--muted)]">Gravando: não feche esta página</span>
+                        : <Link to={minimal.to} className="inline-flex min-h-11 items-center rounded-full px-4 text-sm text-[var(--muted)] hover:bg-black/[0.04] hover:text-[var(--ink)]">{minimal.label}</Link>}
+                </nav>
+            </header>
+        );
+    }
 
     return (
         <header className="sticky top-0 z-30 border-b border-black/5 bg-[var(--bg)]/85 backdrop-blur-md">

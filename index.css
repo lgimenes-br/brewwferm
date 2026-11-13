@@ -36,6 +36,8 @@
 /* Areas escuras (cartoes Grafite, Tinta, rodape): contorno de foco verde, senao some no fundo.
    O contorno global (index.html) usa var(--focus-ring) com !important; aqui so se troca a cor. */
 .on-dark { --focus-ring: #71FC8F; }
+/* Titulos que recebem o foco por programa (troca de etapa no assistente) nao sao clicaveis: sem contorno */
+h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none !important; }
 .brew-landing ::selection { background: #71FC8F; color: #0B0D12; }
 .landing-mark {
   background: linear-gradient(transparent 40%, var(--accent) 40%, var(--accent) 92%, transparent 92%);
