@@ -384,14 +384,20 @@ export const InstallWizard: React.FC = () => {
                                 {!webSerialSupported() ? (
                                     <Notice kind="warn">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</Notice>
                                 ) : (
-                                    <div className="space-y-3">
-                                        <div className="flex flex-wrap items-center gap-3">
+                                    <div className="space-y-5">
+                                        <div className="space-y-2">
                                             <button type="button" className={btnPrimary} onClick={connect} disabled={busy}>
                                                 {busy ? <><Loader2 size={18} className="animate-spin" /> Lendo a placa…</> : <><Usb size={18} /> Conectar a placa</>}
                                             </button>
-                                            <button type="button" className={btnGhost} onClick={connectExisting} disabled={busy}>Minha placa já tem o Breww</button>
+                                            <p className="max-w-[38rem] text-pretty text-sm text-[var(--muted)]">O navegador vai pedir para você escolher a porta da placa. O assistente descobre qual é e grava o Breww.</p>
                                         </div>
-                                        <p className="max-w-[38rem] text-pretty text-sm text-[var(--muted)]">O navegador vai pedir para você escolher a porta da placa. Já gravou antes? O segundo botão pula direto para o Wi-Fi, sem gravar de novo.</p>
+                                        <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-[var(--ink)]/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="font-medium">Esta placa já tem o Breww?</p>
+                                                <p className="mt-0.5 max-w-[30rem] text-pretty text-sm text-[var(--muted)]">Para quando a gravação já foi feita: recarregou a página no meio, trocou o Wi-Fi de casa ou vai reaproveitar a placa. Pula a gravação e vai direto para o Wi-Fi.</p>
+                                            </div>
+                                            <button type="button" className={`${btnGhost} shrink-0`} onClick={connectExisting} disabled={busy}>Só configurar o Wi-Fi</button>
+                                        </div>
                                     </div>
                                 )}
                                 {error && <Notice kind="error">{error}</Notice>}
