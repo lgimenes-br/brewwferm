@@ -496,9 +496,8 @@ export const InstallWizard: React.FC = () => {
                                                 </Notice>
                                                 <div className="flex flex-wrap gap-3">
                                                     <a href="/register" target="_blank" rel="noopener noreferrer" className={btnDark}>Criar conta grátis</a>
-                                                    <a href="/login" target="_blank" rel="noopener noreferrer" className={btnGhost}>Entrar</a>
                                                 </div>
-                                                <p className="text-sm text-[var(--muted)]">Entrou ou criou a conta na outra aba? Volte para esta: o botão de adicionar aparece aqui sozinho.</p>
+                                                <p className="text-sm text-[var(--muted)]">Depois de criar a conta, entre no app Breww e adicione o aparelho com o código acima.</p>
                                                 <button type="button" className="text-sm font-medium underline underline-offset-4" onClick={() => setStep('done')}>Vou adicionar pelo app</button>
                                             </>
                                         )}

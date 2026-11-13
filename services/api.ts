@@ -86,6 +86,17 @@ export const loginWithGoogle = async (idToken: string) => {
   return data;
 };
 
+export const loginWithApple = async (identityToken: string, nonce: string, fullName?: string) => {
+  const res = await fetch(`${API_URL}/auth/apple`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ identityToken, nonce, fullName })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Falha no login com a Apple');
+  return data;
+};
+
 export const register = async (name: string, email: string, pass: string) => {
   const res = await fetch(`${API_URL}/register`, {
     method: 'POST',

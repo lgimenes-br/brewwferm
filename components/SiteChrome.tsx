@@ -17,7 +17,6 @@ export const SiteHeader: React.FC = () => (
                 <Link to="/ajuda" className="hover:text-[var(--ink)]">Ajuda</Link>
             </div>
             <div className="flex items-center gap-2">
-                <Link to="/login" className="rounded-full px-4 py-2 text-sm font-medium hover:bg-black/5">Entrar</Link>
                 <Link to="/register" className="rounded-full bg-[var(--ink)] px-4 py-2 text-sm font-medium text-white hover:bg-black">Criar conta</Link>
             </div>
         </nav>
@@ -33,7 +32,6 @@ export const SiteFooter: React.FC = () => (
                 <Link to="/instalar" className="hover:text-white">Monte o seu</Link>
                 <Link to="/ajuda" className="hover:text-white">Ajuda</Link>
                 <a href="https://github.com/lgimenes-br/breww-firmware" target="_blank" rel="noopener noreferrer" className="hover:text-white">Firmware no GitHub</a>
-                <Link to="/login" className="hover:text-white">Entrar</Link>
                 <Link to="/register" className="hover:text-white">Criar conta</Link>
             </nav>
             <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
