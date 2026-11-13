@@ -6,7 +6,7 @@ import { BOARDS } from './Installer';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { BoardId, ChipInfo, boardsForChip, detectChip, flashTooSmall, fetchFirmware, flashFirmware, requestPort, webSerialSupported } from '../services/espFlasher';
-import { DeviceLink, WifiNetwork } from '../services/deviceLink';
+import { DeviceLink, WifiNetwork, withTimeout } from '../services/deviceLink';
 import { AccountStep, InstallSession } from './install/AccountStep';
 import { ilog, ilogReset, ilogSecret, installLogText } from '../services/installLog';
 
@@ -156,6 +156,12 @@ export const InstallWizard: React.FC = () => {
 
     const portRef = useRef<any>(null);
     const linkRef = useRef<DeviceLink | null>(null);
+    // Fecha a conexao atual ANTES de pedir/abrir outra porta (duas pendentes derrubavam o Chrome)
+    const closeLink = async () => {
+        const l = linkRef.current;
+        linkRef.current = null;
+        if (l) await l.close();
+    };
     const [chip, setChip] = useState<ChipInfo | null>(null);
     const [board, setBoard] = useState<BoardId | null>(null);
 
@@ -228,6 +234,7 @@ export const InstallWizard: React.FC = () => {
     // ---------- 1. Conectar e identificar ----------
     const connect = async () => {
         setError(null);
+        await closeLink();
         let port;
         try { port = await requestPort(); } catch { return; } // fechou a lista do sistema
         portRef.current = port;
@@ -251,12 +258,12 @@ export const InstallWizard: React.FC = () => {
     // ---------- 1b. A placa ja tem o Breww: so Wi-Fi e conta ----------
     const connectExisting = async () => {
         setError(null);
+        await closeLink();
         let port;
         try { port = await requestPort(); } catch { return; }
         portRef.current = port;
         setBusy(true);
         try {
-            linkRef.current?.close();
             const link = await DeviceLink.open(port, 8000);
             linkRef.current = link;
             const state = await link.waitImprov(12000);
@@ -294,21 +301,29 @@ export const InstallWizard: React.FC = () => {
             // Placa com chip USB-serial (DevKit) as vezes fica parada depois de gravar: se nao
             // responder em alguns segundos, reinicia pelo cabo (como apertar o EN) e espera de novo.
             ilog('site', 'Gravado; reabrindo a porta e esperando o firmware');
-            const link = await DeviceLink.open(portRef.current, 12000);
-            linkRef.current = link;
             const usbBridge = board === 'esp32-devkit' || board === 'esp8266-lite'; // chip USB-serial: reinicio pelo EN
-            try {
+            // Prazo total: nada desta etapa pode deixar o assistente parado em "Reiniciando". Falhou ou
+            // passou do prazo -> tela do Wi-Fi com "aperte EN e reconecte". A gravacao em si deu certo.
+            const reboot = async () => {
+                const link = await DeviceLink.open(portRef.current, 12000);
+                linkRef.current = link;
                 try { await link.waitImprov(usbBridge ? 7000 : 25000); } catch (e) {
                     if (!usbBridge) throw e;
                     ilog('site', 'Sem resposta em 7 s; reiniciando a placa pelo cabo');
                     await link.resetToApp();
                     await link.waitImprov(20000);
                 }
+                return link.info();
+            };
+            try {
+                const info = await withTimeout(reboot(), 50000, 'Reinicio da placa');
                 ilog('site', 'Firmware respondeu (Improv)');
                 setImprovOk(true);
-                const info = await link.info();
                 if (info?.name) setDeviceName(info.name);
-            } catch { ilog('site', 'Firmware nao respondeu pelo cabo'); setImprovOk(false); }
+            } catch (e) {
+                ilog('site', `Firmware nao respondeu pelo cabo (${(e as Error)?.message || e})`);
+                setImprovOk(false);
+            }
             setStep('wifi');
         } catch (e) {
             setStage('idle');
@@ -329,12 +344,12 @@ export const InstallWizard: React.FC = () => {
 
     const reconnectPort = async () => {
         setError(null);
+        await closeLink();
         let port;
         try { port = await requestPort(); } catch { return; }
         portRef.current = port;
         setBusy(true);
         try {
-            linkRef.current?.close();
             const link = await DeviceLink.open(port, 8000);
             linkRef.current = link;
             await link.waitImprov(15000);
@@ -420,9 +435,9 @@ export const InstallWizard: React.FC = () => {
     }, [step, headless, token, pair, bindTried, busy]);
 
     const reflash = async () => {
+        await closeLink();
         let port;
         try { port = await requestPort(); } catch { return; }
-        linkRef.current?.close(); linkRef.current = null;
         portRef.current = port;
         flash();
     };

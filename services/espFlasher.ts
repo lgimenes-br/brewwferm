@@ -2,6 +2,7 @@
 // Usado pelo assistente de instalacao (/instalar/assistente). So Chrome e Edge no computador.
 
 import { ESPLoader, Transport } from 'esptool-js';
+import { withTimeout } from './deviceLink';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Port = any; // SerialPort (Web Serial): os tipos ficam fora do tsconfig do site
@@ -46,7 +47,8 @@ const withLoader = async <T>(port: Port, fn: (loader: ESPLoader) => Promise<T>):
     try {
         return await fn(loader);
     } finally {
-        try { await transport.disconnect(); } catch { /* porta ja fechada */ }
+        // Com prazo: se a porta nao fecha, o passo seguinte (reabrir e esperar o firmware) tem o proprio prazo
+        try { await withTimeout(transport.disconnect(), 3000, 'Fechar a porta do gravador'); } catch { /* porta ja fechada ou travada */ }
     }
 };
 

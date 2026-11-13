@@ -91,3 +91,33 @@ describe('DeviceLink (assistente de instalação)', () => {
         await link.close();
     });
 });
+
+describe('DeviceLink: Web Serial que nunca responde', () => {
+    // Chip USB-serial travado logo depois de gravar: a escrita fica pendente para sempre.
+    // Antes, waitImprov esperava essa escrita e o assistente parava em "Reiniciando".
+    const stuckPort = () => {
+        let aborted = 0;
+        const port: any = {
+            readable: new ReadableStream({ start() { /* nunca manda nada */ } }),
+            writable: new WritableStream({ write: () => new Promise(() => { /* nunca resolve */ }), abort: () => { aborted++; } }),
+            open: async () => {}, close: async () => {}, setSignals: async () => {},
+            get aborted() { return aborted; },
+        };
+        return port;
+    };
+
+    it('waitImprov desiste no prazo mesmo com a escrita presa', async () => {
+        const port = stuckPort();
+        const link = await DeviceLink.open(port);
+        const t0 = Date.now();
+        await expect(link.waitImprov(3000)).rejects.toThrow();
+        expect(Date.now() - t0).toBeLessThan(9000);
+    }, 15000);
+
+    it('abrir a porta tem prazo', async () => {
+        const port: any = { open: () => new Promise(() => {}), readable: null, writable: null };
+        const t0 = Date.now();
+        await expect(DeviceLink.open(port, 3000)).rejects.toThrow(/Abrir a porta/);
+        expect(Date.now() - t0).toBeLessThan(9000);
+    }, 15000);
+});

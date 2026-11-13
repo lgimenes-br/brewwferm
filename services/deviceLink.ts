@@ -19,6 +19,9 @@ export interface WifiNetwork { ssid: string; rssi: number; secured: boolean }
 type Packet = { type: number; data: number[] };
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+/** Promessa com prazo: o Web Serial as vezes nunca resolve (chip USB-serial travado, porta em transicao). */
+export const withTimeout = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
+    Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${what}: sem resposta em ${Math.round(ms / 1000)} s`)), ms))]);
 
 const decodeStrings = (data: number[]) => {
     // resultado de RPC: comando | tamanho | (tam, texto)...
@@ -51,12 +54,13 @@ export class DeviceLink {
         let lastErr: unknown;
         while (Date.now() - start < timeoutMs) {
             try {
-                await port.open({ baudRate: 115200 });
+                await withTimeout(port.open({ baudRate: 115200 }), 5000, 'Abrir a porta');
                 const link = new DeviceLink(port);
                 link.readLoop();
                 return link;
             } catch (e) {
                 lastErr = e;
+                ilog('site', `Abrir a porta: ${(e as Error)?.message || e}`);
                 if (String((e as Error)?.message || '').includes('already open')) {
                     const link = new DeviceLink(port);
                     link.readLoop();
@@ -139,9 +143,21 @@ export class DeviceLink {
         this.packetWaiters = this.packetWaiters.filter(w => !w(p));
     }
 
+    // Escrita com prazo: se o chip USB-serial nao aceita os dados (ex.: logo depois de gravar), a
+    // escrita do Web Serial podia ficar pendente para sempre e o assistente parava em "Reiniciando".
+    // No prazo, aborta (libera a porta para o proximo pedido) e segue.
     private async write(bytes: number[] | Uint8Array) {
+        if (!this.port.writable) throw new Error('Porta sem escrita');
         const w = this.port.writable.getWriter();
-        try { await w.write(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); } finally { w.releaseLock(); }
+        try {
+            await withTimeout(w.write(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)), 2000, 'Escrever na porta');
+        } catch (e) {
+            ilog('site', `${(e as Error)?.message || e}`);
+            try { await withTimeout(w.abort(), 1000, 'Abortar a escrita'); } catch { /* ok */ }
+            throw e;
+        } finally {
+            try { w.releaseLock(); } catch { /* ok */ }
+        }
     }
 
     private rpc(cmd: number, payload: number[] = []) {
@@ -274,9 +290,10 @@ export class DeviceLink {
         };
     }
 
+    /** Fecha a porta, com prazo (antes de pedir outra porta: duas conexoes pendentes derrubavam o Chrome). */
     async close() {
         this.closed = true;
-        try { await this.reader?.cancel(); } catch { /* ok */ }
-        try { await this.port.close(); } catch { /* ok */ }
+        try { await withTimeout(this.reader?.cancel() ?? Promise.resolve(), 1500, 'Fechar a leitura'); } catch { /* ok */ }
+        try { await withTimeout(this.port.close(), 2000, 'Fechar a porta'); } catch (e) { ilog('site', `${(e as Error)?.message || e}`); }
     }
 }
