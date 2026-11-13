@@ -2,6 +2,9 @@
 //  - Improv Serial (https://www.improv-wifi.com/serial/): estado, informacoes, redes e Wi-Fi
 //  - comandos de texto do firmware sem tela (ex.: "codigo" -> "[Vinculo] Codigo de confirmacao: XXXXXXXX")
 // Os pacotes Improv e as linhas de texto chegam misturados; o leitor separa os dois.
+// Cada linha da placa vai para o log da instalacao (services/installLog.ts).
+
+import { ilog } from './installLog';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Port = any;
@@ -126,6 +129,7 @@ export class DeviceLink {
             this.text = this.text.slice(i + 1);
             if (!line.trim()) continue;
             this.lines.push(line);
+            ilog('placa', line);
             if (this.lines.length > 300) this.lines.shift();
             this.lineWaiters = this.lineWaiters.filter(w => !w(line));
         }
@@ -153,6 +157,20 @@ export class DeviceLink {
             const waiter = (p: Packet) => { if (!match(p)) return false; clearTimeout(t); resolve(p); return true; };
             this.packetWaiters.push(waiter);
         });
+    }
+
+    /**
+     * Reinicia a placa pelo cabo (RTS = EN), com o GPIO0 solto (DTR) para ela ligar o firmware, e
+     * nao o modo de gravacao. Serve para placas com chip USB-serial (DevKit, ESP8266): as vezes
+     * a placa fica parada depois de gravar e so voltava apertando o botao EN.
+     */
+    async resetToApp() {
+        try {
+            await this.port.setSignals({ dataTerminalReady: false, requestToSend: true });
+            await sleep(120);
+            await this.port.setSignals({ dataTerminalReady: false, requestToSend: false });
+            ilog('site', 'Reinicio pelo cabo (EN)');
+        } catch (e) { ilog('site', `Reinicio pelo cabo falhou: ${(e as Error)?.message || e}`); }
     }
 
     /** Espera o firmware responder ao Improv (depois de gravar a placa leva alguns segundos para ligar). */
@@ -234,11 +252,20 @@ export class DeviceLink {
      * "[Status] placa X | modo N | temp 21.50 / alvo 18.00 | Wi-Fi conectado (Casa) | nuvem conectada".
      * temp exatamente 0 = nenhum sensor lido ainda (o firmware comeca em 0 e so troca com leitura valida).
      */
-    async status(timeoutMs = 3000): Promise<{ temp: number | null; target: number; wifi: boolean; ssid: string; cloud: boolean } | null> {
+    async status(timeoutMs = 3000): Promise<{ temp: number | null; target: number; wifi: boolean; ssid: string; cloud: boolean; cloudDetail: string | null; sensorOk: boolean | null } | null> {
+        // Firmware 2.9.7+ manda uma segunda linha: "[Status] sensor ok | chip 52 C | RAM livre ... | nuvem <estado>"
+        const detail = new Promise<RegExpMatchArray | null>((resolve) => {
+            const t = setTimeout(() => { this.lineWaiters = this.lineWaiters.filter(w => w !== waiter); resolve(null); }, timeoutMs + 800);
+            const waiter = (l: string) => { const m = l.match(/\[Status\]\s*sensor\s*(.*?)\s*\|.*nuvem\s*(.+)$/i); if (!m) return false; clearTimeout(t); resolve(m); return true; };
+            this.lineWaiters.push(waiter);
+        });
         const m = await this.command('status', /\[Status\].*?temp\s*(-?[\d.]+)\s*\/\s*alvo\s*(-?[\d.]+)\s*\|\s*Wi-Fi\s*(\S+)\s*\((.*?)\)\s*\|\s*nuvem\s*(\S+)/i, timeoutMs);
         if (!m) return null;
+        const d = await Promise.race([detail, sleep(900).then(() => null)]);
         const t = parseFloat(m[1]);
         return {
+            cloudDetail: d ? d[2].trim() : null,
+            sensorOk: d ? d[1].toLowerCase().startsWith('ok') : null,
             temp: Number.isFinite(t) && t !== 0 ? t : null,
             target: parseFloat(m[2]),
             wifi: m[3].toLowerCase().startsWith('conectado'),

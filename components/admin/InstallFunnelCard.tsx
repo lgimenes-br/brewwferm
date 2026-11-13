@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter } from 'lucide-react';
+import { Download, Filter } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
 
@@ -17,6 +17,8 @@ const LABEL: Record<string, string> = {
 };
 const BOARD: Record<string, string> = { 'esp32-devkit': 'ESP32 DevKit', 'c3-headless': 'ESP32-C3', 's3-headless': 'ESP32-S3', 's3-35': 'Breww com tela 3,5"' };
 const RANGES = [7, 30, 90] as const;
+type LogRow = { id: number; session: string; board: string | null; chip: string | null; email: string | null; last_event: string | null; updated_at: string; size: number };
+const LAST: Record<string, string> = { ...LABEL, existing_ok: 'Placa já gravada', done: 'Concluiu', login: 'Entrou na conta', connect_ok: 'Conectou a placa', flash_ok: 'Gravou', wifi_ok: 'Wi-Fi ok', bind_ok: 'Na conta' };
 
 export const InstallFunnelCard = () => {
     const { token } = useAuth();
@@ -40,6 +42,23 @@ export const InstallFunnelCard = () => {
     }, [token, days]);
 
     const top = data?.funnel[0]?.users || 0;
+    const [logs, setLogs] = useState<LogRow[] | null>(null);
+    useEffect(() => {
+        const controller = new AbortController();
+        fetch(`${API_URL}/admin/install-logs`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+            .then(async res => { if (!res.ok) throw new Error(); const j = await res.json(); setLogs(Array.isArray(j) ? j : []); })
+            .catch(e => { if (e?.name !== 'AbortError') setLogs([]); });
+        return () => controller.abort();
+    }, [token]);
+    const downloadLog = async (row: LogRow) => {
+        const res = await fetch(`${API_URL}/admin/install-logs/${row.id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([await res.text()], { type: 'text/plain' }));
+        a.download = `instalacao-${row.board || row.chip || 'placa'}-${row.id}.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
 
     return (
         <div className="bg-white border border-black/[0.07] rounded-xl p-5">
@@ -92,6 +111,21 @@ export const InstallFunnelCard = () => {
                     </div>
                 </div>
             )}
+            <div className="mt-6 border-t border-black/[0.06] pt-5">
+                <p className="mb-2 text-sm font-semibold text-[var(--muted)]">Instalações recentes (log técnico, 90 dias)</p>
+                {logs === null ? <p className="text-sm text-[var(--muted)]">Carregando…</p> : !logs.length ? <p className="text-sm text-[var(--muted)]">Nenhum log ainda. O assistente envia o log nas falhas, no fim e ao fechar a página.</p> : (
+                    <ul className="max-h-80 divide-y divide-black/[0.06] overflow-y-auto text-sm">
+                        {logs.map(r => (
+                            <li key={r.id} className="flex items-center gap-3 py-2">
+                                <span className="w-28 shrink-0 tabular-nums text-[var(--muted)]">{new Date(r.updated_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="min-w-0 flex-1 truncate">{(r.board && BOARD[r.board]) || r.chip || 'Placa ?'} · <span className="text-[var(--muted)]">{r.email || '—'}</span></span>
+                                <span className="hidden text-xs text-[var(--muted)] sm:inline">{r.last_event ? LAST[r.last_event] || r.last_event : '—'}</span>
+                                <button type="button" onClick={() => downloadLog(r)} aria-label={`Baixar log ${r.id}`} className="rounded-lg p-2 text-[var(--muted)] hover:bg-black/[0.04] hover:text-[var(--ink)]"><Download size={15} /></button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
         </div>
     );
 };

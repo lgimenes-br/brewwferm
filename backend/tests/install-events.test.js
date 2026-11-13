@@ -14,9 +14,13 @@ test('funil da instalação: valida o evento e limpa os campos', () => {
 
 const createApp = (role = 'user') => {
     const rows = [];
+    const logs = [];
     const pool = {
-        rows,
+        rows, logs,
         async execute(sql, params = []) {
+            if (sql.startsWith('INSERT INTO install_logs')) { const i = logs.findIndex(l => l.user_id === params[0] && l.session === params[1]); const row = { id: logs.length + 1, user_id: params[0], session: params[1], text: params[4] }; if (i >= 0) logs[i] = { ...logs[i], text: params[4] }; else logs.push(row); return [{}]; }
+            if (sql.startsWith('SELECT text FROM install_logs')) return [logs.filter(l => l.id === params[0])];
+            if (sql.includes('FROM install_logs l')) return [logs.map(l => ({ id: l.id, session: l.session, size: l.text.length }))];
             if (sql.startsWith('INSERT INTO install_events')) { rows.push({ user_id: params[0], event: params[2], board: params[3], chip: params[4], detail: params[5] }); return [{}]; }
             if (sql.includes('GROUP BY event, detail')) return [rows.filter(r => r.event.endsWith('_fail')).map(r => ({ event: r.event, detail: r.detail, total: 1 }))];
             if (sql.includes('COALESCE(board, chip)')) return [[]];
@@ -60,4 +64,20 @@ test('funil da instalação: quem não é admin não vê o funil', async () => {
     const { app } = createApp('user');
     const s = await listen(app);
     try { assert.equal((await fetch(`http://127.0.0.1:${s.address().port}/api/admin/install-funnel`)).status, 403); } finally { s.close(); }
+});
+
+test('log da instalação: um por sessão (o envio novo substitui), admin lista e lê', async () => {
+    const { app, pool } = createApp('admin');
+    const s = await listen(app);
+    const base = `http://127.0.0.1:${s.address().port}/api`;
+    const post = (body) => fetch(`${base}/install/log`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    try {
+        assert.equal((await post({ session: 'a', text: '' })).status, 400);
+        assert.equal((await post({ session: 'a', text: 'linha 1' })).status, 201);
+        assert.equal((await post({ session: 'a', text: 'linha 1\nlinha 2' })).status, 201);
+        assert.equal(pool.logs.length, 1);
+        const list = await (await fetch(`${base}/admin/install-logs`)).json();
+        assert.equal(list[0].size, 'linha 1\nlinha 2'.length);
+        assert.equal(await (await fetch(`${base}/admin/install-logs/${list[0].id}`)).text(), 'linha 1\nlinha 2');
+    } finally { s.close(); }
 });

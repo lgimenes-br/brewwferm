@@ -8,6 +8,7 @@ import { API_URL } from '../config';
 import { BoardId, ChipInfo, boardsForChip, detectChip, fetchFirmware, flashFirmware, requestPort, webSerialSupported } from '../services/espFlasher';
 import { DeviceLink, WifiNetwork } from '../services/deviceLink';
 import { AccountStep, InstallSession } from './install/AccountStep';
+import { ilog, ilogReset, ilogSecret, installLogText } from '../services/installLog';
 
 // Assistente de instalacao (/instalar/assistente): conectar, identificar a placa, gravar, Wi-Fi pelo
 // mesmo cabo (Improv), vincular a conta e pronto. Comeca pela conta: no fim o aparelho entra nela sozinho. A pagina /instalar continua como guia (pecas e ligacoes).
@@ -74,6 +75,22 @@ const readSession = (): InstallSession | null => {
 const writeSession = (s: InstallSession | null) => {
     try { if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); else sessionStorage.removeItem(SESSION_KEY); } catch { /* aba privada */ }
 };
+// Estado da nuvem que o firmware 2.9.7+ manda no "status" (texto sem acento) -> frase da tela
+const cloudLabel = (st: { cloud: boolean; cloudDetail: string | null } | null) => {
+    if (!st) return '—';
+    if (st.cloud) return 'Conectada';
+    const d = (st.cloudDetail || '').toLowerCase();
+    if (!d) return 'Aguardando';
+    if (d.startsWith('vinculada')) return 'Na sua conta, conectando';
+    if (d.startsWith('anunciada')) return 'Online, esperando a conta';
+    if (d.includes('relogio')) return 'Acertando o relógio';
+    if (d.includes('anunci')) return 'Falando com o servidor…';
+    if (d.startsWith('falha')) return `Falha ao falar com o servidor ${d.replace(/[^0-9-]/g, '') ? `(${d.replace(/[^0-9-]/g, '')})` : ''}`.trim();
+    if (d.includes('memoria')) return 'Erro na placa: sem memória';
+    if (d.includes('chave')) return 'Chave recusada: adicione pelo código';
+    if (d.includes('sem wi-fi')) return 'Sem Wi-Fi';
+    return st.cloudDetail || 'Aguardando';
+};
 const newId = () => (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`).slice(0, 36);
 
 export const InstallWizard: React.FC = () => {
@@ -90,14 +107,41 @@ export const InstallWizard: React.FC = () => {
     pairRef.current = pair;
     const [bindTried, setBindTried] = useState(false);
     const runId = useRef(newId());
+    // Log da instalacao (passos + linhas da placa): enviado ao servidor nas falhas, no fim e ao sair
+    const logMeta = useRef<{ board?: string | null; chip?: string | null }>({});
+    const uploadLog = useCallback((tk = token, unloading = false) => {
+        if (!tk) return;
+        const text = installLogText({ Placa: logMeta.current.board, Chip: logMeta.current.chip, Sessao: runId.current });
+        fetch(`${API_URL}/install/log`, {
+            method: 'POST', keepalive: unloading,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            body: JSON.stringify({ session: runId.current, board: logMeta.current.board, chip: logMeta.current.chip, text: unloading ? text.slice(-60000) : text }),
+        }).catch(() => {});
+    }, [token]);
     const track = useCallback((event: string, extra: Record<string, string | null | undefined> = {}, tk = token) => {
+        ilog('site', `Evento ${event}${Object.entries(extra).filter(([, v]) => v).map(([k, v]) => ` ${k}=${v}`).join('')}`);
+        if (extra.board) logMeta.current.board = extra.board;
+        if (extra.chip) logMeta.current.chip = extra.chip;
         if (!tk) return;
         fetch(`${API_URL}/install/events`, {
             method: 'POST', keepalive: true,
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
             body: JSON.stringify({ event, session: runId.current, ...extra }),
         }).catch(() => {});
-    }, [token]);
+        if (event.endsWith('_fail') || event === 'done' || event === 'bind_ok') uploadLog(tk);
+    }, [token, uploadLog]);
+    useEffect(() => {
+        const onLeave = () => uploadLog(token, true);
+        window.addEventListener('pagehide', onLeave);
+        return () => window.removeEventListener('pagehide', onLeave);
+    }, [token, uploadLog]);
+    const downloadLog = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([installLogText({ Placa: logMeta.current.board, Chip: logMeta.current.chip, Sessao: runId.current })], { type: 'text/plain' }));
+        a.download = `breww-instalacao-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
     const setSession = (s: InstallSession | null) => {
         writeSession(s);
         setSessionState(s);
@@ -132,8 +176,8 @@ export const InstallWizard: React.FC = () => {
     const [name, setName] = useState('Meu Breww');
     const [linked, setLinked] = useState(false);
     const [addedInApp, setAddedInApp] = useState(false);
-    const [copied, setCopied] = useState(false);
-    const [devStatus, setDevStatus] = useState<{ temp: number | null; wifi: boolean; ssid: string; cloud: boolean } | null>(null);
+    const [copied, setCopied] = useState<'id' | 'code' | null>(null);
+    const [devStatus, setDevStatus] = useState<{ temp: number | null; wifi: boolean; ssid: string; cloud: boolean; cloudDetail: string | null; sensorOk: boolean | null } | null>(null);
     const [statusBusy, setStatusBusy] = useState(false);
     const readStatus = useCallback(async () => {
         const link = linkRef.current;
@@ -149,10 +193,19 @@ export const InstallWizard: React.FC = () => {
         setError(null);
         const k = STEPS.findIndex(s => s.id === step);
         setAnnounce(`Passo ${k + 1} de ${STEPS.length}: ${STEPS[k].label}`);
+        ilog('site', `Passo ${k + 1}: ${STEPS[k].label}`);
         if (firstStep.current) { firstStep.current = false; return; }
         window.scrollTo({ top: 0 });
         requestAnimationFrame(() => document.getElementById('etapa-titulo')?.focus());
     }, [step]);
+    // Erros mostrados na tela tambem vao para o log (texto como a pessoa leu)
+    useEffect(() => {
+        if (!error) return;
+        requestAnimationFrame(() => {
+            const t = document.querySelector('[role="alert"]')?.textContent;
+            ilog('site', `Erro na tela: ${t || String(error)}`);
+        });
+    }, [error]);
     // Gravando: avisa antes de fechar ou recarregar (a gravacao recomeca do zero)
     const flashing = stage !== 'idle' && stage !== 'reboot';
     useEffect(() => {
@@ -237,15 +290,25 @@ export const InstallWizard: React.FC = () => {
             setStage('reboot');
             track('flash_ok', { board, chip: chip?.chip, detail: fw.version });
             if (!headless) { setStep('link'); return; }
-            // A placa reinicia: reabre a mesma porta e espera o firmware responder ao Improv
+            // A placa reinicia: reabre a mesma porta e espera o firmware responder ao Improv.
+            // Placa com chip USB-serial (DevKit) as vezes fica parada depois de gravar: se nao
+            // responder em alguns segundos, reinicia pelo cabo (como apertar o EN) e espera de novo.
+            ilog('site', 'Gravado; reabrindo a porta e esperando o firmware');
             const link = await DeviceLink.open(portRef.current, 12000);
             linkRef.current = link;
+            const usbBridge = board === 'esp32-devkit';
             try {
-                await link.waitImprov(25000);
+                try { await link.waitImprov(usbBridge ? 7000 : 25000); } catch (e) {
+                    if (!usbBridge) throw e;
+                    ilog('site', 'Sem resposta em 7 s; reiniciando a placa pelo cabo');
+                    await link.resetToApp();
+                    await link.waitImprov(20000);
+                }
+                ilog('site', 'Firmware respondeu (Improv)');
                 setImprovOk(true);
                 const info = await link.info();
                 if (info?.name) setDeviceName(info.name);
-            } catch { setImprovOk(false); }
+            } catch { ilog('site', 'Firmware nao respondeu pelo cabo'); setImprovOk(false); }
             setStep('wifi');
         } catch (e) {
             setStage('idle');
@@ -287,7 +350,9 @@ export const InstallWizard: React.FC = () => {
         setError(null);
         setBusy(true);
         try {
-            const ok = await link.provision(ssid.trim(), password);
+            ilogSecret(ssid.trim(), 'rede Wi-Fi'); ilogSecret(password, 'senha do Wi-Fi');
+        ilog('site', 'Enviando o Wi-Fi para a placa');
+        const ok = await link.provision(ssid.trim(), password);
             if (!ok) { track('wifi_fail', { board, detail: 'senha ou rede' }); setError(<>A placa não conseguiu entrar em <b>{ssid}</b>. Confira a senha. Lembre que o ESP32 só funciona em redes de 2,4 GHz.</>); return; }
             track('wifi_ok', { board });
             setStep('link');
@@ -304,9 +369,23 @@ export const InstallWizard: React.FC = () => {
         if (!link || improvOk === false) { setPairFailed(true); return; }
         let alive = true;
         setPairFailed(false);
-        link.pairCode(25000).then(p => { if (!alive) return; if (p) setPair(p); else setPairFailed(true); });
+        link.pairCode(25000).then(p => { if (!alive) return; if (p) { ilogSecret(p.code, 'codigo de confirmacao'); ilog('site', `Codigo lido pelo cabo (ID ${p.id})`); setPair(p); } else { ilog('site', 'Codigo nao lido pelo cabo em 25 s'); setPairFailed(true); } });
         return () => { alive = false; };
     }, [step, headless, pair, pairTry, improvOk]);
+    // Tela "Pronto" sem os codigos (nao lidos antes): tenta ler de novo, para adicionar pelo app
+    useEffect(() => {
+        if (step !== 'done' || !headless || pair || !linkRef.current || improvOk === false) return;
+        let alive = true;
+        linkRef.current.pairCode(15000).then(p => { if (alive && p) { ilogSecret(p.code, 'codigo de confirmacao'); setPair(p); } });
+        return () => { alive = false; };
+    }, [step, headless, pair, improvOk]);
+    // Enquanto espera a nuvem (vinculo / Pronto), le o estado da placa a cada 8 s: mostra em que pe esta
+    useEffect(() => {
+        if (!(step === 'link' || step === 'done') || !headless || improvOk === false || devStatus?.cloud) return;
+        const t = setInterval(() => { if (!statusBusy) readStatus(); }, 8000);
+        return () => clearInterval(t);
+    }, [step, headless, improvOk, devStatus?.cloud, statusBusy, readStatus]);
+    useEffect(() => { if (devStatus) ilog('site', `Leitura: temp ${devStatus.temp ?? '-'} | Wi-Fi ${devStatus.wifi ? 'ok' : 'nao'} | nuvem ${devStatus.cloud ? 'conectada' : devStatus.cloudDetail || 'desconectada'} | sensor ${devStatus.sensorOk ?? '?'}`); }, [devStatus]);
 
     useEffect(() => { if (step === 'done') track('done', { board }); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => { if ((step === 'link' || step === 'done') && headless && improvOk !== false) readStatus(); }, [step, headless, improvOk, readStatus]);
@@ -317,8 +396,10 @@ export const InstallWizard: React.FC = () => {
         setError(null);
         setBusy(true);
         try {
-            // A placa avisa a nuvem logo depois de conectar: se o servidor ainda nao a viu, tenta por ate 40 s
-            for (let i = 0; i < 10; i++) {
+            // A placa avisa a nuvem logo depois de conectar (acerta o relogio e anuncia): se o servidor
+            // ainda nao a viu, tenta por ate 1 min
+            ilog('site', 'Vinculando a conta (POST /devices)');
+            for (let i = 0; i < 15; i++) {
                 const r = await fetch(`${API_URL}/devices`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ pairCode: pair.code, name: name.trim() || 'Meu Breww' }),
@@ -326,7 +407,8 @@ export const InstallWizard: React.FC = () => {
                 if (r.ok) { track('bind_ok', { board, serial: pair.id }); setLinked(true); setStep('done'); return; }
                 if (r.status === 401) { setError('Sua sessão expirou. Entre de novo para adicionar o aparelho.'); setSession(null); setStep('conta'); return; }
                 const data = await r.json().catch(() => ({}));
-                if (r.status !== 422 || i === 9) { track('bind_fail', { board, serial: pair.id, detail: `${r.status} ${data?.error || ''}`.trim() }); setError(data?.error || 'Não foi possível adicionar o aparelho.'); return; }
+                ilog('site', `Vinculo: HTTP ${r.status}${i < 14 && r.status === 422 ? ' (servidor ainda nao viu a placa; tentando de novo)' : ''}`);
+                if (r.status !== 422 || i === 14) { track('bind_fail', { board, serial: pair.id, detail: `${r.status} ${data?.error || ''}`.trim() }); setError(data?.error || 'Não foi possível adicionar o aparelho.'); return; }
                 await sleep(4000);
             }
         } catch { setError('Sem conexão com o servidor. Tente de novo.'); } finally { setBusy(false); }
@@ -350,20 +432,31 @@ export const InstallWizard: React.FC = () => {
         linkRef.current = null; portRef.current = null;
         setChip(null); setBoard(null); setVersion(null); setProgress(0); setStage('idle');
         setImprovOk(null); setNetworks(null); setSsid(''); setPassword(''); setPair(null); setPairFailed(false); setLinked(false); setDeviceName(null); setBindTried(false); setDevStatus(null);
+        if (token) uploadLog(token); // log da tentativa anterior
+        ilogReset(); runId.current = newId(); logMeta.current = {};
         setStep('connect');
     };
 
+    const copy = (text: string, which: 'id' | 'code') => {
+        navigator.clipboard?.writeText(text).then(() => { setCopied(which); setTimeout(() => setCopied(null), 2000); }).catch(() => {});
+    };
+    // Mesmos nomes e ordem do app (Adicionar aparelho): codigo do aparelho = numero de serie; codigo de confirmacao
     const PairPanel = pair ? (
         <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white sm:p-7">
-            <p className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Código do aparelho</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-2">
-                <p className="font-mono text-4xl tracking-[0.12em] text-[var(--accent)] tabular-nums">{pair.code}</p>
-                <button type="button" className="inline-flex min-h-11 items-center rounded-full border border-white/20 px-4 text-sm font-medium hover:bg-white/10"
-                    onClick={() => { navigator.clipboard?.writeText(pair.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {}); }}>
-                    {copied ? 'Copiado' : 'Copiar'}
-                </button>
-            </div>
-            <p className="mt-2 text-sm text-[#a3a7b0]">É este código que o app pede. O número de série é <span className="tabular-nums">{pair.id}</span>.</p>
+            <p className="text-sm text-[#a3a7b0]">Para adicionar no app, em <b className="font-medium text-white">Adicionar aparelho</b>:</p>
+            <dl className="mt-4 grid gap-5 sm:grid-cols-2">
+                {([['id', 'Código do aparelho', pair.id], ['code', 'Código de confirmação', pair.code]] as const).map(([k, label, value]) => (
+                    <div key={k}>
+                        <dt className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />{label}</dt>
+                        <dd className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <span className={`font-mono tracking-[0.08em] text-[var(--accent)] tabular-nums ${k === 'code' ? 'text-3xl' : 'text-2xl'}`}>{value}</span>
+                            <button type="button" aria-label={`Copiar ${label.toLowerCase()}`} className="inline-flex min-h-11 items-center rounded-full border border-white/20 px-4 text-sm font-medium hover:bg-white/10" onClick={() => copy(value, k)}>
+                                {copied === k ? 'Copiado' : 'Copiar'}
+                            </button>
+                        </dd>
+                    </div>
+                ))}
+            </dl>
         </div>
     ) : null;
     const ReconnectButton = (
@@ -387,11 +480,11 @@ export const InstallWizard: React.FC = () => {
             </div>
             {devStatus ? (
                 <dl className="mt-3 grid gap-4 sm:grid-cols-3">
-                    <div><dt className="text-sm text-[var(--muted)]">Temperatura</dt><dd className="mt-1 [font-family:var(--font-display)] text-3xl font-light tabular-nums">{devStatus.temp !== null ? <>{devStatus.temp.toFixed(1).replace('.', ',')}<span className="text-base text-[var(--muted)]"> °C</span></> : <span className="text-base text-[var(--muted)]">sensor ainda não ligado</span>}</dd></div>
+                    <div><dt className="text-sm text-[var(--muted)]">Temperatura</dt><dd className="mt-1 [font-family:var(--font-display)] text-3xl font-light tabular-nums">{devStatus.temp !== null ? <>{devStatus.temp.toFixed(1).replace('.', ',')}<span className="text-base text-[var(--muted)]"> °C</span></> : <span className="block text-base leading-snug text-[var(--muted)]">sensor ainda não ligado{devStatus.sensorOk === false ? <><br />relés desligados por segurança</> : null}</span>}</dd></div>
                     <div><dt className="text-sm text-[var(--muted)]">Wi-Fi</dt><dd className="mt-1 font-medium">{devStatus.wifi ? `Conectado${devStatus.ssid ? ` · ${devStatus.ssid}` : ''}` : 'Desconectado'}</dd></div>
-                    <div><dt className="text-sm text-[var(--muted)]">Nuvem Breww</dt><dd className="mt-1 font-medium">{devStatus.cloud ? 'Conectada' : 'Conectando…'}</dd></div>
+                    <div><dt className="text-sm text-[var(--muted)]">Nuvem Breww</dt><dd className="mt-1 font-medium">{cloudLabel(devStatus)}</dd></div>
                 </dl>
-            ) : <p className="mt-2 text-sm text-[var(--muted)]">{statusBusy ? 'Lendo…' : 'Sem resposta da placa. Toque em Ler de novo.'}</p>}
+            ) : <p className="mt-2 text-sm text-[var(--muted)]">{statusBusy ? 'Lendo…' : 'Ainda sem leitura. Toque em Ler de novo.'}</p>}
             <p className="mt-3 text-pretty text-sm text-[var(--muted)]">É a prova de que o aparelho funciona, mesmo antes de ter o app. Com o sensor ligado, a temperatura aparece aqui.</p>
         </div>
     ) : null;
@@ -606,7 +699,7 @@ export const InstallWizard: React.FC = () => {
                                 <Heading title="Conecte a placa ao seu Wi-Fi" text={<>Pelo mesmo cabo USB. Use a rede de <b>2,4 GHz</b> da sua casa: o ESP32 não enxerga redes de 5 GHz.</>} />
                                 {improvOk === false ? (
                                     <>
-                                        <Notice kind="warn">A placa foi gravada, mas não respondeu pelo cabo. Às vezes o USB demora a voltar depois de reiniciar.</Notice>
+                                        <Notice kind="warn">A placa foi gravada, mas não respondeu pelo cabo. Aperte uma vez o botão <b>EN</b> (ou <b>RST</b>) da placa para ela reiniciar e toque em <b>Reconectar a placa</b>.</Notice>
                                         <div className="flex flex-wrap gap-3">
                                             <button type="button" className={btnDark} onClick={reconnectPort} disabled={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Reconectar a placa</button>
                                         </div>
@@ -695,7 +788,7 @@ export const InstallWizard: React.FC = () => {
                                                 </div>
                                             </>
                                         ) : !pair || (busy && !error) ? (
-                                            <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> {!pair ? 'Lendo o código do aparelho…' : 'Adicionando à sua conta…'}</p>
+                                            <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> {!pair ? 'Lendo o código do aparelho…' : <>Adicionando à sua conta…{devStatus && !devStatus.cloud ? <span className="text-[var(--muted)]"> Placa: {cloudLabel(devStatus).toLowerCase()}.</span> : null}</>}</p>
                                         ) : error ? (
                                             <>
                                                 <Notice kind="error">{error}</Notice>
@@ -728,7 +821,7 @@ export const InstallWizard: React.FC = () => {
                                             ? <>Ele aparece no app Breww quando você entrar com a conta {session ? <b className="text-[var(--ink)]">de {session.name}</b> : 'que usou aqui'}. Agora desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.</>
                                             : addedInApp
                                                 ? 'Agora desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'
-                                                : 'Falta colocar o aparelho na conta: no app, Adicionar aparelho, com o código abaixo ou em Buscar na rede. Depois desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'} />
+                                                : 'Falta colocar o aparelho na conta: no app, Adicionar aparelho, com os dois códigos abaixo ou em Buscar na rede. Depois desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'} />
                                 {headless && !linked && !addedInApp && PairPanel}
                                 {StatusPanel}
                                 <p className="flex items-center gap-2 text-sm text-[var(--muted)]"><Smartphone size={16} className="shrink-0" />O app Breww está em teste para iPhone e Android e chega às lojas em breve.</p>
@@ -737,6 +830,11 @@ export const InstallWizard: React.FC = () => {
                                     <button type="button" className={btnGhost} onClick={restart}>Instalar outra placa</button>
                                 </div>
                             </div>
+                        )}
+                        {step !== 'conta' && step !== 'connect' && (
+                            <p className="mt-10 border-t border-black/[0.07] pt-5 text-sm leading-relaxed text-[var(--muted)]">
+                                Algo deu errado? <button type="button" onClick={downloadLog} className="-my-2 py-2 font-medium text-[var(--ink)] underline underline-offset-4">Baixar o log da instalação</button>. Ele também é enviado ao suporte Breww, sem o nome e a senha do seu Wi-Fi.
+                            </p>
                         )}
                     </section>
                 </div>

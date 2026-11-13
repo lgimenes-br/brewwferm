@@ -8,7 +8,9 @@ export const INSTALL_EVENTS = [
 ];
 const FUNNEL = ['login', 'connect_ok', 'flash_ok', 'wifi_ok', 'bind_ok'];
 const MAX_PER_HOUR = 120;
-export const RETENTION_MONTHS = 24; // politica de privacidade: depois disso ficam so os numeros agregados
+export const RETENTION_MONTHS = 24;
+export const LOG_RETENTION_DAYS = 90; // log tecnico da instalacao (diagnostico)
+const MAX_LOG = 200000; // politica de privacidade: depois disso ficam so os numeros agregados
 
 const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 
@@ -53,6 +55,56 @@ export const registerInstallEventRoutes = (app, { pool, authenticateToken, requi
         INDEX idx_user (user_id)
     )`);
 
+    const ensureLogTable = () => pool.execute(`CREATE TABLE IF NOT EXISTS install_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        session VARCHAR(40) NOT NULL,
+        board VARCHAR(24) DEFAULT NULL,
+        chip VARCHAR(40) DEFAULT NULL,
+        text MEDIUMTEXT NOT NULL,
+        created_at DATETIME DEFAULT NOW(),
+        updated_at DATETIME DEFAULT NOW(),
+        UNIQUE KEY uq_session (user_id, session),
+        INDEX idx_updated (updated_at)
+    )`);
+
+    // Log da instalacao (passos do assistente + serial da placa). Uma linha por sessao; cada envio
+    // substitui o anterior (o texto e sempre o log inteiro ate aquele momento).
+    app.post('/api/install/log', authenticateToken, async (req, res) => {
+        const b = req.body || {};
+        const session = clean(b.session, 40);
+        const text = String(b.text ?? '').slice(-MAX_LOG);
+        if (!session || !text.trim()) return res.status(400).json({ error: 'Log vazio.' });
+        if (!allowed(req.user.id)) return res.status(429).json({ error: 'Muitos envios.' });
+        try {
+            await pool.execute(
+                `INSERT INTO install_logs (user_id, session, board, chip, text) VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE text = VALUES(text), board = COALESCE(VALUES(board), board), chip = COALESCE(VALUES(chip), chip), updated_at = NOW()`,
+                [req.user.id, session, clean(b.board, 24) || null, clean(b.chip, 40) || null, text]);
+            res.status(201).json({ ok: true });
+        } catch (e) { console.error('Log da instalação:', e.message); res.status(500).json({ error: 'Erro interno no servidor' }); }
+    });
+
+    // Admin: instalacoes recentes (sem o texto) e o log de uma delas
+    app.get('/api/admin/install-logs', authenticateToken, requireAdmin, async (req, res) => {
+        try {
+            const [rows] = await pool.execute(
+                `SELECT l.id, l.session, l.board, l.chip, l.created_at, l.updated_at, LENGTH(l.text) AS size, u.email,
+                        (SELECT e.event FROM install_events e WHERE e.user_id = l.user_id AND e.session = l.session ORDER BY e.id DESC LIMIT 1) AS last_event
+                 FROM install_logs l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.updated_at DESC LIMIT 50`);
+            res.json(rows.map(r => ({ ...r, size: Number(r.size) })));
+        } catch (e) { console.error('Log da instalação:', e.message); res.status(500).json({ error: 'Erro interno no servidor' }); }
+    });
+    app.get('/api/admin/install-logs/:id', authenticateToken, requireAdmin, async (req, res) => {
+        const id = parseInt(req.params.id, 10);
+        if (!id) return res.status(400).json({ error: 'ID inválido.' });
+        try {
+            const [rows] = await pool.execute('SELECT text FROM install_logs WHERE id = ?', [id]);
+            if (!rows.length) return res.status(404).json({ error: 'Log não encontrado.' });
+            res.type('text/plain; charset=utf-8').send(rows[0].text);
+        } catch (e) { console.error('Log da instalação:', e.message); res.status(500).json({ error: 'Erro interno no servidor' }); }
+    });
+
     app.post('/api/install/events', authenticateToken, async (req, res) => {
         const { event, error } = sanitizeInstallEvent(req.body);
         if (error) return res.status(400).json({ error });
@@ -92,8 +144,9 @@ export const registerInstallEventRoutes = (app, { pool, authenticateToken, requi
     /** Apaga as etapas com mais de 24 meses (chamado 1x por dia). */
     const purgeOld = async () => {
         const [r] = await pool.execute(`DELETE FROM install_events WHERE created_at < NOW() - INTERVAL ${RETENTION_MONTHS} MONTH`);
-        return r?.affectedRows || 0;
+        const [l] = await pool.execute(`DELETE FROM install_logs WHERE updated_at < NOW() - INTERVAL ${LOG_RETENTION_DAYS} DAY`);
+        return (r?.affectedRows || 0) + (l?.affectedRows || 0);
     };
 
-    return { ensureTable, purgeOld };
+    return { ensureTable: async () => { await ensureTable(); await ensureLogTable(); }, purgeOld };
 };

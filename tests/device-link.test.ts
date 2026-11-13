@@ -17,7 +17,7 @@ const result = (cmd: number, strings: string[]) => {
 const text = (s: string) => Array.from(new TextEncoder().encode(s));
 
 /** Porta falsa que responde como o firmware do Breww (improv_serial.cpp e ui_headless.cpp). */
-const fakeBoard = (opts: { wifiOk: boolean; temp?: string }) => {
+const fakeBoard = (opts: { wifiOk: boolean; temp?: string; detail?: string }) => {
     let push: (b: number[]) => void = () => {};
     const readable = new ReadableStream<Uint8Array>({ start(c) { push = (b) => c.enqueue(new Uint8Array(b)); } });
     const send = (b: number[]) => setTimeout(() => {
@@ -39,6 +39,7 @@ const fakeBoard = (opts: { wifiOk: boolean; temp?: string }) => {
             const line = new TextDecoder().decode(chunk);
             if (line === 'codigo\n') send(text('[Vinculo] Codigo de confirmacao: 1A2B3C4D (ID 288485495464)\n'));
             if (line === 'status\n') send(text(`[Status] placa Breww C3 | modo 0 | temp ${opts.temp ?? '21.50'} / alvo 18.00 | Wi-Fi conectado (Casa) | nuvem conectada\n`));
+            if (line === 'status\n' && opts.detail) send(text(`${opts.detail}\n`));
         },
     });
     return { open: async () => {}, close: async () => {}, readable, writable };
@@ -66,7 +67,15 @@ describe('DeviceLink (assistente de instalação)', () => {
 
     it('lê o estado pelo cabo: temperatura, Wi-Fi e nuvem', async () => {
         const link = await DeviceLink.open(fakeBoard({ wifiOk: true }));
-        expect(await link.status(3000)).toEqual({ temp: 21.5, target: 18, wifi: true, ssid: 'Casa', cloud: true });
+        expect(await link.status(3000)).toEqual({ temp: 21.5, target: 18, wifi: true, ssid: 'Casa', cloud: true, cloudDetail: null, sensorOk: null });
+        await link.close();
+    });
+
+    it('firmware 2.9.7+: segunda linha com o estado da nuvem e do sensor', async () => {
+        const link = await DeviceLink.open(fakeBoard({ wifiOk: true, temp: '0.00', detail: '[Status] sensor sem leitura (reles desligados) | chip 48 C | RAM livre 180000 | ligado ha 40 s | nuvem anunciada, aguardando vinculo' }));
+        const st = await link.status(3000);
+        expect(st?.cloudDetail).toBe('anunciada, aguardando vinculo');
+        expect(st?.sensorOk).toBe(false);
         await link.close();
     });
 
