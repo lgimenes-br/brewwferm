@@ -7,20 +7,22 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { BoardId, ChipInfo, boardsForChip, detectChip, fetchFirmware, flashFirmware, requestPort, webSerialSupported } from '../services/espFlasher';
 import { DeviceLink, WifiNetwork } from '../services/deviceLink';
+import { AccountStep, InstallSession } from './install/AccountStep';
 
 // Assistente de instalacao (/instalar/assistente): conectar, identificar a placa, gravar, Wi-Fi pelo
-// mesmo cabo (Improv), vincular a conta e pronto. A pagina /instalar continua como guia (pecas e ligacoes).
+// mesmo cabo (Improv), vincular a conta e pronto. Comeca pela conta: no fim o aparelho entra nela sozinho. A pagina /instalar continua como guia (pecas e ligacoes).
 // Visual do mundo da home: titulo no papel milimetrado, trilha dos passos na linha verde (feito = cheio,
 // atual = aceso, futuro = tracejado) e leituras da placa em paineis de instrumento Grafite.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type Step = 'connect' | 'board' | 'flash' | 'wifi' | 'link' | 'done';
+type Step = 'conta' | 'connect' | 'board' | 'flash' | 'wifi' | 'link' | 'done';
 const STEPS: { id: Step; label: string }[] = [
+    { id: 'conta', label: 'Sua conta' },
     { id: 'connect', label: 'Conectar' },
     { id: 'board', label: 'Sua placa' },
     { id: 'flash', label: 'Gravar' },
     { id: 'wifi', label: 'Wi-Fi' },
-    { id: 'link', label: 'No app' },
+    { id: 'link', label: 'Na conta' },
     { id: 'done', label: 'Pronto' },
 ];
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -63,19 +65,47 @@ const BOARD_NAME = Object.fromEntries(BOARDS.map(b => [b.id, b.name])) as Record
 // Chip lido do firmware (Improv) -> placa sem tela
 const boardFromChip = (chip?: string): BoardId => { const c = (chip || '').toUpperCase(); return c.includes('C3') ? 'c3-headless' : c.includes('S3') ? 's3-headless' : 'esp32-devkit'; };
 
+// Sessao do assistente: so nesta aba (sessionStorage). Nao usa a sessao do site, para a home continuar
+// sendo a home depois de instalar. Quem ja esta logado no site (admin) entra direto.
+const SESSION_KEY = 'breww_install_session';
+const readSession = (): InstallSession | null => {
+    try { const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); return s?.token ? s : null; } catch { return null; }
+};
+const writeSession = (s: InstallSession | null) => {
+    try { if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); else sessionStorage.removeItem(SESSION_KEY); } catch { /* aba privada */ }
+};
+const newId = () => (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`).slice(0, 36);
+
 export const InstallWizard: React.FC = () => {
-    const { token: authToken } = useAuth();
-    // Login feito em outra aba (botoes Criar conta / Entrar abrem nova aba): o evento storage traz o token
-    const [token, setToken] = useState<string | null>(authToken);
-    useEffect(() => { setToken(authToken); }, [authToken]);
-    useEffect(() => {
-        const onStorage = (e: StorageEvent) => { if (e.key === 'token') setToken(e.newValue); };
-        window.addEventListener('storage', onStorage);
-        return () => window.removeEventListener('storage', onStorage);
-    }, []);
+    const { token: authToken, user: authUser } = useAuth();
+    const [session, setSessionState] = useState<InstallSession | null>(() => readSession() || (authToken ? { token: authToken, name: authUser || 'você' } : null));
+    const token = session?.token || null;
     const [params] = useSearchParams();
     const guideBoard = params.get('placa') as BoardId | null;
-    const [step, setStep] = useState<Step>('connect');
+    const [step, setStep] = useState<Step>(() => (session ? 'connect' : 'conta'));
+
+    // Funil da instalacao (BI): etapas ligadas a conta, sem dados do Wi-Fi. Falha no envio nunca atrapalha.
+    const [pair, setPair] = useState<{ code: string; id: string } | null>(null);
+    const pairRef = useRef(pair);
+    pairRef.current = pair;
+    const [bindTried, setBindTried] = useState(false);
+    const runId = useRef(newId());
+    const track = useCallback((event: string, extra: Record<string, string | null | undefined> = {}, tk = token) => {
+        if (!tk) return;
+        fetch(`${API_URL}/install/events`, {
+            method: 'POST', keepalive: true,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            body: JSON.stringify({ event, session: runId.current, ...extra }),
+        }).catch(() => {});
+    }, [token]);
+    const setSession = (s: InstallSession | null) => {
+        writeSession(s);
+        setSessionState(s);
+        if (!s) return;
+        track('login', {}, s.token);
+        // Sessao expirou no meio (vinculo): volta para o vinculo, nao para o comeco
+        if (pairRef.current) { setBindTried(false); setStep('link'); } else setStep('connect');
+    };
     const [announce, setAnnounce] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<React.ReactNode | null>(null);
@@ -97,7 +127,6 @@ export const InstallWizard: React.FC = () => {
     const [password, setPassword] = useState('');
     const [showPw, setShowPw] = useState(false);
 
-    const [pair, setPair] = useState<{ code: string; id: string } | null>(null);
     const [pairFailed, setPairFailed] = useState(false);
     const [pairTry, setPairTry] = useState(0);
     const [name, setName] = useState('Meu Breww');
@@ -115,12 +144,14 @@ export const InstallWizard: React.FC = () => {
 
     useEffect(() => { document.title = 'Instalar o Breww — Assistente'; }, []);
     useEffect(() => () => { linkRef.current?.close(); }, []);
+    const firstStep = useRef(true);
     useEffect(() => {
         setError(null);
-        window.scrollTo({ top: 0 });
         const k = STEPS.findIndex(s => s.id === step);
         setAnnounce(`Passo ${k + 1} de ${STEPS.length}: ${STEPS[k].label}`);
-        if (step !== 'connect') requestAnimationFrame(() => document.getElementById('etapa-titulo')?.focus());
+        if (firstStep.current) { firstStep.current = false; return; }
+        window.scrollTo({ top: 0 });
+        requestAnimationFrame(() => document.getElementById('etapa-titulo')?.focus());
     }, [step]);
     // Gravando: avisa antes de fechar ou recarregar (a gravacao recomeca do zero)
     const flashing = stage !== 'idle' && stage !== 'reboot';
@@ -153,9 +184,11 @@ export const InstallWizard: React.FC = () => {
             setChip(info);
             const options = boardsForChip(info.chip);
             setBoard(options.length === 1 ? options[0] : guideBoard && options.includes(guideBoard) ? guideBoard : null);
+            track('connect_ok', { chip: info.chip, board: options.length === 1 ? options[0] : null });
             setStep('board');
         } catch (e) {
             const msg = String((e as Error)?.message || e);
+            track('connect_fail', { detail: msg.toLowerCase().includes('open') || msg.toLowerCase().includes('busy') ? 'porta em uso' : 'sem resposta' });
             setError(msg.toLowerCase().includes('open') || msg.toLowerCase().includes('busy')
                 ? <>A porta está em uso por outro programa. Feche a Arduino IDE, o monitor serial ou outra aba do instalador e tente de novo.</>
                 : <>Não consegui falar com a placa. Segure o botão <b>BOOT</b> da placa, clique em <b>Conectar a placa</b> de novo e solte o BOOT quando a placa for lida. Se não funcionar, troque o cabo: muitos só carregam.</>);
@@ -178,9 +211,11 @@ export const InstallWizard: React.FC = () => {
             setBoard(boardFromChip(info?.chip));
             if (info?.name) setDeviceName(info.name);
             setImprovOk(true);
+            track('existing_ok', { chip: info?.chip, board: boardFromChip(info?.chip) });
             setStep(state === 0x04 ? 'link' : 'wifi'); // 0x04 = Wi-Fi ja configurado
         } catch {
             linkRef.current?.close(); linkRef.current = null;
+            track('existing_fail', { detail: 'sem Breww' });
             setError(guideBoard === 's3-35'
                 ? <>A placa com tela configura o Wi-Fi e o app na própria tela: não precisa do assistente depois de gravada.</>
                 : <>Não encontrei o Breww nessa placa. Se ela ainda não foi gravada, use <b>Conectar a placa</b> para gravar.</>);
@@ -200,6 +235,7 @@ export const InstallWizard: React.FC = () => {
             setVersion(fw.version);
             await flashFirmware(portRef.current, fw.data, (p, s) => { setStage(s); setProgress(p); });
             setStage('reboot');
+            track('flash_ok', { board, chip: chip?.chip, detail: fw.version });
             if (!headless) { setStep('link'); return; }
             // A placa reinicia: reabre a mesma porta e espera o firmware responder ao Improv
             const link = await DeviceLink.open(portRef.current, 12000);
@@ -214,6 +250,7 @@ export const InstallWizard: React.FC = () => {
         } catch (e) {
             setStage('idle');
             console.error('Gravação:', e);
+            track('flash_fail', { board, chip: chip?.chip, detail: String((e as Error)?.message || e).slice(0, 150) });
             setError(<>A gravação parou no meio. Confira o cabo (de preferência direto no computador, sem hub) e tente de novo: ela recomeça do zero, sem problema.</>);
         } finally { setBusy(false); }
     };
@@ -251,9 +288,11 @@ export const InstallWizard: React.FC = () => {
         setBusy(true);
         try {
             const ok = await link.provision(ssid.trim(), password);
-            if (!ok) { setError(<>A placa não conseguiu entrar em <b>{ssid}</b>. Confira a senha. Lembre que o ESP32 só funciona em redes de 2,4 GHz.</>); return; }
+            if (!ok) { track('wifi_fail', { board, detail: 'senha ou rede' }); setError(<>A placa não conseguiu entrar em <b>{ssid}</b>. Confira a senha. Lembre que o ESP32 só funciona em redes de 2,4 GHz.</>); return; }
+            track('wifi_ok', { board });
             setStep('link');
         } catch {
+            track('wifi_fail', { board, detail: 'sem resposta' });
             setError(<>A placa não respondeu a tempo. Tente de novo; se continuar, use <b>Reconectar a placa</b> logo abaixo.</>);
         } finally { setBusy(false); }
     };
@@ -269,10 +308,12 @@ export const InstallWizard: React.FC = () => {
         return () => { alive = false; };
     }, [step, headless, pair, pairTry, improvOk]);
 
+    useEffect(() => { if (step === 'done') track('done', { board }); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => { if ((step === 'link' || step === 'done') && headless && improvOk !== false) readStatus(); }, [step, headless, improvOk, readStatus]);
 
     const bind = async () => {
         if (!token || !pair) return;
+        setBindTried(true);
         setError(null);
         setBusy(true);
         try {
@@ -282,13 +323,19 @@ export const InstallWizard: React.FC = () => {
                     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ pairCode: pair.code, name: name.trim() || 'Meu Breww' }),
                 });
-                if (r.ok) { setLinked(true); setStep('done'); return; }
+                if (r.ok) { track('bind_ok', { board, serial: pair.id }); setLinked(true); setStep('done'); return; }
+                if (r.status === 401) { setError('Sua sessão expirou. Entre de novo para adicionar o aparelho.'); setSession(null); setStep('conta'); return; }
                 const data = await r.json().catch(() => ({}));
-                if (r.status !== 422 || i === 9) { setError(data?.error || 'Não foi possível adicionar o aparelho.'); return; }
+                if (r.status !== 422 || i === 9) { track('bind_fail', { board, serial: pair.id, detail: `${r.status} ${data?.error || ''}`.trim() }); setError(data?.error || 'Não foi possível adicionar o aparelho.'); return; }
                 await sleep(4000);
             }
         } catch { setError('Sem conexão com o servidor. Tente de novo.'); } finally { setBusy(false); }
     };
+    // Com a conta e o codigo lidos pelo cabo, o aparelho entra na conta sozinho
+    useEffect(() => {
+        if (step === 'link' && headless && token && pair && !bindTried && !busy) bind();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, headless, token, pair, bindTried, busy]);
 
     const reflash = async () => {
         let port;
@@ -302,7 +349,7 @@ export const InstallWizard: React.FC = () => {
         linkRef.current?.close();
         linkRef.current = null; portRef.current = null;
         setChip(null); setBoard(null); setVersion(null); setProgress(0); setStage('idle');
-        setImprovOk(null); setNetworks(null); setSsid(''); setPassword(''); setPair(null); setPairFailed(false); setLinked(false); setDeviceName(null);
+        setImprovOk(null); setNetworks(null); setSsid(''); setPassword(''); setPair(null); setPairFailed(false); setLinked(false); setDeviceName(null); setBindTried(false); setDevStatus(null);
         setStep('connect');
     };
 
@@ -357,7 +404,7 @@ export const InstallWizard: React.FC = () => {
             <p className="sr-only" aria-live="polite">{announce}</p>
             <main>
                 <div style={paperGrid}>
-                    {step === 'connect' ? (
+                    {step === 'conta' || step === 'connect' ? (
                         <div className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6 lg:pb-14 lg:pt-12">
                             <h1 className="text-balance [font-family:var(--font-display)] text-[44px] font-light leading-[0.98] tracking-[-0.035em] sm:text-6xl lg:text-[72px]">
                                 Instalar o Breww <span className="text-[var(--muted)]">no seu ESP32.</span>
@@ -400,16 +447,22 @@ export const InstallWizard: React.FC = () => {
                     </ol>
 
                     <section className="rounded-[28px] bg-white p-6 sm:p-10">
+                        {/* 0. CONTA */}
+                        {step === 'conta' && (
+                            <AccountStep session={session} onSession={setSession} onContinue={() => setStep('connect')}
+                                heading={<Heading title="Primeiro, sua conta" text="Entre ou crie a conta grátis. No fim da instalação o aparelho já entra nela sozinho, sem código, e aparece no app Breww quando você entrar com a mesma conta." />} />
+                        )}
+
                         {/* 1. CONECTAR */}
                         {step === 'connect' && (
                             <div className="space-y-7">
-                                <Heading title="Ligue a placa no computador" text={<>Use um cabo USB de dados. {guideBoard === 's3-35' ? 'O assistente grava o firmware; depois a placa reinicia e o Wi-Fi e o app são configurados na tela dela.' : 'O assistente descobre qual placa é, grava o firmware certo, configura o Wi-Fi e mostra o código para adicionar no app.'}{guideBoard && BOARD_NAME[guideBoard] ? <> Placa escolhida no guia: <b className="text-[var(--ink)]">{BOARD_NAME[guideBoard]}</b>.</> : null}</>} />
+                                <Heading title="Ligue a placa no computador" text={<>Use um cabo USB de dados. {guideBoard === 's3-35' ? 'O assistente grava o firmware; depois a placa reinicia e o Wi-Fi e o app são configurados na tela dela.' : 'O assistente descobre qual placa é, grava o firmware certo, configura o Wi-Fi e coloca o aparelho na sua conta.'}{guideBoard && BOARD_NAME[guideBoard] ? <> Placa escolhida no guia: <b className="text-[var(--ink)]">{BOARD_NAME[guideBoard]}</b>.</> : null}</>} />
                                 <ul className="divide-y divide-black/[0.07] border-y border-black/[0.07]">
                                     {[
                                         [Cpu, 'Só a placa, sem fios', 'Sensores e relés entram depois de gravar, com a placa desligada.'],
                                         [Usb, 'Cabo de dados', 'Muitos cabos só carregam. Se a placa não aparecer, troque o cabo.'],
                                         [Monitor, 'Chrome ou Edge', 'No computador. Safari, Firefox e celular não acessam o USB.'],
-                                        [Smartphone, 'App Breww e uma conta', <>No fim, você adiciona o aparelho no app. O app está em teste e chega às lojas em breve; dá para instalar a placa antes e adicionar depois. <a href="/register" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--ink)] underline underline-offset-4">Criar conta grátis</a></>],
+                                        [Smartphone, 'O app vem depois', <>O aparelho entra na conta {session ? <b className="font-medium text-[var(--ink)]">de {session.name}</b> : 'que você entrou'} no fim. O app Breww, para acompanhar a fermentação, está em teste e chega às lojas em breve.</>],
                                     ].map(([Icon, t, d]: any) => (
                                         <li key={t} className="flex gap-4 py-4">
                                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-[var(--accent)]"><Icon size={18} /></span>
@@ -430,7 +483,7 @@ export const InstallWizard: React.FC = () => {
                                         <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-[var(--ink)]/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                                             <div>
                                                 <p className="font-medium">Esta placa já tem o Breww?</p>
-                                                <p className="mt-0.5 max-w-[30rem] text-pretty text-sm text-[var(--muted)]">Para quando a gravação já foi feita: recarregou a página no meio, trocou o Wi-Fi de casa, vai reaproveitar a placa ou quer conferir a leitura dos sensores. Pula a gravação e vai para o Wi-Fi ou, se ele já estiver configurado, direto para o código e a leitura.</p>
+                                                <p className="mt-0.5 max-w-[30rem] text-pretty text-sm text-[var(--muted)]">Para quando a gravação já foi feita: recarregou a página no meio, trocou o Wi-Fi de casa, vai reaproveitar a placa ou quer conferir a leitura dos sensores. Pula a gravação e vai para o Wi-Fi ou, se ele já estiver configurado, direto para colocar o aparelho na conta.</p>
                                             </div>
                                             <button type="button" className={`${btnGhost} shrink-0`} onClick={connectExisting} disabled={busy}>Continuar sem gravar</button>
                                         </div>
@@ -631,40 +684,34 @@ export const InstallWizard: React.FC = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <Heading title="Adicione o Breww no app" text="O Wi-Fi conectou. Agora o aparelho entra na sua conta pelo app, que está em teste e chega às lojas em breve. Ainda sem o app? Guarde o código: ele continua valendo." />
+                                        <Heading title={pairFailed && !pair ? 'Falta só colocar na conta' : error && bindTried ? 'Não deu para colocar na conta' : 'Colocando o Breww na sua conta'}
+                                            text={pairFailed && !pair ? 'O Wi-Fi conectou, mas não consegui ler o código do aparelho pelo cabo.' : 'O Wi-Fi conectou. O aparelho avisa a nuvem e entra na sua conta; isso leva alguns segundos.'} />
                                         {!pair && pairFailed ? (
                                             <>
-                                                <Notice kind="warn">{linkRef.current ? <>Não consegui ler o código pelo cabo. Tente reconectar, ou siga sem ele: no app, <b>Adicionar aparelho</b> encontra o Breww em <b>Buscar na rede</b>.</> : <>Sem o cabo não dá para ler o código. Sem problema: no app, <b>Adicionar aparelho</b> encontra o Breww em <b>Buscar na rede</b> (o celular precisa estar no mesmo Wi-Fi).</>}</Notice>
-                                                <div>{ReconnectButton}</div>
+                                                <Notice kind="warn">{linkRef.current ? <>Tente reconectar a placa para ler o código. Ou termine pelo app: em <b>Adicionar aparelho</b>, o Breww aparece em <b>Buscar na rede</b> (o celular no mesmo Wi-Fi).</> : <>Sem o cabo não dá para ler o código. Reconecte a placa, ou termine pelo app: em <b>Adicionar aparelho</b>, o Breww aparece em <b>Buscar na rede</b> (o celular no mesmo Wi-Fi).</>}</Notice>
+                                                <div className="flex flex-wrap gap-3">
+                                                    {ReconnectButton}
+                                                    <button type="button" className={btnGhost} onClick={() => { setAddedInApp(false); setStep('done'); }}>Termino pelo app</button>
+                                                </div>
                                             </>
-                                        ) : !pair ? (
-                                            <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> Buscando o código do aparelho…</p>
-                                        ) : PairPanel}
-                                        {StatusPanel}
-                                        {token ? (
+                                        ) : !pair || (busy && !error) ? (
+                                            <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> {!pair ? 'Lendo o código do aparelho…' : 'Adicionando à sua conta…'}</p>
+                                        ) : error ? (
                                             <>
+                                                <Notice kind="error">{error}</Notice>
                                                 <label className="block">
                                                     <span className="font-medium">Nome do aparelho</span>
                                                     <input value={name} onChange={e => setName(e.target.value)} maxLength={40} className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]" />
                                                 </label>
-                                                {error && <Notice kind="error">{error}</Notice>}
-                                                <button type="button" className={btnPrimary} onClick={bind} disabled={busy || !pair}>
-                                                    {busy ? <><Loader2 size={18} className="animate-spin" /> Adicionando…</> : <>Adicionar à minha conta <ArrowRight size={18} /></>}
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ol className="space-y-2 text-[15px] leading-relaxed">
-                                                    <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold tabular-nums">1</span>Abra o app Breww no celular e entre na sua conta.</li>
-                                                    <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold tabular-nums">2</span><span>Toque em <b>Adicionar aparelho</b> e escolha o Breww em <b>Buscar na rede</b> (no mesmo Wi-Fi){pair ? ' ou digite o código acima' : ''}.</span></li>
-                                                </ol>
-                                                <div className="flex flex-wrap items-center gap-3">
-                                                    <button type="button" className={btnPrimary} onClick={() => { setAddedInApp(true); setStep('done'); }}>Pronto, adicionei no app <ArrowRight size={18} /></button>
-                                                    <button type="button" className={btnGhost} onClick={() => { setAddedInApp(false); setStep('done'); }}>Ainda não tenho o app</button>
+                                                <div className="flex flex-wrap gap-3">
+                                                    <button type="button" className={btnPrimary} onClick={bind} disabled={busy}>Tentar de novo <ArrowRight size={18} /></button>
+                                                    <button type="button" className={btnGhost} onClick={() => { setAddedInApp(false); setStep('done'); }}>Termino pelo app</button>
                                                 </div>
-                                                <p className="text-sm text-[var(--muted)]">Sem conta? <a href="/register" target="_blank" rel="noopener noreferrer" className="inline-block py-3 font-medium text-[var(--ink)] underline underline-offset-4">Criar conta grátis</a></p>
+                                                <p className="text-sm text-[var(--muted)]">Pelo app: <b>Adicionar aparelho</b> e o código abaixo.</p>
+                                                {PairPanel}
                                             </>
-                                        )}
+                                        ) : null}
+                                        {StatusPanel}
                                     </>
                                 )}
                             </div>
@@ -677,9 +724,11 @@ export const InstallWizard: React.FC = () => {
                                 <Heading title={linked ? 'Seu Breww está na sua conta' : 'A placa está pronta'}
                                     text={!headless
                                         ? 'Termine na tela da placa: escolha o Wi-Fi e, no app, leia o QR code que aparece nela. Depois desligue a placa e ligue os sensores; os relés e a tomada ficam por último.'
-                                        : linked || addedInApp
-                                            ? 'Agora desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'
-                                            : 'Guarde o código abaixo para adicionar no app quando tiver. Depois desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'} />
+                                        : linked
+                                            ? <>Ele aparece no app Breww quando você entrar com a conta {session ? <b className="text-[var(--ink)]">de {session.name}</b> : 'que usou aqui'}. Agora desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.</>
+                                            : addedInApp
+                                                ? 'Agora desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'
+                                                : 'Falta colocar o aparelho na conta: no app, Adicionar aparelho, com o código abaixo ou em Buscar na rede. Depois desligue a placa do USB e ligue os sensores; os relés e a tomada ficam por último.'} />
                                 {headless && !linked && !addedInApp && PairPanel}
                                 {StatusPanel}
                                 <p className="flex items-center gap-2 text-sm text-[var(--muted)]"><Smartphone size={16} className="shrink-0" />O app Breww está em teste para iPhone e Android e chega às lojas em breve.</p>

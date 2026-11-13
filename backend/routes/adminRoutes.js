@@ -66,6 +66,7 @@ export const registerAdminRoutes = ({
         await pool.execute('DELETE FROM recipe_steps WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)', [id]);
         await pool.execute('DELETE FROM recipes WHERE user_id = ?', [id]);
         await pool.execute('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
+        await Promise.resolve(pool.execute('DELETE FROM install_events WHERE user_id = ?', [id])).catch(() => {}); // funil da instalacao
         const [devices] = await pool.execute('SELECT id, serial_code FROM devices WHERE user_id = ?', [id]);
         for (const dev of devices) await deleteDeviceCascade(dev.id, dev.serial_code);
         await pool.execute('DELETE FROM users WHERE id = ?', [id]);

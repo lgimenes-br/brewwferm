@@ -6,7 +6,7 @@ import { SiteHeader, SiteFooter } from './SiteChrome';
 // O controlador aparece so como a marca Breww por enquanto (decisao do dono, 12/11/2026).
 
 export const LEGAL_EMAIL = 'contato@breww.live';
-export const LEGAL_UPDATED = '12 de novembro de 2026';
+export const LEGAL_UPDATED = '13 de novembro de 2026';
 
 const Page: React.FC<{ title: string; intro: React.ReactNode; children: React.ReactNode }> = ({ title, intro, children }) => (
     <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
@@ -44,6 +44,7 @@ export const Privacy: React.FC = () => {
                     <li><b>Biblioteca de perfis:</b> os perfis que você publica aparecem para outros usuários com o seu primeiro nome.</li>
                     <li><b>Notificações:</b> o token de notificação do celular ou do navegador.</li>
                     <li><b>Lista de espera:</b> se você pede aviso do controlador pronto ou do plano Pro na página inicial, guardamos só o e-mail e o que você pediu, sem precisar de conta.</li>
+                    <li><b>Instalação pelo site:</b> quando você usa o assistente de instalação com a sua conta, registramos as etapas (placa e chip detectados, versão do firmware, número de série, falhas e conclusão), sem o nome nem a senha do seu Wi-Fi.</li>
                     <li><b>Integrações que você ativa:</b> o endereço de envio do Brewfather e os dados do bot do Telegram.</li>
                     <li><b>Segurança e diagnóstico:</b> endereço IP e horário de logins e de ações administrativas, e registros técnicos dos aparelhos (reinícios, falhas de conexão, lentidão).</li>
                     <li><b>Erros técnicos:</b> quando o site, o app ou o servidor falham, registramos a mensagem do erro, a tela, o tipo de aparelho e a versão, sem o conteúdo dos seus lotes.</li>
@@ -55,9 +56,9 @@ export const Privacy: React.FC = () => {
                     <li>Prestar o serviço: mostrar as leituras, seguir os perfis, enviar alertas e atualizações de firmware.</li>
                     <li>Proteger a sua conta e os aparelhos, e investigar abusos.</li>
                     <li>Dar suporte e corrigir falhas.</li>
-                    <li>Entender o uso de forma agregada para melhorar o Breww.</li>
+                    <li>Entender o uso de forma agregada para melhorar o Breww, como em que etapa da instalação as pessoas têm mais dificuldade.</li>
                 </ul>
-                <p>Não vendemos dados pessoais e não usamos os seus dados para publicidade.</p>
+                <p>Não vendemos dados pessoais e não usamos os seus dados para publicidade. Podemos divulgar ou compartilhar estatísticas agregadas e anônimas (por exemplo, quais placas são mais usadas), que não identificam ninguém.</p>
             </section>
             <section>
                 <h2>4. Bases legais</h2>
@@ -88,6 +89,7 @@ export const Privacy: React.FC = () => {
                     <li><b>Leituras fora de um lote:</b> 30 dias.</li>
                     <li><b>Lista de espera:</b> até o aviso ser enviado, ou antes, se você pedir para sair escrevendo para {LEGAL_EMAIL}.</li>
                     <li><b>Registros técnicos dos aparelhos:</b> 30 dias.</li>
+                    <li><b>Etapas da instalação pelo site:</b> 24 meses; depois disso ficam só os números agregados.</li>
                     <li><b>Registros de acesso</b> (endereço IP e horário de uso): 12 meses, acima dos 6 meses que o Marco Civil da Internet exige.</li>
                     <li><b>Conta excluída:</b> fica 30 dias desativada, para o caso de engano, e depois é apagada com os aparelhos, lotes e leituras. Cópias de segurança são substituídas em até 2 meses.</li>
                 </ul>

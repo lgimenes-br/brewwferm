@@ -345,13 +345,13 @@ export const Installer: React.FC = () => {
                             <p className="mt-6 max-w-[34rem] text-pretty text-lg leading-relaxed text-[#c9ccd3]">
                                 {official
                                     ? 'Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente grava o firmware; depois a placa reinicia e o Wi-Fi e o vínculo com o app são feitos na tela dela.'
-                                    : 'Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente descobre qual é, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e mostra o código para adicionar no app.'}
+                                    : 'Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente descobre qual é, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e coloca o aparelho na sua conta, sem código.'}
                             </p>
                             <ul className="mt-8 space-y-3 text-[#c9ccd3]">
                                 {['Placa sem nenhum fio ligado', 'Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Rede Wi-Fi de 2,4 GHz e a senha dela'].map(t => (
                                     <li key={t} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{t}</li>
                                 ))}
-                                <li className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" /><span>Uma conta Breww (<Link to="/register" className="font-medium text-white underline underline-offset-4">criar grátis</Link>). O app está em teste: dá para adicionar o aparelho depois.</span></li>
+                                <li className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" /><span>Uma conta Breww: você entra ou cria a sua grátis logo no começo do assistente, com Google, Apple ou e-mail.</span></li>
                             </ul>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-[#0e1117]/70 p-7 sm:p-8">
