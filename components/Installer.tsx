@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Check, Cpu, Smartphone, Thermometer, ToggleRight, Usb, Wifi, Plug, Monitor, Droplets, CircleDot, Gauge, Link2, Unplug, Box, Power } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, Check, Smartphone, Thermometer, ToggleRight, Usb, Plug, Monitor, Droplets, CircleDot, Gauge, Link2, Unplug, Box, Power, Ear, LineChart } from 'lucide-react';
 import { SiteHeader, SiteFooter } from './SiteChrome';
 
 // Guia "Monte o seu" (/instalar), no mundo da home: malha so no topo, trilha fixa dos passos na linha verde,
@@ -62,11 +62,15 @@ export const BOARDS: Board[] = [
     },
 ];
 
-const PARTS = [
-    { icon: Thermometer, title: 'Sensor DS18B20', text: 'A versão à prova d’água, com cabo, e um resistor de 4,7 kΩ.' },
-    { icon: ToggleRight, title: 'Módulo de relé de 2 canais', text: 'Um canal liga o aquecimento, o outro a geladeira. Escolha um que aguente a corrente do aparelho.' },
-    { icon: Plug, title: 'Fonte 5 V', text: 'Um carregador USB comum alimenta a placa e o módulo de relé.' },
-    { icon: Box, title: 'Fios e uma caixa fechada', text: 'Jumpers para os sensores e uma caixa para a parte que vai na tomada.' },
+const partsFor = (official: boolean) => [
+    official
+        ? { icon: Thermometer, title: 'Sensor DS18B20', text: 'A versão à prova d’água, com conector JST para encaixar na placa.' }
+        : { icon: Thermometer, title: 'Sensor DS18B20', text: 'A versão à prova d’água, com cabo, e um resistor de 4,7 kΩ.' },
+    official
+        ? { icon: ToggleRight, title: 'Módulo de relé de 2 canais', text: 'Liga em nível alto, no conector JST 8P. Pelo menos 10 A por canal para a geladeira.' }
+        : { icon: ToggleRight, title: 'Módulo de relé de 2 canais', text: 'Um canal liga o aquecimento, o outro a geladeira. Pelo menos 10 A por canal.' },
+    { icon: Plug, title: 'Fonte 5 V', text: official ? 'Um carregador USB comum alimenta a placa.' : 'Um carregador USB comum alimenta a placa e o módulo de relé.' },
+    { icon: Box, title: 'Fios e uma caixa fechada', text: 'Fios para os sensores e uma caixa para a parte que vai na tomada.' },
 ];
 const EXTRAS = [
     { icon: Monitor, title: 'Tela OLED 0,96" ou LCD 20x4', text: 'I²C. Reconhecida sozinha ao ligar.' },
@@ -77,13 +81,15 @@ const EXTRAS = [
 
 const supportsWebSerial = typeof navigator !== 'undefined' && 'serial' in navigator;
 const isRelay = (w: Wire) => w.to.startsWith('Relé');
+const SENSOR_POWER: Wire[] = [{ pin: '3,3 V', to: 'Sensores · alimentação (fio vermelho)' }, { pin: 'GND', to: 'Sensores · terra (fio preto)' }];
+const RELAY_POWER: Wire[] = [{ pin: '5 V da fonte', to: 'Módulo de relé · VCC' }, { pin: 'GND', to: 'Módulo de relé · GND' }];
 
 const STEPS = [
     { id: 'pecas', label: 'Peças' },
     { id: 'gravar', label: 'Gravar' },
     { id: 'sensores', label: 'Sensores' },
     { id: 'reles', label: 'Relés' },
-    { id: 'app', label: 'No app' },
+    { id: 'app', label: 'Primeiro lote' },
 ];
 const paperGrid = {
     backgroundImage: 'linear-gradient(rgba(11,13,18,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,13,18,0.05) 1px, transparent 1px)',
@@ -133,8 +139,8 @@ const StepRail: React.FC = () => {
                         <li key={s.id}>
                             <a href={`#${s.id}`} aria-current={k === active ? 'step' : undefined}
                                 className={`flex min-h-12 items-center gap-2 text-sm transition-colors ${k === active ? 'font-medium text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
-                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k === active ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : k < active ? 'bg-[var(--accent)]/60 text-[var(--ink)]' : 'border border-dashed border-[var(--ink)]/35'}`}>{k + 1}</span>
-                                <span className={`truncate ${k === active ? '' : 'max-md:sr-only'}`}>{s.label}</span>
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k === active ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : k < active ? 'border border-[var(--ink)]/40' : 'border border-dashed border-[var(--ink)]/35'}`}>{k + 1}</span>
+                                <span className={`truncate ${k === active || (active < 0 && k === 0) ? '' : 'max-md:sr-only'}`}>{s.label}</span>
                             </a>
                         </li>
                     ))}
@@ -156,7 +162,7 @@ const WireMap: React.FC<{ wires: Wire[] }> = ({ wires }) => (
                 <span aria-hidden className="hidden h-[2px] rounded-full bg-[#1fa84a] sm:block" />
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-medium">{w.to}</span>
-                    {w.note && <span className={`rounded-full px-2.5 py-0.5 text-xs ${w.note === 'opcional' ? 'border border-dashed border-[var(--ink)]/25 text-[var(--muted)]' : 'border border-[var(--ink)]/20 text-[var(--ink)]'}`}>{w.note}</span>}
+                    {w.note && <span className={`rounded-full px-2.5 py-1 text-xs ${w.note === 'opcional' ? 'border border-dashed border-[var(--ink)]/25 text-[var(--muted)]' : 'border border-[var(--ink)]/20 text-[var(--ink)]'}`}>{w.note}</span>}
                 </span>
             </li>
         ))}
@@ -192,14 +198,23 @@ const SendToComputer: React.FC<{ dark?: boolean; url: string }> = ({ dark, url }
 };
 
 export const Installer: React.FC = () => {
-    const [boardId, setBoardId] = useState(BOARDS[0].id);
+    const [params, setParams] = useSearchParams();
+    const initial = BOARDS.some(b => b.id === params.get('placa')) ? params.get('placa')! : BOARDS[0].id;
+    const [boardId, setBoardIdState] = useState(initial);
+    const [boardNews, setBoardNews] = useState('');
+    const setBoardId = (id: string) => {
+        setBoardIdState(id);
+        setParams(p => { p.set('placa', id); return p; }, { replace: true, preventScrollReset: true });
+        setBoardNews(`Mostrando peças e ligações da ${BOARDS.find(b => b.id === id)?.name}`);
+    };
     const [version, setVersion] = useState<string | null>(null);
     const [manifestMissing, setManifestMissing] = useState(false);
     const boardButtons = useRef<(HTMLButtonElement | null)[]>([]);
     const board = BOARDS.find(b => b.id === boardId)!;
-    const headless = board.id !== 's3-35';
-    const sensorWires = board.wires.filter(w => !isRelay(w));
-    const relayWires = board.wires.filter(isRelay);
+    const official = board.id === 's3-35';
+    const sensorWires = official ? board.wires.filter(w => !isRelay(w)) : [...board.wires.filter(w => !isRelay(w)), ...SENSOR_POWER];
+    const relayWires = official ? board.wires.filter(isRelay) : [...board.wires.filter(isRelay), ...RELAY_POWER];
+    const PARTS = partsFor(official);
     const wizardUrl = `/instalar/assistente?placa=${board.id}`;
     const absWizardUrl = typeof window !== 'undefined' ? `${window.location.origin}${wizardUrl}` : wizardUrl;
 
@@ -216,10 +231,12 @@ export const Installer: React.FC = () => {
 
     // Radio de placas com setas (foco itinerante)
     const onBoardKey = (e: React.KeyboardEvent, k: number) => {
-        const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-        if (!d) return;
+        const last = BOARDS.length - 1;
+        const n = e.key === 'Home' ? 0 : e.key === 'End' ? last
+            : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? (k + 1) % BOARDS.length
+            : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? (k + last) % BOARDS.length : -1;
+        if (n < 0) return;
         e.preventDefault();
-        const n = (k + d + BOARDS.length) % BOARDS.length;
         setBoardId(BOARDS[n].id);
         boardButtons.current[n]?.focus();
     };
@@ -227,6 +244,7 @@ export const Installer: React.FC = () => {
     return (
         <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
             <SiteHeader />
+            <p className="sr-only" aria-live="polite">{boardNews}</p>
             <main>
                 {/* Topo, no papel milimetrado */}
                 <section className="relative" style={paperGrid}>
@@ -278,7 +296,7 @@ export const Installer: React.FC = () => {
                                             {on && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={13} strokeWidth={2.5} className="text-[var(--ink)]" /></span>}
                                         </span>
                                         <span className={`mt-1 block text-sm ${on ? 'text-[#a3a7b0]' : 'text-[var(--muted)]'}`}>{b.hint}</span>
-                                        {b.id === 'esp32-devkit' && <span className={`mt-3 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-[var(--accent)]/60 text-[var(--ink)]'}`}>Recomendada</span>}
+                                        {b.id === 'esp32-devkit' && <span className={`mt-3 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--ink)]' : 'border border-[var(--ink)]/25 text-[var(--ink)]'}`}>Recomendada</span>}
                                     </button>
                                 );
                             })}
@@ -310,12 +328,15 @@ export const Installer: React.FC = () => {
                         <div>
                             <StepTitle n={2} label="Gravar e conectar" dark>Grave e conecte <span className="text-[var(--accent)]">pelo navegador.</span></StepTitle>
                             <p className="mt-6 max-w-[34rem] text-pretty text-lg leading-relaxed text-[#c9ccd3]">
-                                Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente descobre qual é, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e coloca o aparelho na sua conta.
+                                {official
+                                    ? 'Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente grava o firmware; depois a placa reinicia e o Wi-Fi e o vínculo com o app são feitos na tela dela.'
+                                    : 'Antes de ligar qualquer fio: a placa sozinha no USB do computador. O assistente descobre qual é, grava o firmware certo, configura o Wi-Fi pelo mesmo cabo e mostra o código para adicionar no app.'}
                             </p>
                             <ul className="mt-8 space-y-3 text-[#c9ccd3]">
                                 {['Placa sem nenhum fio ligado', 'Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Rede Wi-Fi de 2,4 GHz e a senha dela'].map(t => (
                                     <li key={t} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{t}</li>
                                 ))}
+                                <li className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" /><span>O app Breww no celular e uma conta. <Link to="/register" className="font-medium text-white underline underline-offset-4">Criar conta grátis</Link></span></li>
                             </ul>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-[#0e1117]/70 p-7 sm:p-8">
@@ -332,21 +353,7 @@ export const Installer: React.FC = () => {
                                 )}
                             </div>
                             <p className="mt-5 flex gap-2 text-sm leading-relaxed text-[#c9ccd3]"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-[#ff8f9c]" />A gravação apaga o que estiver na placa.</p>
-                            <details className="group mt-6 rounded-2xl border border-dashed border-white/20 px-4">
-                                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
-                                    {headless ? 'O Wi-Fi não deu certo? Configure pelo celular' : 'Wi-Fi e app na placa com tela'}
-                                    <ArrowRight size={16} className="shrink-0 transition-transform group-open:rotate-90" />
-                                </summary>
-                                {headless ? (
-                                    <ol className="space-y-2 pb-4 text-sm leading-relaxed text-[#c9ccd3]">
-                                        <li>1. No celular, entre na rede <b className="text-white">Breww-XXXX</b> (o final aparece no nome da rede). A página abre sozinha.</li>
-                                        <li>2. Escolha o Wi-Fi da sua casa e digite a senha.</li>
-                                        <li>3. LED piscando devagar = sem Wi-Fi; aceso = conectado. Segurar o BOOT por 10 s apaga o Wi-Fi e abre a rede Breww de novo.</li>
-                                    </ol>
-                                ) : (
-                                    <p className="pb-4 text-sm leading-relaxed text-[#c9ccd3]">Depois de gravada, a placa reinicia mostrando o assistente na tela: escolha o Wi-Fi ali mesmo e, no app, leia o QR code que aparece.</p>
-                                )}
-                            </details>
+
                         </div>
                     </div>
                 </section>
@@ -356,7 +363,7 @@ export const Installer: React.FC = () => {
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
                         <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-end">
                             <StepTitle n={3} label="Sensores">Ligue os sensores. <span className="text-[var(--muted)]">Confira no app.</span></StepTitle>
-                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e veja a temperatura aparecer no app antes de partir para os relés.</p>
+                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e veja a temperatura aparecer no app antes de partir para os relés. Não apareceu? Confira o resistor e o pino de dados.</p>
                         </div>
                         <div className="mt-12 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
                             <div className="rounded-3xl bg-white p-6 sm:p-8">
@@ -365,10 +372,19 @@ export const Installer: React.FC = () => {
                                     <WireLegend />
                                 </div>
                                 <div className="mt-6"><WireMap wires={sensorWires} /></div>
-                                <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">
-                                    Alimente os sensores no 3,3 V e todos os GND juntos. O resistor de 4,7 kΩ vai entre o fio de dados e o 3,3 V. Dois DS18B20 podem dividir o mesmo pino.
-                                    {board.id === 's3-35' && ' Os fios de dados do DS18B20 e do DHT22 podem ir em qualquer ordem nos pinos 3 e 4 do JST 4P: a placa percebe e se ajusta sozinha.'}
-                                </p>
+                                {official ? (
+                                    <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">Os sensores encaixam no conector JST 4P. Os fios de dados do DS18B20 e do DHT22 podem ir em qualquer ordem nos pinos 3 e 4: a placa percebe e se ajusta sozinha.</p>
+                                ) : (
+                                    <div className="mt-6 rounded-2xl bg-[var(--bg)] p-4 sm:p-5">
+                                        <p className="text-sm font-medium">Os 3 fios do DS18B20</p>
+                                        <ul className="mt-3 space-y-2 text-sm">
+                                            {[['#d63a4d', 'Vermelho', '3,3 V'], ['#0B0D12', 'Preto', 'GND'], ['#e8c33c', 'Amarelo (ou branco)', 'pino de dados à sua escolha']].map(([c, cor, onde]) => (
+                                                <li key={cor} className="flex items-center gap-3"><span className="h-3 w-8 shrink-0 rounded-full" style={{ background: c }} aria-hidden /><span><b className="font-medium">{cor}</b> → {onde}</span></li>
+                                            ))}
+                                        </ul>
+                                        <p className="mt-3 text-pretty text-sm leading-relaxed text-[var(--muted)]">O resistor de 4,7 kΩ liga o fio amarelo ao vermelho. Dois DS18B20 podem dividir o mesmo pino. O número do pino vem impresso na placa, ao lado dele (o GPIO 26 aparece como “26” ou “D26”).</p>
+                                    </div>
+                                )}
                             </div>
                             {board.sensorPins ? (
                                 <div className="rounded-3xl border border-black/10 p-6 sm:p-8">
@@ -399,7 +415,7 @@ export const Installer: React.FC = () => {
                             <AlertTriangle size={22} className="mt-0.5 shrink-0 text-[#d63a4d]" />
                             <div>
                                 <p className="font-semibold">Aqui entra a tensão da tomada (110/220 V).</p>
-                                <p className="mt-1">Faça tudo com a extensão fora da tomada e a placa desligada do computador. Use caixa fechada e, sem experiência com elétrica, chame um eletricista.</p>
+                                <p className="mt-1 text-pretty">Faça tudo com a extensão fora da tomada e a placa desligada do computador. Use caixa fechada e, sem experiência com elétrica, chame um eletricista.</p>
                             </div>
                         </div>
 
@@ -411,32 +427,31 @@ export const Installer: React.FC = () => {
                                 </div>
                                 <div className="mt-6"><WireMap wires={relayWires} /></div>
                                 <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">
-                                    O módulo também recebe o 5 V e o GND da fonte. Tipo de relé padrão: <b className="text-[var(--ink)]">{board.relayDefault}</b>. Usa SSR ou outro tipo? Troque no app, em Hardware.
+                                    {official ? 'Os relés ligam no conector JST 8P da placa. ' : ''}Tipo de relé padrão: <b className="text-[var(--ink)]">{board.relayDefault}</b>. Usa SSR ou outro tipo? Troque no app, em Hardware.
                                 </p>
                             </div>
                             <div className="min-w-0 rounded-3xl bg-white p-6 sm:p-8">
                                 <h3 className="text-lg font-semibold tracking-tight">Lado da tomada</h3>
-                                {/* esquema: a fase passa pelo rele; o neutro vai direto */}
-                                <div className="mt-6 space-y-4 text-sm" role="img" aria-label="Esquema: a fase da tomada vai ao COM do relé, sai pelo NA e chega ao aparelho; o neutro vai direto da tomada ao aparelho.">
-                                    {[['Fase (L)', 'COM do relé', 'NA do relé', 'Aparelho'], ['Neutro (N)', '', '', 'Aparelho']].map((row, r) => (
-                                        <div key={r} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[6rem_1fr] sm:gap-3">
-                                            <span className="justify-self-start rounded-full bg-[var(--ink)] px-3 py-1.5 text-center text-white sm:justify-self-stretch">{row[0]}</span>
-                                            <span className="flex items-center gap-2">
-                                                {r === 0 ? (<>
-                                                    <span className="h-[3px] w-4 shrink-0 bg-[var(--ink)]" />
-                                                    <span className="shrink-0 rounded-lg border border-[var(--ink)]/20 px-2 py-1">COM</span>
-                                                    <span className="h-[3px] w-4 shrink-0 bg-[var(--ink)]" />
-                                                    <span className="shrink-0 rounded-lg border border-[var(--ink)]/20 px-2 py-1">NA</span>
-                                                    <span className="h-[3px] flex-1 bg-[var(--ink)]" />
-                                                </>) : <span className="h-[2px] flex-1 bg-[var(--ink)]/50" />}
-                                                <span className="shrink-0 rounded-lg bg-[var(--bg)] px-2 py-1 font-medium">{row[3]}</span>
+                                {/* esquema: a fase passa pelo rele de cada tomada; neutro e terra vao direto as duas tomadas */}
+                                <p className="mt-2 text-pretty text-sm text-[var(--muted)]">Você monta uma extensão com duas tomadas comandadas: uma para o aquecedor, outra para a geladeira.</p>
+                                <div className="mt-5 space-y-3 text-sm" role="img" aria-label="Esquema: a fase da extensão entra no COM de cada relé e sai pelo NA até a tomada do aquecedor e até a tomada da geladeira. O neutro e o terra vão direto às duas tomadas.">
+                                    {[['Fase (L)', 'Relé de aquecer', 'Tomada do aquecedor'], ['Fase (L)', 'Relé de resfriar', 'Tomada da geladeira'], ['Neutro (N)', '', 'Direto às duas tomadas'], ['Terra (PE)', '', 'Direto às duas tomadas']].map(([de, rele, ate], r) => (
+                                        <div key={r} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[6.5rem_1fr] sm:gap-3">
+                                            <span className={`justify-self-start rounded-full px-3 py-1.5 text-center sm:justify-self-stretch ${r < 2 ? 'bg-[var(--ink)] text-white' : 'border border-[var(--ink)]/30'}`}>{de}</span>
+                                            <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                                {rele ? (<>
+                                                    <span className="h-[3px] w-3 shrink-0 bg-[var(--ink)]" />
+                                                    <span className="shrink-0 rounded-lg border border-[var(--ink)]/20 px-2 py-1"><span className="text-[var(--muted)]">{rele}:</span> COM → NA</span>
+                                                    <span className="h-[3px] min-w-3 flex-1 bg-[var(--ink)] max-sm:hidden" />
+                                                </>) : <span className="h-[2px] min-w-3 flex-1 bg-[var(--ink)]/45 max-sm:w-6 max-sm:flex-none" />}
+                                                <span className="shrink-0 rounded-lg bg-[var(--bg)] px-2 py-1 font-medium">{ate}</span>
                                             </span>
                                         </div>
                                     ))}
                                 </div>
-                                <p className="mt-5 text-pretty text-sm leading-relaxed text-[var(--muted)]">Um relé para a geladeira, outro para o aquecedor. NA = normalmente aberto: o aparelho só liga quando o Breww manda.</p>
+                                <p className="mt-5 text-pretty text-sm leading-relaxed text-[var(--muted)]">NA = normalmente aberto: a tomada só recebe energia quando o Breww manda. Use relé de pelo menos 10 A e fio adequado à corrente do aparelho; o terra nunca passa pelo relé.</p>
                                 <ol className="mt-5 grid gap-2 border-t border-black/10 pt-5 text-sm sm:grid-cols-2">
-                                    {[[Unplug, 'Tire tudo da tomada'], [ToggleRight, 'Ligue os fios no relé'], [Box, 'Feche a caixa'], [Power, 'Só então ligue na tomada']].map(([Icon, t]: any, i) => (
+                                    {[[Unplug, 'Tire tudo da tomada'], [ToggleRight, 'Ligue os fios no relé'], [Box, 'Feche a caixa'], [Ear, 'Teste: mude o alvo no app e ouça cada relé estalar'], [Power, 'Só então ligue a extensão e os aparelhos']].map(([Icon, t]: any, i) => (
                                         <li key={t} className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg)]"><Icon size={14} /></span><span><span className="tabular-nums text-[var(--muted)]">{i + 1}.</span> {t}</span></li>
                                     ))}
                                 </ol>
@@ -448,26 +463,23 @@ export const Installer: React.FC = () => {
                 {/* 5. No app: o primeiro lote */}
                 <section id="app" className="scroll-mt-28 bg-[#F7F7F8]">
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
-                        <StepTitle n={5} label="No app">No app, <span className="text-[var(--muted)]">comece o primeiro lote.</span></StepTitle>
+                        <StepTitle n={5} label="Primeiro lote">No app, <span className="text-[var(--muted)]">comece o primeiro lote.</span></StepTitle>
                         <ol className="relative mt-14 grid gap-8 max-md:pl-12 md:grid-cols-3 md:gap-6">
-                            <div className="absolute bottom-4 left-[17px] top-4 w-[3px] rounded-full bg-[#1fa84a] md:bottom-auto md:left-0 md:right-0 md:top-[17px] md:h-[3px] md:w-auto" aria-hidden />
+                            <div className="absolute bottom-4 left-[18px] top-4 border-l-[3px] border-dashed border-[#1fa84a]/70 md:bottom-auto md:left-0 md:right-0 md:top-[17px] md:border-l-0 md:border-t-[3px]" aria-hidden />
                             {[
-                                { icon: Smartphone, title: 'Abra o app Breww', text: 'Entre com a mesma conta. O app para iPhone e Android está em teste e chega às lojas em breve.' },
-                                { icon: Wifi, title: 'Confira o aparelho', text: headless ? 'Se o assistente já colocou na conta, ele aparece na lista. Se não, toque em Adicionar aparelho e escolha em Buscar na rede.' : 'Toque em Adicionar aparelho e leia o QR code da tela da placa.' },
-                                { icon: Check, title: 'Escolha o perfil e comece', text: 'Primária, diacetil, cold crash: o controlador troca a temperatura sozinho e avisa se algo sair do ponto.' },
+                                { icon: Smartphone, title: 'Confira o aparelho no app', text: official ? 'No app, toque em Adicionar aparelho e leia o QR code da tela da placa. Ele aparece na lista com a temperatura.' : 'Ele aparece na lista com a temperatura. Se ainda não adicionou, toque em Adicionar aparelho e use o código do assistente.' },
+                                { icon: LineChart, title: 'Escolha o perfil', text: 'Primária, diacetil, cold crash: monte as etapas ou pegue um perfil pronto da biblioteca.' },
+                                { icon: Check, title: 'Comece o lote', text: 'O controlador troca a temperatura sozinho e avisa no celular se algo sair do ponto.' },
                             ].map(({ icon: Icon, title, text }) => (
                                 <li key={title} className="relative">
-                                    <span className="absolute -left-12 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--ink)] md:static" aria-hidden><Icon size={16} /></span>
+                                    <span className="absolute -left-12 top-0 flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-[var(--ink)]/35 bg-[#F7F7F8] text-[var(--ink)] md:static" aria-hidden><Icon size={16} /></span>
                                     <h3 className="text-xl font-semibold tracking-tight md:mt-6">{title}</h3>
                                     <p className="mt-2 text-pretty leading-relaxed text-[var(--muted)]">{text}</p>
                                 </li>
                             ))}
                         </ol>
                         <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center">
-                            <Link to="/register" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--ink)] px-6 text-[15px] font-medium text-white hover:bg-black">
-                                Ainda não tem conta? Criar grátis <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
-                            </Link>
-                            <p className="text-sm text-[var(--muted)]">Algo deu errado? Veja a <Link to="/ajuda" className="py-3 font-medium text-[var(--ink)] underline underline-offset-4">ajuda</Link>.</p>
+                            <p className="text-pretty text-sm text-[var(--muted)]">O app para iPhone e Android está em teste e chega às lojas em breve. Algo deu errado? Veja a <Link to="/ajuda" className="inline-block py-3.5 font-medium text-[var(--ink)] underline underline-offset-4">ajuda</Link>.</p>
                         </div>
                     </div>
                 </section>
