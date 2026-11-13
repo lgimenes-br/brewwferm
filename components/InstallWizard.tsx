@@ -10,6 +10,8 @@ import { DeviceLink, WifiNetwork } from '../services/deviceLink';
 
 // Assistente de instalacao (/instalar/assistente): conectar, identificar a placa, gravar, Wi-Fi pelo
 // mesmo cabo (Improv), vincular a conta e pronto. A pagina /instalar continua como guia (pecas e ligacoes).
+// Visual do mundo da home: titulo no papel milimetrado, trilha dos passos na linha verde (feito = cheio,
+// atual = aceso, futuro = tracejado) e leituras da placa em paineis de instrumento Grafite.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Step = 'connect' | 'board' | 'flash' | 'wifi' | 'link' | 'done';
@@ -22,8 +24,12 @@ const STEPS: { id: Step; label: string }[] = [
     { id: 'done', label: 'Pronto' },
 ];
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const paperGrid = {
+    backgroundImage: 'linear-gradient(rgba(11,13,18,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,13,18,0.05) 1px, transparent 1px)',
+    backgroundSize: '48px 48px',
+} as const;
 
-const btn = 'inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
+const btn = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
 const btnPrimary = `${btn} bg-[var(--accent)] text-[var(--ink)] hover:brightness-95`;
 const btnDark = `${btn} bg-[var(--ink)] text-white hover:bg-black`;
 const btnGhost = `${btn} border border-black/10 bg-white text-[var(--ink)] hover:bg-black/[0.03]`;
@@ -38,8 +44,8 @@ const Notice: React.FC<{ kind?: 'error' | 'warn' | 'info'; children: React.React
 
 const Heading: React.FC<{ title: React.ReactNode; text?: React.ReactNode }> = ({ title, text }) => (
     <div>
-        <h2 className="[font-family:var(--font-display)] text-[30px] font-light leading-tight tracking-[-0.03em] sm:text-[36px]">{title}</h2>
-        {text && <p className="mt-3 text-[16px] leading-relaxed text-[var(--muted)]">{text}</p>}
+        <h2 className="text-balance [font-family:var(--font-display)] text-4xl font-light leading-tight tracking-[-0.03em]">{title}</h2>
+        {text && <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted)]">{text}</p>}
     </div>
 );
 
@@ -47,7 +53,7 @@ const Bars: React.FC<{ rssi: number }> = ({ rssi }) => {
     const n = rssi > -55 ? 4 : rssi > -65 ? 3 : rssi > -75 ? 2 : 1;
     return (
         <span className="inline-flex items-end gap-[2px]" aria-label={`Sinal ${n} de 4`}>
-            {[1, 2, 3, 4].map(k => <span key={k} className={`w-[3px] rounded-sm ${k <= n ? 'bg-[var(--ink)]' : 'bg-black/15'}`} style={{ height: 4 + k * 3 }} />)}
+            {[1, 2, 3, 4].map(k => <span key={k} className={`w-[3px] rounded-sm ${k <= n ? 'bg-[#1fa84a]' : 'bg-black/15'}`} style={{ height: 4 + k * 3 }} />)}
         </span>
     );
 };
@@ -232,26 +238,39 @@ export const InstallWizard: React.FC = () => {
     return (
         <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
             <SiteHeader />
-            <main className="mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-6 lg:pt-14">
-                <Link to="/instalar" className="inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]"><ArrowLeft size={15} /> Guia de montagem</Link>
-                <h1 className="mt-4 [font-family:var(--font-display)] text-[40px] font-light leading-[1.02] tracking-[-0.035em] sm:text-[56px]">
-                    Instalar o Breww <span className="text-[var(--muted)]">no seu ESP32.</span>
-                </h1>
+            <main>
+                <div style={paperGrid}>
+                    <div className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6 lg:pb-14 lg:pt-12">
+                        <Link to="/instalar" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]"><ArrowLeft size={15} /> Guia de montagem</Link>
+                        <h1 className="mt-2 text-balance [font-family:var(--font-display)] text-[44px] font-light leading-[0.98] tracking-[-0.035em] sm:text-6xl lg:text-[72px]">
+                            Instalar o Breww <span className="text-[var(--muted)]">no seu ESP32.</span>
+                        </h1>
+                    </div>
+                </div>
+                <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
 
                 {/* progresso no celular */}
                 <div className="mt-8 lg:hidden">
-                    <div className="flex justify-between text-sm"><span className="font-medium">{STEPS[current].label}</span><span className="text-[var(--muted)]">Passo {current + 1} de {STEPS.length}</span></div>
-                    <div className="mt-2 h-1.5 rounded-full bg-black/[0.07]"><div className="h-full rounded-full bg-[var(--ink)] transition-all" style={{ width: `${((current + 1) / STEPS.length) * 100}%` }} /></div>
+                    <div className="flex justify-between text-sm"><span className="font-medium">{STEPS[current].label}</span><span className="tabular-nums text-[var(--muted)]">Passo {current + 1} de {STEPS.length}</span></div>
+                    <div className="relative mt-3 flex items-center justify-between" aria-hidden>
+                        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 border-t border-dashed border-[var(--ink)]/25" />
+                        <div className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-[#1fa84a] transition-all duration-500" style={{ width: `${(current / (STEPS.length - 1)) * 100}%` }} />
+                        {STEPS.map((s, k) => (
+                            <span key={s.id} className={`relative h-3 w-3 rounded-full ${k < current ? 'bg-[#1fa84a]' : k === current ? 'bg-[var(--accent)] ring-4 ring-[#1fa84a]/25' : 'border border-dashed border-[var(--ink)]/40 bg-[var(--bg)]'}`} />
+                        ))}
+                    </div>
                 </div>
 
-                <div className="mt-8 grid gap-8 lg:mt-12 lg:grid-cols-[220px_1fr] lg:gap-12">
+                <div className="mt-8 grid gap-8 lg:mt-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                     {/* passos no computador */}
-                    <ol className="hidden space-y-1 lg:block" aria-label="Passos da instalação">
+                    <ol className="relative hidden self-start lg:block" aria-label="Passos da instalação">
+                        <div className="absolute bottom-7 left-[13px] top-7 border-l border-dashed border-[var(--ink)]/25" aria-hidden />
+                        <div className="absolute left-[12px] top-7 w-[3px] rounded-full bg-[#1fa84a] transition-all duration-500" style={{ height: `calc((100% - 3.5rem) * ${current / (STEPS.length - 1)})` }} aria-hidden />
                         {STEPS.map((s, k) => (
                             <li key={s.id} aria-current={k === current ? 'step' : undefined}
-                                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] ${k === current ? 'bg-white font-medium shadow-[0_1px_0_rgba(0,0,0,0.04)]' : k < current ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
-                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[12px] ${k < current ? 'bg-[var(--ink)] text-[var(--accent)]' : k === current ? 'bg-[var(--accent)] text-[var(--ink)]' : 'border border-black/10'}`}>
-                                    {k < current ? <Check size={14} /> : String(k + 1).padStart(2, '0')}
+                                className={`relative flex min-h-14 items-center gap-4 text-[15px] ${k === current ? 'font-medium text-[var(--ink)]' : k < current ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
+                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs tabular-nums ${k < current ? 'bg-[#1fa84a] text-white' : k === current ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : 'border border-dashed border-[var(--ink)]/40 bg-[var(--bg)]'}`}>
+                                    {k < current ? <Check size={14} strokeWidth={2.5} /> : k + 1}
                                 </span>
                                 {s.label}
                             </li>
@@ -263,19 +282,18 @@ export const InstallWizard: React.FC = () => {
                         {step === 'connect' && (
                             <div className="space-y-7">
                                 <Heading title="Ligue a placa no computador" text="Use um cabo USB de dados. O assistente descobre qual placa é, grava o firmware certo, configura o Wi-Fi e coloca o aparelho na sua conta." />
-                                <div className="grid gap-3 sm:grid-cols-3">
+                                <ul className="divide-y divide-black/[0.07] border-y border-black/[0.07]">
                                     {[
                                         [Usb, 'Cabo de dados', 'Muitos cabos só carregam. Se a placa não aparecer, troque o cabo.'],
                                         [Monitor, 'Chrome ou Edge', 'No computador. Safari, Firefox e celular não acessam o USB.'],
                                         [Cpu, 'ESP32, S3 ou C3', 'Não sabe qual tem? O assistente descobre.'],
                                     ].map(([Icon, t, d]: any) => (
-                                        <div key={t} className="rounded-2xl bg-[var(--bg)] p-4">
-                                            <Icon size={20} className="text-[var(--ink)]" />
-                                            <p className="mt-3 font-medium">{t}</p>
-                                            <p className="mt-1 text-sm leading-snug text-[var(--muted)]">{d}</p>
-                                        </div>
+                                        <li key={t} className="flex gap-4 py-4">
+                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-[var(--accent)]"><Icon size={18} /></span>
+                                            <div><p className="font-medium">{t}</p><p className="mt-0.5 text-sm leading-snug text-[var(--muted)]">{d}</p></div>
+                                        </li>
                                     ))}
-                                </div>
+                                </ul>
                                 {!webSerialSupported() ? (
                                     <Notice kind="warn">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</Notice>
                                 ) : (
@@ -288,7 +306,7 @@ export const InstallWizard: React.FC = () => {
                                 )}
                                 {error && <Notice kind="error">{error}</Notice>}
                                 <details className="text-sm text-[var(--muted)]">
-                                    <summary className="cursor-pointer font-medium text-[var(--ink)]">A placa não aparece na lista</summary>
+                                    <summary className="flex min-h-11 cursor-pointer items-center font-medium text-[var(--ink)]">A placa não aparece na lista</summary>
                                     <ul className="mt-3 list-disc space-y-1.5 pl-5">
                                         <li>Troque o cabo USB: os que vêm com fones e luminárias costumam só carregar.</li>
                                         <li>Algumas placas precisam do driver do chip USB: <b>CH340</b> ou <b>CP210x</b>, no site do fabricante.</li>
@@ -311,10 +329,10 @@ export const InstallWizard: React.FC = () => {
                                 ) : (
                                     <>
                                         <Heading title={<>Encontramos um <span className="landing-mark">{chip.chip}</span></>} />
-                                        <dl className="grid gap-3 sm:grid-cols-3">
-                                            <div className="rounded-2xl bg-[var(--bg)] p-4"><dt className="text-sm text-[var(--muted)]">Chip</dt><dd className="mt-1 font-medium">{chip.description}</dd></div>
-                                            <div className="rounded-2xl bg-[var(--bg)] p-4"><dt className="text-sm text-[var(--muted)]">Memória</dt><dd className="mt-1 font-medium">{chip.flashSize || '—'}</dd></div>
-                                            <div className="rounded-2xl bg-[var(--bg)] p-4"><dt className="text-sm text-[var(--muted)]">Recursos</dt><dd className="mt-1 text-sm leading-snug">{chip.features.slice(0, 3).join(' · ') || '—'}</dd></div>
+                                        <dl className="on-dark grid gap-5 rounded-3xl bg-[var(--card)] p-6 text-white shadow-[0_30px_60px_-35px_rgba(11,13,18,0.7)] sm:grid-cols-[1.2fr_0.8fr_1.4fr] sm:p-7">
+                                            <div><dt className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Chip</dt><dd className="mt-1.5 text-lg font-medium">{chip.description}</dd></div>
+                                            <div><dt className="text-sm text-[#a3a7b0]">Memória</dt><dd className="mt-1.5 text-lg font-medium tabular-nums">{chip.flashSize || '—'}</dd></div>
+                                            <div><dt className="text-sm text-[#a3a7b0]">Recursos</dt><dd className="mt-1.5 text-sm leading-snug text-[#c9ccd3]">{chip.features.slice(0, 3).join(' · ') || '—'}</dd></div>
                                         </dl>
 
                                         {chip.chip.toUpperCase() === 'ESP32-S3' && (
@@ -371,15 +389,17 @@ export const InstallWizard: React.FC = () => {
                                         <button type="button" className={btnPrimary} onClick={flash} disabled={busy}><Usb size={18} /> Gravar o firmware</button>
                                     </>
                                 ) : (
-                                    <div>
-                                        <div className="flex items-baseline justify-between text-[15px]">
-                                            <span className="flex items-center gap-2 font-medium"><Loader2 size={16} className="animate-spin" />{stageLabel}</span>
-                                            {stage === 'write' && <span className="tabular-nums text-[var(--muted)]">{Math.round(progress * 100)}%</span>}
+                                    <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white shadow-[0_30px_60px_-35px_rgba(11,13,18,0.7)] sm:p-7" role="status">
+                                        <div className="flex items-end justify-between gap-4">
+                                            <span className="flex items-center gap-2 text-[15px] text-[#c9ccd3]"><Loader2 size={16} className="animate-spin text-[var(--accent)]" />{stageLabel}</span>
+                                            <span className="[font-family:var(--font-display)] text-[56px] font-light leading-none tracking-[-0.04em] tabular-nums">
+                                                {stage === 'write' ? Math.round(progress * 100) : '…'}<span className="text-2xl text-[#a3a7b0]">{stage === 'write' ? '%' : ''}</span>
+                                            </span>
                                         </div>
-                                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/[0.07]">
+                                        <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
                                             <div className={`h-full rounded-full bg-[var(--accent)] transition-all ${stage !== 'write' ? 'w-1/3 animate-pulse' : ''}`} style={stage === 'write' ? { width: `${Math.max(3, progress * 100)}%` } : undefined} />
                                         </div>
-                                        {version && <p className="mt-3 text-sm text-[var(--muted)]">Firmware {version}</p>}
+                                        {version && <p className="mt-4 text-sm text-[#a3a7b0]">Firmware {version}</p>}
                                     </div>
                                 )}
                                 {error && <><Notice kind="error">{error}</Notice><button type="button" className={btnGhost} onClick={flash} disabled={busy}><RefreshCw size={16} /> Tentar de novo</button></>}
@@ -474,7 +494,7 @@ export const InstallWizard: React.FC = () => {
                                         ) : (
                                             <div className="rounded-2xl bg-[var(--card)] p-6 text-white">
                                                 <p className="text-sm text-[#898E99]">Código do aparelho</p>
-                                                <p className="mt-1 font-mono text-[34px] tracking-[0.18em] text-[var(--accent)]">{pair.code}</p>
+                                                <p className="mt-1 font-mono text-4xl tracking-[0.12em] text-[var(--accent)] tabular-nums">{pair.code}</p>
                                                 <p className="mt-1 text-sm text-[#898E99]">ID {pair.id}</p>
                                             </div>
                                         )}
@@ -521,6 +541,7 @@ export const InstallWizard: React.FC = () => {
                             </div>
                         )}
                     </section>
+                </div>
                 </div>
             </main>
             <SiteFooter />
