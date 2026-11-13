@@ -229,6 +229,24 @@ export class DeviceLink {
         return null;
     }
 
+    /**
+     * Estado do aparelho pelo cabo (comando "status" do firmware sem tela):
+     * "[Status] placa X | modo N | temp 21.50 / alvo 18.00 | Wi-Fi conectado (Casa) | nuvem conectada".
+     * temp exatamente 0 = nenhum sensor lido ainda (o firmware comeca em 0 e so troca com leitura valida).
+     */
+    async status(timeoutMs = 3000): Promise<{ temp: number | null; target: number; wifi: boolean; ssid: string; cloud: boolean } | null> {
+        const m = await this.command('status', /\[Status\].*?temp\s*(-?[\d.]+)\s*\/\s*alvo\s*(-?[\d.]+)\s*\|\s*Wi-Fi\s*(\S+)\s*\((.*?)\)\s*\|\s*nuvem\s*(\S+)/i, timeoutMs);
+        if (!m) return null;
+        const t = parseFloat(m[1]);
+        return {
+            temp: Number.isFinite(t) && t !== 0 ? t : null,
+            target: parseFloat(m[2]),
+            wifi: m[3].toLowerCase().startsWith('conectado'),
+            ssid: m[4],
+            cloud: m[5].toLowerCase().startsWith('conectada'),
+        };
+    }
+
     async close() {
         this.closed = true;
         try { await this.reader?.cancel(); } catch { /* ok */ }

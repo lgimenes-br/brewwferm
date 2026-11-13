@@ -134,13 +134,24 @@ const StepRail: React.FC = () => {
     return (
         <nav aria-label="Passos do guia" className="sticky top-[60px] z-20 border-b border-black/5 bg-[var(--bg)]">
             <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-                <ol className="grid grid-cols-5">
+                {/* celular: passo atual por extenso + pontos clicaveis */}
+                <div className="flex min-h-12 items-center justify-between gap-3 md:hidden">
+                    <span className="truncate text-sm"><span className="font-medium">{STEPS[Math.max(0, active)].label}</span> <span className="tabular-nums text-[var(--muted)]">· Passo {Math.max(0, active) + 1} de {STEPS.length}</span></span>
+                    <span className="flex shrink-0 items-center">
+                        {STEPS.map((s, k) => (
+                            <a key={s.id} href={`#${s.id}`} aria-label={`Passo ${k + 1}: ${s.label}`} aria-current={k === active ? 'step' : undefined} className="flex h-11 w-11 items-center justify-center">
+                                <span className={`h-2.5 w-2.5 rounded-full ${k === active ? 'bg-[var(--accent)] ring-4 ring-[#1fa84a]/20' : k < active ? 'border border-[var(--ink)]/50' : 'border border-dashed border-[var(--ink)]/40'}`} />
+                            </a>
+                        ))}
+                    </span>
+                </div>
+                <ol className="hidden grid-cols-5 md:grid">
                     {STEPS.map((s, k) => (
                         <li key={s.id}>
                             <a href={`#${s.id}`} aria-current={k === active ? 'step' : undefined}
                                 className={`flex min-h-12 items-center gap-2 text-sm transition-colors ${k === active ? 'font-medium text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
                                 <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k === active ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : k < active ? 'border border-[var(--ink)]/40' : 'border border-dashed border-[var(--ink)]/35'}`}>{k + 1}</span>
-                                <span className={`truncate ${k === active || (active < 0 && k === 0) ? '' : 'max-md:sr-only'}`}>{s.label}</span>
+                                <span className="truncate">{s.label}</span>
                             </a>
                         </li>
                     ))}
@@ -199,11 +210,14 @@ const SendToComputer: React.FC<{ dark?: boolean; url: string }> = ({ dark, url }
 
 export const Installer: React.FC = () => {
     const [params, setParams] = useSearchParams();
-    const initial = BOARDS.some(b => b.id === params.get('placa')) ? params.get('placa')! : BOARDS[0].id;
+    const fromUrl = BOARDS.some(b => b.id === params.get('placa'));
+    const initial = fromUrl ? params.get('placa')! : BOARDS[0].id;
+    const [chosen, setChosen] = useState(fromUrl);
     const [boardId, setBoardIdState] = useState(initial);
     const [boardNews, setBoardNews] = useState('');
     const setBoardId = (id: string) => {
         setBoardIdState(id);
+        setChosen(true);
         setParams(p => { p.set('placa', id); return p; }, { replace: true, preventScrollReset: true });
         setBoardNews(`Mostrando peças e ligações da ${BOARDS.find(b => b.id === id)?.name}`);
     };
@@ -215,7 +229,7 @@ export const Installer: React.FC = () => {
     const sensorWires = official ? board.wires.filter(w => !isRelay(w)) : [...board.wires.filter(w => !isRelay(w)), ...SENSOR_POWER];
     const relayWires = official ? board.wires.filter(isRelay) : [...board.wires.filter(isRelay), ...RELAY_POWER];
     const PARTS = partsFor(official);
-    const wizardUrl = `/instalar/assistente?placa=${board.id}`;
+    const wizardUrl = chosen ? `/instalar/assistente?placa=${board.id}` : '/instalar/assistente';
     const absWizardUrl = typeof window !== 'undefined' ? `${window.location.origin}${wizardUrl}` : wizardUrl;
 
     useEffect(() => { document.title = 'Monte o seu Breww — Guia de montagem'; }, []);
@@ -247,7 +261,7 @@ export const Installer: React.FC = () => {
             <p className="sr-only" aria-live="polite">{boardNews}</p>
             <main>
                 {/* Topo, no papel milimetrado */}
-                <section className="relative" style={paperGrid}>
+                <section className="relative" style={paperGrid} data-topo>
                     <div className="mx-auto max-w-6xl px-4 pb-16 pt-14 sm:px-6 lg:pb-24 lg:pt-20">
                         <h1 className="max-w-[18ch] text-balance [font-family:var(--font-display)] text-[44px] font-light leading-[0.98] tracking-[-0.035em] sm:text-7xl lg:text-[84px]">
                             Monte o seu Breww. <span className="landing-mark">Sem compilar nada.</span>
@@ -263,6 +277,7 @@ export const Installer: React.FC = () => {
                                 <Usb size={17} /> Já tenho as peças: gravar
                             </a>
                         </div>
+                        <p className="mt-6 flex items-start gap-2 text-sm text-[var(--muted)]"><Smartphone size={16} className="mt-0.5 shrink-0" />O app para iPhone e Android está em teste e chega às lojas em breve. Dá para montar e gravar agora: o assistente mostra a leitura da placa pelo cabo.</p>
                     </div>
                 </section>
 
@@ -312,7 +327,7 @@ export const Installer: React.FC = () => {
                         </ul>
                         <h3 className="mt-12 text-lg font-semibold tracking-tight">Se quiser mais <span className="font-normal text-[var(--muted)]">· opcionais</span></h3>
                         <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            {EXTRAS.map(({ icon: Icon, title, text }) => (
+                            {EXTRAS.filter(x => !official || !/Tela OLED|Dois botões/.test(x.title)).map(({ icon: Icon, title, text }) => (
                                 <li key={title} className="flex gap-3 rounded-2xl border border-dashed border-[var(--ink)]/25 p-4">
                                     <Icon size={18} strokeWidth={1.75} className="mt-0.5 shrink-0 text-[var(--muted)]" />
                                     <div><p className="font-medium">{title}</p><p className="text-pretty text-sm text-[var(--muted)]">{text}</p></div>
@@ -336,7 +351,7 @@ export const Installer: React.FC = () => {
                                 {['Placa sem nenhum fio ligado', 'Chrome ou Edge, no computador', 'Cabo USB de dados (alguns só carregam)', 'Rede Wi-Fi de 2,4 GHz e a senha dela'].map(t => (
                                     <li key={t} className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />{t}</li>
                                 ))}
-                                <li className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" /><span>O app Breww no celular e uma conta. <Link to="/register" className="font-medium text-white underline underline-offset-4">Criar conta grátis</Link></span></li>
+                                <li className="flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" /><span>Uma conta Breww (<Link to="/register" className="font-medium text-white underline underline-offset-4">criar grátis</Link>). O app está em teste: dá para adicionar o aparelho depois.</span></li>
                             </ul>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-[#0e1117]/70 p-7 sm:p-8">
@@ -363,9 +378,9 @@ export const Installer: React.FC = () => {
                     <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-28">
                         <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-end">
                             <StepTitle n={3} label="Sensores">Ligue os sensores. <span className="text-[var(--muted)]">Confira no app.</span></StepTitle>
-                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e veja a temperatura aparecer no app antes de partir para os relés. Não apareceu? {official ? 'Confira se o cabo está bem encaixado no JST 4P.' : 'Confira o resistor e o pino de dados.'}</p>
+                            <p className="max-w-md text-pretty text-lg leading-relaxed text-[var(--muted)]">Com a placa desligada do USB. Depois, religue e confira a temperatura antes de partir para os relés: {official ? 'ela aparece na tela da placa.' : <>no app ou, sem ele, no assistente: ligue a placa no USB e toque em <b className="text-[var(--ink)]">Continuar sem gravar</b>.</>} Não apareceu? {official ? 'Confira se o cabo está bem encaixado no JST 4P.' : 'Confira o resistor e o pino de dados.'}</p>
                         </div>
-                        <div className="mt-12 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                        <div className={`mt-12 grid gap-6 ${board.sensorPins ? 'lg:grid-cols-[1.4fr_1fr]' : ''}`}>
                             <div className="rounded-3xl bg-white p-6 sm:p-8">
                                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                                     <h3 className="text-lg font-semibold tracking-tight">Sensores · {board.name}</h3>
@@ -398,11 +413,7 @@ export const Installer: React.FC = () => {
                                         Ligue o DS18B20 e o DHT22 em qualquer um deles: a placa procura e acha sozinha. Os outros pinos são da própria placa (memória, boot, USB) ou dos relés e do I²C.
                                     </p>
                                 </div>
-                            ) : (
-                                <div className="rounded-3xl border border-black/10 p-6 sm:p-8 text-pretty text-sm leading-relaxed text-[var(--muted)]">
-                                    A placa com tela tem os conectores prontos: é só encaixar os cabos nos JST.
-                                </div>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </section>
@@ -420,41 +431,59 @@ export const Installer: React.FC = () => {
                         </div>
 
                         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-                            <div className="min-w-0 rounded-3xl bg-white p-6 sm:p-8">
-                                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                    <h3 className="text-lg font-semibold tracking-tight">Placa → módulo de relé</h3>
-                                    <WireLegend />
+                            <div className="min-w-0 space-y-6">
+                                <div className="rounded-3xl bg-white p-6 sm:p-8">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                        <h3 className="text-lg font-semibold tracking-tight">Placa → módulo de relé</h3>
+                                        <WireLegend />
+                                    </div>
+                                    <div className="mt-6"><WireMap wires={relayWires} /></div>
+                                    <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">
+                                        {official ? 'Os relés ligam no conector JST 8P da placa. ' : ''}Tipo de relé padrão: <b className="text-[var(--ink)]">{board.relayDefault}</b>. Usa SSR ou outro tipo? Troque no app, em Hardware.
+                                    </p>
                                 </div>
-                                <div className="mt-6"><WireMap wires={relayWires} /></div>
-                                <p className="mt-6 text-pretty text-sm leading-relaxed text-[var(--muted)]">
-                                    {official ? 'Os relés ligam no conector JST 8P da placa. ' : ''}Tipo de relé padrão: <b className="text-[var(--ink)]">{board.relayDefault}</b>. Usa SSR ou outro tipo? Troque no app, em Hardware.
-                                </p>
+                                <div className="rounded-3xl bg-white p-6 sm:p-8">
+                                    <h3 className="text-lg font-semibold tracking-tight">Na ordem, sempre desligado</h3>
+                                    <ol className="mt-5 space-y-4 text-[15px]">
+                                        {[
+                                            [Unplug, 'Desligue tudo', 'Extensão fora da tomada e placa fora do computador.'],
+                                            [ToggleRight, 'Ligue os fios', 'Placa ao módulo de relé e o lado da tomada, como no esquema.'],
+                                            [Box, 'Feche a caixa', 'Nenhum fio de 110/220 V exposto.'],
+                                            [Ear, 'Teste os relés', 'Só a placa na fonte USB, extensão ainda fora da tomada: mude o alvo e ouça cada relé estalar.'],
+                                            [Power, 'Ligue na tomada', 'Agora a extensão na parede e os aparelhos nas tomadas dela.'],
+                                        ].map(([Icon, t, d]: any, i) => (
+                                            <li key={t} className="flex gap-3">
+                                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--bg)]"><Icon size={15} /></span>
+                                                <span><b className="font-medium"><span className="tabular-nums text-[var(--muted)]">{i + 1}.</span> {t}.</b> <span className="text-pretty text-[var(--muted)]">{d}</span></span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                </div>
                             </div>
                             <div className="min-w-0 rounded-3xl bg-white p-6 sm:p-8">
                                 <h3 className="text-lg font-semibold tracking-tight">Lado da tomada</h3>
-                                {/* esquema: a fase passa pelo rele de cada tomada; neutro e terra vao direto as duas tomadas */}
                                 <p className="mt-2 text-pretty text-sm text-[var(--muted)]">Você monta uma extensão com duas tomadas comandadas: uma para o aquecedor, outra para a geladeira.</p>
-                                <div className="mt-5 space-y-3 text-sm" role="img" aria-label="Esquema: a fase da extensão entra no COM de cada relé e sai pelo NA até a tomada do aquecedor e até a tomada da geladeira. O neutro e o terra vão direto às duas tomadas.">
-                                    {[['Fase (L)', 'Relé de aquecer', 'Tomada do aquecedor'], ['Fase (L)', 'Relé de resfriar', 'Tomada da geladeira'], ['Neutro (N)', '', 'Direto às duas tomadas'], ['Terra (PE)', '', 'Direto às duas tomadas']].map(([de, rele, ate], r) => (
-                                        <div key={r} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[6.5rem_1fr] sm:gap-3">
-                                            <span className={`justify-self-start rounded-full px-3 py-1.5 text-center sm:justify-self-stretch ${r < 2 ? 'bg-[var(--ink)] text-white' : 'border border-[var(--ink)]/30'}`}>{de}</span>
-                                            <span className="flex min-w-0 flex-wrap items-center gap-2">
-                                                {rele ? (<>
-                                                    <span className="h-[3px] w-3 shrink-0 bg-[var(--ink)]" />
-                                                    <span className="shrink-0 rounded-lg border border-[var(--ink)]/20 px-2 py-1"><span className="text-[var(--muted)]">{rele}:</span> COM → NA</span>
-                                                    <span className="h-[3px] min-w-3 flex-1 bg-[var(--ink)] max-sm:hidden" />
-                                                </>) : <span className="h-[2px] min-w-3 flex-1 bg-[var(--ink)]/45 max-sm:w-6 max-sm:flex-none" />}
-                                                <span className="shrink-0 rounded-lg bg-[var(--bg)] px-2 py-1 font-medium">{ate}</span>
-                                            </span>
-                                        </div>
-                                    ))}
+                                {/* trilha: a fase da extensao se divide e passa por cada rele; neutro e terra vao direto */}
+                                <div className="mt-6 text-sm" role="img" aria-label="Esquema: a fase da extensão se divide em duas. Uma vai ao COM do relé de aquecer e sai pelo NA até a tomada do aquecedor; a outra vai ao COM do relé de resfriar e sai pelo NA até a tomada da geladeira. O neutro e o terra vão direto às duas tomadas, sem passar pelos relés.">
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-[var(--ink)] px-3 py-1.5 text-white">Fase (L) da extensão</span>
+                                    <ul className="ml-5 mt-0 space-y-3 border-l-[3px] border-[var(--ink)] pb-1 pt-3">
+                                        {[['Relé de aquecer', 'Tomada do aquecedor'], ['Relé de resfriar', 'Tomada da geladeira']].map(([rele, ate]) => (
+                                            <li key={rele} className="relative flex flex-wrap items-center gap-2 pl-6 before:absolute before:left-0 before:top-[1.05rem] before:h-[3px] before:w-5 before:bg-[var(--ink)]">
+                                                <span className="rounded-lg border border-[var(--ink)]/25 px-2.5 py-1.5"><span className="text-[var(--muted)]">{rele}:</span> COM → NA</span>
+                                                <span className="inline-flex items-center gap-2"><ArrowRight size={16} className="shrink-0" aria-hidden /><span className="rounded-lg bg-[var(--bg)] px-2.5 py-1.5 font-medium">{ate}</span></span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="mt-6 space-y-3 border-t border-black/10 pt-5">
+                                        {[['Neutro (N)', 'azul-claro', '#7fb3e6'], ['Terra (PE)', 'verde ou verde-amarelo', 'repeating-linear-gradient(90deg,#2f9e4f 0 6px,#e8c33c 6px 12px)']].map(([fio, cor, bg]) => (
+                                            <p key={fio} className="flex flex-wrap items-center gap-2">
+                                                <span className="h-3 w-8 shrink-0 rounded-full" style={{ background: bg }} aria-hidden />
+                                                <b className="font-medium">{fio}</b><span className="text-[var(--muted)]">fio {cor} · direto às duas tomadas, sem passar pelo relé</span>
+                                            </p>
+                                        ))}
+                                    </div>
                                 </div>
-                                <p className="mt-5 text-pretty text-sm leading-relaxed text-[var(--muted)]">NA = normalmente aberto: a tomada só recebe energia quando o Breww manda. Use relé de pelo menos 10 A e fio adequado à corrente do aparelho; o terra nunca passa pelo relé.</p>
-                                <ol className="mt-5 grid gap-2 border-t border-black/10 pt-5 text-sm sm:grid-cols-2">
-                                    {[[Unplug, 'Tire tudo da tomada'], [ToggleRight, 'Ligue os fios no relé'], [Box, 'Feche a caixa'], [Ear, 'Teste: mude o alvo no app e ouça cada relé estalar'], [Power, 'Só então ligue a extensão e os aparelhos']].map(([Icon, t]: any, i) => (
-                                        <li key={t} className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg)]"><Icon size={14} /></span><span><span className="tabular-nums text-[var(--muted)]">{i + 1}.</span> {t}</span></li>
-                                    ))}
-                                </ol>
+                                <p className="mt-5 text-pretty text-sm leading-relaxed text-[var(--muted)]">No Brasil, a fase costuma ser preta, vermelha ou marrom; na dúvida, confira com um testador. NA = normalmente aberto: a tomada só recebe energia quando o Breww manda. Use relé de pelo menos 10 A e fio de 2,5 mm² (o mínimo da norma para tomadas).</p>
                             </div>
                         </div>
                     </div>

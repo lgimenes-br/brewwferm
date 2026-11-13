@@ -17,7 +17,7 @@ const result = (cmd: number, strings: string[]) => {
 const text = (s: string) => Array.from(new TextEncoder().encode(s));
 
 /** Porta falsa que responde como o firmware do Breww (improv_serial.cpp e ui_headless.cpp). */
-const fakeBoard = (opts: { wifiOk: boolean }) => {
+const fakeBoard = (opts: { wifiOk: boolean; temp?: string }) => {
     let push: (b: number[]) => void = () => {};
     const readable = new ReadableStream<Uint8Array>({ start(c) { push = (b) => c.enqueue(new Uint8Array(b)); } });
     const send = (b: number[]) => setTimeout(() => {
@@ -38,6 +38,7 @@ const fakeBoard = (opts: { wifiOk: boolean }) => {
             }
             const line = new TextDecoder().decode(chunk);
             if (line === 'codigo\n') send(text('[Vinculo] Codigo de confirmacao: 1A2B3C4D (ID 288485495464)\n'));
+            if (line === 'status\n') send(text(`[Status] placa Breww C3 | modo 0 | temp ${opts.temp ?? '21.50'} / alvo 18.00 | Wi-Fi conectado (Casa) | nuvem conectada\n`));
         },
     });
     return { open: async () => {}, close: async () => {}, readable, writable };
@@ -60,6 +61,18 @@ describe('DeviceLink (assistente de instalação)', () => {
         const link = await DeviceLink.open(fakeBoard({ wifiOk: false }));
         await link.waitImprov(3000);
         expect(await link.provision('Casa', 'errada', 3000)).toBe(false);
+        await link.close();
+    });
+
+    it('lê o estado pelo cabo: temperatura, Wi-Fi e nuvem', async () => {
+        const link = await DeviceLink.open(fakeBoard({ wifiOk: true }));
+        expect(await link.status(3000)).toEqual({ temp: 21.5, target: 18, wifi: true, ssid: 'Casa', cloud: true });
+        await link.close();
+    });
+
+    it('temperatura 0,00 = sensor ainda não ligado', async () => {
+        const link = await DeviceLink.open(fakeBoard({ wifiOk: true, temp: '0.00' }));
+        expect((await link.status(3000))?.temp).toBeNull();
         await link.close();
     });
 
