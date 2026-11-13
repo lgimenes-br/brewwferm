@@ -10,12 +10,13 @@ import { SiteHeader, SiteFooter } from './SiteChrome';
 
 export type Wire = { pin: string; to: string; note?: string; free?: boolean }; // free = o firmware acha sozinho (contorno tracejado)
 // sensorPins: onde o DS18B20 e o DHT22 podem ir (o firmware procura sozinho; igual a pins_sensor_candidate)
-export type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string; sensorPins?: number[] };
+// pinLabels: como o pino aparece impresso na placa (NodeMCU: D1, D2...); lite: versao com menos recursos (ESP8266)
+export type Board = { id: string; name: string; hint: string; wires: Wire[]; relayDefault: string; sensorPins?: number[]; pinLabels?: Record<number, string>; pinNote?: string; lite?: boolean; badge?: string };
 
 // Reles e I2C: pinos fixos de boards/*.h. Sensores: qualquer pino de sensorPins (detectados sozinhos, v2.9.2+)
 export const BOARDS: Board[] = [
     {
-        id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'A mais barata e fácil de achar (WROOM-32 / DevKit V1).',
+        id: 'esp32-devkit', name: 'ESP32 DevKit', hint: 'A mais fácil de achar (WROOM-32 / DevKit V1).',
         wires: [
             { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V', free: true },
             { pin: 'GPIO 26', to: 'Relé de aquecer · IN' },
@@ -25,6 +26,7 @@ export const BOARDS: Board[] = [
         ],
         relayDefault: 'Módulo de relé comum (liga em nível baixo)',
         sensorPins: [4, 13, 14, 16, 17, 18, 19, 23, 25, 32, 33],
+        badge: 'Recomendada',
     },
     {
         id: 's3-headless', name: 'ESP32-S3', hint: 'ESP32-S3-DevKitC ou similar, sem tela.',
@@ -39,7 +41,7 @@ export const BOARDS: Board[] = [
         sensorPins: [1, 2, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 21, 38, 39, 40, 41, 42, 47],
     },
     {
-        id: 'c3-headless', name: 'ESP32-C3', hint: 'SuperMini e parecidas. Bem pequena, poucos pinos, mas suficiente.',
+        id: 'c3-headless', name: 'ESP32-C3', hint: 'SuperMini e parecidas. Bem pequena, poucos pinos, mas suficiente.', badge: 'Mais barata',
         wires: [
             { pin: 'Qualquer livre', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V', free: true },
             { pin: 'GPIO 5', to: 'Relé de aquecer · IN' },
@@ -49,6 +51,21 @@ export const BOARDS: Board[] = [
         ],
         relayDefault: 'Módulo de relé comum (liga em nível baixo)',
         sensorPins: [0, 1, 3, 4, 20, 21],
+    },
+    {
+        id: 'esp8266-lite', name: 'ESP8266', hint: 'NodeMCU ou Wemos D1 mini, com 4 MB. Versão Lite do firmware.',
+        wires: [
+            { pin: 'D5, D6 ou D7', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V', free: true },
+            { pin: 'D1 (GPIO 5)', to: 'Relé de aquecer · IN' },
+            { pin: 'D2 (GPIO 4)', to: 'Relé de resfriar · IN' },
+            { pin: 'D5, D6 ou D7', to: 'DHT22 · dados', note: 'opcional', free: true },
+        ],
+        relayDefault: 'Módulo de relé comum (liga em nível baixo)',
+        sensorPins: [14, 12, 13],
+        pinLabels: { 14: 'D5', 12: 'D6', 13: 'D7' },
+        pinNote: 'Na NodeMCU e na D1 mini os pinos vêm impressos como D1, D2, D5… e não pelo número do GPIO: siga os nomes com “D”.',
+        lite: true,
+        badge: 'Lite',
     },
     {
         id: 's3-35', name: 'Breww com tela 3,5"', hint: 'A placa oficial com tela touch. À venda em breve.',
@@ -292,7 +309,7 @@ export const Installer: React.FC = () => {
                         </div>
 
                         <h3 className="mt-14 text-lg font-semibold tracking-tight" id="placa-titulo">Qual placa?</h3>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-labelledby="placa-titulo">
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" role="radiogroup" aria-labelledby="placa-titulo">
                             {BOARDS.map((b, k) => {
                                 const on = b.id === boardId;
                                 return (
@@ -304,18 +321,31 @@ export const Installer: React.FC = () => {
                                         tabIndex={on ? 0 : -1}
                                         onClick={() => setBoardId(b.id)}
                                         onKeyDown={e => onBoardKey(e, k)}
-                                        className={`rounded-2xl border p-4 text-left transition-colors ${on ? 'border-[var(--card)] bg-[var(--card)] text-white' : 'border-black/10 bg-white hover:border-black/25'}`}
+                                        className={`flex flex-col items-start rounded-2xl border p-4 text-left transition-colors ${on ? 'border-[var(--card)] bg-[var(--card)] text-white' : 'border-black/10 bg-white hover:border-black/25'}`}
                                     >
                                         <span className="flex items-center justify-between gap-2">
                                             <span className="font-semibold">{b.name}</span>
                                             {on && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={13} strokeWidth={2.5} className="text-[var(--ink)]" /></span>}
                                         </span>
                                         <span className={`mt-1 block text-sm ${on ? 'text-[#a3a7b0]' : 'text-[var(--muted)]'}`}>{b.hint}</span>
-                                        {b.id === 'esp32-devkit' && <span className={`mt-3 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--ink)]' : 'border border-[var(--ink)]/25 text-[var(--ink)]'}`}>Recomendada</span>}
+                                        {b.badge && <span className={`mt-3 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--ink)]' : b.lite ? 'border border-dashed border-[var(--ink)]/30 text-[var(--ink)]' : 'border border-[var(--ink)]/25 text-[var(--ink)]'}`}>{b.badge}</span>}
                                     </button>
                                 );
                             })}
                         </div>
+
+                        {board.lite && (
+                            <div className="mt-6 rounded-3xl border border-dashed border-[var(--ink)]/25 p-5 sm:p-6">
+                                <p className="font-semibold">O que muda na versão Lite</p>
+                                <p className="mt-1 max-w-[46rem] text-pretty text-[15px] leading-relaxed text-[var(--muted)]">O ESP8266 tem cerca de um quarto da memória do ESP32. O controle da fermentação, os perfis, o app, o iSpindel e as atualizações pelo app funcionam igual. Ficam de fora:</p>
+                                <ul className="mt-3 grid gap-x-8 gap-y-1.5 text-[15px] sm:grid-cols-2">
+                                    {['Telinha OLED/LCD, botões e sensores I²C (umidade só pelo DHT22)', 'Volta automática para a versão anterior se uma atualização falhar', 'Progresso da atualização no app (a placa some por um minuto e volta)', 'Troca automática de roteador em rede mesh'].map(t => (
+                                        <li key={t} className="flex gap-2.5"><span className="mt-2.5 h-px w-3 shrink-0 border-t border-dashed border-[var(--ink)]/40" aria-hidden />{t}</li>
+                                    ))}
+                                </ul>
+                                <p className="mt-3 text-sm text-[var(--muted)]">Comprando agora? O <button type="button" className="font-medium text-[var(--ink)] underline underline-offset-4" onClick={() => setBoardId('c3-headless')}>ESP32-C3 SuperMini</button> custa parecido e roda a versão completa.</p>
+                            </div>
+                        )}
 
                         <ul className="mt-12 grid gap-x-12 sm:grid-cols-2">
                             {PARTS.map(({ icon: Icon, title, text }) => (
@@ -327,7 +357,7 @@ export const Installer: React.FC = () => {
                         </ul>
                         <h3 className="mt-12 text-lg font-semibold tracking-tight">Se quiser mais <span className="font-normal text-[var(--muted)]">· opcionais</span></h3>
                         <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            {EXTRAS.filter(x => !official || !/Tela OLED|Dois botões/.test(x.title)).map(({ icon: Icon, title, text }) => (
+                            {EXTRAS.filter(x => !(official || board.lite) || !/Tela OLED|Dois botões/.test(x.title)).map(e => board.lite && e.title === 'Umidade' ? { ...e, text: 'DHT22 (a versão Lite não lê sensores I²C).' } : e).map(({ icon: Icon, title, text }) => (
                                 <li key={title} className="flex gap-3 rounded-2xl border border-dashed border-[var(--ink)]/25 p-4">
                                     <Icon size={18} strokeWidth={1.75} className="mt-0.5 shrink-0 text-[var(--muted)]" />
                                     <div><p className="font-medium">{title}</p><p className="text-pretty text-sm text-[var(--muted)]">{text}</p></div>
@@ -397,7 +427,7 @@ export const Installer: React.FC = () => {
                                                 <li key={cor} className="flex items-center gap-3"><span className="h-3 w-8 shrink-0 rounded-full" style={{ background: c }} aria-hidden /><span><b className="font-medium">{cor}</b> → {onde}</span></li>
                                             ))}
                                         </ul>
-                                        <p className="mt-3 text-pretty text-sm leading-relaxed text-[var(--muted)]">O resistor de 4,7 kΩ liga o fio amarelo ao vermelho. Dois DS18B20 podem dividir o mesmo pino. O número do pino vem impresso na placa, ao lado dele (o GPIO 26 aparece como “26” ou “D26”).</p>
+                                        <p className="mt-3 text-pretty text-sm leading-relaxed text-[var(--muted)]">O resistor de 4,7 kΩ liga o fio amarelo ao vermelho. Dois DS18B20 podem dividir o mesmo pino. {board.pinNote || 'O número do pino vem impresso na placa, ao lado dele (o GPIO 26 aparece como “26” ou “D26”).'}</p>
                                     </div>
                                 )}
                             </div>
@@ -406,11 +436,11 @@ export const Installer: React.FC = () => {
                                     <h3 className="text-lg font-semibold tracking-tight">Pinos à sua escolha</h3>
                                     <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Pinos livres para os sensores">
                                         {board.sensorPins.map(n => (
-                                            <li key={n} className="rounded-full border border-dashed border-[var(--ink)]/30 bg-white px-2.5 py-0.5 font-mono text-xs">{n}</li>
+                                            <li key={n} className="rounded-full border border-dashed border-[var(--ink)]/30 bg-white px-2.5 py-0.5 font-mono text-xs">{board.pinLabels?.[n] ? <>{board.pinLabels[n]} <span className="text-[var(--muted)]">· GPIO {n}</span></> : n}</li>
                                         ))}
                                     </ul>
                                     <p className="mt-4 text-pretty text-sm leading-relaxed text-[var(--muted)]">
-                                        Ligue o DS18B20 e o DHT22 em qualquer um deles: a placa procura e acha sozinha. Os outros pinos são da própria placa (memória, boot, USB) ou dos relés e do I²C.
+                                        Ligue o DS18B20 e o DHT22 em qualquer um deles: a placa procura e acha sozinha. Os outros pinos são da própria placa (memória, boot, USB) ou dos relés{board.lite ? '' : ' e do I²C'}.
                                     </p>
                                 </div>
                             ) : null}

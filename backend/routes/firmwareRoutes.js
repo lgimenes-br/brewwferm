@@ -22,9 +22,10 @@ export const BOARD_CHIP_FAMILY = {
     's3-35': 'ESP32-S3',
     'esp32-devkit': 'ESP32',
     's3-headless': 'ESP32-S3',
-    'c3-headless': 'ESP32-C3'
+    'c3-headless': 'ESP32-C3',
+    'esp8266-lite': 'ESP8266'
 };
-export const KNOWN_BOARDS = ['s3-35', 'esp32-devkit', 's3-headless', 'c3-headless'];
+export const KNOWN_BOARDS = ['s3-35', 'esp32-devkit', 's3-headless', 'c3-headless', 'esp8266-lite'];
 
 /** Placa pedida (header/query) ou a padrao; null se nao for uma placa conhecida */
 export const resolveBoard = (value) => {
@@ -61,11 +62,12 @@ export const compareSemver = (a, b) => {
     return 0;
 };
 
-/** Imagem de app do ESP32 comeca com o byte magico 0xE9 */
+/** Imagem de app do ESP32 (e do ESP8266) comeca com o byte magico 0xE9 */
 export const looksLikeEsp32Image = (buf) => Buffer.isBuffer(buf) && buf.length > 1024 && buf[0] === 0xe9;
 
 /** Imagem completa (bootloader+particoes+app, .merged.bin): o bootloader fica em 0x0 (S3/C3)
- *  ou em 0x1000 (ESP32 classico, comeca com 0xFF) */
+ *  ou em 0x1000 (ESP32 classico, comeca com 0xFF). No ESP8266 o .bin do Arduino ja traz o
+ *  bootloader (eboot) e vai em 0x0. */
 export const looksLikeEsp32InstallImage = (buf) => Buffer.isBuffer(buf) && buf.length > 0x10000
     && (buf[0] === 0xe9 || buf[0x1000] === 0xe9);
 

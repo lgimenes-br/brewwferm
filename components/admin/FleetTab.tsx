@@ -13,6 +13,7 @@ const BOARD_NAME: Record<string, string> = {
     'esp32-devkit': 'ESP32 DevKit',
     's3-headless': 'ESP32-S3 (sem tela)',
     'c3-headless': 'ESP32-C3 SuperMini',
+    'esp8266-lite': 'ESP8266 (Lite)',
 };
 const MODULE_NAME: Record<string, string> = {
     tela35: 'Tela touch 3,5"', oled: 'Tela OLED', lcd2004: 'LCD 20x4',

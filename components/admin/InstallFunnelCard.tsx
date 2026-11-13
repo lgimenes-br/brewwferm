@@ -15,7 +15,7 @@ const LABEL: Record<string, string> = {
     login: 'Entraram na conta', connect_ok: 'Conectaram a placa', flash_ok: 'Gravaram o firmware', wifi_ok: 'Configuraram o Wi-Fi', bind_ok: 'Aparelho na conta',
     connect_fail: 'Conexão', existing_fail: 'Placa já gravada', flash_fail: 'Gravação', wifi_fail: 'Wi-Fi', bind_fail: 'Vínculo',
 };
-const BOARD: Record<string, string> = { 'esp32-devkit': 'ESP32 DevKit', 'c3-headless': 'ESP32-C3', 's3-headless': 'ESP32-S3', 's3-35': 'Breww com tela 3,5"' };
+const BOARD: Record<string, string> = { 'esp32-devkit': 'ESP32 DevKit', 'c3-headless': 'ESP32-C3', 's3-headless': 'ESP32-S3', 's3-35': 'Breww com tela 3,5"', 'esp8266-lite': 'ESP8266 (Lite)' };
 const RANGES = [7, 30, 90] as const;
 type LogRow = { id: number; session: string; board: string | null; chip: string | null; email: string | null; last_event: string | null; updated_at: string; size: number };
 const LAST: Record<string, string> = { ...LABEL, existing_ok: 'Placa já gravada', done: 'Concluiu', login: 'Entrou na conta', connect_ok: 'Conectou a placa', flash_ok: 'Gravou', wifi_ok: 'Wi-Fi ok', bind_ok: 'Na conta' };

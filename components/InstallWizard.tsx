@@ -5,7 +5,7 @@ import { SiteHeader } from './SiteChrome';
 import { BOARDS } from './Installer';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { BoardId, ChipInfo, boardsForChip, detectChip, fetchFirmware, flashFirmware, requestPort, webSerialSupported } from '../services/espFlasher';
+import { BoardId, ChipInfo, boardsForChip, detectChip, flashTooSmall, fetchFirmware, flashFirmware, requestPort, webSerialSupported } from '../services/espFlasher';
 import { DeviceLink, WifiNetwork } from '../services/deviceLink';
 import { AccountStep, InstallSession } from './install/AccountStep';
 import { ilog, ilogReset, ilogSecret, installLogText } from '../services/installLog';
@@ -64,7 +64,7 @@ const Bars: React.FC<{ rssi: number }> = ({ rssi }) => {
 // Mesmos nomes do guia (components/Installer.tsx)
 const BOARD_NAME = Object.fromEntries(BOARDS.map(b => [b.id, b.name])) as Record<BoardId, string>;
 // Chip lido do firmware (Improv) -> placa sem tela
-const boardFromChip = (chip?: string): BoardId => { const c = (chip || '').toUpperCase(); return c.includes('C3') ? 'c3-headless' : c.includes('S3') ? 's3-headless' : 'esp32-devkit'; };
+const boardFromChip = (chip?: string): BoardId => { const c = (chip || '').toUpperCase(); return c.includes('8266') ? 'esp8266-lite' : c.includes('C3') ? 'c3-headless' : c.includes('S3') ? 's3-headless' : 'esp32-devkit'; };
 
 // Sessao do assistente: so nesta aba (sessionStorage). Nao usa a sessao do site, para a home continuar
 // sendo a home depois de instalar. Quem ja esta logado no site (admin) entra direto.
@@ -296,7 +296,7 @@ export const InstallWizard: React.FC = () => {
             ilog('site', 'Gravado; reabrindo a porta e esperando o firmware');
             const link = await DeviceLink.open(portRef.current, 12000);
             linkRef.current = link;
-            const usbBridge = board === 'esp32-devkit';
+            const usbBridge = board === 'esp32-devkit' || board === 'esp8266-lite'; // chip USB-serial: reinicio pelo EN
             try {
                 try { await link.waitImprov(usbBridge ? 7000 : 25000); } catch (e) {
                     if (!usbBridge) throw e;
@@ -602,9 +602,15 @@ export const InstallWizard: React.FC = () => {
                         {/* 2. PLACA */}
                         {step === 'board' && chip && (
                             <div className="space-y-7">
-                                {boardsForChip(chip.chip).length === 0 ? (
+                                {flashTooSmall(chip) ? (
                                     <>
-                                        <Heading title={<>Essa placa é um {chip.chip}</>} text="O Breww funciona com ESP32, ESP32-S3 e ESP32-C3. Essa placa não tem o que o firmware precisa." />
+                                        <Heading title={<>Esse ESP8266 tem só {chip.flashSize} de memória</>} text="A versão Lite precisa de 4 MB: o firmware e o espaço para as atualizações pelo app não cabem em menos. É o caso do ESP-01 e de algumas placas antigas." />
+                                        <Notice kind="warn">Use uma <b>NodeMCU</b> ou uma <b>Wemos D1 mini</b> (4 MB), ou um <b>ESP32-C3 SuperMini</b>, que custa parecido e roda a versão completa.</Notice>
+                                        <button type="button" className={btnGhost} onClick={restart}><RefreshCw size={16} /> Conectar outra placa</button>
+                                    </>
+                                ) : boardsForChip(chip.chip).length === 0 ? (
+                                    <>
+                                        <Heading title={<>Essa placa é um {chip.chip}</>} text="O Breww funciona com ESP32, ESP32-S3, ESP32-C3 e ESP8266 (versão Lite). Essa placa não tem o que o firmware precisa." />
                                         <Notice kind="warn">A mais fácil de achar é a <b>ESP32 DevKit (WROOM-32)</b>. Veja as opções no <Link to="/instalar#pecas" className="underline">guia de montagem</Link>.</Notice>
                                         <button type="button" className={btnGhost} onClick={restart}><RefreshCw size={16} /> Conectar outra placa</button>
                                     </>
@@ -632,6 +638,7 @@ export const InstallWizard: React.FC = () => {
                                             </fieldset>
                                         )}
 
+                                        {board === 'esp8266-lite' && <Notice>Versão <b>Lite</b>: controle, perfis, app e iSpindel funcionam igual; ficam de fora a telinha, os botões, os sensores I²C e a volta automática de versão. Os relés vão no <b>D1</b> e no <b>D2</b>.</Notice>}
                                         {mismatch && <Notice>No guia você escolheu <b>{BOARD_NAME[guideBoard!]}</b>, mas esta placa é <b>{BOARD_NAME[board!]}</b>. <b>Os pinos mudam:</b> na hora de ligar os fios, o guia já abre com a placa certa.</Notice>}
                                         <Notice kind="warn">A gravação apaga tudo o que estiver na placa e leva cerca de um minuto.</Notice>
                                         <div className="flex flex-wrap gap-3">

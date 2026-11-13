@@ -8,7 +8,7 @@ type Port = any; // SerialPort (Web Serial): os tipos ficam fora do tsconfig do 
 
 export const webSerialSupported = () => typeof navigator !== 'undefined' && 'serial' in navigator;
 
-export type BoardId = 'esp32-devkit' | 's3-headless' | 'c3-headless' | 's3-35';
+export type BoardId = 'esp32-devkit' | 's3-headless' | 'c3-headless' | 's3-35' | 'esp8266-lite';
 
 export interface ChipInfo {
     chip: string;           // "ESP32", "ESP32-S3", "ESP32-C3", "ESP8266"...
@@ -24,7 +24,15 @@ export const boardsForChip = (chip: string): BoardId[] => {
     if (c === 'ESP32') return ['esp32-devkit'];
     if (c === 'ESP32-S3') return ['s3-headless', 's3-35'];
     if (c === 'ESP32-C3') return ['c3-headless'];
+    if (c === 'ESP8266') return ['esp8266-lite']; // versao Lite (precisa de 4 MB de flash)
     return [];
+};
+
+/** ESP8266 com menos de 4 MB (ex.: ESP-01, 1 MB): o firmware + a area da atualizacao pelo app nao cabem */
+export const flashTooSmall = (info: ChipInfo) => {
+    if (info.chip.toUpperCase() !== 'ESP8266' || !info.flashSize) return false;
+    const m = /^(\d+)\s*MB/i.exec(info.flashSize);
+    return m ? Number(m[1]) < 4 : /KB/i.test(info.flashSize);
 };
 
 /** Pede ao navegador a porta da placa (abre a lista do sistema). */
