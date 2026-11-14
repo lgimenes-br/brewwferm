@@ -26,7 +26,17 @@ const createFakePool = () => {
                 db.device_keys.filter(k => k.serial_code === params[1]).forEach(k => { k.key_hash = params[0]; });
                 return [{}];
             }
+            if (q.startsWith('UPDATE device_keys SET last_public_ip')) {
+                db.device_keys.filter(k => k.serial_code === params[1]).forEach(k => { k.fresh = 1; }); // anunciou com a chave vinculada
+                return [{}];
+            }
             if (q.startsWith('UPDATE device_keys')) return [{}];
+            if (q.startsWith('SELECT key_hash, (last_seen')) return [db.device_keys.filter(k => k.serial_code === params[0]).map(k => ({ key_hash: k.key_hash, fresh: k.fresh ? 1 : 0 }))];
+            if (q.startsWith('INSERT INTO device_keys') && q.includes('ON DUPLICATE KEY UPDATE')) {
+                const k = db.device_keys.find(x => x.serial_code === params[0]);
+                if (k) { k.key_hash = params[1]; k.fresh = 0; } else db.device_keys.push({ serial_code: params[0], key_hash: params[1] });
+                return [{}];
+            }
             if (q.startsWith('SELECT key_hash FROM device_key_candidates')) return [db.candidates.filter(c => c.serial_code === params[0])];
             if (q.startsWith('SELECT key_hash, pair_code')) return [db.candidates.filter(c => c.serial_code === params[0])];
             if (q.startsWith('SELECT DISTINCT serial_code FROM device_key_candidates WHERE pair_code')) {
@@ -374,5 +384,28 @@ test('limite do plano: com a conta cheia, recusa com a mensagem do limite (e nao
         assert.equal(pool.db.devices.length, 2);
     } finally {
         server.close();
+    }
+});
+
+test('placa apagada da conta e gravada do zero (chave nova) volta pelo codigo ou pela mesma rede', async () => {
+    // Chave antiga orfa: ficou no serial depois que o dono apagou o aparelho (antes da correcao) e a placa
+    // nao a usa mais. A chave nova (codigo de confirmacao novo) tem de ganhar dela.
+    for (const withCode of [true, false]) {
+        const { server, call, pool, announce } = await startServer();
+        try {
+            pool.db.device_keys.push({ serial_code: SERIAL, key_hash: hashDeviceKey(KEY) }); // orfa, nao anunciada
+            let r = await announce(NEW_KEY);
+            assert.equal(r.status, 200, 'sem dono: a chave nova e candidata (aparece na rede)');
+            assert.equal(r.body.bound, false);
+            const body = withCode ? { serialCode: SERIAL, pairCode: derivePairCode(NEW_KEY) } : { serialCode: SERIAL };
+            r = await call('POST', '/api/devices', { user: 1, body });
+            assert.equal(r.status, 201, withCode ? 'com o codigo' : 'mesma rede, uma chave so');
+            assert.equal(pool.db.device_keys[0].key_hash, hashDeviceKey(NEW_KEY), 'passa a valer a chave que a placa usa');
+            r = await announce(NEW_KEY);
+            assert.equal(r.status, 200);
+            assert.equal(r.body.mqtt, true);
+        } finally {
+            server.close();
+        }
     }
 });

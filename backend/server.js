@@ -1074,6 +1074,12 @@ const deleteDeviceCascade = async (devId, serialCode) => {
         delete activeBatches[normalizedSerial];
         delete activeBatchesUserId[normalizedSerial];
         delete alertState[normalizedSerial];
+        // Desvincula de vez: sem a chave vinculada e sem a credencial MQTT, o aparelho volta a ser "sem dono"
+        // e qualquer pessoa com o codigo de confirmacao (ou na mesma rede) adiciona de novo, inclusive depois
+        // de gravar do zero (chave nova). Antes a chave antiga ficava presa ao serial e recusava a placa.
+        await pool.execute('DELETE FROM device_keys WHERE serial_code = ?', [normalizedSerial]).catch(e => console.error('Desvincular (chave):', e.message));
+        await pool.execute('DELETE FROM device_key_candidates WHERE serial_code = ?', [normalizedSerial]).catch(e => console.error('Desvincular (candidatas):', e.message));
+        await removeMqttCredential(normalizedSerial).catch(e => console.error('Desvincular (MQTT):', e?.message || e));
     }
 };
 
@@ -1194,9 +1200,9 @@ app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
 
 app.delete('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
-        const [devs] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
+        const [devs] = await pool.execute('SELECT id, serial_code FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
         if (devs.length === 0) return res.status(404).json({ error: 'Dispositivo não encontrado' });
-        await deleteDeviceCascade(devs[0].id, req.params.serial);
+        await deleteDeviceCascade(devs[0].id, devs[0].serial_code);
         await pool.execute('INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [req.user.id, 'DELETE_DEVICE', `Device: ${req.params.serial}`, req.ip || null]);
         notifyUpdate(req.params.serial);
         res.json({ message: 'Excluído' });

@@ -201,8 +201,11 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
             if (!match) return { error: 'O código de confirmação não confere. Confira o código mostrado no aparelho e se ele está ligado e com Wi-Fi.' };
             return { keyHash: match.key_hash, bound: false };
         }
-        const [boundRows] = await pool.execute('SELECT key_hash FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
-        if (boundRows.length) return { keyHash: boundRows[0].key_hash, bound: true }; // chave vinculada antes, sem dono
+        // Chave vinculada antes, sem dono: so vale se o aparelho estiver usando ela AGORA (anunciou com ela
+        // ha pouco). Uma chave orfa antiga (aparelho gravado do zero tem chave nova) nao ganha da real.
+        const [boundRows] = await pool.execute(
+            'SELECT key_hash, (last_seen > NOW() - INTERVAL 15 MINUTE) AS fresh FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
+        if (boundRows.length && Number(boundRows[0].fresh) === 1) return { keyHash: boundRows[0].key_hash, bound: true };
         const myIp = normalizeIp(req.ip);
         const sameNet = store.discover(req.ip).some(f => f.serial === serial);
         const local = cands.filter(c => normalizeIp(c.last_public_ip) === myIp);
@@ -211,8 +214,17 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
         return { error: 'Não achamos este aparelho na sua rede. Use o código de confirmação mostrado nele.', needsPairCode: true };
     };
 
-    /** Passa a valer a chave escolhida (se ainda era candidata). false = outra chave ganhou antes. */
-    const bindKey = async (serial, keyHash) => {
+    /**
+     * Passa a valer a chave escolhida (se ainda era candidata). false = outra chave ganhou antes.
+     * replaceOrphan: aparelho SEM dono e a chave escolhida pelo codigo ou pela mesma rede (a placa a usa
+     * agora): substitui uma chave orfa antiga (ex.: placa gravada do zero depois de apagada da conta).
+     */
+    const bindKey = async (serial, keyHash, replaceOrphan = false) => {
+        if (replaceOrphan) {
+            await pool.execute(
+                'INSERT INTO device_keys (serial_code, key_hash, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE key_hash = VALUES(key_hash), last_seen = NULL',
+                [serial, keyHash]);
+        }
         await pool.execute('INSERT IGNORE INTO device_keys (serial_code, key_hash, created_at) VALUES (?, ?, NOW())', [serial, keyHash]);
         const [bound] = await pool.execute('SELECT key_hash FROM device_keys WHERE serial_code = ? LIMIT 1', [serial]);
         if (!bound.length || !safeEqualHex(bound[0].key_hash, keyHash)) return false;
@@ -229,6 +241,13 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
         let result = await verifyDeviceKey(pool, serial, key, normalizeIp(req.ip) || null);
         // Troca de chave pedida pelo dono para esta chave: a placa pode receber e confirmar o pedido
         if (result === 'mismatch' && store.pendingForSerial(serial, hashDeviceKey(key))?.mode === 'rekey') result = 'candidate';
+        // Serial SEM dono com chave antiga orfa (ex.: placa gravada do zero depois de apagada da conta, antes
+        // de apagar desvincular): nada a proteger, a chave nova e candidata como numa placa nova (aparece em
+        // "Buscar na rede" e no vinculo pelo codigo). Com dono, continua recusada.
+        if (result === 'mismatch') {
+            const [own] = await pool.execute('SELECT id FROM devices WHERE serial_code = ? LIMIT 1', [serial]);
+            if (!own.length) result = 'candidate';
+        }
         if (result === 'mismatch') {
             console.warn(`⚠️ [Pairing] Chave invalida para o aparelho ${serial} (IP ${normalizeIp(req.ip)})`);
             res.status(403).json({ error: 'device_key_mismatch' });
@@ -421,7 +440,8 @@ export const registerPairingRoutes = (app, { pool, mqttClient, authenticateToken
                 return res.status(201).json({ status: 'confirmed', serial });
             }
 
-            if (mode !== 'bound' && !(await bindKey(serial, keyHash))) {
+            // Sem dono aqui (mode new): a chave veio do codigo ou da mesma rede, entao substitui uma orfa
+            if (mode !== 'bound' && !(await bindKey(serial, keyHash, true))) {
                 return res.status(409).json({ error: 'Este aparelho já está vinculado a outra chave.' });
             }
             await pool.execute('INSERT INTO devices (serial_code, user_id, device_name, created_at) VALUES (?, ?, ?, NOW())',
