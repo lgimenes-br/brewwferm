@@ -10,8 +10,9 @@ import { GoogleIcon, AppleIcon } from '../SocialIcons';
 
 export type InstallSession = { token: string; name: string };
 
-const social = 'flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium text-[var(--ink)] transition hover:bg-black/[0.03] disabled:opacity-50';
-const input = 'mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]';
+const social = 'flex min-h-11 w-full items-center justify-center gap-3 rounded-full border border-[var(--line-strong)] bg-[var(--fill)] px-5 text-[15px] font-medium text-[var(--ink)] transition hover:bg-white/10 disabled:opacity-50';
+const input = 'mt-1.5 w-full rounded-full border border-[var(--line)] bg-[var(--cell-2)] px-5 h-11 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--tertiary)] focus:border-[rgba(113,252,143,0.55)]';
+const label = 'block text-sm text-[var(--muted)]';
 
 export const AccountStep: React.FC<{
     session: InstallSession | null;
@@ -61,10 +62,10 @@ export const AccountStep: React.FC<{
 
     if (session) {
         return (
-            <div className="space-y-7">
+            <div className="space-y-6">
                 {heading}
-                <div className="flex flex-wrap items-center gap-4 rounded-3xl border border-black/[0.08] p-5 sm:p-6">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={20} className="text-[var(--ink)]" /></span>
+                <div className="flex flex-wrap items-center gap-4 rounded-[22px] border border-[var(--line)] bg-[var(--cell-2)] p-5 sm:p-6">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={20} className="text-[var(--on-accent)]" /></span>
                     <div className="min-w-0 flex-1">
                         <p className="font-medium">Conectado como {session.name}</p>
                         <p className="mt-0.5 text-sm text-[var(--muted)]">O aparelho entra nesta conta no fim da instalação.</p>
@@ -79,55 +80,58 @@ export const AccountStep: React.FC<{
     }
 
     return (
-        <div className="space-y-7">
+        <div className="space-y-5">
             {heading}
-            <div className="max-w-md space-y-3">
+            <div className="max-w-xl grid gap-2 sm:grid-cols-2">
                 <button type="button" className={social} onClick={() => google()} disabled={!!busy}>
                     {busy === 'google' ? <Loader2 size={18} className="animate-spin" /> : <GoogleIcon />} Continuar com Google
                 </button>
                 {APPLE_SERVICE_ID && (
-                    <button type="button" className={`${social} border-[var(--ink)] bg-[var(--ink)] text-white hover:bg-black`} onClick={apple} disabled={!!busy}>
+                    <button type="button" className={social} onClick={apple} disabled={!!busy}>
                         {busy === 'apple' ? <Loader2 size={18} className="animate-spin" /> : <AppleIcon />} Continuar com Apple
                     </button>
                 )}
             </div>
 
-            <div className="relative flex max-w-md items-center justify-center">
-                <div className="absolute inset-x-0 top-1/2 h-px bg-black/[0.07]" />
-                <span className="relative bg-white px-3 text-sm text-[var(--muted)]">ou com e-mail</span>
+            <div className="flex max-w-xl items-center gap-3 text-[13px] text-[var(--tertiary)]" aria-hidden>
+                <span className="h-px flex-1 bg-[var(--line)]" /> ou com e-mail <span className="h-px flex-1 bg-[var(--line)]" />
             </div>
 
-            <form onSubmit={submit} className="max-w-md space-y-5" noValidate>
-                <div role="group" aria-label="Conta" className="grid grid-cols-2 rounded-full bg-[var(--bg)] p-1 text-[15px]">
+            <form onSubmit={submit} className="max-w-xl space-y-3.5" noValidate>
+                <div role="group" aria-label="Conta" className="grid max-w-sm grid-cols-2 rounded-full border border-[var(--line)] bg-[var(--cell-2)] p-1 text-[15px]">
                     {(['criar', 'entrar'] as const).map(m => (
                         <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); setError(''); }}
-                            className={`min-h-11 rounded-full font-medium transition ${mode === m ? 'bg-white text-[var(--ink)] shadow-[0_1px_2px_rgba(11,13,18,0.08)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                            className={`min-h-10 rounded-full font-medium transition ${mode === m ? 'bg-[var(--fill)] text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
                             {m === 'criar' ? 'Criar conta' : 'Já tenho conta'}
                         </button>
                     ))}
                 </div>
-                {mode === 'criar' && (
-                    <label className="block"><span className="font-medium">Nome</span>
-                        <input value={name} onChange={e => setName(e.target.value)} autoComplete="name" className={input} placeholder="Seu nome ou cervejaria" />
+                {/* Campos em duas colunas no computador, para o passo caber na janela sem rolar */}
+                <div className="grid gap-3.5 sm:grid-cols-2">
+                    {mode === 'criar' && (
+                        <label className={label}>Nome
+                            <input value={name} onChange={e => setName(e.target.value)} autoComplete="name" className={input} placeholder="Seu nome ou cervejaria" />
+                        </label>
+                    )}
+                    <label className={label}>E-mail
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required className={input} placeholder="seu@email.com" />
                     </label>
-                )}
-                <label className="block"><span className="font-medium">E-mail</span>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required className={input} />
-                </label>
-                <label className="block">
-                    <span className="flex items-center justify-between gap-3">
-                        <span className="font-medium">Senha</span>
-                        {mode === 'entrar' && <a href="/login?reset=1" target="_blank" rel="noopener noreferrer" className="text-sm text-[var(--muted)] underline underline-offset-4 hover:text-[var(--ink)]">Esqueci a senha</a>}
-                    </span>
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === 'criar' ? 'new-password' : 'current-password'} required minLength={6} className={input} />
-                    {mode === 'criar' && <span className="mt-1.5 block text-sm text-[var(--muted)]">Pelo menos 6 caracteres.</span>}
-                </label>
-                {error && <p role="alert" className="rounded-2xl bg-[#fdecea] px-4 py-3 text-[15px] text-[#8a2418]">{error}</p>}
-                <button type="submit" disabled={!!busy || !email.trim() || !password} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--ink)] px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50">
-                    {busy === 'email' ? <Loader2 size={18} className="animate-spin" /> : null}{mode === 'criar' ? 'Criar conta e continuar' : 'Entrar e continuar'}
-                </button>
+                    <label className={label}>
+                        <span className="flex items-center justify-between gap-3">
+                            <span>Senha{mode === 'criar' && <span className="text-[var(--tertiary)]"> · mín. 6 caracteres</span>}</span>
+                            {mode === 'entrar' && <a href="/login?reset=1" target="_blank" rel="noopener noreferrer" className="text-[var(--muted)] underline underline-offset-4 hover:text-[var(--ink)]">Esqueci a senha</a>}
+                        </span>
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === 'criar' ? 'new-password' : 'current-password'} required minLength={6} className={input} />
+                    </label>
+                    <div className="flex items-end">
+                        <button type="submit" disabled={!!busy || !email.trim() || !password} className="app-btn w-full !min-h-11">
+                            {busy === 'email' ? <Loader2 size={18} className="animate-spin" /> : null}{mode === 'criar' ? 'Criar conta e continuar' : 'Entrar e continuar'}
+                        </button>
+                    </div>
+                </div>
+                {error && <p role="alert" className="rounded-[18px] border border-[rgba(255,90,110,0.35)] bg-[rgba(255,90,110,0.10)] px-4 py-3 text-[15px] text-[#FF8F9C]">{error}</p>}
             </form>
-            <p className="max-w-md text-pretty text-sm text-[var(--muted)]">
+            <p className="max-w-xl text-pretty text-[13px] text-[var(--tertiary)]">
                 Grátis até 3 fermentadores. É a mesma conta do app Breww. Ao continuar, você aceita os <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Termos</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Privacidade</a>.
             </p>
         </div>

@@ -12,13 +12,15 @@ import { ilog, ilogReset, ilogSecret, installLogText } from '../services/install
 
 // Assistente de instalacao (/instalar/assistente): conectar, identificar a placa, gravar, Wi-Fi pelo
 // mesmo cabo (Improv), vincular a conta e pronto. Comeca pela conta: no fim o aparelho entra nela sozinho. A pagina /instalar continua como guia (pecas e ligacoes).
-// Visual do mundo da home: titulo no papel milimetrado, trilha dos passos na linha verde (feito = cheio,
-// atual = aceso, futuro = tracejado) e leituras da placa em paineis de instrumento Grafite.
+// Visual de instalador (identidade do app): uma janela do tamanho da tela, sem rolagem da pagina, com a
+// trilha dos passos a esquerda (feito = cheio, atual = aceso, futuro = tracejado) e um passo curto por vez.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type Step = 'conta' | 'connect' | 'board' | 'flash' | 'wifi' | 'link' | 'done';
+type Step = 'conta' | 'prep' | 'name' | 'connect' | 'board' | 'flash' | 'wifi' | 'link' | 'done';
 const STEPS: { id: Step; label: string }[] = [
     { id: 'conta', label: 'Sua conta' },
+    { id: 'prep', label: 'Preparar' },
+    { id: 'name', label: 'Nome' },
     { id: 'connect', label: 'Conectar' },
     { id: 'board', label: 'Sua placa' },
     { id: 'flash', label: 'Gravar' },
@@ -27,27 +29,24 @@ const STEPS: { id: Step; label: string }[] = [
     { id: 'done', label: 'Pronto' },
 ];
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-const paperGrid = {
-    backgroundImage: 'linear-gradient(rgba(11,13,18,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,13,18,0.05) 1px, transparent 1px)',
-    backgroundSize: '48px 48px',
-} as const;
 
 const btn = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
 const btnPrimary = `${btn} bg-[var(--accent)] text-[var(--on-accent)] hover:brightness-95`;
-const btnDark = `${btn} bg-[var(--ink)] text-white hover:bg-black`;
-const btnGhost = `${btn} border border-black/10 bg-white text-[var(--ink)] hover:bg-black/[0.03]`;
+const btnDark = `${btn} border border-[var(--line-strong)] bg-[var(--fill)] text-[var(--ink)] hover:bg-white/10`;
+const btnGhost = `${btn} border border-[var(--line-strong)] bg-transparent text-[var(--ink)] hover:bg-[var(--fill)]`;
+const field = 'mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--cell-2)] px-5 h-12 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--tertiary)] focus:border-[rgba(113,252,143,0.55)]';
 
 const Notice: React.FC<{ kind?: 'error' | 'warn' | 'info'; children: React.ReactNode }> = ({ kind = 'info', children }) => (
     <div role={kind === 'error' ? 'alert' : undefined} className={`flex gap-3 rounded-2xl px-4 py-3.5 text-[15px] leading-relaxed ${
-        kind === 'error' ? 'bg-[#fdecea] text-[#8a2418]' : kind === 'warn' ? 'border border-[#d63a4d]/30 bg-[#d63a4d]/[0.07] text-[#7a1f2b]' : 'bg-[var(--bg)] text-[#2b2f37]'}`}>
-        {kind !== 'info' && <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[#d63a4d]" />}
+        kind === 'error' ? 'border border-[rgba(255,90,110,0.35)] bg-[rgba(255,90,110,0.10)] text-[#FF8F9C]' : kind === 'warn' ? 'border border-[rgba(255,90,110,0.30)] bg-[rgba(255,90,110,0.07)] text-[#FFB3BC]' : 'bg-[var(--cell-2)] text-[var(--ink)]'}`}>
+        {kind !== 'info' && <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[var(--danger)]" />}
         <div>{children}</div>
     </div>
 );
 
 const Heading: React.FC<{ title: React.ReactNode; text?: React.ReactNode }> = ({ title, text }) => (
     <div>
-        <h2 id="etapa-titulo" tabIndex={-1} className="text-balance [font-family:var(--font-display)] text-4xl font-light leading-tight tracking-[-0.03em] outline-none">{title}</h2>
+        <h2 id="etapa-titulo" tabIndex={-1} className="text-balance text-[27px] sm:text-[34px] font-light leading-[1.1] tracking-[-0.03em] text-[var(--ink)] outline-none">{title}</h2>
         {text && <p className="mt-3 max-w-[38rem] text-pretty text-[15px] leading-relaxed text-[var(--muted)]">{text}</p>}
     </div>
 );
@@ -56,7 +55,7 @@ const Bars: React.FC<{ rssi: number }> = ({ rssi }) => {
     const n = rssi > -55 ? 4 : rssi > -65 ? 3 : rssi > -75 ? 2 : 1;
     return (
         <span className="inline-flex items-end gap-[2px]" role="img" aria-label={`Sinal ${n} de 4`}>
-            {[1, 2, 3, 4].map(k => <span key={k} className={`w-[3px] rounded-sm ${k <= n ? 'bg-[#1fa84a]' : 'bg-black/15'}`} style={{ height: 4 + k * 3 }} />)}
+            {[1, 2, 3, 4].map(k => <span key={k} className={`w-[3px] rounded-sm ${k <= n ? 'bg-[var(--accent)]' : 'bg-white/15'}`} style={{ height: 4 + k * 3 }} />)}
         </span>
     );
 };
@@ -99,7 +98,7 @@ export const InstallWizard: React.FC = () => {
     const token = session?.token || null;
     const [params] = useSearchParams();
     const guideBoard = params.get('placa') as BoardId | null;
-    const [step, setStep] = useState<Step>(() => (session ? 'connect' : 'conta'));
+    const [step, setStep] = useState<Step>(() => (session ? 'prep' : 'conta'));
 
     // Funil da instalacao (BI): etapas ligadas a conta, sem dados do Wi-Fi. Falha no envio nunca atrapalha.
     const [pair, setPair] = useState<{ code: string; id: string } | null>(null);
@@ -148,7 +147,7 @@ export const InstallWizard: React.FC = () => {
         if (!s) return;
         track('login', {}, s.token);
         // Sessao expirou no meio (vinculo): volta para o vinculo, nao para o comeco
-        if (pairRef.current) { setBindTried(false); setStep('link'); } else setStep('connect');
+        if (pairRef.current) { setBindTried(false); setStep('link'); } else setStep('prep');
     };
     const [announce, setAnnounce] = useState('');
     const [busy, setBusy] = useState(false);
@@ -514,125 +513,138 @@ export const InstallWizard: React.FC = () => {
 
     const stageLabel = { idle: '', download: 'Baixando o firmware…', connect: 'Conectando à placa…', erase: 'Apagando a memória…', write: 'Gravando o firmware…', reboot: 'Gravado! Reiniciando a placa…' }[stage];
 
+    const early = step === 'conta' || step === 'prep' || step === 'name' || step === 'connect';
     return (
-        <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
+        // Instalador: a pagina tem a altura da tela e nao rola; so a janela tem conteudo
+        <div className="flex h-[100dvh] flex-col overflow-hidden text-[var(--ink)]">
             <SiteHeader minimal={{ label: 'Voltar ao guia', to: (board || guideBoard) ? `/instalar?placa=${board || guideBoard}` : '/instalar', locked: flashing }} />
             <p className="sr-only" aria-live="polite">{announce}</p>
-            <main>
-                <div style={paperGrid}>
-                    {step === 'conta' || step === 'connect' ? (
-                        <div className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6 lg:pb-14 lg:pt-12">
-                            <h1 className="text-balance [font-family:var(--font-display)] text-[44px] font-light leading-[0.98] tracking-[-0.035em] sm:text-6xl lg:text-[72px]">
-                                Instalar o Breww <span className="text-[var(--muted)]">no seu ESP32.</span>
-                            </h1>
+            <main className="flex min-h-0 flex-1 items-center justify-center p-2.5 sm:p-6">
+                <div className="app-card flex h-full max-h-[760px] w-full max-w-[1080px] overflow-hidden shadow-[0_60px_120px_-60px_rgba(0,0,0,0.95)]">
+                    {/* Trilha dos passos (computador) */}
+                    <aside className="hidden w-[250px] shrink-0 flex-col border-r border-[var(--line)] bg-[rgba(4,7,11,0.35)] p-7 md:flex">
+                        <h1 className="text-[22px] font-light leading-tight tracking-[-0.02em]">Instalar o Breww</h1>
+                        <p className="mt-1 text-[14px] text-[var(--muted)]">{board ? BOARD_NAME[board] : 'no seu ESP32'}</p>
+                        <ol className="relative mt-8 flex-1" aria-label="Passos da instalação">
+                            <div className="absolute bottom-5 left-[13px] top-5 border-l border-dashed border-white/20" aria-hidden />
+                            <div className="absolute left-[12px] top-5 w-[3px] rounded-full bg-[var(--accent)] transition-all duration-500" style={{ height: `calc((100% - 2.5rem) * ${current / (STEPS.length - 1)})` }} aria-hidden />
+                            {STEPS.map((s, k) => (
+                                <li key={s.id} aria-current={k === current ? 'step' : undefined}
+                                    className={`relative flex h-10 items-center gap-3.5 text-[15px] ${k === current ? 'text-[var(--ink)]' : k < current ? 'text-[var(--ink)]' : 'text-[var(--tertiary)]'}`}>
+                                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs tabular-nums ${k < current ? 'bg-[var(--accent)] text-[var(--on-accent)]' : k === current ? 'bg-[var(--accent)] text-[var(--on-accent)] ring-4 ring-[rgba(113,252,143,0.18)]' : 'border border-dashed border-white/30 bg-[#0B0F15]'}`}>
+                                        {k < current ? <Check size={14} strokeWidth={2.5} /> : k + 1}
+                                    </span>
+                                    {s.label}
+                                </li>
+                            ))}
+                        </ol>
+                        {!early && (
+                            <button type="button" onClick={downloadLog} className="mt-4 self-start text-left text-[13px] leading-snug text-[var(--tertiary)] hover:text-[var(--ink)]">
+                                Algo deu errado? <span className="underline underline-offset-4">Baixar o log</span>
+                            </button>
+                        )}
+                    </aside>
+
+                    <section className="flex min-w-0 flex-1 flex-col" aria-labelledby="etapa-titulo">
+                        {/* Progresso (celular) */}
+                        <div className="border-b border-[var(--line)] px-5 py-3 md:hidden">
+                            <div className="flex justify-between text-sm"><span className="font-medium">{STEPS[current].label}</span><span className="tabular-nums text-[var(--muted)]">Passo {current + 1} de {STEPS.length}</span></div>
+                            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--fill)]" aria-hidden>
+                                <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${((current + 1) / STEPS.length) * 100}%` }} />
+                            </div>
                         </div>
-                    ) : (
-                        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
-                            <h1 className="[font-family:var(--font-display)] text-2xl font-light tracking-[-0.02em]">Instalar o Breww <span className="text-[var(--muted)]">{board ? `· ${BOARD_NAME[board]}` : 'no seu ESP32'}</span></h1>
-                        </div>
-                    )}
-                </div>
-                <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-
-                {/* progresso no celular */}
-                <div className="mt-8 lg:hidden">
-                    <div className="flex justify-between text-sm"><span className="font-medium">{STEPS[current].label}</span><span className="tabular-nums text-[var(--muted)]">Passo {current + 1} de {STEPS.length}</span></div>
-                    <div className="relative mt-3 flex items-center justify-between" aria-hidden>
-                        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 border-t border-dashed border-[var(--ink)]/25" />
-                        <div className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-[#1fa84a] transition-all duration-500" style={{ width: `${(current / (STEPS.length - 1)) * 100}%` }} />
-                        {STEPS.map((s, k) => (
-                            <span key={s.id} className={`relative h-3 w-3 rounded-full ${k < current ? 'bg-[#1fa84a]' : k === current ? 'bg-[var(--accent)] ring-4 ring-[#1fa84a]/25' : 'border border-dashed border-[var(--ink)]/40 bg-[var(--bg)]'}`} />
-                        ))}
-                    </div>
-                </div>
-
-                <div className="mt-8 grid gap-8 lg:mt-12 lg:grid-cols-[200px_1fr] lg:gap-14">
-                    {/* passos no computador */}
-                    <ol className="relative hidden self-start lg:block" aria-label="Passos da instalação">
-                        <div className="absolute bottom-7 left-[13px] top-7 border-l border-dashed border-[var(--ink)]/25" aria-hidden />
-                        <div className="absolute left-[12px] top-7 w-[3px] rounded-full bg-[#1fa84a] transition-all duration-500" style={{ height: `calc((100% - 3.5rem) * ${current / (STEPS.length - 1)})` }} aria-hidden />
-                        {STEPS.map((s, k) => (
-                            <li key={s.id} aria-current={k === current ? 'step' : undefined}
-                                className={`relative flex min-h-14 items-center gap-4 text-[15px] ${k === current ? 'font-medium text-[var(--ink)]' : k < current ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
-                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs tabular-nums ${k < current ? 'bg-[#1fa84a] text-white' : k === current ? 'bg-[var(--accent)] text-[var(--on-accent)] ring-4 ring-[#1fa84a]/20' : 'border border-dashed border-[var(--ink)]/40 bg-[var(--bg)]'}`}>
-                                    {k < current ? <Check size={14} strokeWidth={2.5} /> : k + 1}
-                                </span>
-                                {s.label}
-                            </li>
-                        ))}
-                    </ol>
-
-                    <section className="rounded-[28px] bg-white p-6 sm:p-10">
+                        {/* Passo atual: cabe na janela; se a tela for muito baixa, so esta area rola */}
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-8 lg:p-10">
                         {/* 0. CONTA */}
                         {step === 'conta' && (
-                            <AccountStep session={session} onSession={setSession} onContinue={() => setStep('connect')}
-                                heading={<Heading title="Primeiro, sua conta" text="Entre ou crie a conta grátis. No fim da instalação o aparelho já entra nela sozinho, sem código, e aparece no app Breww quando você entrar com a mesma conta." />} />
+                            <AccountStep session={session} onSession={setSession} onContinue={() => setStep('prep')}
+                                heading={<Heading title="Primeiro, sua conta" text="Entre ou crie a conta grátis. No fim, o aparelho entra nela sozinho, sem código." />} />
                         )}
 
-                        {/* 1. CONECTAR */}
-                        {step === 'connect' && (
-                            <div className="space-y-7">
-                                <Heading title="Ligue a placa no computador" text={<>Use um cabo USB de dados. {guideBoard === 's3-35' ? 'O assistente grava o firmware; depois a placa reinicia e o Wi-Fi e o app são configurados na tela dela.' : 'O assistente descobre qual placa é, grava o firmware certo, configura o Wi-Fi e coloca o aparelho na sua conta.'}{guideBoard && BOARD_NAME[guideBoard] ? <> Placa escolhida no guia: <b className="text-[var(--ink)]">{BOARD_NAME[guideBoard]}</b>.</> : null}</>} />
-                                <ul className="divide-y divide-black/[0.07] border-y border-black/[0.07]">
+                        {/* 1. PREPARAR: o que precisa antes de ligar a placa */}
+                        {step === 'prep' && (
+                            <div className="space-y-6">
+                                <Heading title="Ligue a placa no computador" text={guideBoard === 's3-35' ? 'O assistente grava o firmware; depois a placa reinicia e o Wi-Fi e o app são configurados na tela dela.' : 'O assistente descobre qual placa é, grava o firmware certo, configura o Wi-Fi e coloca o aparelho na sua conta.'} />
+                                <ul className="grid gap-2 sm:grid-cols-2">
                                     {[
-                                        [Cpu, 'Só a placa, sem fios', 'Sensores e relés entram depois de gravar, com a placa desligada.'],
-                                        [Usb, 'Cabo de dados', 'Muitos cabos só carregam. Se a placa não aparecer, troque o cabo.'],
+                                        [Cpu, 'Só a placa, sem fios', 'Sensores e relés entram depois, com a placa desligada.'],
+                                        [Usb, 'Cabo de dados', 'Muitos cabos só carregam. Se a placa não aparecer, troque.'],
                                         [Monitor, 'Chrome ou Edge', 'No computador. Safari, Firefox e celular não acessam o USB.'],
-                                        [Smartphone, 'O app vem depois', <>O aparelho entra na conta {session ? <b className="font-medium text-[var(--ink)]">de {session.name}</b> : 'que você entrou'} no fim. O app Breww, para acompanhar a fermentação, está em teste e chega às lojas em breve.</>],
+                                        [Smartphone, 'O app vem depois', <>O aparelho entra na conta {session ? <b className="font-medium text-[var(--ink)]">de {session.name}</b> : 'que você entrou'} no fim.</>],
                                     ].map(([Icon, t, d]: any) => (
-                                        <li key={t} className="flex gap-4 py-4">
-                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-[var(--accent)]"><Icon size={18} /></span>
-                                            <div><p className="font-medium">{t}</p><p className="mt-0.5 text-pretty text-sm leading-snug text-[var(--muted)]">{d}</p></div>
+                                        <li key={t} className="flex gap-3.5 rounded-[22px] border border-[var(--line)] bg-[var(--cell-2)] p-3.5 sm:p-4">
+                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--fill)] text-[var(--accent)]"><Icon size={18} /></span>
+                                            <div><p className="font-medium text-[var(--ink)]">{t}</p><p className="mt-0.5 text-pretty text-sm leading-snug text-[var(--muted)]">{d}</p></div>
                                         </li>
                                     ))}
                                 </ul>
-                                {/* Nome ja na entrada: o aparelho entra na conta com ele (antes era sempre "Meu Breww") */}
+                                {guideBoard && BOARD_NAME[guideBoard] ? <p className="text-sm text-[var(--muted)]">Placa escolhida no guia: <b className="font-medium text-[var(--ink)]">{BOARD_NAME[guideBoard]}</b>.</p> : null}
+                                {!webSerialSupported() && <Notice kind="warn">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</Notice>}
+                                <div className="flex flex-wrap gap-3">
+                                    <button type="button" className={btnPrimary} onClick={() => setStep('name')} disabled={!webSerialSupported()}>Tudo pronto <ArrowRight size={18} /></button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2. NOME: o aparelho entra na conta com ele (antes era sempre "Meu Breww") */}
+                        {step === 'name' && (
+                            <div className="space-y-6">
+                                <Heading title="Como vai se chamar?" text="É como o aparelho aparece no app e no site. Dá para trocar depois." />
                                 <label className="block max-w-md">
-                                    <span className="font-medium">Nome do aparelho</span>
-                                    <input value={name} onChange={e => setName(e.target.value)} maxLength={40} autoComplete="off"
-                                        placeholder="Ex.: Fermentador da garagem"
-                                        className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]" />
-                                    <span className="mt-1.5 block text-sm text-[var(--muted)]">É como ele aparece no app. Dá para trocar depois. Em branco, fica "Meu Breww".</span>
+                                    <span className="font-medium text-[var(--ink)]">Nome do aparelho</span>
+                                    <input value={name} onChange={e => setName(e.target.value)} maxLength={40} autoComplete="off" autoFocus
+                                        placeholder="Ex.: Fermentador da garagem" className={field}
+                                        onKeyDown={e => { if (e.key === 'Enter') setStep('connect'); }} />
+                                    <span className="mt-2 block text-sm text-[var(--muted)]">Em branco, fica "Meu Breww".</span>
                                 </label>
+                                <div className="flex flex-wrap gap-3">
+                                    <button type="button" className={btnGhost} onClick={() => setStep('prep')}>Voltar</button>
+                                    <button type="button" className={btnPrimary} onClick={() => setStep('connect')}>Continuar <ArrowRight size={18} /></button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. CONECTAR */}
+                        {step === 'connect' && (
+                            <div className="space-y-6">
+                                <Heading title="Conectar a placa" text="O navegador vai pedir para você escolher a porta da placa. O assistente descobre qual é e grava o Breww." />
                                 {!webSerialSupported() ? (
                                     <Notice kind="warn">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</Notice>
                                 ) : (
-                                    <div className="space-y-5">
-                                        <div className="space-y-2">
-                                            <button type="button" className={btnPrimary} onClick={connect} disabled={busy}>
-                                                {busy ? <><Loader2 size={18} className="animate-spin" /> Lendo a placa…</> : <><Usb size={18} /> Conectar a placa</>}
-                                            </button>
-                                            <p className="max-w-[38rem] text-pretty text-sm text-[var(--muted)]">O navegador vai pedir para você escolher a porta da placa. O assistente descobre qual é e grava o Breww.</p>
-                                        </div>
-                                        <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-[var(--ink)]/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                            <div>
-                                                <p className="font-medium">Esta placa já tem o Breww?</p>
-                                                <p className="mt-0.5 max-w-[30rem] text-pretty text-sm text-[var(--muted)]">Para quando a gravação já foi feita: recarregou a página no meio, trocou o Wi-Fi de casa, vai reaproveitar a placa ou quer conferir a leitura dos sensores. Pula a gravação e vai para o Wi-Fi ou, se ele já estiver configurado, direto para colocar o aparelho na conta.</p>
-                                            </div>
-                                            <button type="button" className={`${btnGhost} shrink-0`} onClick={connectExisting} disabled={busy}>Continuar sem gravar</button>
-                                        </div>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <button type="button" className={btnPrimary} onClick={connect} disabled={busy}>
+                                            {busy ? <><Loader2 size={18} className="animate-spin" /> Lendo a placa…</> : <><Usb size={18} /> Conectar a placa</>}
+                                        </button>
+                                        <button type="button" className={btnGhost} onClick={() => setStep('name')} disabled={busy}>Voltar</button>
                                     </div>
                                 )}
                                 {error && <Notice kind="error">{error}</Notice>}
-                                <details className="group rounded-2xl border border-dashed border-[var(--ink)]/20 px-4 text-sm text-[var(--muted)]">
+                                {webSerialSupported() && (
+                                    <div className="flex flex-col gap-3 rounded-[22px] border border-dashed border-white/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="font-medium text-[var(--ink)]">Esta placa já tem o Breww?</p>
+                                            <p className="mt-0.5 max-w-[30rem] text-pretty text-sm text-[var(--muted)]">Recarregou a página no meio, trocou o Wi-Fi ou quer conferir os sensores: pula a gravação e vai para o Wi-Fi ou direto para a conta.</p>
+                                        </div>
+                                        <button type="button" className={`${btnGhost} shrink-0`} onClick={connectExisting} disabled={busy}>Continuar sem gravar</button>
+                                    </div>
+                                )}
+                                <details className="group rounded-[22px] border border-[var(--line)] px-4 text-sm text-[var(--muted)]">
                                     <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 font-medium text-[var(--ink)] [&::-webkit-details-marker]:hidden">
                                         A placa não aparece na lista
                                         <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" />
                                     </summary>
-                                    <ul className="mt-3 list-disc space-y-1.5 pl-5">
+                                    <ul className="mt-1 list-disc space-y-1 pb-4 pl-5">
                                         <li>Troque o cabo USB: os que vêm com fones e luminárias costumam só carregar.</li>
-                                        <li>Algumas placas precisam do driver do chip USB: <b>CH340</b> ou <b>CP210x</b>, no site do fabricante.</li>
-                                        <li>Segure o botão <b>BOOT</b> enquanto liga o cabo.</li>
-                                        <li>Feche a Arduino IDE e qualquer monitor serial aberto.</li>
+                                        <li>Instale o driver do chip USB (<b>CH340</b> ou <b>CP210x</b>), no site do fabricante.</li>
+                                        <li>Segure o botão <b>BOOT</b> enquanto liga o cabo, e feche a Arduino IDE ou qualquer monitor serial.</li>
                                     </ul>
-                                    <div className="h-4" />
                                 </details>
                             </div>
                         )}
 
                         {/* 2. PLACA */}
                         {step === 'board' && chip && (
-                            <div className="space-y-7">
+                            <div className="space-y-6">
                                 {flashTooSmall(chip) ? (
                                     <>
                                         <Heading title={<>Esse ESP8266 tem só {chip.flashSize} de memória</>} text="A versão Lite precisa de 4 MB: o firmware e o espaço para as atualizações pelo app não cabem em menos. É o caso do ESP-01 e de algumas placas antigas." />
@@ -647,11 +659,11 @@ export const InstallWizard: React.FC = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <Heading title={<>Encontramos um <span className="landing-mark">{chip.chip}</span></>} />
-                                        <dl className="on-dark grid gap-5 rounded-3xl bg-[var(--card)] p-6 text-white sm:grid-cols-[1fr_1fr_1.4fr] sm:p-7">
-                                            <div><dt className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Placa</dt><dd className="mt-1.5 text-lg font-medium">{board ? BOARD_NAME[board] : chip.chip}</dd></div>
-                                            <div><dt className="text-sm text-[#a3a7b0]">Memória</dt><dd className="mt-1.5 text-lg font-medium tabular-nums">{chip.flashSize || '—'}</dd></div>
-                                            <div><dt className="text-sm text-[#a3a7b0]">Chip</dt><dd className="mt-1.5 text-sm leading-snug text-[#c9ccd3]">{chip.description}</dd></div>
+                                        <Heading title={<>Encontramos um <span className="text-[var(--accent)]">{chip.chip}</span></>} />
+                                        <dl className="on-dark grid gap-5 rounded-[22px] border border-[var(--line)] bg-[var(--cell-2)] p-5 sm:grid-cols-[1fr_1fr_1.4fr] sm:p-6">
+                                            <div><dt className="flex items-center gap-2 text-sm text-[var(--muted)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />Placa</dt><dd className="mt-1.5 text-lg font-medium">{board ? BOARD_NAME[board] : chip.chip}</dd></div>
+                                            <div><dt className="text-sm text-[var(--muted)]">Memória</dt><dd className="mt-1.5 text-lg font-medium tabular-nums">{chip.flashSize || '—'}</dd></div>
+                                            <div><dt className="text-sm text-[var(--muted)]">Chip</dt><dd className="mt-1.5 text-sm leading-snug text-[var(--muted)]">{chip.description}</dd></div>
                                         </dl>
 
                                         {chip.chip.toUpperCase() === 'ESP32-S3' && (
@@ -659,8 +671,8 @@ export const InstallWizard: React.FC = () => {
                                                 <legend className="font-medium">Sua placa tem a tela touch de 3,5"?</legend>
                                                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                                     {(['s3-headless', 's3-35'] as BoardId[]).map(b => (
-                                                        <label key={b} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${board === b ? 'border-[var(--ink)] bg-[var(--bg)]' : 'border-black/10 hover:bg-black/[0.02]'}`}>
-                                                            <input type="radio" name="s3" className="mt-1 accent-[#0B0D12]" checked={board === b} onChange={() => setBoard(b)} />
+                                                        <label key={b} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${board === b ? 'border-[rgba(113,252,143,0.5)] bg-[rgba(113,252,143,0.06)]' : 'border-[var(--line)] hover:bg-white/[0.03]'}`}>
+                                                            <input type="radio" name="s3" className="mt-1" checked={board === b} onChange={() => setBoard(b)} />
                                                             <span><span className="font-medium">{b === 's3-35' ? 'Sim, é a placa Breww com tela' : 'Não, é um ESP32-S3 comum'}</span>
                                                                 <span className="mt-0.5 block text-sm text-[var(--muted)]">{b === 's3-35' ? 'O Wi-Fi e o vínculo são feitos na própria tela.' : 'DevKitC ou parecida, sem tela.'}</span></span>
                                                         </label>
@@ -684,10 +696,10 @@ export const InstallWizard: React.FC = () => {
 
                         {/* 3. GRAVAR */}
                         {step === 'flash' && board && (
-                            <div className="space-y-7">
+                            <div className="space-y-6">
                                 <Heading title={<>Gravar o Breww no {BOARD_NAME[board]}</>} text={error ? 'A gravação não terminou. Confira o cabo e grave de novo: ela recomeça do zero.' : 'Leva cerca de um minuto. Não desligue o cabo até terminar.'} />
                                 {stage === 'idle' ? null : (
-                                    <div className="on-dark rounded-3xl bg-[var(--card)] p-6 text-white sm:p-7">
+                                    <div className="on-dark rounded-[22px] border border-[var(--line)] bg-[var(--cell-2)] p-5 sm:p-6">
                                         {/* marcos: feito = cheio, atual = aceso, futuro = tracejado */}
                                         <ol className="flex flex-wrap gap-2 text-sm" aria-label="Etapas da gravação">
                                             {([['download', 'Baixar'], ['erase', 'Apagar'], ['write', 'Gravar'], ['reboot', 'Reiniciar']] as const).map(([id, label]) => {
@@ -696,17 +708,17 @@ export const InstallWizard: React.FC = () => {
                                                 const now = order.indexOf(stage === 'connect' ? 'erase' : stage); // conectar conta como inicio do apagar
                                                 const state = pos < now ? 'feito' : pos === now ? 'atual' : 'futuro';
                                                 return (
-                                                    <li key={id} aria-current={state === 'atual' ? 'step' : undefined} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${state === 'feito' ? 'bg-[var(--accent)] text-[var(--on-accent)]' : state === 'atual' ? 'border border-[var(--accent)] text-white' : 'border border-dashed border-white/25 text-[#a3a7b0]'}`}>
+                                                    <li key={id} aria-current={state === 'atual' ? 'step' : undefined} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${state === 'feito' ? 'bg-[var(--accent)] text-[var(--on-accent)]' : state === 'atual' ? 'border border-[var(--accent)] text-white' : 'border border-dashed border-white/25 text-[var(--muted)]'}`}>
                                                         {state === 'feito' ? <Check size={13} strokeWidth={2.5} /> : state === 'atual' ? <Loader2 size={13} className="animate-spin text-[var(--accent)]" /> : null}{label}
                                                     </li>
                                                 );
                                             })}
                                         </ol>
                                         <div className="mt-6 flex items-end justify-between gap-4">
-                                            <span className="text-[15px] text-[#c9ccd3]">{stageLabel}</span>
+                                            <span className="text-[15px] text-[var(--muted)]">{stageLabel}</span>
                                             {stage === 'write' && (
                                                 <span className="[font-family:var(--font-display)] text-[56px] font-light leading-none tracking-[-0.04em] tabular-nums">
-                                                    {Math.round(progress * 100)}<span className="text-2xl text-[#a3a7b0]">%</span>
+                                                    {Math.round(progress * 100)}<span className="text-2xl text-[var(--muted)]">%</span>
                                                 </span>
                                             )}
                                         </div>
@@ -715,7 +727,7 @@ export const InstallWizard: React.FC = () => {
                                                 <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${Math.max(3, progress * 100)}%` }} />
                                             </div>
                                         )}
-                                        {version && <p className="mt-4 text-sm text-[#a3a7b0]">Firmware {version}</p>}
+                                        {version && <p className="mt-4 text-sm text-[var(--muted)]">Firmware {version}</p>}
                                     </div>
                                 )}
                                 {error && (
@@ -733,7 +745,7 @@ export const InstallWizard: React.FC = () => {
 
                         {/* 4. WI-FI */}
                         {step === 'wifi' && (
-                            <div className="space-y-7">
+                            <div className="space-y-6">
                                 <Heading title="Conecte a placa ao seu Wi-Fi" text={<>Pelo mesmo cabo USB. Use a rede de <b>2,4 GHz</b> da sua casa: o ESP32 não enxerga redes de 5 GHz.</>} />
                                 {improvOk === false ? (
                                     <>
@@ -753,22 +765,21 @@ export const InstallWizard: React.FC = () => {
                                                     <p className="font-medium">Redes encontradas</p>
                                                     <button type="button" onClick={scan} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--ink)]" disabled={!networks}><RefreshCw size={14} /> Procurar de novo</button>
                                                 </div>
-                                                <p className="mb-3 text-sm text-[var(--muted)]">Só aparecem as redes de 2,4 GHz, que são as que a placa consegue usar.</p>
-                                                {!networks ? (
-                                                    <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> Procurando redes…</p>
+                                                                                                {!networks ? (
+                                                    <p className="flex items-center gap-2 rounded-[22px] bg-[var(--cell-2)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> Procurando redes…</p>
                                                 ) : networks.length === 0 ? (
                                                     <Notice>Nenhuma rede encontrada. Procure de novo ou digite o nome da rede.</Notice>
                                                 ) : (
-                                                    <fieldset className="max-h-72 divide-y divide-black/[0.06] overflow-auto rounded-2xl border border-black/[0.07]">
+                                                    <fieldset className="max-h-52 divide-y divide-white/[0.06] overflow-auto rounded-[22px] border border-[var(--line)] bg-[var(--cell-2)]">
                                                         <legend className="sr-only">Redes Wi-Fi</legend>
                                                         {networks.map(n => (
-                                                            <label key={n.ssid} className={`flex min-h-12 cursor-pointer items-center gap-3 px-4 py-3 text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-[var(--ink)] ${ssid === n.ssid ? 'bg-[var(--bg)] font-medium' : 'hover:bg-black/[0.02]'}`}>
+                                                            <label key={n.ssid} className={`flex min-h-12 cursor-pointer items-center gap-3 px-4 py-3 text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-[var(--ink)] ${ssid === n.ssid ? 'bg-white/[0.06] font-medium' : 'hover:bg-white/[0.03]'}`}>
                                                                 <input type="radio" name="rede" className="sr-only" checked={ssid === n.ssid} onChange={() => setSsid(n.ssid)} />
                                                                 <Wifi size={17} className="shrink-0 text-[var(--muted)]" />
                                                                 <span className="flex-1 truncate">{n.ssid}</span>
                                                                 {n.secured && <Lock size={14} className="text-[var(--muted)]" aria-label="Com senha" />}
                                                                 <Bars rssi={n.rssi} />
-                                                                {ssid === n.ssid && <Check size={17} className="text-[#1fa84a]" />}
+                                                                {ssid === n.ssid && <Check size={17} className="text-[var(--accent)]" />}
                                                             </label>
                                                         ))}
                                                     </fieldset>
@@ -778,7 +789,7 @@ export const InstallWizard: React.FC = () => {
                                         {manualSsid && (
                                             <label className="block">
                                                 <span className="font-medium">Nome da rede</span>
-                                                <input value={ssid} onChange={e => setSsid(e.target.value)} autoComplete="off" className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]" />
+                                                <input value={ssid} onChange={e => setSsid(e.target.value)} autoComplete="off" className={field} />
                                             </label>
                                         )}
                                         <button type="button" className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4" onClick={() => { if (manualSsid) setSsid(''); setManualSsid(m => !m); }}>
@@ -786,9 +797,9 @@ export const InstallWizard: React.FC = () => {
                                         </button>
                                         <label className="block">
                                             <span className="font-medium">Senha do Wi-Fi</span>
-                                            <span className="mt-2 flex items-center rounded-2xl border border-black/10 bg-white focus-within:border-[var(--ink)]">
+                                            <span className="mt-2 flex items-center rounded-full border border-[var(--line)] bg-[var(--cell-2)] focus-within:border-[rgba(113,252,143,0.55)]">
                                                 <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="off"
-                                                    className="w-full rounded-2xl bg-transparent px-4 py-3.5 text-[16px] outline-none" onKeyDown={e => { if (e.key === 'Enter') sendWifi(); }} />
+                                                    className="w-full rounded-full bg-transparent px-5 h-12 text-[16px] text-[var(--ink)] outline-none" onKeyDown={e => { if (e.key === 'Enter') sendWifi(); }} />
                                                 <button type="button" className="px-4 text-[var(--muted)]" onClick={() => setShowPw(s => !s)} aria-label={showPw ? 'Esconder senha' : 'Mostrar senha'}>{showPw ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                                             </span>
                                         </label>
@@ -807,7 +818,7 @@ export const InstallWizard: React.FC = () => {
 
                         {/* 5. CONTA */}
                         {step === 'link' && (
-                            <div className="space-y-7">
+                            <div className="space-y-6">
                                 {!headless ? (
                                     <>
                                         <Heading title="Termine na tela da placa" text="A placa com tela reinicia mostrando o assistente: escolha o Wi-Fi ali mesmo. Depois, no app, toque em Adicionar aparelho e leia o QR code que aparece na tela." />
@@ -826,13 +837,13 @@ export const InstallWizard: React.FC = () => {
                                                 </div>
                                             </>
                                         ) : !pair || (busy && !error) ? (
-                                            <p className="flex items-center gap-2 rounded-2xl bg-[var(--bg)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> {!pair ? 'Lendo o código do aparelho…' : <>Adicionando à sua conta…{devStatus && !devStatus.cloud ? <span className="text-[var(--muted)]"> Placa: {cloudLabel(devStatus).toLowerCase()}.</span> : null}</>}</p>
+                                            <p className="flex items-center gap-2 rounded-[22px] bg-[var(--cell-2)] px-4 py-4 text-[15px] text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> {!pair ? 'Lendo o código do aparelho…' : <>Adicionando à sua conta…{devStatus && !devStatus.cloud ? <span className="text-[var(--muted)]"> Placa: {cloudLabel(devStatus).toLowerCase()}.</span> : null}</>}</p>
                                         ) : error ? (
                                             <>
                                                 <Notice kind="error">{error}</Notice>
                                                 <label className="block">
                                                     <span className="font-medium">Nome do aparelho</span>
-                                                    <input value={name} onChange={e => setName(e.target.value)} maxLength={40} className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]" />
+                                                    <input value={name} onChange={e => setName(e.target.value)} maxLength={40} className={field} />
                                                 </label>
                                                 <div className="flex flex-wrap gap-3">
                                                     <button type="button" className={btnPrimary} onClick={bind} disabled={busy}>Tentar de novo <ArrowRight size={18} /></button>
@@ -850,8 +861,8 @@ export const InstallWizard: React.FC = () => {
 
                         {/* 6. PRONTO */}
                         {step === 'done' && (
-                            <div className="space-y-7">
-                                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={28} className="text-[var(--ink)]" /></span>
+                            <div className="space-y-6">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={24} className="text-[var(--on-accent)]" /></span>
                                 <Heading title={linked ? 'Seu Breww está na sua conta' : 'A placa está pronta'}
                                     text={!headless
                                         ? 'Termine na tela da placa: escolha o Wi-Fi e, no app, leia o QR code que aparece nela. Depois desligue a placa e ligue os sensores; os relés e a tomada ficam por último.'
@@ -869,25 +880,15 @@ export const InstallWizard: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        {step !== 'conta' && step !== 'connect' && (
-                            <p className="mt-10 border-t border-black/[0.07] pt-5 text-sm leading-relaxed text-[var(--muted)]">
+                            {!early && (
+                                <p className="mt-8 border-t border-[var(--line)] pt-4 text-sm leading-relaxed text-[var(--muted)] md:hidden">
                                 Algo deu errado? <button type="button" onClick={downloadLog} className="-my-2 py-2 font-medium text-[var(--ink)] underline underline-offset-4">Baixar o log da instalação</button>. Ele também é enviado ao suporte Breww, sem o nome e a senha do seu Wi-Fi.
-                            </p>
-                        )}
+                                </p>
+                            )}
+                        </div>
                     </section>
                 </div>
-                </div>
             </main>
-            {!flashing && (
-                <footer className="on-dark border-t border-white/[0.08] bg-[var(--ink)] text-[#a3a7b0]">
-                    <p className="mx-auto flex max-w-6xl flex-wrap gap-x-5 px-4 py-6 text-sm sm:px-6">
-                        <span className="inline-flex min-h-11 items-center">© {new Date().getFullYear()} Breww</span>
-                        <a href="/ajuda" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 min-w-11 items-center hover:text-white">Ajuda</a>
-                        <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-white">Privacidade</a>
-                        <a href="/termos" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-white">Termos</a>
-                    </p>
-                </footer>
-            )}
         </div>
     );
 };
