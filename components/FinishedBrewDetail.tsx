@@ -257,12 +257,12 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   };
 
   return (
-    <div id="pdf-content" className="p-6 md:px-10 w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16 bg-[var(--bg)] min-h-screen text-[var(--ink)]">
+    <div id="pdf-content" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16 text-[var(--ink)]">
       <div className="flex justify-end items-center mb-8 no-print">
         <div className="flex items-center gap-3">
           <button
             onClick={handleShare}
-            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-[var(--bg)] text-[#2b2f37] hover:text-[var(--ink)] rounded-xl border border-black/[0.07] transition-all text-xs font-bold "
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-[var(--bg)] text-[#2b2f37] hover:text-[var(--ink)] rounded-xl border border-black/[0.07] transition-all text-xs font-medium "
           >
             {copied ? <CheckCircle size={14} className="text-[#178a3f]" /> : <Share2 size={14} />}
             {copied ? 'Copiado' : 'Compartilhar'}
@@ -270,7 +270,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-xl transition-all text-xs font-bold "
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-xl transition-all text-xs font-medium "
           >
             <FileDown size={14} />
             Exportar PDF
@@ -287,7 +287,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <h1 className="text-5xl md:text-6xl font-semibold text-[var(--ink)] tracking-tighter mb-2">{brew.beerName || 'Sem Nome'}</h1>
+            <h1 className="text-5xl md:text-6xl font-medium text-[var(--ink)] tracking-tighter mb-2">{brew.beerName || 'Sem Nome'}</h1>
             <span className="inline-block px-3 py-1 bg-white text-[var(--muted)] rounded-md text-sm border border-black/[0.07]">
               {brew.style}
             </span>
@@ -309,7 +309,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {/* Duração */}
         <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">Duração</span>
+          <span className="text-[12px] text-[var(--muted)] font-medium mb-1">Duração</span>
           <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {(() => {
               const start = new Date(brew.startDate).getTime();
@@ -325,7 +325,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
         {/* ABV Est. */}
         <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">ABV Est.</span>
+          <span className="text-[12px] text-[var(--muted)] font-medium mb-1">ABV Est.</span>
           <span className="text-xl font-mono text-[#178a3f] font-medium">
             {displayAbv.toFixed(1)}%
           </span>
@@ -333,7 +333,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
         {/* OG Inicial */}
         <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">OG Inicial</span>
+          <span className="text-[12px] text-[var(--muted)] font-medium mb-1">OG Inicial</span>
           <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {normOg.toFixed(3)}
           </span>
@@ -341,7 +341,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
         {/* FG Final */}
         <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">FG Final</span>
+          <span className="text-[12px] text-[var(--muted)] font-medium mb-1">FG Final</span>
           <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {normFg.toFixed(3)}
           </span>
@@ -349,15 +349,15 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
 
         {/* Max Temp */}
         <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">Máx Temp</span>
-          <span className="text-xl font-mono text-[#d63a4d] font-medium">
+          <span className="text-[12px] text-[var(--muted)] font-medium mb-1">Máx Temp</span>
+          <span className="text-xl font-mono text-[var(--ink)] font-medium">
             {maxTempFormatted}°C
           </span>
         </div>
 
         {/* Min Temp */}
         <div className="bg-white p-4 rounded-xl border border-black/[0.07] backdrop-blur-sm flex flex-col justify-center items-center">
-          <span className="text-[10px] text-[var(--muted)] font-bold mb-1">Min Temp</span>
+          <span className="text-[12px] text-[var(--muted)] font-medium mb-1">Min Temp</span>
           <span className="text-xl font-mono text-blue-600 font-medium">
             {minTempFormatted}°C
           </span>
@@ -380,7 +380,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           role="tab"
           aria-selected={activeTab === 'telemetry'}
           onClick={() => setActiveTab('telemetry')}
-          className={`pb-4 px-4 text-sm font-bold transition-colors ${activeTab === 'telemetry' ? 'text-[var(--ink)] border-b-2 border-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
+          className={`pb-4 px-4 text-sm font-medium transition-colors ${activeTab === 'telemetry' ? 'text-[var(--ink)] border-b-2 border-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
         >
           Telemetria
         </button>
@@ -389,7 +389,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           role="tab"
           aria-selected={activeTab === 'recipe'}
           onClick={() => setActiveTab('recipe')}
-          className={`pb-4 px-4 text-sm font-bold transition-colors ${activeTab === 'recipe' ? 'text-[var(--ink)] border-b-2 border-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
+          className={`pb-4 px-4 text-sm font-medium transition-colors ${activeTab === 'recipe' ? 'text-[var(--ink)] border-b-2 border-[var(--ink)]' : 'text-[var(--muted)] hover:text-[#2b2f37]'}`}
         >
           Receita & Ingredientes
         </button>
@@ -399,7 +399,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="bg-white rounded-2xl p-8 border border-black/[0.07]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
             <div>
-              <label htmlFor="brew-malts-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Maltes / Fermentáveis</label>
+              <label htmlFor="brew-malts-input" className="block text-xs font-medium text-[var(--muted)] mb-2">Maltes / Fermentáveis</label>
               <textarea 
                 id="brew-malts-input"
                 value={ingredients.malts}
@@ -409,7 +409,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               />
             </div>
             <div>
-              <label htmlFor="brew-hops-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Lúpulos</label>
+              <label htmlFor="brew-hops-input" className="block text-xs font-medium text-[var(--muted)] mb-2">Lúpulos</label>
               <textarea 
                 id="brew-hops-input"
                 value={ingredients.hops}
@@ -420,7 +420,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             </div>
           </div>
           <div className="mb-6">
-            <label htmlFor="brew-yeast-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Levedura</label>
+            <label htmlFor="brew-yeast-input" className="block text-xs font-medium text-[var(--muted)] mb-2">Levedura</label>
             <input 
               id="brew-yeast-input"
               value={ingredients.yeast}
@@ -430,7 +430,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
             />
           </div>
           <div className="mb-8">
-            <label htmlFor="brew-notes-input" className="block text-xs font-bold text-[var(--muted)] mb-2">Anotações do Lote</label>
+            <label htmlFor="brew-notes-input" className="block text-xs font-medium text-[var(--muted)] mb-2">Anotações do Lote</label>
             <textarea 
               id="brew-notes-input"
               value={ingredients.notes}
@@ -443,7 +443,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           <button 
             onClick={saveIngredients}
             disabled={savingIng}
-            className="flex items-center gap-2 bg-[var(--ink)] hover:bg-black text-black px-6 py-3 rounded-xl font-bold text-sm transition-colors no-print"
+            className="flex items-center gap-2 bg-[var(--ink)] hover:bg-black text-black px-6 py-3 rounded-xl font-medium text-sm transition-colors no-print"
           >
             {savingIng ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
             Salvar Receita
@@ -459,12 +459,12 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           ) : fetchError ? (
             <div role="alert" className="p-10 text-center bg-red-500/5 rounded-2xl border border-red-500/20 flex flex-col items-center">
               <AlertTriangle className="text-[#d63a4d] mb-3" size={28} />
-              <p className="text-[#d63a4d] font-bold mb-1">Erro ao carregar telemetria</p>
+              <p className="text-[#d63a4d] font-medium mb-1">Erro ao carregar telemetria</p>
               <p className="text-[var(--muted)] text-sm mb-4">{fetchError}</p>
               <button
                 type="button"
                 onClick={() => setRetryCount(c => c + 1)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[var(--bg)] text-[var(--ink)] border border-black/15 text-xs font-bold transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[var(--bg)] text-[var(--ink)] border border-black/15 text-xs font-medium transition-colors"
               >
                 <RefreshCw size={14} /> Tentar novamente
               </button>
@@ -483,7 +483,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               </div>
               <div className="grid grid-cols-1 gap-8 min-w-0">
                 <div className="space-y-4 min-w-0">
-                  <h3 className="text-[var(--muted)] text-xs font-bold pl-2">Perfil de Temperatura</h3>
                   <TemperatureChart 
                     data={readings} 
                     sensor1Name={brew.sensor1_name || 'Fermentador'}
@@ -491,7 +490,6 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
                   />
                 </div>
                 <div className="space-y-4 min-w-0">
-                  <h3 className="text-[var(--muted)] text-xs font-bold pl-2">Curva de Atenuação</h3>
                   <GravityChart 
                     data={readings} 
                     og={brew.og} 

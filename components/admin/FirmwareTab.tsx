@@ -60,7 +60,7 @@ export const FirmwareTab = () => {
             <div className="bg-white border border-black/[0.07] rounded-xl p-6 max-w-2xl">
                 <div className="space-y-4">
                     <div>
-                        <label htmlFor="ota-target-device" className="block text-xs font-semibold text-[var(--muted)] mb-1">Dispositivo Alvo</label>
+                        <label htmlFor="ota-target-device" className="block text-xs font-medium text-[var(--muted)] mb-1">Dispositivo Alvo</label>
                         <div className="relative">
                             <select id="ota-target-device" value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-3 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] appearance-none">
                                 <option value="">-- Selecione um Dispositivo --</option>
@@ -72,15 +72,15 @@ export const FirmwareTab = () => {
                         </div>
                     </div>
                     <div>
-                        <label htmlFor="ota-bin-url" className="block text-xs font-semibold text-[var(--muted)] mb-1">URL do Arquivo .bin</label>
+                        <label htmlFor="ota-bin-url" className="block text-xs font-medium text-[var(--muted)] mb-1">URL do Arquivo .bin</label>
                         <input id="ota-bin-url" type="text" value={otaUrl} onChange={e => setOtaUrl(e.target.value)} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-3 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" placeholder="http://seu-servidor.com/firmware.bin" />
                     </div>
                     <div>
-                        <label htmlFor="ota-md5-hash" className="block text-xs font-semibold text-[var(--muted)] mb-1">Hash MD5 (Opcional)</label>
+                        <label htmlFor="ota-md5-hash" className="block text-xs font-medium text-[var(--muted)] mb-1">Hash MD5 (Opcional)</label>
                         <input id="ota-md5-hash" type="text" value={otaMd5} onChange={e => setOtaMd5(e.target.value)} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-3 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" placeholder="Ex: 5d41402abc..." />
                     </div>
                     <div className="pt-4">
-                        <button type="button" onClick={handleTriggerOTA} disabled={!selectedDevice || !otaUrl} className="w-full px-4 py-3 bg-red-600/10 text-[#d63a4d] hover:bg-red-600 hover:text-[var(--ink)] border border-red-500/30 hover:border-red-600 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <button type="button" onClick={handleTriggerOTA} disabled={!selectedDevice || !otaUrl} className="w-full px-4 py-3 bg-red-600/10 text-[#d63a4d] hover:bg-red-600 hover:text-[var(--ink)] border border-red-500/30 hover:border-red-600 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                             <Download size={18} /> Disparar Atualização Forçada
                         </button>
                     </div>

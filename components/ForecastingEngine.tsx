@@ -65,7 +65,7 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
   }, [readings, og, fg]);
 
   return (
-    <div className="w-full bg-white p-6 rounded-3xl border border-black/[0.07] backdrop-blur-sm">
+    <div className="w-full app-card p-5 sm:p-6">
 
       
       <div className="flex flex-col md:flex-row items-center gap-6">
@@ -73,8 +73,8 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
         {/* Progress Bar Section */}
         <div className="flex-1 w-full">
           <div className="flex justify-between items-end mb-2 px-1">
-            <span className="text-sm font-bold text-[var(--ink)]">Atenuação Aparente</span>
-            <span className="text-xl font-mono text-[var(--ink)] font-bold">{progress.toFixed(1)}<span className="text-sm text-[var(--muted)]">%</span></span>
+            <span className="text-[17px] text-[var(--ink)]">Atenuação aparente</span>
+            <span className="text-[26px] font-light tabular text-[var(--ink)] leading-none">{progress.toFixed(1)}<span className="text-[13px] text-[var(--muted)] ml-0.5 align-top">%</span></span>
           </div>
           
           <div
@@ -83,17 +83,16 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
             aria-valuenow={Math.round(progress)}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="h-3 w-full bg-[var(--bg)] rounded-full overflow-hidden border border-black/[0.07]"
+            className="h-1.5 w-full bg-[var(--fill)] rounded-full overflow-hidden"
           >
             <div 
               className="h-full bg-[var(--accent)] rounded-full relative transition-all duration-1000 ease-out"
               style={{ width: `${progress}%` }}
             >
-              <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
             </div>
           </div>
           
-          <div className="flex justify-between mt-2 px-1 text-[10px] font-mono text-[var(--muted)] ">
+          <div className="flex justify-between mt-2 px-1 text-[12px] tabular text-[var(--tertiary)]">
             <span>OG: {(Number(og) || 0).toFixed(3)}</span>
             <span>FG Alvo: {fg ? Number(fg).toFixed(3) : '-'}</span>
           </div>
@@ -108,11 +107,11 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
           {isStabilized ? (
             <>
               <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                <CheckCircle2 size={20} className="text-blue-600" />
+                <CheckCircle2 size={20} className="text-[var(--accent)]" />
               </div>
               <div>
-                <p className="text-blue-600 font-bold text-xs mb-1">Estabilizado</p>
-                <p className="text-[#2b2f37] text-[11px] leading-tight">Gravidade não variou nas últimas 48h. Sugestão: Avançar para Cold Crash.</p>
+                <p className="text-[var(--ink)] text-[15px] mb-0.5">Densidade estável</p>
+                <p className="text-[var(--muted)] text-[13px] leading-snug">Não variou nas últimas 48 h. Pode ser hora do cold crash.</p>
               </div>
             </>
           ) : (
@@ -121,8 +120,8 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
                 <Activity size={20} className="text-[var(--muted)]" />
               </div>
               <div>
-                <p className="text-[var(--muted)] font-bold text-xs mb-1">Em Atividade</p>
-                <p className="text-[var(--muted)] text-[11px] leading-tight">A fermentação segue ativa. Aguardando estabilização da densidade.</p>
+                <p className="text-[var(--ink)] text-[15px] mb-0.5">Em atividade</p>
+                <p className="text-[var(--muted)] text-[13px] leading-snug">A densidade ainda está caindo.</p>
               </div>
             </>
           )}

@@ -49,14 +49,14 @@ export const LibraryTab = () => {
                     <RefreshCw size={15} /> Atualizar
                 </button>
             </div>
-            {error && <p role="alert" className="rounded-xl bg-[#fde8e5] px-4 py-3 text-sm text-[#a3271a]">{error}</p>}
+            {error && <p role="alert" className="rounded-xl bg-[rgba(255,90,110,0.10)] px-4 py-3 text-sm text-[var(--danger)]">{error}</p>}
             {items && items.length === 0 && <p className="rounded-2xl border border-black/[0.07] bg-white p-6 text-sm text-[var(--muted)]">Ninguém publicou um perfil ainda.</p>}
             <ul className="space-y-3">
                 {items?.map(it => (
-                    <li key={it.id} className={`rounded-2xl border bg-white p-5 ${it.reports > 0 && !it.hidden ? 'border-[#e8b4aa]' : 'border-black/[0.07]'} ${it.hidden ? 'opacity-60' : ''}`}>
+                    <li key={it.id} className={`rounded-2xl border bg-white p-5 ${it.reports > 0 && !it.hidden ? 'border-[rgba(255,90,110,0.4)]' : 'border-black/[0.07]'} ${it.hidden ? 'opacity-60' : ''}`}>
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="font-semibold text-[var(--ink)]">{it.name}{it.hidden && <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-normal">escondido</span>}</p>
+                                <p className="font-medium text-[var(--ink)]">{it.name}{it.hidden && <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-normal">escondido</span>}</p>
                                 <p className="mt-0.5 text-sm text-[var(--muted)]">
                                     {it.author} ({it.authorEmail}) · {it.style || 'sem estilo'} · {it.uses} {it.uses === 1 ? 'uso' : 'usos'} · {new Date(it.createdAt).toLocaleDateString('pt-BR')}
                                 </p>
@@ -71,7 +71,7 @@ export const LibraryTab = () => {
                             {it.steps.map((s, k) => `${k + 1}. ${s.name} ${s.temperature} °C por ${s.duration} ${s.duration === 1 ? 'dia' : 'dias'}`).join(' · ')}
                         </p>
                         {it.reports > 0 && (
-                            <p className="mt-3 rounded-xl bg-[#fdf1ee] px-3 py-2 text-sm text-[#7a2a1f]">
+                            <p className="mt-3 rounded-xl bg-[rgba(255,90,110,0.10)] px-3 py-2 text-sm text-[var(--danger)]">
                                 {it.reports} {it.reports === 1 ? 'denúncia' : 'denúncias'}{it.reasons ? `: ${it.reasons}` : ''}
                             </p>
                         )}

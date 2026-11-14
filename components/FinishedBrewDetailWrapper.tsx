@@ -53,12 +53,7 @@ export const FinishedBrewDetailWrapper: React.FC = () => {
     
     return (
         <div className="animate-in fade-in duration-300">
-            <button
-                onClick={() => navigate('/history')}
-                className="mb-4 ml-6 flex items-center gap-2 px-4 py-2 bg-white border border-black/[0.07] hover:bg-[var(--bg)] text-[var(--ink)] rounded-xl transition-all text-xs font-bold relative z-10"
-            >
-                Voltar
-            </button>
+            {/* Voltar fica na barra de navegacao (seta a esquerda do logo) */}
             <FinishedBrewDetail brew={brew} />
         </div>
     );

@@ -42,8 +42,8 @@ export default defineConfig(() => {
           name: 'Breww Dashboard',
           short_name: 'Breww',
           description: 'Brewery Management System',
-          theme_color: '#EEEFF1',
-          background_color: '#EEEFF1',
+          theme_color: '#04070B',
+          background_color: '#04070B',
           display: 'standalone',
           icons: [
             {

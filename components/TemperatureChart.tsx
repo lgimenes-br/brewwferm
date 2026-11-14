@@ -84,16 +84,17 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
     
     // Generate distinct colors for extra lines
     const getExtraColor = (index: number) => {
-        const colors = ['#f59e0b', '#3b82f6', '#ec4899', '#178a3f', '#14b8a6', '#f43f5e'];
+        // Sensores extras em tons de cinza: o verde fica so para a cerveja (um verde por grafico)
+        const colors = ['#A3A7B0', '#6B6F78', '#C9CCD3', '#4A4F59', '#898E99', '#D5D7DD'];
         return colors[index % colors.length];
     };
 
   return (
-    <div className="w-full h-full flex flex-col bg-white p-8 rounded-3xl border border-black/[0.07] backdrop-blur-sm overflow-hidden">
-      <h3 className="text-[var(--muted)] font-bold mb-6 text-xs pl-2">Histórico de Temperatura</h3>
+    <div className="w-full flex flex-col app-card p-5 sm:p-6 overflow-hidden">
+      <h3 className="text-[17px] font-normal text-[var(--ink)] mb-4 pl-1">Temperatura</h3>
       
       {safeData.length === 0 ? (
-        <div className="w-full flex-1 min-h-[350px] flex flex-col items-center justify-center text-center">
+        <div className="w-full h-[340px] min-w-0 flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-full bg-[var(--bg)] flex items-center justify-center mb-4 border border-black/10">
                 <div className="w-8 h-8 rounded-full border-2 border-black/25 border-t-neutral-400 animate-spin" />
             </div>
@@ -101,21 +102,21 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
             <p className="text-[var(--muted)] text-sm max-w-[250px]">O equipamento já foi instruído. A telemetria aparecerá aqui em alguns segundos.</p>
         </div>
       ) : (
-      <div className="w-full flex-1 min-h-[350px]">
+      <div className="w-full h-[340px] min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={safeData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#d6d8dc" vertical={false} strokeWidth={0.5} opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} strokeWidth={0.5} opacity={0.5} />
             <XAxis
               dataKey="timestamp"
               tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}
-              stroke="#9a9ea6"
+              stroke="#6B6F78"
               fontSize={11}
               tickLine={false}
               axisLine={false}
               dy={10}
             />
             <YAxis
-              stroke="#9a9ea6"
+              stroke="#6B6F78"
               domain={['auto', 'auto']}
               fontSize={11}
               unit="°C"
@@ -124,11 +125,11 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               dx={-10}
             />
             <Tooltip
-              contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d6d8dc', color: '#0B0D12', borderRadius: '16px', padding: '12px' }}
-              itemStyle={{ color: '#2b2f37', fontSize: '12px', paddingBottom: '4px' }}
-              labelStyle={{ color: '#6b6f78', fontSize: '10px', marginBottom: '8px', textTransform: '', letterSpacing: '0.05em' }}
+              contentStyle={{ backgroundColor: '#20252F', borderColor: 'rgba(255,255,255,0.10)', color: '#ECECF1', borderRadius: '16px', padding: '12px' }}
+              itemStyle={{ color: '#ECECF1', fontSize: '12px', paddingBottom: '4px' }}
+              labelStyle={{ color: '#898E99', fontSize: '10px', marginBottom: '8px', textTransform: '', letterSpacing: '0.05em' }}
               labelFormatter={(label) => new Date(label).toLocaleString()}
-              cursor={{ stroke: '#9a9ea6', strokeWidth: 0.5, strokeDasharray: '4 4' }}
+              cursor={{ stroke: 'rgba(255,255,255,0.35)', strokeWidth: 0.5, strokeDasharray: '4 4' }}
             />
             <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} iconType="circle" />
 
@@ -136,16 +137,16 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               type="monotone"
               dataKey="beerTemp"
               name={sensor1Name}
-              stroke="#0B0D12"
+              stroke="#71FC8F"
               strokeWidth={1.5}
               dot={false}
-              activeDot={{ r: 4, strokeWidth: 0, fill: '#0B0D12' }}
+              activeDot={{ r: 4, strokeWidth: 0, fill: '#71FC8F' }}
             />
             <Line
               type="monotone"
               dataKey="targetTemp"
-              name="Set Point"
-              stroke="#22c55e"
+              name="Alvo"
+              stroke="rgba(236,236,241,0.45)"
               strokeDasharray="4 4"
               strokeWidth={1}
               dot={false}
@@ -167,7 +168,7 @@ export const TemperatureChart: React.FC<TemperatureChartProps> = React.memo(({ d
               type="monotone"
               dataKey="fridgeTemp"
               name={sensor2Name}
-              stroke="#3b82f6"
+              stroke="#6B6F78"
               strokeWidth={1}
               dot={false}
               opacity={0.5}

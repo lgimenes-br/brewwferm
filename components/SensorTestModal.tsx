@@ -163,9 +163,9 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
     };
 
     const StatusBadge: React.FC<{ status: SensorStatus }> = ({ status }) => {
-        if (status === 'ok') return <span className="inline-flex items-center gap-1 text-[#178a3f] text-xs font-bold "><CheckCircle2 size={14} /> OK</span>;
-        if (status === 'suspect') return <span className="inline-flex items-center gap-1 text-[#b45309] text-xs font-bold "><AlertTriangle size={14} /> Suspeito</span>;
-        return <span className="inline-flex items-center gap-1 text-[var(--muted)] text-xs font-bold "><XCircle size={14} /> Ausente</span>;
+        if (status === 'ok') return <span className="inline-flex items-center gap-1 text-[#178a3f] text-xs font-medium "><CheckCircle2 size={14} /> OK</span>;
+        if (status === 'suspect') return <span className="inline-flex items-center gap-1 text-[#b45309] text-xs font-medium "><AlertTriangle size={14} /> Suspeito</span>;
+        return <span className="inline-flex items-center gap-1 text-[17px] text-[var(--ink)] font-normal "><XCircle size={14} /> Ausente</span>;
     };
 
     return (
@@ -263,7 +263,7 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
                         type="button"
                         onClick={runTest}
                         disabled={phase === 'waiting'}
-                        className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-bold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                        className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     >
                         <RotateCcw size={16} /> Testar novamente
                     </button>

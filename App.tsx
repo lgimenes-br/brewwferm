@@ -5,7 +5,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { Login } from './components/Login';
 import { AppLogin } from './components/AppLogin';
 import { Register } from './components/Register';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Circle, Snowflake, Flame, ArrowLeft, Timer, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Snowflake, ArrowLeft, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode, isDeviceOnline } from './types';
 import { fetchFirmwareVersion } from './services/api';
 import { isFirmwareUpdateAvailable } from './services/firmware';
@@ -85,7 +85,7 @@ const NavConfig = () => {
     if (role === 'admin') return null;
 
     // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/login', '/register', '/app-login', '/instalar', '/instalar/assistente', '/ajuda', '/privacidade', '/termos'];
+    const publicRoutes = ['/home-nova', '/login', '/register', '/app-login', '/instalar', '/instalar/assistente', '/ajuda', '/privacidade', '/termos'];
     if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
@@ -110,9 +110,6 @@ const NavConfig = () => {
         ? String(activeDevice?.currentDevice?.statOp || 'INATIVO').toUpperCase()
         : (activeDevice?.currentDevice ? 'OFFLINE' : 'INATIVO');
 
-    // Icon Styles
-    const iconOnlyBase = "flex items-center justify-center w-9 h-9 rounded-md border transition-all shrink-0 border-black/[0.07] text-[var(--muted)] hover:border-black/25 hover:text-[var(--ink)]";
-
     // Check if any device needs an update
     const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, f.currentDevice?.version));
     const hasUpdate = devicesNeedingUpdate.length > 0;
@@ -133,256 +130,185 @@ const NavConfig = () => {
         });
     };
 
+    const tabs = [
+        { to: '/', label: 'Aparelhos', icon: LayoutGrid, active: location.pathname === '/' || !!activeDevice },
+        { to: '/history', label: 'Histórico', icon: History, active: location.pathname.startsWith('/history') },
+        { to: '/calculators', label: 'Calculadoras', icon: Calculator, active: location.pathname === '/calculators' },
+        { to: '/compare', label: 'Comparar', icon: GitCompare, active: location.pathname === '/compare' },
+        { to: '/settings', label: 'Ajustes', icon: SettingsIcon, active: location.pathname === '/settings' },
+    ];
+    const showBack = !!activeDevice || /^\/history\/.+/.test(location.pathname);
+    // Estado do aparelho aberto em linguagem de gente (o app usa as mesmas palavras)
+    const stateLabel = !isOnline ? 'Offline'
+        : statOp === 'AQUECENDO' ? 'Aquecendo'
+        : statOp === 'RESFRIANDO' ? 'Resfriando'
+        : statOp === 'AGUARDANDO' ? 'Aguardando'
+        : statOp.startsWith('DELAY') ? 'Aguardando o compressor'
+        : 'Parado';
+    const modeLabel = (m?: DeviceMode) => m === DeviceMode.KEGERATOR ? 'Choppeira' : m === DeviceMode.FRIDGE ? 'Geladeira' : 'Fermentador';
+    const ModeIcon = (m?: DeviceMode) => m === DeviceMode.KEGERATOR ? Beer : m === DeviceMode.FRIDGE ? Snowflake : FlaskConical;
+
     return (
-        <div className="no-print mb-6">
+        <div className="no-print">
         <a
             href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200] focus:px-4 focus:py-2 focus:bg-amber-400 focus:text-black focus:font-bold focus:rounded-lg"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200] focus:px-4 focus:py-2 focus:bg-[var(--accent)] focus:text-[var(--on-accent)] focus:font-medium focus:rounded-full"
         >
             Pular para o conteúdo principal
         </a>
-        <nav className="bg-[var(--bg)] py-4 md:py-6 border-b border-black/[0.07]">
-            <div className="w-full mx-auto px-6 md:px-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                
-                {/* Top Row for Mobile (Logo + Hamburger) */}
-                <div className="flex items-center justify-between w-full md:w-auto">
-                    {/* Left Side: Logo Only */}
-                    <div
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Ir para a página inicial"
-                        className="flex items-center cursor-pointer select-none rounded-lg"
-                        onClick={() => navigate('/')}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                navigate('/');
-                            }
-                        }}
-                    >
-                        <BrewwLogo className="text-[var(--ink)]" />
-                    </div>
-
-                    {/* Mobile Hamburger Button */}
-                    <button 
-                        aria-label={isMobileMenuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação"}
-                        aria-expanded={isMobileMenuOpen}
-                        className="md:hidden flex items-center justify-center w-10 h-10 text-[var(--muted)] hover:text-[var(--ink)] transition-colors border border-black/[0.07] rounded-md"
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    >
-                        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        <nav aria-label="Principal" className="sticky top-0 z-40 border-b border-[var(--line)] bg-[rgba(4,7,11,0.78)] backdrop-blur-md">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 h-16 flex items-center gap-3">
+                {showBack && (
+                    <button type="button" aria-label="Voltar" title="Voltar" onClick={() => navigate(-1)} className="app-icon-btn shrink-0">
+                        <ArrowLeft size={18} />
                     </button>
-                </div>
+                )}
+                <button type="button" aria-label="Ir para os aparelhos" onClick={() => navigate('/')} className="flex items-center rounded-full shrink-0">
+                    <BrewwLogo className="text-[var(--ink)]" />
+                </button>
 
-                {/* Right Side: Badges + Nav */}
-                <div className="flex items-center gap-2">
-                    {/* Contextual Badges for Device Pages */}
-                    {activeDevice && (
-                        <div className="hidden md:flex items-center gap-2 mr-3 animate-in fade-in slide-in-from-right-4 duration-500">
-                            {/* Online/Offline Badge */}
-                            <div className={`flex items-center gap-2 px-3 h-9 rounded-md border font-mono text-[11px] font-semibold transition-all ${
-                                isOnline 
-                                    ? 'border-[#2fbf55] text-[#178a3f]' 
-                                    : 'border-red-500 text-[#d63a4d]'
-                            }`}>
-                                <div className={`w-2 h-2 rounded-full bg-current ${isOnline ? 'animate-pulse' : ''}`}></div>
-                                {activeDevice.name}
-                            </div>
-
-                            {/* StatOp Badge */}
-                            {statOp === 'AQUECENDO' && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-red-500 text-[#d63a4d] font-mono text-[11px] font-semibold ">
-                                    <Flame size={14} /> AQUECENDO
-                                </div>
-                            )}
-                            {statOp === 'RESFRIANDO' && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-blue-500 text-blue-600 font-mono text-[11px] font-semibold ">
-                                    <Snowflake size={14} /> RESFRIANDO
-                                </div>
-                            )}
-                            {statOp.startsWith('DELAY') && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-[#ca8a04] text-[#a16207] font-mono text-[11px] font-semibold ">
-                                    <Timer size={14} /> {statOp}
-                                </div>
-                            )}
-                            {statOp === 'AGUARDANDO' && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-[#ca8a04] text-[#a16207] font-mono text-[11px] font-semibold ">
-                                    <Circle size={14} /> AGUARDANDO
-                                </div>
-                            )}
-                            {(statOp !== 'AQUECENDO' && statOp !== 'RESFRIANDO' && statOp !== 'AGUARDANDO' && !statOp.startsWith('DELAY')) && (
-                                <div className="flex items-center gap-2 px-3 h-9 rounded-md border border-zinc-500 text-[var(--muted)] font-mono text-[11px] font-semibold ">
-                                    <Circle size={14} /> {statOp === 'INATIVO' ? 'PARADO' : statOp}
-                                </div>
-                            )}
-
-                            {/* MODE DROPDOWN Badge in Navbar */}
-                            <div className="relative ml-1">
-                                <button 
-                                    onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 h-9 rounded-md border border-black/[0.07] hover:border-black/25 bg-[var(--bg)] text-[#2b2f37] hover:text-[var(--ink)] transition-all"
-                                >
-                                    {activeDevice.mode === DeviceMode.FERMENTER && <FlaskConical size={14} />}
-                                    {activeDevice.mode === DeviceMode.KEGERATOR && <Beer size={14} />}
-                                    {activeDevice.mode === DeviceMode.FRIDGE && <Snowflake size={14} />}
-                                    
-                                    <span className="text-[11px] font-bold hidden lg:block">
-                                        {activeDevice.mode === DeviceMode.FERMENTER ? 'Fermentador' : activeDevice.mode === DeviceMode.KEGERATOR ? 'Chopeira' : 'Geladeira'}
-                                    </span>
-                                    <ChevronDown size={14} className={`text-[var(--muted)] transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {isModeDropdownOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-40" onClick={() => setIsModeDropdownOpen(false)}></div>
-                                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-black/[0.07] rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Aparelho aberto: nome, estado e modo */}
+                {activeDevice && (
+                    <div className="hidden lg:flex items-center gap-2 ml-3 min-w-0">
+                        <span className="app-pill max-w-[280px]" title={`${activeDevice.name}: ${stateLabel}`}>
+                            <span aria-hidden className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-[var(--accent)]' : 'bg-[var(--tertiary)]'}`} />
+                            <span className="truncate">{activeDevice.name}</span>
+                            <span className="text-[var(--muted)] shrink-0">· {stateLabel}</span>
+                        </span>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
+                                aria-haspopup="menu"
+                                aria-expanded={isModeDropdownOpen}
+                                className="app-pill hover:bg-[rgba(255,255,255,0.11)] transition-colors"
+                            >
+                                {React.createElement(ModeIcon(activeDevice.mode), { size: 15, 'aria-hidden': true })}
+                                {modeLabel(activeDevice.mode)}
+                                <ChevronDown size={14} className={`text-[var(--muted)] transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isModeDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setIsModeDropdownOpen(false)} />
+                                    <div role="menu" className="absolute top-full left-0 mt-2 w-52 app-card p-1.5 z-50 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.8)]">
+                                        {[DeviceMode.FERMENTER, DeviceMode.FRIDGE, DeviceMode.KEGERATOR].map(m => (
                                             <button
-                                                onClick={() => handleModeDropdownSelect(DeviceMode.FERMENTER)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
+                                                key={m}
+                                                type="button"
+                                                role="menuitemradio"
+                                                aria-checked={activeDevice.mode === m}
+                                                onClick={() => handleModeDropdownSelect(m)}
+                                                className={`w-full flex items-center gap-3 px-3 h-11 rounded-2xl text-left text-[15px] transition-colors hover:bg-[var(--fill)] ${activeDevice.mode === m ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}
                                             >
-                                                <FlaskConical size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`} />
-                                                <span className={`text-xs font-bold flex-1 transition-colors ${activeDevice.mode === DeviceMode.FERMENTER ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>Fermentador</span>
-                                                {activeDevice.mode === DeviceMode.FERMENTER && <Check size={14} className="text-[#178a3f]" />}
+                                                {React.createElement(ModeIcon(m), { size: 16, 'aria-hidden': true })}
+                                                <span className="flex-1">{modeLabel(m)}</span>
+                                                {activeDevice.mode === m && <Check size={15} className="text-[var(--accent)]" />}
                                             </button>
-                                            <button
-                                                onClick={() => handleModeDropdownSelect(DeviceMode.KEGERATOR)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
-                                            >
-                                                <Beer size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`} />
-                                                <span className={`text-xs font-bold flex-1 transition-colors ${activeDevice.mode === DeviceMode.KEGERATOR ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>Chopeira</span>
-                                                {activeDevice.mode === DeviceMode.KEGERATOR && <Check size={14} className="text-[#178a3f]" />}
-                                            </button>
-                                            <button
-                                                onClick={() => handleModeDropdownSelect(DeviceMode.FRIDGE)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
-                                            >
-                                                <Snowflake size={14} className={`transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`} />
-                                                <span className={`text-xs font-bold flex-1 transition-colors ${activeDevice.mode === DeviceMode.FRIDGE ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>Geladeira</span>
-                                                {activeDevice.mode === DeviceMode.FRIDGE && <Check size={14} className="text-[#178a3f]" />}
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    )}
-
-                    {/* Navigation Icons (Desktop only) */}
-                    <div className="hidden md:flex items-center gap-2">
-                        <button title="Visão Geral" aria-label="Visão Geral" aria-current={location.pathname === '/' ? 'page' : undefined} onClick={() => navigate('/')} className={iconOnlyBase} >
-                            <LayoutGrid size={18} />
-                        </button>
-                        <button title="Logs" aria-label="Logs" aria-current={location.pathname.startsWith('/history') ? 'page' : undefined} onClick={() => navigate('/history')} className={iconOnlyBase} >
-                            <History size={18} />
-                        </button>
-                        <button title="Calculadoras" aria-label="Calculadoras" aria-current={location.pathname === '/calculators' ? 'page' : undefined} onClick={() => navigate('/calculators')} className={iconOnlyBase} >
-                            <Calculator size={18} />
-                        </button>
-                        <button title="Comparador" aria-label="Comparador" aria-current={location.pathname === '/compare' ? 'page' : undefined} onClick={() => navigate('/compare')} className={iconOnlyBase} >
-                            <GitCompare size={18} />
-                        </button>
-                        <button title="Settings" aria-label="Configurações" aria-current={location.pathname === '/settings' ? 'page' : undefined} onClick={() => navigate('/settings')} className={iconOnlyBase}>
-                            <SettingsIcon size={18} />
-                        </button>
-
-                        {/* Voltar Button - moved to the right corner */}
-                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
-                            <button title="Voltar" aria-label="Voltar" onClick={() => navigate(-1)} className={iconOnlyBase}>
-                                <ArrowLeft size={18} />
-                            </button>
-                        )}
-
-                        {location.pathname === '/' && (
-                            <button onClick={() => logout()} aria-label="Sair" className="ml-2 p-2 text-black/35 hover:text-[#d63a4d] transition-colors" title="Sair">
-                                <LogOut size={18} />
-                            </button>
-                        )}
                     </div>
+                )}
+
+                {/* Abas (computador) */}
+                <div className="hidden md:flex items-center gap-1 ml-auto rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.03)] p-1">
+                    {tabs.map(t => (
+                        <button
+                            key={t.to}
+                            type="button"
+                            onClick={() => navigate(t.to)}
+                            aria-current={t.active ? 'page' : undefined}
+                            title={t.label}
+                            className={`flex items-center gap-2 h-9 px-3.5 rounded-full text-[14px] transition-colors ${t.active ? 'bg-[var(--fill)] text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
+                        >
+                            <t.icon size={16} aria-hidden />
+                            <span className={activeDevice ? 'sr-only' : ''}>{t.label}</span>
+                        </button>
+                    ))}
                 </div>
+                <button type="button" onClick={() => logout()} aria-label="Sair" title="Sair" className="hidden md:inline-flex app-icon-btn shrink-0 text-[var(--muted)]">
+                    <LogOut size={17} />
+                </button>
+
+                {/* Menu (celular) */}
+                <button
+                    type="button"
+                    aria-label={isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+                    aria-expanded={isMobileMenuOpen}
+                    className="md:hidden app-icon-btn ml-auto"
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                >
+                    {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
+                </button>
             </div>
 
-            {/* Mobile Menu Overlay */}
-            {isMobileMenuOpen && (
-                <div role="dialog" aria-modal="true" aria-label="Menu de navegação" className="fixed inset-0 z-50 bg-[var(--bg)] flex flex-col md:hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between p-6 border-b border-black/[0.07] bg-[var(--bg)]">
-                        <BrewwLogo className="text-[var(--ink)]" />
-                        <button 
-                            aria-label="Fechar menu de navegação"
-                            className="flex items-center justify-center w-10 h-10 text-[var(--muted)] hover:text-[var(--ink)] transition-colors border border-black/[0.07] rounded-md"
-                            onClick={() => setIsMobileMenuOpen(false)}
+            {/* Aparelho aberto no celular: uma linha com estado e modo */}
+            {activeDevice && (
+                <div className="lg:hidden mx-auto max-w-7xl px-4 sm:px-6 pb-3 flex items-center gap-2 overflow-x-auto">
+                    <span className="app-pill shrink-0">
+                        <span aria-hidden className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[var(--accent)]' : 'bg-[var(--tertiary)]'}`} />
+                        {stateLabel}
+                    </span>
+                    {[DeviceMode.FERMENTER, DeviceMode.FRIDGE, DeviceMode.KEGERATOR].map(m => (
+                        <button
+                            key={m}
+                            type="button"
+                            onClick={() => handleModeDropdownSelect(m)}
+                            aria-pressed={activeDevice.mode === m}
+                            className={`app-pill shrink-0 ${activeDevice.mode === m ? '!bg-[var(--accent)] !text-[var(--on-accent)] !border-transparent' : 'text-[var(--muted)]'}`}
                         >
-                            <X size={20} />
+                            {React.createElement(ModeIcon(m), { size: 15, 'aria-hidden': true })}
+                            {modeLabel(m)}
                         </button>
-                    </div>
+                    ))}
+                </div>
+            )}
 
-                    <div className="flex-1 overflow-y-auto overscroll-contain p-6 flex flex-col gap-4">
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
-                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><LayoutGrid size={24} /></div>
-                            <span className="text-lg font-bold tracking-tight">Visão Geral</span>
+            {isMobileMenuOpen && (
+                <div role="dialog" aria-modal="true" aria-label="Menu" className="md:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-[#04070B] overflow-y-auto overscroll-contain p-4 flex flex-col gap-2">
+                    {tabs.map(t => (
+                        <button
+                            key={t.to}
+                            type="button"
+                            onClick={() => { setIsMobileMenuOpen(false); navigate(t.to); }}
+                            aria-current={t.active ? 'page' : undefined}
+                            className="app-row flex items-center gap-4 px-4 h-16 text-left text-[17px] hover:bg-[#1E2330] transition-colors"
+                        >
+                            <span className="app-icon-btn"><t.icon size={18} className={t.active ? 'text-[var(--accent)]' : ''} aria-hidden /></span>
+                            <span className="flex-1">{t.label}</span>
                         </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/history'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
-                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><History size={24} /></div>
-                            <span className="text-lg font-bold tracking-tight">Histórico / Logs</span>
-                        </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/calculators'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
-                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><Calculator size={24} /></div>
-                            <span className="text-lg font-bold tracking-tight">Calculadoras</span>
-                        </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/compare'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
-                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><GitCompare size={24} /></div>
-                            <span className="text-lg font-bold tracking-tight">Comparar Lotes</span>
-                        </button>
-                        <button onClick={() => { setIsMobileMenuOpen(false); navigate('/settings'); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07]">
-                            <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><SettingsIcon size={24} /></div>
-                            <span className="text-lg font-bold tracking-tight">Configurações</span>
-                        </button>
-                        
-                        {(activeDevice || location.pathname.startsWith('/history') || location.pathname === '/settings' || location.pathname === '/calculators' || location.pathname === '/compare' || location.pathname.startsWith('/admin')) && (
-                            <button onClick={() => { setIsMobileMenuOpen(false); navigate(-1); }} className="flex items-center gap-4 p-4 text-[var(--ink)] bg-white hover:bg-[var(--bg)] rounded-xl transition-colors text-left border border-black/[0.07] mt-auto">
-                                <div className="flex items-center justify-center w-12 h-12 bg-[var(--bg)] rounded-lg text-[var(--ink)]"><ArrowLeft size={24} /></div>
-                                <span className="text-lg font-bold tracking-tight">Voltar</span>
-                            </button>
-                        )}
-                        
-                        {location.pathname === '/' && (
-                            <button onClick={() => { setIsMobileMenuOpen(false); logout(); }} className="flex items-center gap-4 p-4 text-[#d63a4d] bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-colors text-left border border-red-500/20 mt-auto">
-                                <div className="flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-lg text-[#d63a4d]"><LogOut size={24} /></div>
-                                <span className="text-lg font-bold tracking-tight">Sair do Sistema</span>
-                            </button>
-                        )}
-                    </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => { setIsMobileMenuOpen(false); logout(); }}
+                        className="app-row flex items-center gap-4 px-4 h-16 text-left text-[17px] text-[var(--danger)] mt-4"
+                    >
+                        <span className="app-icon-btn"><LogOut size={18} aria-hidden /></span>
+                        Sair
+                    </button>
                 </div>
             )}
         </nav>
-        
-        {/* Global Firmware Alert */}
-        {hasUpdate && (() => {
+
+        {/* Firmware novo: uma linha discreta, como no app (fora de Ajustes, que tem o proprio quadro) */}
+        {hasUpdate && location.pathname !== '/settings' && (() => {
             const getDevProgress = (id: string) => otaProgress?.[(id || '').toUpperCase()] ?? otaProgress?.[id] ?? 0;
-            const maxProgress = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, getDevProgress(dev.id)), 0);
-            const isUpdating = maxProgress > 0;
-            // Aviso escondido em Configuracoes (la existe o box proprio); o modal de progresso aparece em qualquer pagina
-            const showBanner = location.pathname !== '/settings';
+            const isUpdating = devicesNeedingUpdate.reduce((acc, dev) => Math.max(acc, getDevProgress(dev.id)), 0) > 0;
             return (
-                <>
-                {showBanner && <div className="w-full bg-amber-100 border-b border-amber-300 py-3 px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-500 backdrop-blur-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                        <p className="text-[#b45309] text-xs md:text-sm font-medium">
-                            Nova atualização de firmware ({latestFirmware!.version}) disponível para {devicesNeedingUpdate.length} equipamento{devicesNeedingUpdate.length > 1 ? 's' : ''}.
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-4">
+                    <div className="app-row border-[rgba(113,252,143,0.25)] flex items-center gap-3 px-4 py-3">
+                        <span aria-hidden className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />
+                        <p className="flex-1 text-[15px] text-[var(--ink)]">
+                            Firmware {latestFirmware!.version} disponível
+                            <span className="text-[var(--muted)]"> para {devicesNeedingUpdate.length} aparelho{devicesNeedingUpdate.length > 1 ? 's' : ''}</span>
                         </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <button 
-                            onClick={handleUpdateAll}
-                            disabled={isUpdating}
-                            className="px-4 py-1.5 bg-amber-600/20 hover:bg-amber-600 disabled:opacity-50 border border-amber-600/50 text-[#b45309] hover:text-[var(--ink)] rounded-lg text-[10px] md:text-xs font-bold transition-colors shrink-0"
-                        >
-                            {isUpdating ? 'Instalando...' : 'Atualizar Agora'}
+                        <button type="button" onClick={handleUpdateAll} disabled={isUpdating} className="text-[15px] font-medium text-[var(--accent)] disabled:text-[var(--tertiary)] px-2 h-9 rounded-full hover:bg-[var(--fill)] transition-colors">
+                            {isUpdating ? 'Instalando…' : 'Atualizar'}
                         </button>
                     </div>
-                </div>}
-
-                </>
+                </div>
             );
         })()}
         <OtaProgressModal
@@ -410,14 +336,15 @@ const NavConfig = () => {
 const AppRoutes = () => {
     const { role } = useAuth();
     return (
-        <div className="brew-landing brew-app min-h-screen min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
+        <div className="brew-landing brew-app app-shell min-h-screen min-h-[100dvh] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
             <Toaster 
                 position="top-right"
                 toastOptions={{
                     style: {
-                        background: '#0B0D12',
-                        color: '#fff',
-                        borderRadius: '14px',
+                        background: '#20252F',
+                        color: '#ECECF1',
+                        border: '1px solid rgba(255,255,255,0.10)',
+                        borderRadius: '16px',
                         fontSize: '14px'
                     }
                 }}
@@ -444,12 +371,16 @@ const AppRoutes = () => {
                     <Route path="/instalar" element={<Installer />} />
                     <Route path="/instalar/assistente" element={<InstallWizard />} />
                     <Route path="/ajuda" element={<Help />} />
+                    {/* Endereco usado para comparar as duas homes: agora a nova e a oficial em "/" */}
+                    <Route path="/home-nova" element={<Navigate to="/" replace />} />
                     <Route path="/privacidade" element={<Privacy />} />
                     <Route path="/termos" element={<Terms />} />
 
                     {/* Protected App Routes */}
                     <Route path="/*" element={
                         <ProtectedRoute>
+                            {/* O site inteiro usa a identidade do app (.app-shell no topo) */}
+                            <div>
                             <NavConfig />
                             <main id="main-content" className="mt-0">
                                 <ErrorBoundary name="Rotas Principais">
@@ -468,6 +399,7 @@ const AppRoutes = () => {
                                     </Suspense>
                                 </ErrorBoundary>
                             </main>
+                            </div>
                         </ProtectedRoute>
                     } />
                 </Routes>

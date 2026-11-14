@@ -67,15 +67,15 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
   };
 
   return (
-    <div className="relative bg-white border border-black/[0.07] rounded-3xl p-6 h-full flex flex-col min-h-[400px] max-h-[600px]">
+    <div className="relative bg-white border border-black/[0.07] rounded-[26px] p-6 h-full flex flex-col min-h-[400px] max-h-[600px]">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-[var(--muted)] font-bold text-xs flex items-center gap-2">
+        <h3 className="text-[var(--muted)] font-medium text-xs flex items-center gap-2">
           <MessageSquareText size={14} />
-          Diário de Bordo
+          Diário do lote
         </h3>
         <button
           onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-full border border-black/15 transition-all shadow-sm text-xs font-bold "
+          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-full border border-black/15 transition-all shadow-sm text-xs font-medium "
           title="Nova Nota"
         >
           <Plus size={14} />
@@ -120,10 +120,10 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
               )}
               
               <div className="flex justify-between items-start mb-2 pr-6">
-                <span className="text-[10px] font-bold text-[var(--ink)] bg-[var(--bg)] px-2 py-1 rounded-md">
+                <span className="text-[12px] font-medium text-[var(--ink)] bg-[var(--bg)] px-2 py-1 rounded-md">
                   {event.type}
                 </span>
-                <span className="text-[10px] font-mono text-[var(--muted)] flex items-center gap-1">
+                <span className="text-[12px] font-mono text-[var(--muted)] flex items-center gap-1">
                   <Calendar size={10} />
                   {(() => {
                     const d = new Date(event.timestamp);
@@ -144,11 +144,11 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
           role="dialog"
           aria-modal="true"
           aria-labelledby="new-event-dialog-title"
-          className="absolute inset-0 z-20 flex items-center justify-center bg-white p-6 rounded-3xl"
+          className="absolute inset-0 z-20 flex items-center justify-center bg-white p-6 rounded-[26px]"
         >
           <div className="w-full">
             <div className="flex justify-between items-center mb-6">
-              <h3 id="new-event-dialog-title" className="text-lg font-bold text-[var(--ink)]">Nova Anotação</h3>
+              <h3 id="new-event-dialog-title" className="text-lg font-medium text-[var(--ink)]">Nova Anotação</h3>
               <button
                 type="button"
                 aria-label="Fechar nova anotação"
@@ -161,7 +161,7 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="timeline-event-category" className="text-[10px] font-bold text-[var(--muted)] mb-2 block">Categoria</label>
+                <label htmlFor="timeline-event-category" className="text-[12px] font-medium text-[var(--muted)] mb-2 block">Categoria</label>
                 <select
                   id="timeline-event-category"
                   value={newType}
@@ -175,7 +175,7 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
               </div>
 
               <div>
-                <label htmlFor="timeline-event-description" className="text-[10px] font-bold text-[var(--muted)] mb-2 block">Descrição</label>
+                <label htmlFor="timeline-event-description" className="text-[12px] font-medium text-[var(--muted)] mb-2 block">Descrição</label>
                 <textarea
                   id="timeline-event-description"
                   value={newDesc}
@@ -189,7 +189,7 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
               <button
                 onClick={handleAdd}
                 disabled={!newDesc.trim()}
-                className="w-full bg-[var(--ink)] text-white py-4 rounded-xl font-bold text-sm hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-[var(--ink)] text-white py-4 rounded-xl font-medium text-sm hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 Gravar no Diário
               </button>

@@ -35,7 +35,7 @@ const UserDevicesList = ({ userId, refreshTrigger, onEdit, onDelete }: { userId:
             {devices.map(dev => (
                 <div key={dev.id} className="bg-white border border-black/[0.07] rounded-lg p-3 flex justify-between items-center group hover:border-black/15 transition-colors">
                     <div>
-                        <div className="font-mono text-[#178a3f] text-sm">{dev.serial_code}</div>
+                        <div className="font-mono text-[var(--accent)] text-sm">{dev.serial_code}</div>
                         <div className="text-xs text-[var(--muted)]">{dev.device_name || 'Sem nome'}</div>
                     </div>
                     <div className="flex items-center gap-1 opacity-60 md:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
@@ -96,24 +96,24 @@ const UserFormModal = ({ data, onClose, onSuccess }: { data: any, onClose: () =>
         <div role="dialog" aria-modal="true" aria-labelledby="user-modal-title" className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white border border-black/[0.07] rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 id="user-modal-title" className="text-xl font-semibold text-[var(--ink)]">{data ? 'Editar Conta' : 'Nova Conta'}</h3>
+                    <h3 id="user-modal-title" className="text-xl font-medium text-[var(--ink)]">{data ? 'Editar Conta' : 'Nova conta'}</h3>
                     <button type="button" aria-label="Fechar" onClick={onClose} className="text-[var(--muted)] hover:text-[var(--ink)]"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="user-modal-name" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Nome</label>
+                        <label htmlFor="user-modal-name" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">Nome</label>
                         <input id="user-modal-name" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" />
                     </div>
                     <div>
-                        <label htmlFor="user-modal-email" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Email</label>
+                        <label htmlFor="user-modal-email" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">E-mail</label>
                         <input id="user-modal-email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" />
                     </div>
                     <div>
-                        <label htmlFor="user-modal-password" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">{data ? 'Nova Senha (opcional)' : 'Senha'}</label>
+                        <label htmlFor="user-modal-password" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">{data ? 'Nova Senha (opcional)' : 'Senha'}</label>
                         <input id="user-modal-password" type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required={!data} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" />
                     </div>
                     <div>
-                        <label htmlFor="user-modal-role" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Nível de Acesso</label>
+                        <label htmlFor="user-modal-role" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">Nível de Acesso</label>
                         <select id="user-modal-role" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] appearance-none">
                             <option value="user">Usuário Comum</option>
                             <option value="admin">Administrador</option>
@@ -174,16 +174,16 @@ const DeviceFormModal = ({ data, userId, onClose, onSuccess }: { data: any, user
         <div role="dialog" aria-modal="true" aria-labelledby="device-modal-title" className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white border border-black/[0.07] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 id="device-modal-title" className="text-xl font-semibold text-[var(--ink)]">{data ? 'Editar Dispositivo' : 'Vincular Dispositivo'}</h3>
+                    <h3 id="device-modal-title" className="text-xl font-medium text-[var(--ink)]">{data ? 'Editar Dispositivo' : 'Vincular Dispositivo'}</h3>
                     <button type="button" aria-label="Fechar" onClick={onClose} className="text-[var(--muted)] hover:text-[var(--ink)]"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="device-modal-serial" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Serial (Código Único)</label>
+                        <label htmlFor="device-modal-serial" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">Serial (Código Único)</label>
                         <input id="device-modal-serial" type="text" value={formData.serial_code} onChange={e => setFormData({ ...formData, serial_code: e.target.value })} required className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] font-mono " placeholder="BREWW-XXXXX" />
                     </div>
                     <div>
-                        <label htmlFor="device-modal-name" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Apelido (Opcional)</label>
+                        <label htmlFor="device-modal-name" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">Apelido (Opcional)</label>
                         <input id="device-modal-name" type="text" value={formData.device_name} onChange={e => setFormData({ ...formData, device_name: e.target.value })} className="w-full bg-[var(--bg)] border border-black/[0.07] rounded-lg px-4 py-2 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]" placeholder="Ex: Geladeira 1" />
                     </div>
                     <div className="pt-4 flex gap-3">
@@ -323,7 +323,7 @@ export const UsersTab: React.FC = () => {
                     onClick={() => setUserModal({ isOpen: true, data: null })}
                     className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-lg font-medium transition-colors shadow-lg shadow-indigo-900/20"
                 >
-                    <Plus size={16} /> Nova Conta
+                    <Plus size={16} /> Nova conta
                 </button>
             </div>
 
@@ -336,10 +336,10 @@ export const UsersTab: React.FC = () => {
                             <tr className="text-[var(--muted)]">
                                 <th className="py-4 px-4 font-medium w-10"></th>
                                 <th className="py-4 px-4 font-medium">Nome</th>
-                                <th className="py-4 px-4 font-medium">Email</th>
-                                <th className="py-4 px-4 font-medium">Role</th>
+                                <th className="py-4 px-4 font-medium">E-mail</th>
+                                <th className="py-4 px-4 font-medium">Função</th>
                                 <th className="py-4 px-4 font-medium text-center">Plano</th>
-                                <th className="py-4 px-4 font-medium text-center">Dispositivos</th>
+                                <th className="py-4 px-4 font-medium text-center">Aparelhos</th>
                                 <th className="py-4 px-4 font-medium text-right">Ações</th>
                             </tr>
                         </thead>
@@ -361,8 +361,8 @@ export const UsersTab: React.FC = () => {
                                         <td className="py-3 px-4 font-medium text-[#2b2f37]">{user.name}</td>
                                         <td className="py-3 px-4 text-[var(--muted)]">{user.email}</td>
                                         <td className="py-3 px-4">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${user.role === 'admin' ? 'bg-[var(--accent)]/30 text-[var(--ink)] border border-[var(--ink)]/20' : 'bg-[var(--bg)] text-[var(--muted)] border border-black/15'}`}>
-                                                {user.role}
+                                            <span className={`px-2.5 py-0.5 rounded-full text-[12px] border ${user.role === 'admin' ? 'border-[rgba(113,252,143,0.4)] text-[var(--accent)]' : 'border-[var(--line-strong)] text-[var(--muted)]'}`}>
+                                                {user.role === 'admin' ? 'admin' : 'usuário'}
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-center">
@@ -372,12 +372,12 @@ export const UsersTab: React.FC = () => {
                                                 onChange={(e) => changeUserPlan(user.id, e.target.value)}
                                                 className="bg-[var(--bg)] border border-black/15 text-[#2b2f37] text-xs rounded px-2 py-1 focus:outline-none focus:border-[var(--ink)]"
                                             >
-                                                <option value="free">Free</option>
+                                                <option value="free">Grátis</option>
                                                 <option value="premium">Premium</option>
                                             </select>
                                         </td>
                                         <td className="py-3 px-4 text-center">
-                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg)] text-xs font-semibold text-[#2b2f37]">
+                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg)] text-xs font-medium text-[#2b2f37]">
                                                 {user.device_count || 0}
                                             </span>
                                         </td>
@@ -394,7 +394,7 @@ export const UsersTab: React.FC = () => {
                                             <td colSpan={7} className="p-0 border-b border-black/[0.07]">
                                                 <div className="bg-[var(--bg)] px-4 md:px-10 py-6 border-l-2 border-[var(--ink)] animate-in slide-in-from-top-2 duration-200">
                                                     <div className="flex justify-between items-center mb-4">
-                                                        <h3 className="text-sm font-semibold text-[#2b2f37] flex items-center gap-2 ">
+                                                        <h3 className="text-sm font-medium text-[#2b2f37] flex items-center gap-2 ">
                                                             <HardDrive size={14} className="text-[var(--ink)]" />
                                                             Dispositivos Vinculados
                                                         </h3>
@@ -500,11 +500,11 @@ function TrashSection({ refreshKey, onRestored }: { refreshKey: number; onRestor
     return (
         <section aria-labelledby="trash-title" className="mt-10">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="trash-title" className="text-lg font-semibold text-[var(--ink)]">Lixeira</h2>
+                <h2 id="trash-title" className="text-lg font-medium text-[var(--ink)]">Lixeira</h2>
                 <p className="text-sm text-[var(--muted)]">Contas excluídas ficam 30 dias aqui antes de serem apagadas.</p>
             </div>
             {items.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-black/10 bg-white/60 px-5 py-6 text-sm text-[var(--muted)]">A lixeira está vazia.</p>
+                <p className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-transparent px-5 py-6 text-sm text-[var(--muted)]">A lixeira está vazia.</p>
             ) : (
                 <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-2xl border border-black/[0.06] bg-white">
                     {items.map(u => (
@@ -517,7 +517,7 @@ function TrashSection({ refreshKey, onRestored }: { refreshKey: number; onRestor
                                 apagada em {u.days_left} {Number(u.days_left) === 1 ? 'dia' : 'dias'}
                             </span>
                             <button type="button" onClick={() => restore(u)} disabled={busy === u.id} aria-label={`Restaurar ${u.name}`}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--ink)] px-3 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-50">
+                                className="app-btn-quiet !min-h-9 !px-3.5 text-sm disabled:opacity-50">
                                 <RotateCcw size={15} /> Restaurar
                             </button>
                             <button type="button" onClick={() => setPendingPurge(u)} disabled={busy === u.id} aria-label={`Excluir definitivamente ${u.name}`}

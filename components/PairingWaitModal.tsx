@@ -111,7 +111,7 @@ export const PairingWaitModal: React.FC<PairingWaitModalProps> = ({ pairing, onC
                             </div>
                             <h3 id="pairing-wait-title" className="text-lg font-medium text-[var(--ink)] mb-2">Aparelho vinculado!</h3>
                             <p className="text-[var(--muted)] text-sm mb-5">Ele já aparece no seu painel.</p>
-                            <button type="button" onClick={onClose} className="w-full bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-bold transition-colors">
+                            <button type="button" onClick={onClose} className="w-full bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-medium transition-colors">
                                 Concluir
                             </button>
                         </>

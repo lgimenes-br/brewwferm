@@ -126,7 +126,7 @@ export const Help: React.FC = () => {
 
                 <div className="mt-16 flex flex-col items-start justify-between gap-6 rounded-[28px] bg-[var(--card)] p-8 text-white sm:flex-row sm:items-center">
                     <p className="[font-family:var(--font-display)] text-2xl font-light tracking-[-0.02em]">Ainda não montou o seu?</p>
-                    <Link to="/instalar" className="group inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3.5 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
+                    <Link to="/instalar" className="group inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3.5 text-[15px] font-semibold text-[var(--on-accent)] hover:brightness-95">
                         Ver o guia de montagem <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                     </Link>
                 </div>

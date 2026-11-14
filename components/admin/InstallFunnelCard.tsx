@@ -63,8 +63,8 @@ export const InstallFunnelCard = () => {
     return (
         <div className="bg-white border border-black/[0.07] rounded-xl p-5">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-[var(--muted)] flex items-center gap-2"><Filter size={16} /> Funil da instalação pelo site</h3>
-                <div className="flex rounded-lg bg-[var(--bg)] p-0.5 text-xs font-semibold" role="group" aria-label="Período">
+                <h3 className="text-sm font-medium text-[var(--muted)] flex items-center gap-2"><Filter size={16} /> Funil da instalação pelo site</h3>
+                <div className="flex rounded-lg bg-[var(--bg)] p-0.5 text-xs font-medium" role="group" aria-label="Período">
                     {RANGES.map(d => (
                         <button key={d} type="button" aria-pressed={days === d} onClick={() => setDays(d)}
                             className={`min-h-8 rounded-md px-3 ${days === d ? 'bg-white text-[var(--ink)] shadow-sm' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>{d} dias</button>
@@ -82,10 +82,10 @@ export const InstallFunnelCard = () => {
                                 <li key={f.event}>
                                     <div className="flex items-baseline justify-between gap-3 text-sm">
                                         <span className="text-[var(--ink)]">{LABEL[f.event] || f.event}</span>
-                                        <span className="tabular-nums text-[var(--muted)]"><b className="font-semibold text-[var(--ink)]">{f.users}</b>{k > 0 && ` · ${pct}%`}</span>
+                                        <span className="tabular-nums text-[var(--muted)]"><b className="font-medium text-[var(--ink)]">{f.users}</b>{k > 0 && ` · ${pct}%`}</span>
                                     </div>
                                     <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-black/[0.05]">
-                                        <div className="h-full rounded-full bg-[#1fa84a]" style={{ width: `${Math.max(pct, f.users ? 2 : 0)}%` }} />
+                                        <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(pct, f.users ? 2 : 0)}%` }} />
                                     </div>
                                 </li>
                             );
@@ -93,7 +93,7 @@ export const InstallFunnelCard = () => {
                     </ol>
                     <div className="space-y-5 text-sm">
                         <div>
-                            <p className="mb-2 font-semibold text-[var(--muted)]">Placas detectadas</p>
+                            <p className="mb-2 font-medium text-[var(--muted)]">Placas detectadas</p>
                             {data.boards.length ? (
                                 <ul className="divide-y divide-black/[0.06]">
                                     {data.boards.map(b => <li key={b.board || '-'} className="flex justify-between py-1.5"><span>{(b.board && BOARD[b.board]) || b.board || 'Não identificada'}</span><span className="tabular-nums">{b.users}</span></li>)}
@@ -101,7 +101,7 @@ export const InstallFunnelCard = () => {
                             ) : <p className="text-[var(--muted)]">Nenhuma ainda.</p>}
                         </div>
                         <div>
-                            <p className="mb-2 font-semibold text-[var(--muted)]">Falhas mais comuns</p>
+                            <p className="mb-2 font-medium text-[var(--muted)]">Falhas mais comuns</p>
                             {data.fails.length ? (
                                 <ul className="divide-y divide-black/[0.06]">
                                     {data.fails.map((f, i) => <li key={i} className="flex justify-between gap-3 py-1.5"><span className="min-w-0 truncate" title={f.detail || ''}>{LABEL[f.event] || f.event}{f.detail ? ` · ${f.detail}` : ''}</span><span className="tabular-nums">{f.total}</span></li>)}
@@ -112,7 +112,7 @@ export const InstallFunnelCard = () => {
                 </div>
             )}
             <div className="mt-6 border-t border-black/[0.06] pt-5">
-                <p className="mb-2 text-sm font-semibold text-[var(--muted)]">Instalações recentes (log técnico, 90 dias)</p>
+                <p className="mb-2 text-sm font-medium text-[var(--muted)]">Instalações recentes (log técnico, 90 dias)</p>
                 {logs === null ? <p className="text-sm text-[var(--muted)]">Carregando…</p> : !logs.length ? <p className="text-sm text-[var(--muted)]">Nenhum log ainda. O assistente envia o log nas falhas, no fim e ao fechar a página.</p> : (
                     <ul className="max-h-80 divide-y divide-black/[0.06] overflow-y-auto text-sm">
                         {logs.map(r => (

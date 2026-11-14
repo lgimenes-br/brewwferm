@@ -81,17 +81,17 @@ export const MarketingTab = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-black/[0.07] rounded-xl p-5">
-                    <h3 className="text-sm font-semibold text-[var(--muted)] mb-6 flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-[var(--muted)] mb-6 flex items-center gap-2">
                         <Battery size={16} /> Radar de Dispositivos Problemáticos
                     </h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-black/[0.07]">
-                                    <th className="py-2 px-3 text-xs font-semibold text-[var(--muted)]">Usuário</th>
-                                    <th className="py-2 px-3 text-xs font-semibold text-[var(--muted)]">Device</th>
-                                    <th className="py-2 px-3 text-xs font-semibold text-[var(--muted)]">Sinal</th>
-                                    <th className="py-2 px-3 text-xs font-semibold text-[var(--muted)]">Bateria iSpindel</th>
+                                    <th className="py-2 px-3 text-xs font-medium text-[var(--muted)]">Usuário</th>
+                                    <th className="py-2 px-3 text-xs font-medium text-[var(--muted)]">Device</th>
+                                    <th className="py-2 px-3 text-xs font-medium text-[var(--muted)]">Sinal</th>
+                                    <th className="py-2 px-3 text-xs font-medium text-[var(--muted)]">Bateria iSpindel</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -111,8 +111,8 @@ export const MarketingTab = () => {
                                         <td className="py-3 px-3 text-sm">
                                             {d.battery !== null && d.battery !== undefined && Number(d.battery) > 0 ? (
                                                 Number(d.battery) < 3.4
-                                                    ? <span className="text-[#d63a4d] font-semibold">{Number(d.battery).toFixed(2)}V</span>
-                                                    : <span className={Number(d.battery) < 3.7 ? "text-[#b45309]" : "text-[#178a3f]"}>{Number(d.battery).toFixed(2)}V</span>
+                                                    ? <span className="text-[#d63a4d] font-medium">{Number(d.battery).toFixed(2)}V</span>
+                                                    : <span className={Number(d.battery) < 3.7 ? "text-[#b45309]" : "text-[var(--accent)]"}>{Number(d.battery).toFixed(2)}V</span>
                                             ) : '--'}
                                         </td>
                                     </tr>
@@ -123,24 +123,24 @@ export const MarketingTab = () => {
                 </div>
 
                 <div className="bg-white border border-black/[0.07] rounded-xl p-5">
-                    <h3 className="text-sm font-semibold text-[var(--muted)] mb-6 flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-[var(--muted)] mb-6 flex items-center gap-2">
                         <BellRing size={16} /> Disparo de Push em Massa
                     </h3>
                     
                     <div className="flex items-center justify-between mb-6 p-4 bg-[var(--bg)] rounded-lg border border-black/[0.07]">
                         <div>
-                            <div className="text-2xl font-semibold text-[var(--ink)]">{pushStats.opt_in}</div>
-                            <div className="text-xs text-[var(--muted)] font-semibold">Contas com notificações ligadas · {pushStats.phones ?? 0} celular(es) com o app</div>
+                            <div className="text-2xl font-medium text-[var(--ink)]">{pushStats.opt_in}</div>
+                            <div className="text-xs text-[var(--muted)] font-medium">Contas com notificações ligadas · {pushStats.phones ?? 0} celular(es) com o app</div>
                         </div>
                         <div className="text-right">
-                            <div className="text-2xl font-semibold text-[var(--muted)]">{pushStats.total_users}</div>
-                            <div className="text-xs text-[var(--muted)] font-semibold">Total da Base</div>
+                            <div className="text-2xl font-medium text-[var(--muted)]">{pushStats.total_users}</div>
+                            <div className="text-xs text-[var(--muted)] font-medium">Total da Base</div>
                         </div>
                     </div>
 
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor="admin-push-title" className="block text-xs font-semibold text-[var(--muted)] mb-2">Título do Push</label>
+                            <label htmlFor="admin-push-title" className="block text-xs font-medium text-[var(--muted)] mb-2">Título do Push</label>
                             <input 
                                 id="admin-push-title"
                                 type="text" 
@@ -151,7 +151,7 @@ export const MarketingTab = () => {
                             />
                         </div>
                         <div>
-                            <label htmlFor="admin-push-message" className="block text-xs font-semibold text-[var(--muted)] mb-2">Mensagem</label>
+                            <label htmlFor="admin-push-message" className="block text-xs font-medium text-[var(--muted)] mb-2">Mensagem</label>
                             <textarea 
                                 id="admin-push-message"
                                 value={pushMessage}
@@ -164,7 +164,7 @@ export const MarketingTab = () => {
                             type="button"
                             onClick={handleSendPush}
                             disabled={sending}
-                            className="w-full py-3 bg-[var(--ink)] hover:bg-black text-white font-semibold rounded-lg transition-all flex justify-center items-center gap-2"
+                            className="w-full py-3 bg-[var(--ink)] hover:bg-black text-white font-medium rounded-lg transition-all flex justify-center items-center gap-2"
                         >
                             {sending ? 'Enviando...' : <><Megaphone size={18} /> Enviar Push Broadcast</>}
                         </button>

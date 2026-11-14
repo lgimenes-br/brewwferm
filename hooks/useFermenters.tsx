@@ -168,6 +168,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             id: d.serial_code,
             name: d.device_name,
             ipAddress: d.ip || d.serial_code || '',
+            lastSeen: d.last_seen || undefined,
             sensor1_name: d.sensor1_name,
             sensor2_name: d.sensor2_name,
             sensor_sg_name: d.sensor_sg_name,

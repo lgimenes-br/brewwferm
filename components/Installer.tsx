@@ -118,7 +118,7 @@ const warnBox = 'flex gap-3 rounded-3xl border border-[#d63a4d]/30 bg-[#d63a4d]/
 /** Titulo de passo: o numero e um no da linha (Verde No Alvo com Tinta: contraste alto) e faz parte do titulo para leitor de tela */
 const StepTitle: React.FC<{ n: number; label: string; children: React.ReactNode; dark?: boolean }> = ({ n, label, children, dark }) => (
     <div className="flex items-start gap-4 sm:gap-5">
-        <span className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums sm:mt-2 sm:h-11 sm:w-11 sm:text-base ${dark ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/15'}`} aria-hidden>{n}</span>
+        <span className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums sm:mt-2 sm:h-11 sm:w-11 sm:text-base ${dark ? 'bg-[var(--accent)] text-[var(--on-accent)]' : 'bg-[var(--accent)] text-[var(--on-accent)] ring-4 ring-[#1fa84a]/15'}`} aria-hidden>{n}</span>
         <h2 className={h2}><span className="sr-only">Passo {n}, {label}: </span>{children}</h2>
     </div>
 );
@@ -167,7 +167,7 @@ const StepRail: React.FC = () => {
                         <li key={s.id}>
                             <a href={`#${s.id}`} aria-current={k === active ? 'step' : undefined}
                                 className={`flex min-h-12 items-center gap-2 text-sm transition-colors ${k === active ? 'font-medium text-[var(--ink)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
-                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k === active ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : k < active ? 'border border-[var(--ink)]/40' : 'border border-dashed border-[var(--ink)]/35'}`}>{k + 1}</span>
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums transition-colors ${k === active ? 'bg-[var(--accent)] text-[var(--on-accent)] ring-4 ring-[#1fa84a]/20' : k < active ? 'border border-[var(--ink)]/40' : 'border border-dashed border-[var(--ink)]/35'}`}>{k + 1}</span>
                                 <span className="truncate">{s.label}</span>
                             </a>
                         </li>
@@ -328,7 +328,7 @@ export const Installer: React.FC = () => {
                                             {on && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]"><Check size={13} strokeWidth={2.5} className="text-[var(--ink)]" /></span>}
                                         </span>
                                         <span className={`mt-1 block text-sm ${on ? 'text-[#a3a7b0]' : 'text-[var(--muted)]'}`}>{b.hint}</span>
-                                        {b.badge && <span className={`mt-3 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--ink)]' : b.lite ? 'border border-dashed border-[var(--ink)]/30 text-[var(--ink)]' : 'border border-[var(--ink)]/25 text-[var(--ink)]'}`}>{b.badge}</span>}
+                                        {b.badge && <span className={`mt-3 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${on ? 'bg-[var(--accent)] text-[var(--on-accent)]' : b.lite ? 'border border-dashed border-[var(--ink)]/30 text-[var(--on-accent)]' : 'border border-[var(--ink)]/25 text-[var(--on-accent)]'}`}>{b.badge}</span>}
                                     </button>
                                 );
                             })}
@@ -391,7 +391,7 @@ export const Installer: React.FC = () => {
                             <p className="mt-1 text-sm tabular-nums text-[#a3a7b0]">{version ? `Firmware ${version}` : manifestMissing ? 'Firmware indisponível no momento' : 'Carregando a versão…'}</p>
                             <div className="mt-7">
                                 {supportsWebSerial ? (
-                                    <Link to={wizardUrl} className="group inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95">
+                                    <Link to={wizardUrl} className="group inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--on-accent)] hover:brightness-95">
                                         <Usb size={18} /> Abrir o assistente <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
                                     </Link>
                                 ) : (

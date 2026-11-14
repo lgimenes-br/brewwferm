@@ -18,6 +18,7 @@ import { BoilOffCalculator } from './calculators/BoilOffCalculator';
 import { HydrometerTempCalculator } from './calculators/HydrometerTempCalculator';
 import { CarbonationCalculator } from './calculators/CarbonationCalculator';
 import { ISpindelCalibrationCalculator } from './calculators/ISpindelCalibrationCalculator';
+import { PageHeader } from './app/AppUI';
 
 interface CalculatorItem {
     id: string;
@@ -83,32 +84,22 @@ export const BrewingCalculators: React.FC = () => {
     const [activeCalculator, setActiveCalculator] = useState<string | null>(null);
 
     return (
-        <div className="w-full px-4 md:px-10 mx-auto pb-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16">
             {/* Header */}
-            <div className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[var(--bg)] rounded-lg">
-                        <Calculator className="text-[var(--ink)]" size={24} />
-                    </div>
-                    <h1 className="text-3xl font-semibold text-[var(--ink)] tracking-tighter">Calculadoras</h1>
-                </div>
-                <p className="text-[var(--muted)]">
-                    Ferramentas essenciais para ajustes e cálculos precisos durante sua brassagem.
-                </p>
-            </div>
+            <PageHeader title="Calculadoras" subtitle="Álcool, fermento, densidade e carbonatação para a sua brassagem." />
 
             {/* List */}
-            <div className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden divide-y divide-neutral-800/50 shadow-2xl">
+            <div className="flex flex-col gap-2.5">
                 {calculators.map((calc) => {
                     const Icon = calc.icon;
                     const isActive = activeCalculator === calc.id;
                     
                     return (
-                        <div key={calc.id} className="w-full flex flex-col">
+                        <div key={calc.id} className="app-row w-full flex flex-col overflow-hidden">
                             <button 
                                 type="button"
                                 aria-expanded={isActive}
-                                className={`w-full flex items-center justify-between p-5 hover:bg-[var(--bg)] transition-colors group text-left ${isActive ? 'bg-[var(--bg)]' : ''}`}
+                                className="w-full flex items-center justify-between gap-4 px-4 py-4 sm:px-5 hover:bg-[#1C212B] transition-colors group text-left"
                                 onClick={() => {
                                     if (['abv', 'refractometer', 'yeast', 'density', 'hydrometer', 'carbonation', 'ispindel'].includes(calc.id)) {
                                         setActiveCalculator(isActive ? null : calc.id);
@@ -118,12 +109,12 @@ export const BrewingCalculators: React.FC = () => {
                                 }}
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className={`p-3 rounded-xl flex items-center justify-center ${calc.color} transition-transform group-hover:scale-110`}>
+                                    <div className="app-icon-btn !w-11 !h-11 shrink-0 text-[var(--accent)]" aria-hidden>
                                         <Icon size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="text-[var(--ink)] font-bold tracking-tight text-lg group-hover:text-[#2b2f37] transition-colors">{calc.title}</h3>
-                                        <p className="text-[var(--muted)] text-sm mt-0.5 max-w-xl">{calc.description}</p>
+                                        <h3 className="text-[var(--ink)] text-[17px]">{calc.title}</h3>
+                                        <p className="text-[var(--muted)] text-[14px] mt-0.5 max-w-xl">{calc.description}</p>
                                     </div>
                                 </div>
                                 <div className={`text-black/40 transition-transform duration-300 ${isActive ? 'rotate-90 text-[var(--ink)]' : 'group-hover:text-[var(--ink)] group-hover:translate-x-1'}`}>
@@ -133,7 +124,7 @@ export const BrewingCalculators: React.FC = () => {
                             
                             {/* Accordion Content */}
                             {isActive && (
-                                <div className="p-4 md:p-6 border-t border-black/[0.07] animate-in fade-in slide-in-from-top-4 duration-300">
+                                <div className="p-4 md:p-6 border-t border-[var(--line)]">
                                     {calc.id === 'abv' && <AbvCalculator />}
                                     {calc.id === 'refractometer' && <RefractometerCalculator />}
                                     {calc.id === 'yeast' && <YeastCalculator />}

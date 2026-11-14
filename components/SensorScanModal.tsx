@@ -245,7 +245,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                                                     role="radio"
                                                     aria-checked={role === opt.value}
                                                     onClick={() => setRole(s.mac, opt.value)}
-                                                    className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${role === opt.value ? 'bg-[var(--ink)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
+                                                    className={`py-1.5 rounded-md text-[11px] font-medium transition-colors ${role === opt.value ? 'bg-[var(--ink)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
                                                 >
                                                     {opt.label}
                                                 </button>
@@ -289,7 +289,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                         type="button"
                         onClick={handleSave}
                         disabled={!hasS1 || saving || phase !== 'done'}
-                        className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-bold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                        className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar
                     </button>

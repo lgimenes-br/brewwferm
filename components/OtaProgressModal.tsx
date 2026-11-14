@@ -108,7 +108,7 @@ export const OtaProgressModal: React.FC<OtaProgressModalProps> = ({ session, dev
                 <button
                     type="button"
                     onClick={onClose}
-                    className={`w-full py-3 rounded-xl font-medium transition-colors ${final ? 'bg-[var(--ink)] text-white hover:bg-black font-bold' : 'bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)]'}`}
+                    className={`w-full py-3 rounded-xl font-medium transition-colors ${final ? 'bg-[var(--ink)] text-white hover:bg-black font-medium' : 'bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)]'}`}
                 >
                     {final ? 'Concluir' : 'Fechar (continua em segundo plano)'}
                 </button>

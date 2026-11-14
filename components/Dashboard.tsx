@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline } from '../types';
-import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode } from 'lucide-react';
+import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode, Pencil, Droplets } from 'lucide-react';
+import { PageHeader, TempDisplay, SmallValue, Chip, formatAgo } from './app/AppUI';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
@@ -248,367 +249,146 @@ export const Dashboard: React.FC = () => {
     const isDeviceOnline = (f: Fermenter) => checkDeviceOnline(f, now);
     const onlineCount = fermenters.filter(isDeviceOnline).length;
 
+    const openDevice = (id: string) => navigate(`/fermenter/${encodeURIComponent(id)}`);
+    const searchNetwork = () => { setIsScanModalOpen(true); startScan(); };
+
     return (
-        <div className="p-6 md:px-10 w-full mx-auto animate-in fade-in duration-500">
-            <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-4xl font-light tracking-tight text-[var(--ink)] mb-2">Dispositivos</h1>
-                    <p className="text-[var(--muted)] font-light">Gerenciamento de equipamentos e conexões</p>
-                </div>
-                <div className="flex flex-col md:items-end gap-2">
-                    <div className="text-xs text-black/40 font-mono mb-1">
-                        {onlineCount} de {fermenters.length} {fermenters.length === 1 ? "aparelho online" : "aparelhos online"}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => {
-                                setIsScanModalOpen(true);
-                                startScan();
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-lg text-xs font-bold tracking-wide transition-all border border-black/15"
-                        >
-                            <Search size={14} /> Procurar
-                        </button>
-                        <button
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-lg text-xs font-bold tracking-wide transition-all"
-                        >
-                            <Plus size={14} /> Adicionar
-                        </button>
-                    </div>
-                </div>
-            </header>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16">
+            <PageHeader
+                title="Cheers!"
+                subtitle={fermenters.length ? `${onlineCount} de ${fermenters.length} ${fermenters.length === 1 ? 'aparelho online' : 'aparelhos online'}` : 'Seus aparelhos aparecem aqui'}
+                actions={<>
+                    <button type="button" onClick={searchNetwork} className="app-btn-quiet"><Search size={16} aria-hidden /> Buscar na rede</button>
+                    <button type="button" onClick={() => setIsAddModalOpen(true)} className="app-btn"><Plus size={16} aria-hidden /> Adicionar aparelho</button>
+                </>}
+            />
 
             {fermenters.length === 0 && !isInitialSyncing ? (
-                <div className="bg-white border border-black/[0.07] rounded-2xl p-6 md:p-8 my-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-black/[0.07]">
-                        <div>
-                            <h2 className="text-lg font-bold text-[var(--ink)] tracking-tight">Nenhum equipamento conectado</h2>
-                            <p className="text-[var(--muted)] text-xs mt-1">
-                                Conecte seu controlador Breww em 3 etapas simples para iniciar no Modo Geladeira (4.0°C):
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2.5">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsScanModalOpen(true);
-                                    startScan();
-                                }}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-[var(--bg)] text-[#2b2f37] hover:text-[var(--ink)] rounded-xl text-xs font-bold transition-all border border-black/[0.07]"
-                            >
-                                <Search size={14} /> Procurar no Mesmo Wi-Fi
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setIsAddModalOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-[var(--ink)] hover:bg-black text-white rounded-xl text-xs font-bold transition-all"
-                            >
-                                <Plus size={14} /> Digitar Código do Aparelho
-                            </button>
-                        </div>
+                <section className="app-card p-6 sm:p-8 max-w-3xl" aria-labelledby="empty-title">
+                    <h2 id="empty-title" className="text-[22px] font-normal text-[var(--ink)]">Nenhum aparelho ainda</h2>
+                    <p className="mt-2 text-[16px] text-[var(--muted)] max-w-xl">
+                        Ligue o controlador e vincule à sua conta. Ele começa no modo Geladeira, a 4,0 °C, até você escolher outro modo.
+                    </p>
+                    <ol className="mt-6 flex flex-col gap-2">
+                        {[
+                            { icon: <CheckCircle2 size={18} />, title: 'Conta pronta', text: 'Sua conta já pode receber aparelhos.' },
+                            { icon: <Wifi size={18} />, title: 'Wi-Fi do aparelho', text: 'Na tela do controlador (ou no assistente de instalação), conecte ao seu Wi-Fi.' },
+                            { icon: <QrCode size={18} />, title: 'Vincular', text: 'Digite o código de 12 caracteres que aparece no aparelho, ou busque na mesma rede.' },
+                        ].map(step => (
+                            <li key={step.title} className="flex items-center gap-4 rounded-[22px] bg-[var(--cell-2)] px-4 py-3.5">
+                                <span className="app-icon-btn text-[var(--accent)] shrink-0" aria-hidden>{step.icon}</span>
+                                <span className="min-w-0">
+                                    <span className="block text-[16px] text-[var(--ink)]">{step.title}</span>
+                                    <span className="block text-[14px] text-[var(--muted)]">{step.text}</span>
+                                </span>
+                            </li>
+                        ))}
+                    </ol>
+                    <div className="mt-6 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setIsAddModalOpen(true)} className="app-btn"><Plus size={16} aria-hidden /> Digitar o código</button>
+                        <button type="button" onClick={searchNetwork} className="app-btn-quiet"><Search size={16} aria-hidden /> Buscar no mesmo Wi-Fi</button>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-4 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="font-mono text-[11px] font-bold text-[var(--muted)] bg-white border border-black/[0.07] px-2 py-0.5 rounded-md">
-                                        01
-                                    </span>
-                                    <CheckCircle2 size={15} className="text-[var(--muted)]" />
-                                                                </div>
-                                <h3 className="text-[var(--ink)] font-bold text-sm mb-1">Conta Ativa</h3>
-                                <p className="text-[var(--muted)] text-xs leading-relaxed">
-                                    Sua conta já está pronta para vincular controladores e sincronizar telemetria.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-4 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="font-mono text-[11px] font-bold text-[var(--muted)] bg-white border border-black/[0.07] px-2 py-0.5 rounded-md">
-                                        02
-                                    </span>
-                                    <Wifi size={15} className="text-[var(--muted)]" />
-                                </div>
-                                <h3 className="text-[var(--ink)] font-bold text-sm mb-1">Wi-Fi do Aparelho</h3>
-                                <p className="text-[var(--muted)] text-xs leading-relaxed">
-                                    Ligue o controlador na tomada e conecte ao Wi-Fi pela tela touch do equipamento.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-4 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="font-mono text-[11px] font-bold text-[var(--muted)] bg-white border border-black/[0.07] px-2 py-0.5 rounded-md">
-                                        03
-                                    </span>
-                                    <QrCode size={15} className="text-[var(--muted)]" />
-                                </div>
-                                <h3 className="text-[var(--ink)] font-bold text-sm mb-1">Vincular Serial / IP</h3>
-                                <p className="text-[var(--muted)] text-xs leading-relaxed">
-                                    Escaneie o QR Code na tela do aparelho ou digite o código de 12 caracteres exibido nela.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                </section>
             ) : null}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
                 {fermenters.map((f) => {
-                    // Check connectivity (30s window backed by 10s MQTT request_status heartbeats)
                     const isOnline = isDeviceOnline(f);
+                    const isFermenter = f.mode === DeviceMode.FERMENTER;
+                    const isCold = f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE;
+                    const num = (v: unknown) => { const n = parseFloat(String(v ?? '')); return Number.isFinite(n) ? n : undefined; };
 
-                    // Lógica dinâmica de Status/Modo/Badge
-                    let statusLabel = 'Inativo';
-                    let dotColor = "bg-black/30";
-                    let textColor = "text-[var(--muted)]";
-                    let containerClass = "bg-[var(--bg)] border-black/[0.07]";
-
-                    if (f.mode === DeviceMode.FERMENTER) {
-                        if (f.status !== FermenterStatus.IDLE) {
-                            const currentStep = f.profile && f.profile[f.currentStepIndex];
-                            if (currentStep) {
-                                statusLabel = currentStep.name;
-                            } else {
-                                statusLabel = f.status;
-                            }
-
-                            if (f.status === FermenterStatus.COLD_CRASH) {
-                                dotColor = "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]";
-                                textColor = "text-blue-600";
-                                containerClass = "bg-blue-50 border-blue-200";
-                            } else {
-                                dotColor = "bg-[#2fbf55] shadow-[0_0_8px_rgba(34,197,94,0.6)]";
-                                textColor = "text-[#178a3f]";
-                                containerClass = "bg-green-50 border-green-200";
-                            }
-                        }
-                    } else if (f.mode === DeviceMode.KEGERATOR) {
-                        statusLabel = "Choppeira";
-                        dotColor = "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]";
-                        textColor = "text-[#b45309]";
-                        containerClass = "bg-amber-50 border-amber-200";
-                    } else if (f.mode === DeviceMode.FRIDGE) {
-                        statusLabel = "Geladeira";
-                        dotColor = "bg-blue-300 shadow-[0_0_8px_rgba(147,197,253,0.6)]";
-                        textColor = "text-blue-700";
-                        containerClass = "bg-blue-50 border-blue-200";
-                    }
-
-                    // Safe Parsing of Numbers to avoid toFixed errors on Strings
-                    const rawTemp = (f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE)
-                        ? parseFloat(String(f.currentFridgeTemp ?? 0))
-                        : parseFloat(String(f.currentDevice?.temperature ?? 0));
-                    const safeTemp = !isNaN(rawTemp) ? rawTemp : 0;
-                    const rawTarget = parseFloat(String(f.targetTemp ?? 0));
-                    const safeTarget = !isNaN(rawTarget) ? rawTarget : 0;
-                    const rawFridge = parseFloat(String(f.currentFridgeTemp ?? 0));
-                    const safeFridge = !isNaN(rawFridge) ? rawFridge : 0;
-                    
-                    const lastChartGravity = f.readings && f.readings.length > 0 
-                        ? f.readings[f.readings.length - 1].gravity 
-                        : 0;
-                    const rawHumidity = f.currentDevice?.extSens?.hum;
-                    const parsedHumidity = rawHumidity !== undefined && rawHumidity !== null ? parseFloat(String(rawHumidity)) : NaN;
-                    const safeHumidity = !isNaN(parsedHumidity) ? parsedHumidity : undefined;
-                    const rawGravity = f.currentDevice?.gravity > 0 
-                        ? f.currentDevice.gravity
-                        : lastChartGravity;
-                    const safeGravity = normalizeGravity(rawGravity, 0);
-                        
-                    const safeOG = normalizeGravity(f.og, 0);
-                    const safeFG = f.fg ? normalizeGravity(f.fg, 0) : null;
-                    const rawRssi = f.currentDevice?.rssi || 0;
-
+                    const mainTemp = isCold ? num(f.currentFridgeTemp) : num(f.currentDevice?.temperature);
+                    const otherTemp = isCold ? num(f.currentDevice?.temperature) : num(f.currentFridgeTemp);
+                    const otherName = isCold ? (f.sensor1_name || 'Sensor 1') : (f.sensor2_name || 'Geladeira');
+                    const target = num(f.targetTemp);
+                    const lastChartGravity = f.readings && f.readings.length > 0 ? f.readings[f.readings.length - 1].gravity : 0;
+                    const gravity = normalizeGravity(f.currentDevice?.gravity > 0 ? f.currentDevice.gravity : lastChartGravity, 0);
+                    const humidity = num(f.currentDevice?.extSens?.hum);
+                    const rssi = f.currentDevice?.rssi || 0;
 
                     const isCorrupted = isOnline && isInitialSyncing && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
-                    const showConnectingOverlay = (!isOnline && isInitialSyncing) || isCorrupted;
-                    const showOfflineOverlay = !isOnline && !isInitialSyncing;
+                    const connecting = (!isOnline && isInitialSyncing) || isCorrupted;
+                    // Sem conexao, 0,0 exato e "nunca leu", nao 0 °C: mostra "--" como o app
+                    const shown = (v?: number) => (connecting || (!isOnline && v === 0) ? undefined : v);
+
+                    const statOp = String(f.currentDevice?.statOp || '').toUpperCase();
+                    const stateWord = statOp === 'AQUECENDO' ? 'Aquecendo' : statOp === 'RESFRIANDO' ? 'Resfriando'
+                        : statOp.startsWith('DELAY') || statOp === 'AGUARDANDO' ? 'Aguardando' : 'Parado';
+                    const step = isFermenter && f.status !== FermenterStatus.IDLE && f.profile ? f.profile[f.currentStepIndex] : undefined;
+                    const kegName = f.kegeratorConfig?.line1 || f.chopp_name || '';
+                    // O que o aparelho esta fazendo, em linguagem de gente (offline nao usa verbo)
+                    const activity = isFermenter
+                        ? (f.beerName && f.status !== FermenterStatus.IDLE
+                            ? `${isOnline ? 'Fermentando' : 'Lote'} ${f.beerName}${step ? ` · ${step.name}` : ''}`
+                            : 'Fermentador · sem lote ativo')
+                        : f.mode === DeviceMode.KEGERATOR
+                            ? (kegName ? `${isOnline ? 'Servindo' : 'Choppeira ·'} ${kegName}` : 'Choppeira')
+                            : 'Geladeira';
+                    const weakWifi = isOnline && rssi !== 0 && rssi < -75;
 
                     return (
-                        <div key={f.id} className="relative">
-                            {(showConnectingOverlay || showOfflineOverlay) && (
-                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[3px] rounded-3xl border border-black/[0.07] pointer-events-none">
-                                    {showConnectingOverlay ? (
-                                        <>
-                                            <Loader2 className="animate-spin text-[var(--muted)] mb-2" size={24} />
-                                            <span className="text-xs font-mono text-[var(--muted)] ">Conectando...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <WifiOff className="text-[var(--muted)] mb-2" size={24} />
-                                            <span className="text-xs font-mono text-[var(--muted)] ">Offline</span>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        <div
-                            role={isOnline ? "button" : undefined}
+                        <article
+                            key={f.id}
+                            role={isOnline ? 'button' : undefined}
                             tabIndex={isOnline ? 0 : undefined}
-                            aria-label={isOnline ? `Abrir controle de ${f.name}` : `${f.name} (Offline)`}
-                            onClick={() => isOnline && navigate(`/fermenter/${encodeURIComponent(f.id)}`)}
-                            onKeyDown={(e) => {
-                                if (isOnline && (e.key === 'Enter' || e.key === ' ')) {
-                                    e.preventDefault();
-                                    navigate(`/fermenter/${encodeURIComponent(f.id)}`);
-                                }
-                            }}
-                            className={`group relative rounded-3xl p-8 transition-all duration-300 overflow-hidden border ${
-                                isOnline 
-                                ? 'bg-white hover:bg-white border-black/[0.07] hover:border-black/15 cursor-pointer hover:shadow-2xl hover:shadow-black/50' 
-                                : 'bg-white border-black/[0.07] cursor-default'
-                            }`}
+                            aria-label={`${f.name}, ${isOnline ? 'online' : 'offline'}, ${shown(mainTemp) === undefined ? 'sem leitura' : `${mainTemp!.toFixed(1)} graus`}${isOnline ? '. Abrir o aparelho' : ''}`}
+                            onClick={() => isOnline && openDevice(f.id)}
+                            onKeyDown={(e) => { if (isOnline && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDevice(f.id); } }}
+                            className={`app-card p-5 sm:p-6 flex flex-col gap-5 transition-[background-color,border-color,transform] duration-200 ${isOnline ? 'cursor-pointer hover:bg-[#1C212B] hover:border-[var(--line-strong)] active:scale-[0.99]' : ''}`}
                         >
-                            {/* Header Section: Name & ID & Actions */}
-                            <div className="relative z-30 flex justify-between items-start mb-6">
-                                <div>
-                                    <span className="block text-xs font-bold text-[var(--muted)] ">
-                                        {f.name}
-                                    </span>
-                                    <span className="block text-[10px] font-mono text-black/40 mt-1">
-                                        {f.id}
-                                    </span>
+                            {/* Nome, o que esta fazendo e acoes */}
+                            <div className="flex items-start gap-3" style={{ opacity: isOnline ? 1 : 0.5 }}>
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="text-[19px] font-medium text-[var(--ink)] truncate">{f.name}</h2>
+                                    <p className="text-[14px] text-[var(--muted)] truncate" title={activity}>{activity}</p>
                                 </div>
-
-                                <div className="flex items-center gap-3">
-                                    {/* Online/Offline Dot */}
-                                    <div
-                                        title={isOnline ? "Online" : "Offline"}
-                                        className={`w-2 h-2 rounded-full transition-all duration-500 ${isOnline ? 'bg-[#2fbf55] shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse' : 'bg-red-500/50 border border-red-200'}`}
-                                    />
-
-                                    <div className="flex items-center bg-[var(--bg)] rounded-lg p-1 border border-black/10">
-                                        <button
-                                            onClick={(e) => handleDeleteClick(e, f.id)}
-                                            className="text-[var(--muted)] hover:text-[#d63a4d] hover:bg-red-500/10 p-1.5 rounded-md transition-all"
-                                            title="Excluir Dispositivo"
-                                            aria-label={`Excluir ${f.name}`}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                        <div className="w-px h-3 bg-neutral-700/50 mx-1"></div>
-                                        <button
-                                            onClick={(e) => handleEditClick(e, f)}
-                                            className="text-[var(--muted)] hover:text-[var(--ink)] hover:bg-black/10 p-1.5 rounded-md transition-all"
-                                            title="Configurações"
-                                            aria-label={`Editar ${f.name}`}
-                                        >
-                                            <Settings size={14} />
-                                        </button>
-                                    </div>
-                                </div>
+                                <button type="button" onClick={(e) => handleEditClick(e, f)} aria-label={`Editar ${f.name}`} title="Editar" className="app-icon-btn !w-9 !h-9 text-[var(--muted)]">
+                                    <Pencil size={14} aria-hidden />
+                                </button>
+                                <button type="button" onClick={(e) => handleDeleteClick(e, f.id)} aria-label={`Excluir ${f.name}`} title="Excluir" className="app-icon-btn !w-9 !h-9 text-[var(--muted)] hover:!text-[var(--danger)]">
+                                    <Trash2 size={14} aria-hidden />
+                                </button>
                             </div>
 
-                            <div className="mb-8">
-                                {/* Beer Name */}
-                                <h2
-                                    title={f.mode === DeviceMode.FRIDGE ? undefined : (f.mode === DeviceMode.KEGERATOR ? (f.kegeratorConfig?.line1 || f.chopp_name || f.beerName || 'Barril de Chopp') : (f.beerName || 'Vazio'))}
-                                    className={`text-2xl font-bold transition-colors truncate mb-3 tracking-tight ${f.mode === DeviceMode.FRIDGE ? 'invisible' : 'text-[var(--ink)] group-hover:text-[var(--ink)]'}`}
-                                >
-                                    {f.mode === DeviceMode.FRIDGE ? 'GELADEIRA' : f.mode === DeviceMode.KEGERATOR ? (f.kegeratorConfig?.line1 || f.chopp_name || f.beerName || 'Barril de Chopp') : (f.beerName || 'Vazio')}
-                                </h2>
-
-                                {/* Smart Status Badge: Reflete o modo e a rampa atual */}
-                                <div title={statusLabel} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${containerClass} backdrop-blur-sm transition-all max-w-full`}>
-                                    <span className={`w-2 h-2 shrink-0 rounded-full ${dotColor} animate-pulse`}></span>
-                                    <span className={`text-[10px] font-bold ${textColor} truncate`}>
-                                        {statusLabel}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Main Metrics - Clean & Large */}
-                            <div className="grid grid-cols-2 gap-8 mb-8">
-                                {/* Temperature Column */}
-                                <div className="flex flex-col">
-                                    <div className="flex items-start gap-1">
-                                        <span className="text-5xl font-bold tracking-tighter text-[var(--ink)]">
-                                            {safeTemp.toFixed(1)}
-                                        </span>
-                                        <span className="text-lg text-[var(--muted)] font-light mt-1">°C</span>
-                                    </div>
-                                    <div className="mt-2 flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-0.5 w-8 bg-black/10 rounded-full overflow-hidden">
-                                                <div className={`h-full w-1/2 ${f.mode === DeviceMode.KEGERATOR ? 'bg-amber-500' : 'bg-neutral-400'}`}></div>
-                                            </div>
-                                            <span className="text-xs text-[var(--muted)] font-mono">Alvo: {safeTarget.toFixed(1)}°C</span>
+                            {/* Leitura principal */}
+                            <div className="flex items-end justify-between gap-4" style={{ opacity: isOnline ? 1 : 0.5 }}>
+                                <TempDisplay value={shown(mainTemp)} size={64} />
+                                <div className="flex gap-5 pb-2">
+                                    {isFermenter ? (
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            <span className="text-[12px] text-[var(--muted)]">Densidade</span>
+                                            <SmallValue value={formatGravity(gravity)} />
                                         </div>
-                                        {/* Sub-metric: Secondary Sensor */}
-                                        <div className="flex items-center gap-1.5">
-                                            <Thermometer size={12} className="text-black/40" />
-                                            <span className="text-xs text-[var(--muted)]">
-                                                {(f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE) 
-                                                    ? `${f.sensor1_name || 'Mosto'}: ${parseFloat(String(f.currentDevice?.temperature || 0)).toFixed(1)}°C`
-                                                    : `${f.sensor2_name || 'Geladeira'}: ${safeFridge.toFixed(1)}°C`}
-                                            </span>
+                                    ) : (
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            <span className="text-[12px] text-[var(--muted)]">Umidade</span>
+                                            <SmallValue value={humidity !== undefined ? String(Math.round(humidity)) : '--'} unit="%" />
                                         </div>
+                                    )}
+                                    <div className="flex flex-col items-end gap-0.5">
+                                        <span className="text-[12px] text-[var(--muted)]">Alvo</span>
+                                        <SmallValue value={target !== undefined ? target.toFixed(1) : '--'} unit="°C" />
                                     </div>
-                                </div>
-
-                                {/* Right Column */}
-                                <div className="text-right">
-                                    {f.mode === DeviceMode.FERMENTER && (
-                                        <>
-                                            <div className="flex items-start justify-end gap-1">
-                                                <span className="text-4xl font-bold tracking-tighter text-[#178a3f] font-mono">
-                                                    {formatGravity(safeGravity)}
-                                                </span>
-                                                <span className="text-lg text-[var(--muted)] font-light mt-1">SG</span>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-0.5 mt-2">
-                                                <span className="text-xs text-[var(--muted)] block">
-                                                    OG: {safeOG.toFixed(3)}
-                                                </span>
-                                                {safeFG && (
-                                                    <span className="text-xs text-[var(--muted)] block">
-                                                        FG: {safeFG.toFixed(3)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </>
-                                    )}
-                                    {(f.mode === DeviceMode.FRIDGE || f.mode === DeviceMode.KEGERATOR) && (
-                                        <>
-                                            <div className="flex items-start justify-end gap-1">
-                                                <span className="text-5xl font-bold tracking-tighter text-[var(--ink)]">
-                                                    {safeHumidity !== undefined ? safeHumidity.toFixed(1) : '--'}
-                                                </span>
-                                                <span className="text-lg text-[var(--muted)] font-light mt-1">%</span>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-0.5 mt-2">
-                                                <span className="text-xs text-[var(--muted)] block">
-                                                    UMIDADE
-                                                </span>
-                                            </div>
-                                        </>
-                                    )}
                                 </div>
                             </div>
 
-                            {/* Footer Info */}
-                            <div className="flex items-center justify-between pt-6 border-t border-black/[0.07] mt-auto">
-                                <div className="flex gap-4">
-                                    <div className="flex items-center gap-1.5 text-black/40 group-hover:text-[var(--muted)] transition-colors">
-                                        <WifiSignal rssi={isOnline ? rawRssi : null} />
-                                        <span className="text-xs text-black/35">•</span>
-                                        <span className="text-xs font-mono">{f.ipAddress || '--'}</span>
-                                    </div>
-                                </div>
-
-                                <div className="w-8 h-8 rounded-full bg-[var(--bg)] flex items-center justify-center text-[var(--muted)] group-hover:bg-white group-hover:text-black transition-all duration-300">
-                                    <ArrowRight size={14} />
-                                </div>
+                            {/* Chips: estado, outro sensor, umidade, alertas */}
+                            <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-0.5" style={{ opacity: isOnline ? 1 : 0.5 }}>
+                                {connecting ? (
+                                    <Chip icon={<Loader2 size={14} className="animate-spin" />}>Conectando…</Chip>
+                                ) : isOnline ? (
+                                    <Chip dot="on">{stateWord}</Chip>
+                                ) : (
+                                    <Chip dot="off">Offline · {formatAgo(f.lastSeen)}</Chip>
+                                )}
+                                {shown(otherTemp) !== undefined && (
+                                    <Chip icon={<Thermometer size={14} />} title={otherName}>{otherTemp!.toFixed(1)}°C</Chip>
+                                )}
+                                {isFermenter && humidity !== undefined && <Chip icon={<Droplets size={14} />} title="Umidade">{Math.round(humidity)}%</Chip>}
+                                {weakWifi && <Chip dot="warn">Wi-Fi fraco</Chip>}
                             </div>
-
-                            {/* Background Decor */}
-                        </div>
-                        </div>
+                        </article>
                     );
                 })}
             </div>
@@ -627,7 +407,7 @@ export const Dashboard: React.FC = () => {
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label htmlFor="edit-device-name-input" className="text-xs font-bold text-[var(--muted)] ">Nome do Equipamento</label>
+                                    <label htmlFor="edit-device-name-input" className="text-xs font-medium text-[var(--muted)] ">Nome do Equipamento</label>
                                     <input
                                         id="edit-device-name-input"
                                         type="text"
@@ -700,7 +480,7 @@ export const Dashboard: React.FC = () => {
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label htmlFor="add-device-name-input" className="text-xs font-bold text-[var(--muted)] ">Nome do Equipamento</label>
+                                    <label htmlFor="add-device-name-input" className="text-xs font-medium text-[var(--muted)] ">Nome do Equipamento</label>
                                     <input
                                         id="add-device-name-input"
                                         type="text"
@@ -711,7 +491,7 @@ export const Dashboard: React.FC = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label htmlFor="add-device-serial-input" className="text-xs font-bold text-[var(--muted)] ">Código do Aparelho (Serial / IP)</label>
+                                    <label htmlFor="add-device-serial-input" className="text-xs font-medium text-[var(--muted)] ">Código do Aparelho (Serial / IP)</label>
                                     <input
                                         id="add-device-serial-input"
                                         type="text"
@@ -725,7 +505,7 @@ export const Dashboard: React.FC = () => {
                                     </p>
                                 </div>
                                 <div className="space-y-2">
-                                    <label htmlFor="add-device-confirm-input" className="text-xs font-bold text-[var(--muted)] ">Código de confirmação</label>
+                                    <label htmlFor="add-device-confirm-input" className="text-xs font-medium text-[var(--muted)] ">Código de confirmação</label>
                                     <input
                                         id="add-device-confirm-input"
                                         type="text"
@@ -781,7 +561,7 @@ export const Dashboard: React.FC = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[var(--muted)] ">Nomear Dispositivo</label>
+                                        <label className="text-xs font-medium text-[var(--muted)] ">Nomear Dispositivo</label>
                                         <input
                                             type="text"
                                             value={newDeviceName}
@@ -791,7 +571,7 @@ export const Dashboard: React.FC = () => {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label htmlFor="scan-device-confirm-input" className="text-xs font-bold text-[var(--muted)] ">Código de confirmação</label>
+                                        <label htmlFor="scan-device-confirm-input" className="text-xs font-medium text-[var(--muted)] ">Código de confirmação</label>
                                         <input
                                             id="scan-device-confirm-input"
                                             type="text"
@@ -841,7 +621,7 @@ export const Dashboard: React.FC = () => {
                                                         </div>
                                                         <div>
                                                             <p className="text-sm text-[#2b2f37] font-medium group-hover:text-[var(--ink)]">{device.type}</p>
-                                                            <p className="text-[10px] text-black/40 font-mono">{device.ip}{device.localIp ? ` · ${device.localIp}` : ''}</p>
+                                                            <p className="text-[12px] text-black/40 font-mono">{device.ip}{device.localIp ? ` · ${device.localIp}` : ''}</p>
                                                         </div>
                                                     </div>
                                                     <button

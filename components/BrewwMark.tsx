@@ -12,9 +12,10 @@ export const BrewwMark: React.FC<{ className?: string; title?: string }> = ({ cl
 );
 
 /** Marca + nome, para cabecalho e rodape */
-export const BrewwLogo: React.FC<{ className?: string }> = ({ className }) => (
+/** Logo escrito. Nos cabecalhos so a palavra "breww"; o simbolo entra so com `mark` (rodape). */
+export const BrewwLogo: React.FC<{ className?: string; mark?: boolean }> = ({ className, mark }) => (
     <span className={`inline-flex items-center gap-2 ${className ?? ''}`}>
-        <BrewwMark className="h-8 w-auto" />
+        {mark && <BrewwMark className="h-8 w-auto" />}
         <span className="text-[22px] font-normal tracking-[-0.02em]">breww</span>
     </span>
 );

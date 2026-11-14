@@ -24,7 +24,7 @@ const moduleLabel = (m: string) => MODULE_NAME[m] ?? (m.startsWith('ds18b20 x') 
 function Bars({ title, rows, label, total, highlight }: { title: string; rows: Row[]; label: (n: string) => string; total: number; highlight?: string }) {
     return (
         <section className="rounded-2xl border border-black/[0.07] bg-white p-5">
-            <h3 className="text-sm font-semibold text-[var(--ink)]">{title}</h3>
+            <h3 className="text-sm font-medium text-[var(--ink)]">{title}</h3>
             {rows.length === 0 ? <p className="mt-4 text-sm text-[var(--muted)]">Nenhum dado ainda.</p> : (
                 <ul className="mt-4 space-y-3">
                     {rows.map(r => (
@@ -37,7 +37,7 @@ function Bars({ title, rows, label, total, highlight }: { title: string; rows: R
                                 <span className="tabular-nums text-[var(--muted)]">{r.count} <span className="text-black/35">· {r.online} online</span></span>
                             </div>
                             <div className="mt-1.5 h-1.5 rounded-full bg-[var(--bg)]">
-                                <div className="h-full rounded-full bg-[var(--ink)]" style={{ width: `${total ? Math.max(3, (r.count / total) * 100) : 0}%` }} />
+                                <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${total ? Math.max(3, (r.count / total) * 100) : 0}%` }} />
                             </div>
                         </li>
                     ))}

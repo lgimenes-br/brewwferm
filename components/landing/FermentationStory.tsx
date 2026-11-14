@@ -72,15 +72,15 @@ const ChapterArt: React.FC<{ art: typeof CHAPTERS[number]['art'] }> = ({ art }) 
     if (art === 'steps') return (
         <ol className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Perfil do lote de exemplo">
             {STEPS.map((s, i) => (
-                <li key={s.name} className={`rounded-full px-3 py-1.5 ${i === 0 ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-white text-[var(--muted)]'}`}>
+                <li key={s.name} className={`rounded-full px-3.5 py-1.5 border ${i === 0 ? 'bg-[var(--accent)] border-transparent text-[var(--on-accent)]' : 'bg-[var(--fill)] border-[var(--line)] text-[var(--muted)]'}`}>
                     {s.name} · {s.temp}°C · {s.to - s.from} {s.to - s.from === 1 ? 'dia' : 'dias'}
                 </li>
             ))}
         </ol>
     );
     if (art === 'alert') return (
-        <div className="mt-5 flex max-w-sm items-start gap-3 rounded-2xl bg-white p-4 shadow-[0_18px_40px_-28px_rgba(11,13,18,0.5)]" aria-hidden>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-[var(--accent)]"><Bell size={16} /></span>
+        <div className="mt-5 flex max-w-sm items-start gap-3 rounded-[22px] border border-[var(--line)] bg-[var(--cell)] p-4 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.8)]" aria-hidden>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--fill)] text-[var(--accent)]"><Bell size={16} /></span>
             <div className="min-w-0 text-sm">
                 <p className="font-medium">Fermentador · Pilsen da casa</p>
                 <p className="text-[var(--muted)]">19,6 °C, 1,6° acima do alvo. Corrigindo.</p>
@@ -96,8 +96,8 @@ const ChapterArt: React.FC<{ art: typeof CHAPTERS[number]['art'] }> = ({ art }) 
         </p>
     );
     return (
-        <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-sm" aria-hidden>
-            <span className="h-2 w-2 rounded-full bg-[#2fbf55]" /><span className="font-medium">Ao vivo</span><span className="text-[var(--muted)]">Pilsen da casa · lote 07</span>
+        <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--fill)] px-3.5 py-1.5 text-sm" aria-hidden>
+            <span className="h-2 w-2 rounded-full bg-[var(--accent)]" /><span className="font-medium">Ao vivo</span><span className="text-[var(--muted)]">Pilsen da casa · lote 07</span>
         </p>
     );
 };
@@ -112,25 +112,25 @@ const Chart: React.FC<{ samples: Sample[]; clipRef?: React.Ref<SVGRectElement>; 
             aria-label="Curva de um lote de exemplo: o controlador segue 18 °C por 5 dias, corrige um susto de calor no dia 3, sobe para 22 °C no diacetil e desce para 2 °C no cold crash.">
             <defs>
                 <linearGradient id="fs-fill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0" stopColor="#71FC8F" stopOpacity="0.42" />
+                    <stop offset="0" stopColor="#71FC8F" stopOpacity="0.22" />
                     <stop offset="1" stopColor="#71FC8F" stopOpacity="0" />
                 </linearGradient>
                 <clipPath id="fs-drawn"><rect ref={clipRef} x="0" y="-40" width={full ? W : 0} height={H + 80} /></clipPath>
             </defs>
             {/* eixo dos dias */}
-            <line x1="0" x2={W} y1={H - BOTTOM} y2={H - BOTTOM} stroke="rgba(11,13,18,0.18)" vectorEffect="non-scaling-stroke" />
+            <line x1="0" x2={W} y1={H - BOTTOM} y2={H - BOTTOM} stroke="rgba(255,255,255,0.14)" vectorEffect="non-scaling-stroke" />
             {/* alvo em degraus */}
-            <path d={steps} fill="none" stroke="#0B0D12" strokeOpacity="0.5" strokeWidth="2.5" strokeDasharray="9 9" vectorEffect="non-scaling-stroke" />
+            <path d={steps} fill="none" stroke="#ECECF1" strokeOpacity="0.45" strokeWidth="2.5" strokeDasharray="9 9" vectorEffect="non-scaling-stroke" />
             {/* linha fantasma: o lote inteiro, apagado */}
-            <path d={line} fill="none" stroke="#2fbf55" strokeOpacity="0.22" strokeWidth="4" vectorEffect="non-scaling-stroke" />
+            <path d={line} fill="none" stroke="#71FC8F" strokeOpacity="0.16" strokeWidth="4" vectorEffect="non-scaling-stroke" />
             {/* linha desenhada pela rolagem */}
             <g clipPath="url(#fs-drawn)">
                 <path d={area} fill="url(#fs-fill)" />
-                <path d={line} fill="none" stroke="#1fa84a" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                <path d={line} fill="none" stroke="#71FC8F" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </g>
             {/* marca do alerta */}
             <g ref={alertRef} style={{ opacity: full ? 1 : 0, transition: 'opacity .3s' }}>
-                <line x1={xOf(ALERT_DAY)} x2={xOf(ALERT_DAY)} y1={yOf(19.6) - 14} y2={H - BOTTOM} stroke="#0B0D12" strokeOpacity="0.25" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <line x1={xOf(ALERT_DAY)} x2={xOf(ALERT_DAY)} y1={yOf(19.6) - 14} y2={H - BOTTOM} stroke="#ECECF1" strokeOpacity="0.25" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             </g>
         </svg>
     );
@@ -139,8 +139,8 @@ const Chart: React.FC<{ samples: Sample[]; clipRef?: React.Ref<SVGRectElement>; 
 /** Ponta da linha em HTML (no SVG esticado o circulo viraria oval) */
 const Head = React.forwardRef<HTMLDivElement, { at?: Sample }>(({ at }, ref) => (
     <div ref={ref} className="pointer-events-none absolute left-0 top-0 h-0 w-0" style={at ? { left: `${(xOf(at.d) / W) * 100}%`, top: `${(yOf(at.t) / H) * 100}%` } : undefined} aria-hidden>
-        <span className="absolute -left-4 -top-4 h-8 w-8 rounded-full bg-[#71FC8F]/35" />
-        <span className="absolute -left-[7px] -top-[7px] h-3.5 w-3.5 rounded-full border-[3px] border-[#EEEFF1] bg-[#1fa84a]" />
+        <span className="absolute -left-4 -top-4 h-8 w-8 rounded-full bg-[#71FC8F]/25" />
+        <span className="absolute -left-[7px] -top-[7px] h-3.5 w-3.5 rounded-full border-[3px] border-[#04070B] bg-[#71FC8F]" />
     </div>
 ));
 Head.displayName = 'Head';
@@ -148,7 +148,7 @@ Head.displayName = 'Head';
 /** Rotulos do grafico em HTML (nao distorcem com o SVG esticado) */
 const ChartLabels: React.FC<{ alertLabelRef?: React.Ref<HTMLSpanElement>; full?: boolean }> = ({ alertLabelRef, full }) => (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <span ref={alertLabelRef} className="absolute -translate-x-1/2 -translate-y-[170%] whitespace-nowrap rounded-full bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-white transition-opacity duration-300 sm:text-sm"
+        <span ref={alertLabelRef} className="absolute -translate-x-1/2 -translate-y-[170%] whitespace-nowrap rounded-full border border-[var(--line)] bg-[var(--cell)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] transition-opacity duration-300 sm:text-sm"
             style={{ left: `${(ALERT_DAY / DAYS) * 100}%`, top: `${(yOf(19.6) / H) * 100}%`, opacity: full ? 1 : 0 }}>alerta · 19,6°</span>
         {STEPS.map(s => (
             <span key={s.name} className="absolute -translate-y-[140%] whitespace-nowrap pl-3 text-sm font-medium text-[var(--ink)]/70 sm:text-lg"
@@ -170,10 +170,10 @@ const Hero: React.FC<{ ctaRef?: React.Ref<HTMLDivElement> }> = ({ ctaRef }) => (
             Cada dia do seu lote, na <span className="landing-mark">temperatura certa</span>.
         </h1>
         <div ref={ctaRef} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link to="/instalar" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--ink)] px-6 text-[15px] font-medium text-white hover:bg-black">
+            <Link to="/instalar" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-medium text-[var(--on-accent)] hover:brightness-95">
                 Monte o seu controlador <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <a href="#pronto" className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/15 bg-[var(--bg)]/70 px-6 text-[15px] font-medium backdrop-blur-sm hover:bg-white">Prefiro o pronto</a>
+            <a href="#pronto" className="inline-flex min-h-12 items-center justify-center rounded-full border border-[var(--line-strong)] bg-[rgba(4,7,11,0.6)] px-6 text-[15px] font-medium backdrop-blur-sm hover:bg-[var(--fill)]">Prefiro o pronto</a>
             <Link to="/register" className="hidden min-h-11 items-center justify-center text-sm sm:inline-flex text-[var(--muted)] underline decoration-current/30 underline-offset-4 hover:text-[var(--ink)] sm:ml-2">Já tenho o aparelho</Link>
         </div>
         <p className="mt-6 max-w-xl text-pretty text-base leading-relaxed text-[var(--muted)] max-sm:hidden sm:text-lg">
@@ -184,7 +184,7 @@ const Hero: React.FC<{ ctaRef?: React.Ref<HTMLDivElement> }> = ({ ctaRef }) => (
 
 // Malha milimetrada: so nesta secao, como o papel do grafico
 const paperGrid = {
-    backgroundImage: 'linear-gradient(rgba(11,13,18,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,13,18,0.05) 1px, transparent 1px)',
+    backgroundImage: 'linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)',
     backgroundSize: '48px 48px',
 } as const;
 const grid = paperGrid;
@@ -265,7 +265,12 @@ export const FermentationStory: React.FC<{ onHeroGone?: (gone: boolean) => void 
             const goal = target(s.d);
             const off = s.t - goal;
             if (dayEl.current) dayEl.current.textContent = `Dia ${Math.min(DAYS, Math.floor(s.d) + 1)} · ${String(Math.floor((s.d % 1) * 24)).padStart(2, '0')}h`;
-            if (tempEl.current) tempEl.current.textContent = fmt(s.t, 1);
+            if (tempEl.current) {
+                // Como no app: parte inteira grande, decimal menor em cinza
+                const [ti, td] = fmt(s.t, 1).split(',');
+                tempEl.current.firstChild!.textContent = ti;
+                (tempEl.current.lastChild as HTMLElement).textContent = td;
+            }
             if (targetEl.current) targetEl.current.textContent = `alvo ${goal} °C`;
             if (statusEl.current) {
                 const ok = Math.abs(off) <= 0.5;
@@ -317,18 +322,18 @@ export const FermentationStory: React.FC<{ onHeroGone?: (gone: boolean) => void 
                     <div className="relative min-h-[52%] pt-6 sm:pt-10">
                         <div ref={heroBox} className="absolute inset-x-0 top-6 will-change-transform sm:top-10"><Hero /></div>
                         <div ref={readout} className="invisible grid gap-6 opacity-0 will-change-transform lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-12">
-                            <div className="on-dark flex items-end justify-between gap-4 rounded-3xl bg-[var(--card)] px-5 py-4 text-white shadow-[0_30px_60px_-35px_rgba(11,13,18,0.7)] sm:px-7 sm:py-6 lg:block" aria-live="off">
+                            <div className="on-dark flex items-end justify-between gap-4 rounded-[26px] border border-[var(--line)] bg-[var(--cell)] px-5 py-4 text-[var(--ink)] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.85)] sm:px-7 sm:py-6 lg:block" aria-live="off">
                                 <div>
-                                    <p className="flex items-center gap-2 text-sm text-[#a3a7b0]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /><span ref={dayEl} className="whitespace-nowrap tabular-nums">Dia 1 · 00h</span><span className="max-sm:hidden"> · Pilsen da casa</span></p>
+                                    <p className="flex items-center gap-2 text-sm text-[var(--muted)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /><span ref={dayEl} className="whitespace-nowrap tabular-nums">Dia 1 · 00h</span><span className="max-sm:hidden"> · Pilsen da casa</span></p>
                                     <p className="mt-2 flex items-start gap-1 [font-family:var(--font-display)] font-light leading-none tracking-[-0.04em]">
-                                        <span ref={tempEl} className="text-[56px] tabular-nums sm:text-[96px]">20,0</span>
-                                        <span className="mt-1.5 text-lg text-[#a3a7b0] sm:text-2xl">°C</span>
+                                        <span ref={tempEl} className="inline-flex items-start text-[56px] tabular-nums sm:text-[96px]"><span>20</span><span className="ml-1 mt-[0.06em] text-[0.55em] text-[var(--tertiary)]">0</span></span>
+                                        <span className="mt-1.5 text-lg text-[var(--muted)] sm:text-2xl">°C</span>
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1.5 text-sm lg:mt-5 lg:flex-row lg:items-center lg:gap-4 lg:border-t lg:border-white/10 lg:pt-4">
-                                    <span ref={statusEl} data-ok="1" className="rounded-full bg-[var(--accent)]/15 px-3 py-1 text-[var(--accent)] data-[ok=0]:bg-white/10 data-[ok=0]:text-white">no alvo</span>
-                                    <span ref={targetEl} className="tabular-nums text-[#a3a7b0]">alvo 18 °C</span>
-                                    <span className="whitespace-nowrap tabular-nums text-[#a3a7b0]">densidade <span ref={sgEl}>1,050</span></span>
+                                    <span ref={statusEl} data-ok="1" className="rounded-full bg-[var(--accent)]/15 px-3 py-1 text-[var(--accent)] data-[ok=0]:bg-[var(--fill)] data-[ok=0]:text-[var(--ink)]">no alvo</span>
+                                    <span ref={targetEl} className="tabular-nums text-[var(--muted)]">alvo 18 °C</span>
+                                    <span className="whitespace-nowrap tabular-nums text-[var(--muted)]">densidade <span ref={sgEl}>1,050</span></span>
                                 </div>
                             </div>
                             <div key={chapter} className="landing-chapter max-lg:hidden">

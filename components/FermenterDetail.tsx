@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity } from '../types';
-import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X, Share2, Check, Thermometer } from 'lucide-react';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isDeviceOnline } from '../types';
+import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu } from 'lucide-react';
+import { TempDisplay, SmallValue, StatTile } from './app/AppUI';
 import { generateBatchShareToken } from '../services/api';
 import { TemperatureChart } from './TemperatureChart';
 import { GravityChart } from './GravityChart';
@@ -11,7 +12,6 @@ import { DualAxisChart } from './DualAxisChart';
 import { FermentationTimeline } from './FermentationTimeline';
 import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
-import { WifiSignal } from './WifiSignal';
 import { FermentationProfile } from './FermentationProfile';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
@@ -367,73 +367,62 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         return d > 0 ? `${d}d ${h}h` : `${h}h`;
     };
 
-    const getBatteryColor = (volts: number) => {
-        if (volts > 3.9) return 'text-[#178a3f]';
-        if (volts > 3.5) return 'text-[#a16207]';
-        return 'text-[#d63a4d]';
-    };
     const isIdleFermenter = displayMode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
     const hasMappedSensors = Boolean((fermenter.currentDevice as any)?.macCtrl);
     const hasInvalidTemp = safeCurrentTemp <= -100 || safeCurrentTemp === 85;
     const shouldSuggestSensorScan = !hasMappedSensors || hasInvalidTemp;
 
+    const isOnline = isDeviceOnline(fermenter);
+    const statOp = String(fermenter.currentDevice?.statOp || '').toUpperCase();
+    const state = !isOnline
+        ? { label: 'Offline', caption: 'Os controles voltam quando ele reconectar', dot: 'var(--tertiary)' }
+        : statOp === 'RESFRIANDO' ? { label: 'Resfriando', caption: 'Relé de frio ligado', dot: 'var(--accent)' }
+        : statOp === 'AQUECENDO' ? { label: 'Aquecendo', caption: 'Relé de calor ligado', dot: 'var(--accent)' }
+        : statOp.startsWith('DELAY') || statOp === 'AGUARDANDO' ? { label: 'Aguardando', caption: 'Protegendo o compressor', dot: 'var(--muted)' }
+        : { label: 'Parado', caption: 'Relés desligados', dot: 'var(--muted)' };
+    const modeName = (m?: DeviceMode | null) => m === DeviceMode.KEGERATOR ? 'Choppeira' : m === DeviceMode.FRIDGE ? 'Geladeira' : 'Fermentador';
+    // Sem leitura (0,0 exato com o aparelho fora, ou erro do DS18B20) mostra "--"
+    const readTemp = (v: number) => (!Number.isFinite(v) || hasInvalidTemp || (!isOnline && v === 0) ? undefined : v);
+    const humidityNum = safeHumidity !== undefined && safeHumidity !== null ? parseFloat(String(safeHumidity)) : NaN;
+    const step = fermenter.profile?.[fermenter.currentStepIndex || 0];
+    const inputCls = 'w-full h-12 rounded-2xl bg-[var(--cell-2)] border border-[var(--line)] px-4 text-[16px] text-[var(--ink)] placeholder:text-[var(--tertiary)] focus:outline-none focus:border-[rgba(113,252,143,0.55)] transition-colors';
+
     const sensorSetupBanner = shouldSuggestSensorScan ? (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 px-6 py-4 bg-[var(--accent)]/20 border border-[var(--ink)]/20 rounded-2xl animate-in fade-in duration-300">
-            <div className="flex items-start md:items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[var(--accent)]/30 border border-[var(--ink)]/20 flex items-center justify-center text-[var(--ink)] shrink-0 mt-0.5 md:mt-0">
-                    <Thermometer size={18} />
-                </div>
-                <div>
-                    <h3 className="text-sm font-bold text-[var(--ink)]">
-                        Primeiro Passo: Vamos identificar seus sensores de temperatura?
-                    </h3>
-                    <p className="text-xs text-[var(--muted)] mt-0.5">
-                        Identifique automaticamente qual fio de sensor está na cerveja e qual está na geladeira para garantir a medição correta.
-                    </p>
-                </div>
+        <div className="app-row flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 mb-6">
+            <span className="app-icon-btn text-[var(--accent)] shrink-0" aria-hidden><Thermometer size={18} /></span>
+            <div className="flex-1 min-w-0">
+                <h2 className="text-[16px] text-[var(--ink)]">Identifique os sensores</h2>
+                <p className="text-[14px] text-[var(--muted)]">Descubra qual sensor está na cerveja e qual está na geladeira, para o controle medir no lugar certo.</p>
             </div>
-            <button
-                type="button"
-                onClick={() => navigate(`/settings?device=${encodeURIComponent(fermenter.id)}&scan=1`)}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[var(--ink)] hover:bg-black text-white font-bold text-xs rounded-xl transition-all shrink-0 shadow-[0_0_20px_rgba(99,102,241,0.3)]"
-            >
-                <Thermometer size={14} />
-                Identificar Sensores Automaticamente
+            <button type="button" onClick={() => navigate(`/settings?device=${encodeURIComponent(fermenter.id)}&scan=1`)} className="app-btn-quiet shrink-0">
+                Identificar sensores
             </button>
         </div>
     ) : null;
 
     const pendingModeBanner = hasPendingChange ? (
-        <div className="flex items-center justify-between mb-8 px-5 py-4 bg-amber-500/15 border border-amber-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
-                <span className="text-sm font-semibold text-[#b45309]">
-                    Modo selecionado: <span className=" font-semibold">
-                        {pendingMode === DeviceMode.FERMENTER ? 'Fermentador' : pendingMode === DeviceMode.KEGERATOR ? 'Choppeira' : 'Geladeira'}
-                    </span>
-                </span>
-                <span className="text-xs text-amber-500/80">— Aguardando confirmação</span>
+        <div className="app-row border-[rgba(113,252,143,0.3)] flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 mb-6" role="status">
+            <div className="flex-1">
+                <p className="text-[16px] text-[var(--ink)]">Mudar para {modeName(pendingMode)}?</p>
+                <p className="text-[14px] text-[var(--muted)]">O aparelho passa a controlar a temperatura neste modo quando você confirmar.</p>
             </div>
             <div className="flex items-center gap-2">
-                <button
-                    onClick={handleCancelMode}
-                    className="px-3 py-1.5 text-xs font-bold text-[var(--muted)] hover:text-[var(--ink)] transition-colors rounded-lg hover:bg-[var(--bg)]"
-                >
-                    Cancelar
-                </button>
-                <button
-                    onClick={handleActivateMode}
-                    className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95"
-                >
-                    ⚡ Ativar Modo
-                </button>
+                <button type="button" onClick={handleCancelMode} className="app-btn-quiet">Cancelar</button>
+                <button type="button" onClick={handleActivateMode} className="app-btn">Mudar para {modeName(pendingMode)}</button>
             </div>
         </div>
     ) : null;
 
+    const metaLine = (
+        <p className="mt-10 text-center text-[13px] text-[var(--tertiary)] tabular">
+            Firmware {fermenter.currentDevice?.version || '--'} · {fermenter.ipAddress || fermenter.id}
+            {fermenter.currentDevice?.rssi ? ` · Wi-Fi ${fermenter.currentDevice.rssi} dBm` : ''}
+        </p>
+    );
+
     if (isIdleFermenter) {
         return (
-            <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16">
                 {pendingModeBanner}
                 {sensorSetupBanner}
                 <FermentationWizard fermenter={fermenter} onStart={handleNewBatch} onCancel={() => navigate('/')} />
@@ -442,472 +431,230 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     }
 
     return (
-        <div className="p-4 md:p-8 lg:p-12 w-full mx-auto animate-in fade-in duration-500">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16">
             <ConfirmDialog
                 open={isFinishConfirmOpen}
-                title="Finalizar Lote?"
-                description="O lote atual será arquivado nos Logs de Produção e o fermentador ficará pronto para uma nova brassagem."
-                confirmLabel="Sim, Finalizar"
+                title="Finalizar o lote?"
+                description="O lote vai para o histórico e o fermentador fica pronto para uma nova fermentação."
+                confirmLabel="Finalizar lote"
                 variant="warning"
                 onConfirm={executeFinishProfile}
                 onCancel={() => setIsFinishConfirmOpen(false)}
             />
-            {/* Header Section */}
-            {displayMode === DeviceMode.FERMENTER && (
-            <div className="flex justify-between items-start mb-8">
-                <div className="flex-1">
-                    {fermenter.batchId && (
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className="text-[10px] font-bold text-[var(--muted)] ">Lote #{fermenter.batchId}</span>
-                            <button
-                                type="button"
-                                onClick={handleShareLiveBatch}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[var(--bg)] border border-black/[0.07] rounded-xl text-[11px] font-bold text-[#2b2f37] hover:text-[var(--ink)] transition-all"
-                            >
-                                {isCopiedShare ? <Check size={13} className="text-[#178a3f]" /> : <Share2 size={13} />}
-                                {isCopiedShare ? 'Link Ao Vivo Copiado' : 'Compartilhar Ao Vivo'}
-                            </button>
-                        </div>
-                    )}
 
-                    {isEditingBatch ? (
-                        <div className="space-y-4 mb-2">
-                            <input
-                                type="text"
-                                value={editBeerName}
-                                onChange={(e) => setEditBeerName(e.target.value)}
-                                className="text-5xl md:text-6xl font-semibold text-[var(--ink)] tracking-tighter bg-white border border-black/15 rounded-xl px-4 py-2 focus:outline-none focus:border-black/30 w-full"
-                                placeholder="Nome da Cerveja"
-                            />
-                            <div className="flex gap-4">
-                                <div className="flex-1">
-                                    <label htmlFor="edit-batch-og-input" className="text-xs text-[var(--muted)] mb-1 block">OG</label>
-                                    <input
-                                        id="edit-batch-og-input"
-                                        type="number"
-                                        step="0.001"
-                                        value={isNaN(editOG) ? '' : editOG}
-                                        onChange={(e) => setEditOG(parseFloat(e.target.value))}
-                                        className="w-full bg-white border border-black/15 text-[var(--ink)] rounded-lg px-3 py-2 focus:outline-none focus:border-black/30"
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <label htmlFor="edit-batch-fg-input" className="text-xs text-[var(--muted)] mb-1 block">FG</label>
-                                    <input
-                                        id="edit-batch-fg-input"
-                                        type="number"
-                                        step="0.001"
-                                        value={isNaN(editFG) ? '' : editFG}
-                                        onChange={(e) => setEditFG(parseFloat(e.target.value))}
-                                        className="w-full bg-white border border-black/15 text-[var(--ink)] rounded-lg px-3 py-2 focus:outline-none focus:border-black/30"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleSaveBatch}
-                                    className="flex items-center gap-2 px-4 py-2 bg-[var(--ink)] text-white rounded-lg hover:bg-black transition-colors font-medium text-sm"
-                                >
-                                    <Save size={16} /> Salvar
-                                </button>
-                                <button
-                                    onClick={handleCancelBatchEdit}
-                                    className="flex items-center gap-2 px-4 py-2 bg-[var(--bg)] text-[var(--ink)] rounded-lg hover:bg-black/10 transition-colors font-medium text-sm"
-                                >
-                                    <X size={16} /> Cancelar
-                                </button>
-                            </div>
+            {/* Titulo: nome do lote (fermentador) ou do aparelho */}
+            {displayMode === DeviceMode.FERMENTER ? (
+                isEditingBatch ? (
+                    <div className="app-card p-5 sm:p-6 mb-8 flex flex-col gap-4 max-w-2xl">
+                        <label className="flex flex-col gap-1.5">
+                            <span className="text-[13px] text-[var(--muted)]">Nome do lote</span>
+                            <input type="text" value={editBeerName} onChange={(e) => setEditBeerName(e.target.value)} className={inputCls} placeholder="Ex.: Pilsen de outono" />
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-[13px] text-[var(--muted)]">OG</span>
+                                <input type="number" step="0.001" value={isNaN(editOG) ? '' : editOG} onChange={(e) => setEditOG(parseFloat(e.target.value))} className={`${inputCls} tabular`} />
+                            </label>
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-[13px] text-[var(--muted)]">FG (alvo)</span>
+                                <input type="number" step="0.001" value={isNaN(editFG) ? '' : editFG} onChange={(e) => setEditFG(parseFloat(e.target.value))} className={`${inputCls} tabular`} />
+                            </label>
                         </div>
-                    ) : (
-                        <div>
-                            <div className="mb-1 flex items-center gap-2 group">
-                                <h1 className="text-6xl md:text-7xl font-semibold text-[var(--ink)] tracking-tighter leading-tight">{fermenter.beerName || 'Sem Produção'}</h1>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={handleSaveBatch} className="app-btn"><Save size={16} aria-hidden /> Salvar</button>
+                            <button type="button" onClick={handleCancelBatchEdit} className="app-btn-quiet">Cancelar</button>
+                        </div>
+                    </div>
+                ) : (
+                    <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-[40px] sm:text-[52px] leading-[1.04] font-light tracking-[-0.03em] text-[var(--ink)] truncate">{fermenter.beerName || 'Sem lote'}</h1>
                                 {fermenter.batchId && (
-                                    <button
-                                        type="button"
-                                        aria-label="Editar lote"
-                                        onClick={() => setIsEditingBatch(true)}
-                                        className="p-2 opacity-60 md:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-[var(--bg)] rounded-lg transition-all text-[var(--muted)] hover:text-[var(--ink)]"
-                                        title="Editar Batch"
-                                    >
-                                        <Edit2 size={24} />
+                                    <button type="button" aria-label="Editar o lote" title="Editar o lote" onClick={() => setIsEditingBatch(true)} className="app-icon-btn !w-9 !h-9 text-[var(--muted)] shrink-0">
+                                        <Edit2 size={15} aria-hidden />
                                     </button>
                                 )}
                             </div>
+                            <p className="mt-2 text-[16px] text-[var(--muted)]">
+                                {[fermenter.name, fermenter.batchId ? `Lote ${fermenter.batchId}` : null, fermenter.volume ? `${fermenter.volume} L` : null].filter(Boolean).join(' · ')}
+                            </p>
                         </div>
-                    )}
-                </div>
-            </div>
+                        {fermenter.batchId && (
+                            <button type="button" onClick={handleShareLiveBatch} className="app-btn-quiet shrink-0">
+                                {isCopiedShare ? <Check size={16} className="text-[var(--accent)]" aria-hidden /> : <Share2 size={16} aria-hidden />}
+                                {isCopiedShare ? 'Link copiado' : 'Compartilhar ao vivo'}
+                            </button>
+                        )}
+                    </header>
+                )
+            ) : (
+                <header className="mb-8">
+                    <h1 className="text-[40px] sm:text-[52px] leading-[1.04] font-light tracking-[-0.03em] text-[var(--ink)] truncate">{fermenter.name}</h1>
+                    <p className="mt-2 text-[16px] text-[var(--muted)]">
+                        {displayMode === DeviceMode.KEGERATOR ? (fermenter.kegeratorConfig?.line1 ? `Choppeira · ${fermenter.kegeratorConfig.line1}` : 'Choppeira') : 'Geladeira'}
+                    </p>
+                </header>
             )}
 
-            {/* ATIVAR MODO Banner */}
             {pendingModeBanner}
             {sensorSetupBanner}
 
             {(displayMode === DeviceMode.KEGERATOR || displayMode === DeviceMode.FRIDGE) ? (
-                // === KEGERATOR & FRIDGE MODE LAYOUT ===
-                <div className="animate-in fade-in duration-300 min-h-[600px]">
-
-                    {/* Main Metrics Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                        {/* Big Temperature Display */}
-                        <div className="flex flex-col items-center justify-center py-12 bg-white border border-black/[0.07] rounded-3xl relative overflow-hidden">
-                            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-black/15 to-transparent opacity-50"></div>
-
-                            <h2 className="text-[var(--muted)] font-bold tracking-[0.2em] text-sm mb-4">Temperatura Atual</h2>
-                            <div className="flex items-start gap-2 mb-8">
-                                <span className="text-8xl md:text-8xl xl:text-9xl font-semibold text-[var(--ink)] tracking-tighter tabular-nums">
-                                    {safeCurrentTemp.toFixed(1)}
-                                </span>
-                                <span className="text-4xl text-black/40 font-light mt-4">°C</span>
+                // === CHOPPEIRA E GELADEIRA ===
+                <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <section className="app-card lg:col-span-2 py-8 px-6 flex flex-col items-center gap-2" aria-label="Temperatura">
+                            <span className="text-[15px] text-[var(--muted)]">{fermenter.sensor2_name || 'Geladeira'}</span>
+                            <TempDisplay value={readTemp(safeCurrentTemp)} size={116} dim={!isOnline} />
+                        </section>
+                        <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
+                            <div className="app-card p-4 flex flex-col gap-2.5" role="group" aria-label={`Estado: ${state.label}`}>
+                                <span className="flex items-center gap-2 text-[13px] text-[var(--muted)]"><span aria-hidden className="w-[7px] h-[7px] rounded-full" style={{ background: state.dot }} />Estado</span>
+                                <span className="text-[26px] font-light text-[var(--ink)] leading-tight">{state.label}</span>
+                                <span className="text-[12px] text-[var(--tertiary)]">{state.caption}</span>
                             </div>
-
-                            {/* Set Point Controls */}
-                            <div className="flex items-center gap-6 bg-[var(--bg)] p-2 pr-6 rounded-2xl border border-black/[0.07]">
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        aria-label="Diminuir temperatura alvo"
-                                        onClick={() => handleSetPointChange(-0.5)}
-                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] transition-colors border border-black/15 active:scale-95"
-                                    >
-                                        <Minus size={20} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        aria-label="Aumentar temperatura alvo"
-                                        onClick={() => handleSetPointChange(0.5)}
-                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] transition-colors border border-black/15 active:scale-95"
-                                    >
-                                        <Plus size={20} />
-                                    </button>
+                            <div className="app-card p-4 flex flex-col gap-2.5" style={{ opacity: isOnline ? 1 : 0.5 }}>
+                                <span className="text-[13px] text-[var(--muted)]">Alvo</span>
+                                <div className="flex items-center justify-between gap-2">
+                                    <button type="button" aria-label="Diminuir a temperatura alvo" disabled={!isOnline} onClick={() => handleSetPointChange(-0.5)} className="app-icon-btn"><Minus size={17} aria-hidden /></button>
+                                    <span aria-live="polite"><SmallValue value={safeTargetTemp.toFixed(1)} unit="°C" size={26} /></span>
+                                    <button type="button" aria-label="Aumentar a temperatura alvo" disabled={!isOnline} onClick={() => handleSetPointChange(0.5)} className="app-icon-btn"><Plus size={17} aria-hidden /></button>
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-[var(--muted)] font-bold ">Set-Point</span>
-                                    <span className="text-2xl font-mono text-[#178a3f]">{safeTargetTemp.toFixed(1)}°C</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Humidity Display */}
-                        <div className="flex flex-col items-center justify-center py-12 bg-white border border-black/[0.07] rounded-3xl relative overflow-hidden">
-                            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-black/15 to-transparent opacity-50"></div>
-
-                            <h2 className="text-[var(--muted)] font-bold tracking-[0.2em] text-sm mb-4">Umidade Relativa</h2>
-                            <div className="flex items-start gap-2">
-                                <span className="text-8xl md:text-8xl xl:text-9xl font-semibold text-[var(--ink)] tracking-tighter tabular-nums">
-                                    {safeHumidity !== undefined && safeHumidity !== null && !isNaN(parseFloat(String(safeHumidity))) ? parseFloat(String(safeHumidity)).toFixed(1) : '--'}
-                                </span>
-                                <span className="text-4xl text-black/40 font-light mt-4">%</span>
                             </div>
                         </div>
                     </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <StatTile label={fermenter.sensor1_name || 'Sensor 1'} value={readTemp(safeCurrentFridgeTemp) !== undefined ? safeCurrentFridgeTemp.toFixed(1) : '--'} unit="°C" icon={<Thermometer size={14} />} />
+                        <StatTile label="Umidade" value={Number.isFinite(humidityNum) ? humidityNum.toFixed(0) : '--'} unit="%" icon={<Droplets size={14} />} />
+                        <StatTile label="Wi-Fi" value={fermenter.currentDevice?.rssi ? String(fermenter.currentDevice.rssi) : '--'} unit="dBm" icon={<Wifi size={14} />} />
+                        <StatTile label="Firmware" value={fermenter.currentDevice?.version || '--'} icon={<Cpu size={14} />} />
+                    </div>
 
-                    {/* Display Information Form - Only for Kegerator */}
                     {displayMode === DeviceMode.KEGERATOR && (
-                        <div className="bg-white border border-black/[0.07] rounded-3xl p-8 backdrop-blur-sm">
-                            <div className="flex items-center gap-3 mb-8">
-                                <Monitor size={20} className="text-[var(--ink)]" />
-                                <h3 className="text-[var(--ink)] font-bold text-sm">Editar Informações do Display</h3>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                {/* Linha 1 */}
-                                <div className="space-y-2">
-                                    <label htmlFor="keg-line1-input" className="flex items-center justify-between text-[10px] font-bold text-[var(--muted)] ">
-                                        Linha 1
-                                        <span className="text-[#a16207] bg-yellow-500/10 px-2 py-0.5 rounded text-[9px] border border-yellow-500/20">AMARELO</span>
-                                    </label>
-                                    <input
-                                        id="keg-line1-input"
-                                        type="text"
-                                        value={kegeratorForm.line1}
-                                        onChange={(e) => handleKegeratorChange('line1', e.target.value)}
-                                        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-4 focus:outline-none focus:border-[#ca8a04]/50 transition-colors text-lg font-mono placeholder-black/30"
-                                        placeholder="LINHA 1..."
-                                    />
-                                </div>
-
-                                {/* Linha 2 */}
-                                <div className="space-y-2">
-                                    <label htmlFor="keg-line2-input" className="flex items-center justify-between text-[10px] font-bold text-[var(--muted)] ">
-                                        Linha 2
-                                        <span className="text-[#a16207] bg-yellow-500/10 px-2 py-0.5 rounded text-[9px] border border-yellow-500/20">AMARELO</span>
-                                    </label>
-                                    <input
-                                        id="keg-line2-input"
-                                        type="text"
-                                        value={kegeratorForm.line2}
-                                        onChange={(e) => handleKegeratorChange('line2', e.target.value)}
-                                        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-4 focus:outline-none focus:border-[#ca8a04]/50 transition-colors text-lg font-mono placeholder-black/30"
-                                        placeholder="LINHA 2..."
-                                    />
-                                </div>
-
-                                {/* Estilo */}
-                                <div className="space-y-2">
-                                    <label htmlFor="keg-style-input" className="flex items-center justify-between text-[10px] font-bold text-[var(--muted)] ">
-                                        Estilo
-                                        <span className="text-[var(--muted)] bg-[var(--bg)] px-2 py-0.5 rounded text-[9px] border border-black/15">BRANCO</span>
-                                    </label>
-                                    <input
-                                        id="keg-style-input"
-                                        type="text"
-                                        value={kegeratorForm.style}
-                                        onChange={(e) => handleKegeratorChange('style', e.target.value)}
-                                        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-4 focus:outline-none focus:border-black/30 transition-colors text-lg font-mono placeholder-black/30"
-                                        placeholder="EX: IPA..."
-                                    />
-                                </div>
-
-                                {/* Cervejaria */}
-                                <div className="space-y-2">
-                                    <label htmlFor="keg-brewery-input" className="flex items-center justify-between text-[10px] font-bold text-[var(--muted)] ">
-                                        Cervejaria
-                                        <span className="text-[var(--muted)] bg-[var(--bg)] px-2 py-0.5 rounded text-[9px] border border-black/15">BRANCO</span>
-                                    </label>
-                                    <input
-                                        id="keg-brewery-input"
-                                        type="text"
-                                        value={kegeratorForm.brewery}
-                                        onChange={(e) => handleKegeratorChange('brewery', e.target.value)}
-                                        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-4 focus:outline-none focus:border-black/30 transition-colors text-lg font-mono placeholder-black/30"
-                                        placeholder="NOME DA CERVEJARIA..."
-                                    />
-                                </div>
-
-                                {/* IBU */}
-                                <div className="space-y-2">
-                                    <label htmlFor="keg-ibu-input" className="text-[10px] font-bold text-[var(--muted)] ">IBU</label>
-                                    <input
-                                        id="keg-ibu-input"
-                                        type="number"
-                                        value={isNaN(kegeratorForm.ibu) ? '' : kegeratorForm.ibu}
-                                        onChange={(e) => handleKegeratorChange('ibu', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                                        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-4 focus:outline-none focus:border-black/30 transition-colors text-lg font-mono placeholder-black/30"
-                                        placeholder="0"
-                                    />
-                                </div>
-
-                                {/* ABV */}
-                                <div className="space-y-2">
-                                    <label htmlFor="keg-abv-input" className="text-[10px] font-bold text-[var(--muted)] ">ABV %</label>
-                                    <input
-                                        id="keg-abv-input"
-                                        type="number"
-                                        step="0.1"
-                                        value={isNaN(kegeratorForm.abv) ? '' : kegeratorForm.abv}
-                                        onChange={(e) => handleKegeratorChange('abv', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                                        className="w-full bg-[var(--bg)] border border-black/[0.07] text-[var(--ink)] rounded-xl px-4 py-4 focus:outline-none focus:border-black/30 transition-colors text-lg font-mono placeholder-black/30"
-                                        placeholder="0.0"
-                                    />
+                        <section className="app-card p-5 sm:p-6 mt-2" aria-labelledby="keg-title">
+                            <div className="flex items-center gap-3 mb-5">
+                                <span className="app-icon-btn text-[var(--accent)]" aria-hidden><Monitor size={17} /></span>
+                                <div>
+                                    <h2 id="keg-title" className="text-[17px] text-[var(--ink)]">Texto da tela da choppeira</h2>
+                                    <p className="text-[14px] text-[var(--muted)]">As duas primeiras linhas aparecem em amarelo; as outras, em branco.</p>
                                 </div>
                             </div>
-
-                            <button
-                                onClick={handleSaveKegerator}
-                                className="w-full bg-[var(--ink)] text-white font-bold py-4 rounded-xl hover:bg-black transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2 text-sm"
-                            >
-                                <Save size={18} />
-                                Atualizar Display
-                            </button>
-                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {([
+                                    ['line1', 'Linha 1', 'Ex.: IPA do quintal', 'text'],
+                                    ['line2', 'Linha 2', 'Ex.: lote de outubro', 'text'],
+                                    ['style', 'Estilo', 'Ex.: American IPA', 'text'],
+                                    ['brewery', 'Cervejaria', 'Ex.: Cervejaria da garagem', 'text'],
+                                ] as const).map(([k, label, ph]) => (
+                                    <label key={k} className="flex flex-col gap-1.5">
+                                        <span className="text-[13px] text-[var(--muted)]">{label}</span>
+                                        <input type="text" value={(kegeratorForm as any)[k]} onChange={(e) => handleKegeratorChange(k, e.target.value)} className={inputCls} placeholder={ph} />
+                                    </label>
+                                ))}
+                                <label className="flex flex-col gap-1.5">
+                                    <span className="text-[13px] text-[var(--muted)]">IBU</span>
+                                    <input type="number" value={isNaN(kegeratorForm.ibu) ? '' : kegeratorForm.ibu} onChange={(e) => handleKegeratorChange('ibu', e.target.value === '' ? 0 : parseFloat(e.target.value))} className={`${inputCls} tabular`} placeholder="0" />
+                                </label>
+                                <label className="flex flex-col gap-1.5">
+                                    <span className="text-[13px] text-[var(--muted)]">Álcool (%)</span>
+                                    <input type="number" step="0.1" value={isNaN(kegeratorForm.abv) ? '' : kegeratorForm.abv} onChange={(e) => handleKegeratorChange('abv', e.target.value === '' ? 0 : parseFloat(e.target.value))} className={`${inputCls} tabular`} placeholder="0.0" />
+                                </label>
+                            </div>
+                            <button type="button" onClick={handleSaveKegerator} className="app-btn mt-5"><Save size={16} aria-hidden /> Atualizar a tela</button>
+                        </section>
                     )}
+                    {metaLine}
                 </div>
             ) : (
-                // === STANDARD FERMENTER MODE LAYOUT ===
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch animate-in fade-in duration-300 min-h-[600px]">
+                // === FERMENTADOR ===
+                <>
+                    {/* Leitura principal: temperatura em destaque; estado, alvo, densidade e etapa ao lado */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <section className="app-card col-span-2 lg:row-span-2 py-8 px-6 flex flex-col items-center justify-center gap-2" aria-label="Temperatura da cerveja">
+                            <span className="text-[15px] text-[var(--muted)]">{fermenter.sensor1_name || 'Cerveja'}</span>
+                            <TempDisplay value={readTemp(safeCurrentTemp)} size={116} dim={!isOnline} />
+                            {hasInvalidTemp && <span className="text-[13px] text-[var(--danger)]">Sem leitura do sensor: aquecer e resfriar ficam desligados</span>}
+                        </section>
+                        <div className="app-card p-4 flex flex-col gap-2.5" role="group" aria-label={`Estado: ${state.label}. ${state.caption}`}>
+                            <span className="flex items-center gap-2 text-[13px] text-[var(--muted)]"><span aria-hidden className="w-[7px] h-[7px] rounded-full" style={{ background: state.dot }} />Estado</span>
+                            <span className="text-[26px] font-light text-[var(--ink)] leading-tight">{state.label}</span>
+                            <span className="text-[12px] text-[var(--tertiary)]">{state.caption}</span>
+                        </div>
+                        <div className="app-card p-4 flex flex-col gap-2.5">
+                            <span className="text-[13px] text-[var(--muted)]">Alvo da etapa</span>
+                            <SmallValue value={safeTargetTemp.toFixed(1)} unit="°C" size={26} />
+                            <span className="text-[12px] text-[var(--tertiary)]">{step ? `definido pelo perfil · ${step.name}` : 'definido pelo perfil'}</span>
+                        </div>
+                        <StatTile label={fermenter.sensor_sg_name || 'Densidade'} value={formatGravity(safeCurrentGravity)} caption={formatGravity(safeCurrentGravity) === '--' ? 'sem leitura do densímetro' : 'densidade atual'} icon={<Droplets size={14} />} />
+                        <StatTile label="Fim da etapa" value={getStepTimeRemaining()} caption={step ? step.name : undefined} icon={<Clock size={14} />} />
+                    </div>
 
-                    {/* Left Column: Forecasting & Charts */}
-                    <div className="order-3 lg:order-1 lg:col-span-2 space-y-8 min-w-0 flex flex-col h-full">
-                        {/* Forecasting Engine */}
-                        {displayMode === DeviceMode.FERMENTER && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mt-3 sm:mt-4">
+                        <StatTile label="OG" value={safeOG > 0 ? safeOG.toFixed(3) : '--'} caption="densidade inicial" icon={<ArrowDown size={14} />} />
+                        <StatTile label="FG" value={safeFG ? safeFG.toFixed(3) : '--'} caption="densidade final (alvo)" icon={<Target size={14} />} />
+                        <StatTile label="Atenuação" value={currentAttenuation} unit="%" icon={<Percent size={14} />} />
+                        <StatTile label="Álcool estimado" value={abv} unit="%" icon={<FlaskConical size={14} />} />
+                        <StatTile label={fermenter.sensor2_name || 'Geladeira'} value={readTemp(safeCurrentFridgeTemp) !== undefined ? safeCurrentFridgeTemp.toFixed(1) : '--'} unit="°C" icon={<Snowflake size={14} />} />
+                        <StatTile
+                            label="Bateria do densímetro"
+                            value={safeBattery > 0 ? safeBattery.toFixed(2) : '--'}
+                            unit="V"
+                            caption={safeBattery <= 0 ? 'sem leitura' : safeBattery > 3.9 ? 'carregada' : safeBattery > 3.5 ? 'média' : 'baixa, recarregue'}
+                            warn={safeBattery > 0 && safeBattery <= 3.5}
+                            icon={<Battery size={14} />}
+                        />
+                    </div>
+
+                    {/* Graficos a esquerda; perfil, diario e analise a direita */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mt-8 items-start">
+                        <div className="order-2 lg:order-1 lg:col-span-2 flex flex-col gap-4 min-w-0">
                             <ForecastingEngine fermenter={fermenter} />
-                        )}
-                        <div className="flex-1">
                             <ErrorBoundary name="Gráfico de Temperatura">
                                 <TemperatureChart
                                     data={fermenter.readings}
                                     events={fermenter.events}
-                                    sensor1Name={fermenter.sensor1_name || 'Fermentador'}
+                                    sensor1Name={fermenter.sensor1_name || 'Cerveja'}
                                     sensor2Name={fermenter.sensor2_name || 'Geladeira'}
                                 />
                             </ErrorBoundary>
+                            <ErrorBoundary name="Gráfico de Densidade">
+                                <GravityChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} sensorSgName={fermenter.sensor_sg_name || 'Densidade'} />
+                            </ErrorBoundary>
+                            <ErrorBoundary name="Gráfico Duplo (Temp + Densidade)">
+                                <DualAxisChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} sensor1Name={fermenter.sensor1_name || 'Cerveja'} sensorSgName={fermenter.sensor_sg_name || 'Densidade'} />
+                            </ErrorBoundary>
                         </div>
-
-                        {displayMode === DeviceMode.FERMENTER && (
-                            <>
-                                <div className="flex-1">
-                                    <ErrorBoundary name="Gráfico de Gravidade">
-                                        <GravityChart 
-                                            data={fermenter.readings} 
-                                            og={fermenter.og} 
-                                            fg={fermenter.fg} 
-                                            events={fermenter.events} 
-                                            sensorSgName={fermenter.sensor_sg_name || 'Gravidade (SG)'}
-                                        />
-                                    </ErrorBoundary>
-                                </div>
-                                <div className="flex-1">
-                                    <ErrorBoundary name="Gráfico Duplo (Temp + Grav)">
-                                        <DualAxisChart 
-                                            data={fermenter.readings} 
-                                            og={fermenter.og} 
-                                            fg={fermenter.fg} 
-                                            events={fermenter.events} 
-                                            sensor1Name={fermenter.sensor1_name || 'Temperatura'}
-                                            sensorSgName={fermenter.sensor_sg_name || 'Gravidade (SG)'}
-                                        />
-                                    </ErrorBoundary>
-                                </div>
-                            </>
-                        )}
-                    </div>
-
-                    {/* Right Column: Metrics & Controls */}
-                    <div className="order-2 lg:order-2 lg:col-span-1 flex flex-col gap-8 min-w-0 h-full">
-                        {/* Telemetria Card */}
-                        <div className="bg-white rounded-3xl p-8 border border-black/[0.07] backdrop-blur-sm relative overflow-hidden shrink-0">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-[var(--muted)] text-xs font-bold ">Telemetria em Tempo Real</h3>
-                                <div className="w-2 h-2 rounded-full bg-[#2fbf55] animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                            </div>
-
-                            <div className="space-y-6">
-                                {/* Big Numbers */}
-                                <div className="flex items-baseline justify-between">
-                                    <div className="flex flex-col">
-                                        <span className="text-black/40 text-sm mb-1">
-                                            Temperatura ({fermenter.sensor1_name || 'Mosto'})
-                                        </span>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-4xl font-bold text-[var(--ink)] font-mono">
-                                                {safeCurrentTemp.toFixed(1)}
-                                            </span>
-                                            <span className="text-lg text-[var(--muted)]">°C</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-black/40 text-sm mb-1">{fermenter.sensor_sg_name || 'Gravidade (SG)'}</span>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-4xl font-bold text-[#178a3f] font-mono">
-                                                {formatGravity(safeCurrentGravity)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Detailed Grid - 4x2 */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-2 pt-6 border-t border-black/[0.07]">
-                                    {/* Row 1 */}
-                                    <div className="text-center">
-                                        <Target size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">Set-point</span>
-                                        <span className="block text-sm font-mono text-[var(--ink)]">{safeTargetTemp.toFixed(1)}°C</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <Snowflake size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">{fermenter.sensor2_name || 'Geladeira'}</span>
-                                        <span className="block text-sm font-mono text-blue-700">{safeCurrentFridgeTemp.toFixed(1)}°C</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <Battery size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">Bateria</span>
-                                        <span className={`block text-sm font-mono ${getBatteryColor(safeBattery)}`}>
-                                            {safeBattery > 0 ? `${safeBattery.toFixed(2)}V` : '--'}
-                                        </span>
-                                    </div>
-                                    <div className="text-center">
-                                        <Clock size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">Fim Rampa</span>
-                                        <span className="block text-sm font-mono text-[var(--ink)]">{getStepTimeRemaining()}</span>
-                                    </div>
-
-                                    {/* Row 2 */}
-                                    <div className="text-center">
-                                        <ArrowDown size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">OG</span>
-                                        <span className="block text-sm font-mono text-[var(--ink)]">{safeOG.toFixed(3)}</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <Target size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">Meta FG</span>
-                                        <span className="block text-sm font-mono text-[var(--ink)]">{safeFG ? safeFG.toFixed(3) : '-'}</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <Percent size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">Atenuação</span>
-                                        <span className="block text-sm font-mono text-[var(--ink)]">{currentAttenuation}%</span>
-                                    </div>
-                                    <div className="text-center">
-                                        <FlaskConical size={16} className="text-black/40 mx-auto mb-2" />
-                                        <span className="block text-[10px] font-bold text-black/40 mb-1">ABV Est.</span>
-                                        <span className="block text-sm font-mono text-[var(--ink)]">{abv}%</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="order-1 lg:order-2 flex flex-col gap-4 min-w-0">
+                            {fermenter.batchId ? (
+                                <FermentationProfile
+                                    steps={fermenter.profile || []}
+                                    currentStepIndex={fermenter.currentStepIndex || 0}
+                                    isPaused={fermenter.isPaused || false}
+                                    startDate={fermenter.startDate}
+                                    stepStartDate={fermenter.stepStartDate}
+                                    stepTime={fermenter.currentDevice?.stepTime}
+                                    lastUpdate={fermenter.currentDevice?.lastUpdate}
+                                    style={fermenter.style}
+                                    volume={fermenter.volume}
+                                    og={safeOG}
+                                    fg={safeFG ?? undefined}
+                                    onUpdateSteps={handleUpdateSteps}
+                                    onTogglePause={handleTogglePause}
+                                    onPrevStep={handlePrevStep}
+                                    onNextStep={handleNextStep}
+                                    onFinishProfile={handleFinishProfile}
+                                />
+                            ) : (
+                                <div className="app-card p-6 text-center text-[15px] text-[var(--muted)]">Nenhum perfil em andamento.</div>
+                            )}
+                            <FermentationTimeline events={fermenter.events || []} startDate={fermenter.startDate} onAddEvent={handleAddEvent} onRemoveEvent={handleRemoveEvent} />
+                            <GeminiAdvisor fermenter={fermenter} className="min-h-[200px]" />
                         </div>
-
-                        {displayMode === DeviceMode.FERMENTER && (
-                            <div className="shrink-0">
-                                {fermenter.batchId ? (
-                                    <FermentationProfile
-                                        steps={fermenter.profile || []}
-                                        currentStepIndex={fermenter.currentStepIndex || 0}
-                                        isPaused={fermenter.isPaused || false}
-                                        startDate={fermenter.startDate}
-                                        stepStartDate={fermenter.stepStartDate}
-                                        stepTime={fermenter.currentDevice?.stepTime}
-                                        lastUpdate={fermenter.currentDevice?.lastUpdate}
-                                        style={fermenter.style}
-                                        volume={fermenter.volume}
-                                        og={safeOG}
-                                        fg={safeFG ?? undefined}
-                                        onUpdateSteps={handleUpdateSteps}
-                                        onTogglePause={handleTogglePause}
-                                        onPrevStep={handlePrevStep}
-                                        onNextStep={handleNextStep}
-                                        onFinishProfile={handleFinishProfile}
-                                    />
-                                ) : (
-                                    <div className="bg-white rounded-3xl p-6 border border-black/[0.07] backdrop-blur-sm flex flex-col items-center justify-center text-center min-h-[200px]">
-                                        <h3 className="text-[var(--muted)] text-xs font-bold mb-6">Perfil de Fermentação</h3>
-                                            <p className="text-[var(--muted)] text-sm mb-4">Acesse a aba Fermentador para iniciar uma nova produção.</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <FermentationTimeline 
-                            events={fermenter.events || []} 
-                            startDate={fermenter.startDate}
-                            onAddEvent={handleAddEvent} 
-                            onRemoveEvent={handleRemoveEvent} 
-                        />
-
-                        <GeminiAdvisor fermenter={fermenter} className="flex-1 min-h-[200px]" />
                     </div>
-                </div>
+                    {metaLine}
+                </>
             )}
-            
-            {/* Device Firmware & IP Info */}
-            <div className="mt-8 mb-4 w-full animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
-                <div className="bg-white border border-black/[0.07] rounded-xl px-6 py-3 flex items-center justify-center gap-6 text-[var(--muted)] font-mono text-[10px] tracking-[0.15em] backdrop-blur-sm w-full">
-                    <div className="flex items-center gap-2">
-                        <span className="text-black/40 font-semibold">VER:</span>
-                        <span className="text-[var(--muted)]">{fermenter.currentDevice?.version || 'V0.0.000'}</span>
-                    </div>
-                    <span className="text-black/30 font-light opacity-50">//</span>
-                    <div className="flex items-center gap-2">
-                        <span className="text-black/40 font-semibold">IP:</span>
-                        <span className="text-[var(--muted)]">{fermenter.ipAddress || '0.0.0.0'}</span>
-                    </div>
-                    <span className="text-black/30 font-light opacity-50">//</span>
-                    <div className="flex items-center gap-2 normal-case tracking-normal">
-                        <WifiSignal rssi={fermenter.currentDevice?.rssi} />
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

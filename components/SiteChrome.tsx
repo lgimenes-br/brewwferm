@@ -6,20 +6,22 @@ import { BrewwLogo } from './BrewwMark';
 // Cabecalho e rodape das paginas publicas (home, instalador, ajuda, legais). Usar dentro de .brew-landing.
 // No celular os links vao para um menu que abre abaixo do cabecalho; tudo o que se toca tem 44 px ou mais.
 
-const NAV: { label: string; to: string; anchor?: boolean }[] = [
+type NavItem = { label: string; to: string; anchor?: boolean };
+const NAV: NavItem[] = [
     { label: 'Recursos', to: '/#recursos', anchor: true },
     { label: 'Monte o seu', to: '/instalar' },
     { label: 'Preços', to: '/#precos', anchor: true },
     { label: 'Ajuda', to: '/ajuda' },
 ];
 
-const NavLink: React.FC<{ item: typeof NAV[number]; className: string; onClick?: () => void }> = ({ item, className, onClick }) =>
+const NavLink: React.FC<{ item: NavItem; className: string; onClick?: () => void }> = ({ item, className, onClick }) =>
     item.anchor
         ? <a href={item.to} className={className} onClick={onClick}>{item.label}</a>
         : <Link to={item.to} className={className} onClick={onClick}>{item.label}</Link>;
 
 /** minimal: modo tarefa (assistente). So o logo e uma saida; com locked (gravando) nem isso, para nao abandonar a gravacao. */
-export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locked?: boolean } }> = ({ minimal }) => {
+/** nav: links proprios da pagina (ex.: secoes da home nova); signIn: mostra "Entrar" ao lado de "Criar conta" */
+export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locked?: boolean }; nav?: NavItem[]; signIn?: boolean }> = ({ minimal, nav: navItems = NAV, signIn }) => {
     const [open, setOpen] = useState(false);
     const { pathname, hash } = useLocation();
 
@@ -53,9 +55,10 @@ export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locke
                     <BrewwLogo />
                 </Link>
                 <div className="hidden items-center gap-1 text-sm text-[var(--muted)] md:flex">
-                    {NAV.map(item => <NavLink key={item.label} item={item} className="flex min-h-11 items-center rounded-full px-3.5 hover:text-[var(--ink)]" />)}
+                    {navItems.map(item => <NavLink key={item.label} item={item} className="flex min-h-11 items-center rounded-full px-3.5 hover:text-[var(--ink)]" />)}
                 </div>
                 <div className="flex items-center gap-1">
+                    {signIn && <Link to="/login" className="hidden min-h-11 items-center rounded-full px-4 text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:inline-flex">Entrar</Link>}
                     <Link to="/register" className="inline-flex min-h-11 items-center rounded-full bg-[var(--ink)] px-5 text-sm font-medium text-white hover:bg-black">Criar conta</Link>
                     <button
                         type="button"
@@ -72,7 +75,7 @@ export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locke
             {open && (
                 <div id="menu-celular" className="border-t border-black/5 bg-[var(--bg)] md:hidden">
                     <ul className="mx-auto max-w-6xl px-4 py-2">
-                        {NAV.map(item => (
+                        {navItems.map(item => (
                             <li key={item.label}>
                                 <NavLink item={item} onClick={() => setOpen(false)} className="flex min-h-12 items-center border-b border-black/5 text-lg text-[var(--ink)]" />
                             </li>
@@ -87,9 +90,9 @@ export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locke
 const footLink = 'inline-flex min-h-11 min-w-11 items-center hover:text-white';
 
 export const SiteFooter: React.FC = () => (
-    <footer className="on-dark border-t border-white/[0.08] bg-[var(--ink)] text-[#a3a7b0]">
+    <footer className="on-dark border-t border-[var(--line)] bg-[#020305] text-[var(--muted)]">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 pb-[max(3.5rem,env(safe-area-inset-bottom))] pt-14 sm:px-6 md:flex-row md:items-center md:justify-between">
-            <BrewwLogo className="text-white" />
+            <BrewwLogo className="text-white" mark />
             <nav className="flex flex-wrap gap-x-7 text-sm" aria-label="Rodapé">
                 {NAV.map(item => <NavLink key={item.label} item={item} className={footLink} />)}
                 <a href="https://github.com/lgimenes-br/breww-firmware" target="_blank" rel="noopener noreferrer" className={footLink}>Firmware no GitHub</a>

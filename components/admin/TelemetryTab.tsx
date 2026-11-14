@@ -55,9 +55,9 @@ export const TelemetryTab: React.FC = () => {
                             return (
                                 <tr key={dev.id} className="hover:bg-[var(--bg)] transition-colors">
                                     <td className="py-3 px-4">
-                                        <div className={`flex items-center gap-2 ${online ? 'text-[#178a3f]' : 'text-[var(--muted)]'}`}>
-                                            <div className={`w-2 h-2 rounded-full ${online ? 'bg-[#2fbf55] animate-pulse' : 'bg-black/20'}`}></div>
-                                            <span className="text-xs font-semibold ">{online ? 'Online' : 'Offline'}</span>
+                                        <div className={`flex items-center gap-2 ${online ? 'text-[var(--accent)]' : 'text-[var(--muted)]'}`}>
+                                            <div className={`w-2 h-2 rounded-full ${online ? 'bg-[var(--accent)] animate-pulse' : 'bg-black/20'}`}></div>
+                                            <span className="text-xs font-medium ">{online ? 'Online' : 'Offline'}</span>
                                         </div>
                                     </td>
                                     <td className="py-3 px-4">
@@ -75,7 +75,7 @@ export const TelemetryTab: React.FC = () => {
                                             <div className="flex items-center justify-center gap-1">
                                                 <div className="w-6 h-3 border border-black/25 rounded-sm relative overflow-hidden">
                                                     <div
-                                                        className={`h-full ${Number(dev.last_battery) < 3.4 ? 'bg-red-500' : Number(dev.last_battery) < 3.7 ? 'bg-amber-500' : 'bg-[#2fbf55]'}`}
+                                                        className={`h-full ${Number(dev.last_battery) < 3.4 ? 'bg-red-500' : Number(dev.last_battery) < 3.7 ? 'bg-amber-500' : 'bg-[var(--accent)]'}`}
                                                         style={{ width: `${Math.min(100, Math.max(0, ((Number(dev.last_battery) - 3.0) / 1.2) * 100))}%` }}
                                                     ></div>
                                                 </div>
@@ -87,10 +87,10 @@ export const TelemetryTab: React.FC = () => {
                                         {dev.last_rssi !== null && dev.last_rssi !== undefined && !isNaN(Number(dev.last_rssi)) ? (
                                             <div className="flex flex-col items-center justify-center gap-0.5" title={`${dev.last_rssi} dBm`}>
                                                 <Wifi size={16} className={
-                                                    Number(dev.last_rssi) >= -65 ? 'text-[#178a3f]' :
+                                                    Number(dev.last_rssi) >= -65 ? 'text-[var(--accent)]' :
                                                     Number(dev.last_rssi) >= -80 ? 'text-[#b45309]' : 'text-[#d63a4d]'
                                                 } />
-                                                <span className="text-[9px] font-mono text-[var(--muted)]">{Number(dev.last_rssi) === 0 ? 0 : Math.min(100, Math.max(0, 2 * (Number(dev.last_rssi) + 100)))}%</span>
+                                                <span className="text-[11px] font-mono text-[var(--muted)]">{Number(dev.last_rssi) === 0 ? 0 : Math.min(100, Math.max(0, 2 * (Number(dev.last_rssi) + 100)))}%</span>
                                             </div>
                                         ) : '--'}
                                     </td>

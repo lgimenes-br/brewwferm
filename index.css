@@ -30,8 +30,8 @@
   --card: #181C25;
   --accent: #71FC8F;
   --muted: #565A63; /* #6B6F78 da marca escurecido para 4.5:1 no fundo claro */
-  --font-display: 'Inter Tight', 'Inter', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
 }
 /* Areas escuras (cartoes Grafite, Tinta, rodape): contorno de foco verde, senao some no fundo.
    O contorno global (index.html) usa var(--focus-ring) com !important; aqui so se troca a cor. */
@@ -54,3 +54,139 @@ h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none !import
   /* sem animacao nenhuma: nada fica invisivel esperando um atraso */
   .landing-chapter { animation: none !important; }
 }
+
+/* ==== Area logada: o app no computador (components/Dashboard, FermenterDetail, Settings...) ====
+   Mesma identidade do app Breww: preto profundo com brilhos discretos, cartoes Grafite #181C25,
+   fonte Outfit, um unico verde (#71FC8F) e vermelho so em aviso. O admin fica fora (identidade clara).
+   A segunda metade deste bloco traduz as classes claras antigas para o escuro, para nenhuma tela,
+   modal ou assistente ficar claro; as telas principais usam os tokens direto. */
+.app-shell {
+  --bg: #04070B;
+  --card: #181C25;
+  --cell: #181C25;
+  --cell-2: #20252F;           /* campos e areas internas (cellRecessed do app) */
+  --fill: rgba(255,255,255,0.07);
+  --line: rgba(255,255,255,0.08);
+  --line-strong: rgba(255,255,255,0.14);
+  --ink: #ECECF1;              /* label */
+  --muted: #898E99;            /* secondaryLabel */
+  --tertiary: #6B6F78;         /* tertiaryLabel / cinza da marca */
+  --accent: #71FC8F;
+  --on-accent: #0B0C10;
+  --danger: #FF5A6E;
+  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --focus-ring: #71FC8F;
+  color-scheme: dark;
+  min-height: 100dvh;
+  color: var(--ink);
+  font-family: var(--font-body);
+  background:
+    radial-gradient(70vw 60vh at 100% 0%, rgba(113,252,143,0.08), transparent 70%),
+    radial-gradient(60vw 60vh at 0% 55%, rgba(107,111,120,0.10), transparent 70%),
+    radial-gradient(70vw 50vh at 70% 100%, rgba(113,252,143,0.04), transparent 70%),
+    #04070B;
+  background-attachment: fixed;
+}
+.app-shell ::selection { background: #71FC8F; color: #0B0C10; }
+.app-shell input, .app-shell select, .app-shell textarea { color: var(--ink); }
+.app-shell input::placeholder, .app-shell textarea::placeholder { color: var(--tertiary); }
+.app-shell .tabular, .app-shell .font-mono { font-variant-numeric: tabular-nums; }
+.app-shell ::-webkit-scrollbar-track { background: #04070B; }
+.app-shell ::-webkit-scrollbar-thumb { background: #2a2f3a; }
+
+/* Blocos do app (usados direto pelas telas novas). Na camada components: utilitarios (hidden, md:hidden, !w-9) vencem. */
+@layer components {
+.app-card { background: var(--cell); border: 1px solid var(--line); border-radius: 26px; }
+.app-row { background: var(--cell); border: 1px solid var(--line); border-radius: 22px; }
+.app-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--fill); color: var(--ink); font-size: 14px; }
+.app-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--line); background: var(--fill); color: var(--ink); transition: background-color .15s, border-color .15s; }
+.app-icon-btn:hover { background: rgba(255,255,255,0.11); border-color: var(--line-strong); }
+.app-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 500; font-size: 15px; transition: filter .15s; }
+.app-btn:hover { filter: brightness(0.94); }
+.app-btn:disabled { background: var(--fill); color: var(--tertiary); border: 1px solid var(--line); filter: none; cursor: not-allowed; }
+.app-btn-quiet { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); color: var(--ink); font-weight: 500; font-size: 15px; transition: background-color .15s; }
+.app-btn-quiet:hover { background: var(--fill); }
+}
+
+/* --- Traducao das classes claras antigas --- */
+.app-shell .bg-white, .app-shell .group:hover .group-hover\:bg-white { background-color: var(--cell); }
+.app-shell .bg-white\/70 { background-color: rgba(24,28,37,0.72); }
+.app-shell .bg-white\/20 { background-color: rgba(255,255,255,0.08); }
+.app-shell .hover\:bg-white:hover { background-color: #1E2330; }
+.app-shell .bg-\[\#0B0D12\] { background-color: #10141C; }
+.app-shell .bg-black\/\[0\.04\], .app-shell .bg-black\/\[0\.06\] { background-color: rgba(255,255,255,0.05); }
+.app-shell .bg-black\/10, .app-shell .hover\:bg-black\/10:hover { background-color: rgba(255,255,255,0.08); }
+.app-shell .bg-black\/20, .app-shell .bg-black\/30 { background-color: rgba(255,255,255,0.10); }
+.app-shell .bg-\[var\(--bg\)\] { background-color: var(--cell-2); }
+.app-shell .hover\:bg-\[var\(--bg\)\]:hover, .app-shell .group:hover .group-hover\:bg-\[var\(--bg\)\] { background-color: var(--cell-2); }
+
+/* Botao escuro das paginas claras vira o botao verde do app */
+.app-shell .bg-\[var\(--ink\)\] { background-color: var(--accent); color: var(--on-accent); }
+.app-shell .bg-\[var\(--ink\)\].text-white, .app-shell .bg-\[var\(--ink\)\] .text-white { color: var(--on-accent); }
+.app-shell .hover\:bg-black:hover { background-color: #63E480; }
+.app-shell .border-\[var\(--ink\)\] { border-color: var(--accent); }
+
+/* Contornos */
+.app-shell .border-black\/\[0\.07\], .app-shell .border-black\/10 { border-color: var(--line); }
+.app-shell .border-black\/15, .app-shell .hover\:border-black\/15:hover, .app-shell .group:hover .group-hover\:border-black\/15 { border-color: var(--line-strong); }
+.app-shell .border-black\/25, .app-shell .hover\:border-black\/25:hover, .app-shell .hover\:border-black\/30:hover, .app-shell .border-black { border-color: rgba(255,255,255,0.22); }
+.app-shell .focus\:border-black\/25:focus, .app-shell .focus\:border-black\/30:focus, .app-shell .focus\:border-\[var\(--ink\)\]:focus,
+.app-shell [class*="focus:border-amber"]:focus, .app-shell [class*="focus:border-cyan"]:focus, .app-shell [class*="focus:border-orange"]:focus,
+.app-shell [class*="focus:border-purple"]:focus, .app-shell [class*="focus:border-blue"]:focus, .app-shell [class*="focus:border-[#"]:focus { border-color: rgba(113,252,143,0.55); }
+
+/* Texto */
+.app-shell .text-black\/40, .app-shell .text-black\/35, .app-shell .text-black\/30, .app-shell .placeholder-black\/30::placeholder { color: var(--tertiary); }
+.app-shell .text-black, .app-shell .group:hover .group-hover\:text-black, .app-shell .focus\:text-black:focus { color: var(--ink); }
+.app-shell .text-\[\#2b2f37\], .app-shell .hover\:text-\[\#2b2f37\]:hover, .app-shell .group:hover .group-hover\:text-\[\#2b2f37\] { color: #D3D5DB; }
+.app-shell .text-\[\#178a3f\], .app-shell .group:hover .group-hover\:text-\[\#178a3f\] { color: var(--accent); }
+/* Um so verde: azul, ciano, roxo e ambar de dados viram texto normal; aviso vira o vermelho do app */
+.app-shell [class*="text-blue-"], .app-shell [class*="text-cyan-"], .app-shell [class*="text-purple-"], .app-shell [class*="text-indigo-"],
+.app-shell [class*="text-emerald-"], .app-shell [class*="text-green-"] { color: var(--ink); }
+.app-shell .text-\[\#b45309\], .app-shell .text-\[\#a16207\], .app-shell [class*="text-amber-"], .app-shell [class*="text-orange-"],
+.app-shell .text-\[\#d63a4d\], .app-shell .hover\:text-\[\#d63a4d\]:hover, .app-shell [class*="text-red-"] { color: var(--danger); }
+
+/* Fundos coloridos claros viram superficie neutra ou o vermelho de aviso */
+.app-shell .bg-\[\#2fbf55\], .app-shell .hover\:bg-\[\#2fbf55\]:hover, .app-shell .bg-emerald-600 { background-color: var(--accent); }
+.app-shell .bg-blue-50, .app-shell .bg-emerald-50, .app-shell .bg-green-50, .app-shell .bg-indigo-50, .app-shell .hover\:bg-indigo-50:hover,
+.app-shell .bg-amber-100, .app-shell [class*="bg-blue-"][class*="/"], .app-shell [class*="bg-cyan-"][class*="/"], .app-shell [class*="bg-purple-"][class*="/"],
+.app-shell [class*="bg-emerald-"][class*="/"], .app-shell [class*="bg-neutral-"] { background-color: rgba(255,255,255,0.05); }
+.app-shell .bg-red-50, .app-shell .hover\:bg-red-50:hover, .app-shell .bg-amber-50, .app-shell [class*="bg-red-"][class*="/"], .app-shell [class*="bg-amber-"][class*="/"],
+.app-shell [class*="bg-yellow-"][class*="/"], .app-shell [class*="hover:bg-red-500/"]:hover { background-color: rgba(255,90,110,0.10); }
+.app-shell .bg-amber-500, .app-shell .bg-amber-400, .app-shell .bg-red-500, .app-shell .bg-red-600, .app-shell .bg-\[\#d63a4d\], .app-shell .hover\:bg-red-500:hover { background-color: var(--danger); }
+.app-shell .bg-blue-500, .app-shell .bg-blue-400, .app-shell .bg-blue-300, .app-shell .bg-cyan-500, .app-shell .bg-purple-500 { background-color: var(--tertiary); }
+.app-shell [class*="border-blue-"], .app-shell [class*="border-cyan-"], .app-shell [class*="border-purple-"], .app-shell [class*="border-emerald-"],
+.app-shell [class*="border-green-"], .app-shell [class*="border-indigo-"], .app-shell .border-zinc-500 { border-color: var(--line-strong); }
+.app-shell [class*="border-red-"] { border-color: rgba(255,90,110,0.35); }
+/* Ambar era decoracao na maior parte das telas antigas: contorno neutro */
+.app-shell [class*="border-amber-"], .app-shell [class*="border-yellow-"], .app-shell .border-\[\#ca8a04\] { border-color: var(--line-strong); }
+.app-shell .border-\[\#2fbf55\] { border-color: rgba(113,252,143,0.45); }
+/* Brilhos coloridos ("glow") nao fazem parte do app */
+.app-shell [class*="shadow-[0_0_"] { box-shadow: none; }
+/* Caixas de selecao, radios e sliders no verde do app (o padrao do navegador e laranja/azul) */
+.app-shell { accent-color: #71FC8F; }
+/* Fundo dos modais: sobre o escuro, 40% de tinta nao separa; o app usa um veu mais fechado */
+.app-shell .bg-\[\#0B0D12\]\/40 { background-color: rgba(0,0,0,0.62); }
+/* Botao principal desativado: cinza neutro, nunca verde apagado (parecia "quase ativo") */
+.app-shell .bg-\[var\(--ink\)\]:disabled, .app-shell .app-btn:disabled { background-color: var(--fill); color: var(--tertiary); opacity: 1; border-color: var(--line); }
+/* bg-[var(--bg)] em pagina, secao e cabecalho e o chao da pagina (preto com brilhos), nao um campo interno */
+.app-shell .min-h-screen.bg-\[var\(--bg\)\], .app-shell [class*="min-h-[100"].bg-\[var\(--bg\)\],
+.app-shell section.bg-\[var\(--bg\)\], .app-shell main.bg-\[var\(--bg\)\], .app-shell header.bg-\[var\(--bg\)\],
+.app-shell footer.bg-\[var\(--bg\)\], .app-shell nav.bg-\[var\(--bg\)\] { background-color: transparent; }
+/* Paginas antigas que abrem o proprio .brew-landing dentro do site: herdam a identidade do app */
+.app-shell .brew-landing {
+  --bg: #04070B; --ink: #ECECF1; --card: #181C25; --accent: #71FC8F; --muted: #898E99;
+  --font-display: 'Outfit', system-ui, sans-serif; --font-body: 'Outfit', system-ui, sans-serif;
+}
+/* Rodape e secoes "Tinta" das paginas claras: preto mais fundo (no claro eram o contraste escuro) */
+.app-shell footer.bg-\[var\(--ink\)\], .app-shell section.bg-\[var\(--ink\)\] { background-color: #020305; color: var(--ink); }
+.app-shell .hover\:bg-black\/\[0\.04\]:hover { background-color: rgba(255,255,255,0.06); }
+.app-shell .landing-mark { background: none; color: var(--accent); padding: 0; }
+/* Secoes das paginas claras antigas (Branco Gelo, Cinza Regua, Nevoa): no escuro viram o chao, separadas por linha */
+.app-shell .bg-\[\#F7F7F8\], .app-shell .bg-\[\#E4E6E9\], .app-shell .bg-\[\#EEEFF1\] { background-color: transparent; }
+.app-shell section.bg-\[\#F7F7F8\], .app-shell section.bg-\[\#E4E6E9\], .app-shell section.bg-\[\#EEEFF1\] { border-top: 1px solid var(--line); }
+/* Texto de aviso das paginas claras (vermelho escuro sobre rosa): no escuro, o vermelho do app sobre vermelho a 10% */
+.app-shell .text-\[\#7a1f2b\], .app-shell .text-\[\#8a2418\], .app-shell .text-\[\#b4283a\] { color: #FF8F9C; }
+.app-shell .bg-\[\#FDECEA\], .app-shell .bg-\[\#fdecea\] { background-color: rgba(255,90,110,0.10); }
+/* Texto "tinta" sobre o verde: no escuro --ink e claro; sobre o verde o texto e sempre o escuro do app */
+.app-shell .bg-\[var\(--accent\)\].text-\[var\(--ink\)\], .app-shell .bg-\[var\(--accent\)\] .text-\[var\(--ink\)\] { color: var(--on-accent); }

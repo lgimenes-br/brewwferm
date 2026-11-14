@@ -1,8 +1,9 @@
 import React, { ReactNode, Suspense } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
-// Home de vendas para quem chega em "/" sem login (carregada so nesse caso)
-const Landing = React.lazy(() => import('./Landing'));
+// Home de vendas para quem chega em "/" sem login (carregada so nesse caso).
+// Desde 2026-11-14 e a versao "o app e a vitrine" (landing2/LandingApp); a anterior segue em components/Landing.tsx.
+const Landing = React.lazy(() => import('./landing2/LandingApp'));
 import { useAuth } from '../context/AuthContext';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -11,7 +12,7 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
     if (!token) {
         const pairing = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pair');
         if (location.pathname === '/' && !pairing) {
-            return <Suspense fallback={<div className="min-h-screen bg-[#EEEFF1]" />}><Landing /></Suspense>;
+            return <Suspense fallback={<div className="min-h-screen bg-[#04070B]" />}><Landing /></Suspense>;
         }
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);

@@ -84,6 +84,8 @@ export interface Fermenter {
   id: string;
   name: string;
   ipAddress?: string; // IP ou Serial do dispositivo
+  /** Ultimo contato registrado no servidor (ISO), para "visto ha X" com o aparelho offline */
+  lastSeen?: string;
   mode: DeviceMode; // Novo campo: Modo de Operação
   sensor1_name?: string;
   sensor2_name?: string;

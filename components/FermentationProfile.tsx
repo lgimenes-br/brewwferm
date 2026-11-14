@@ -199,9 +199,9 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
     const isLastStep = currentStepIndex >= localSteps.length - 1;
 
     return (
-        <div className="bg-white rounded-3xl p-8 border border-black/[0.07] backdrop-blur-sm flex flex-col">
+        <div className="app-card p-5 sm:p-6 flex flex-col">
             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-[var(--muted)] text-xs font-bold ">Perfil de Fermentação</h3>
+                <h3 className="text-[17px] text-[var(--ink)] font-normal ">Perfil de fermentação</h3>
                 <button
                     type="button"
                     aria-label={isEditing ? 'Salvar perfil de fermentação' : 'Editar perfil de fermentação'}
@@ -216,23 +216,23 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
             {/* Batch Info Summary */}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-8 pb-6 border-b border-black/[0.07] text-sm font-medium text-[var(--muted)]">
                 {style && (
-                    <span className="bg-black/[0.06] text-[#2b2f37] px-3 py-1 rounded-md text-xs font-bold ">
+                    <span className="bg-black/[0.06] text-[#2b2f37] px-3 py-1 rounded-md text-xs font-medium ">
                         {style}
                     </span>
                 )}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-black/40 font-bold ">Vol</span>
+                    <span className="text-[12px] text-black/40 font-medium ">Vol</span>
                     <span className="text-[var(--ink)]">{volume}L</span>
                 </div>
                 {Number(og) > 0 && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-black/40 font-bold ">OG</span>
+                        <span className="text-[12px] text-black/40 font-medium ">OG</span>
                         <span className="text-[var(--ink)]">{(Number(og) > 500 ? Number(og) / 1000 : Number(og)).toFixed(3)}</span>
                     </div>
                 )}
                 {Number(fg) > 0 && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-black/40 font-bold ">FG</span>
+                        <span className="text-[12px] text-black/40 font-medium ">FG</span>
                         <span className="text-[var(--ink)]">{(Number(fg) > 500 ? Number(fg) / 1000 : Number(fg)).toFixed(3)}</span>
                     </div>
                 )}
@@ -347,7 +347,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
 
                             {!isEditing && isActive && (
                                 <div className="flex flex-col items-end gap-0.5">
-                                    <div className={`${isPaused ? 'text-[var(--muted)]' : 'text-[var(--ink)]'} text-[10px] font-bold `}>
+                                    <div className={`${isPaused ? 'text-[var(--muted)]' : 'text-[var(--ink)]'} text-[12px] font-medium `}>
                                         {isPaused ? 'Pausado' : 'Ativo'}
                                     </div>
                                     {!isPaused && (
@@ -390,7 +390,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                         title={isPaused ? "Retomar Fermentação" : "Pausar Rampa Atual"}
                     >
                         {isPaused ? <Play size={20} className="mb-1" /> : <Pause size={20} className="mb-1" />}
-                        <span className="text-[10px] font-bold ">{isPaused ? 'Retomar' : 'Pausar'}</span>
+                        <span className="text-[12px] font-medium ">{isPaused ? 'Retomar' : 'Pausar'}</span>
                     </button>
 
                     <button
@@ -400,7 +400,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                         title="Voltar para etapa anterior"
                     >
                         <SkipBack size={20} className="mb-1" />
-                        <span className="text-[10px] font-bold ">Anterior</span>
+                        <span className="text-[12px] font-medium ">Anterior</span>
                     </button>
 
                     <button
@@ -410,7 +410,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                         title="Avançar para próxima rampa"
                     >
                         <SkipForward size={20} className="mb-1" />
-                        <span className="text-[10px] font-bold ">Próxima</span>
+                        <span className="text-[12px] font-medium ">Próxima</span>
                     </button>
 
                     <button
@@ -419,7 +419,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                         title="Encerrar Perfil e Fermentação"
                     >
                         <Square size={20} className="mb-1 fill-current" />
-                        <span className="text-[10px] font-bold ">Finalizar</span>
+                        <span className="text-[12px] font-medium ">Finalizar</span>
                     </button>
                 </div>
             )}

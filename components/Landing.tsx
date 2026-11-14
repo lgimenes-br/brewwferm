@@ -45,14 +45,14 @@ export const Landing: React.FC = () => {
 
             {/* Celular: acao principal sempre ao alcance do polegar */}
             <div
-                className={`fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[var(--bg)]/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md transition-transform duration-300 ease-out md:hidden ${showBar ? 'translate-y-0' : 'pointer-events-none translate-y-full'}`}
+                className={`fixed inset-x-0 bottom-0 z-20 border-t border-[var(--line)] bg-[rgba(4,7,11,0.9)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md transition-transform duration-300 ease-out md:hidden ${showBar ? 'translate-y-0' : 'pointer-events-none translate-y-full'}`}
                 aria-hidden={!showBar}
             >
                 <div className="flex gap-2">
-                    <Link to="/instalar" tabIndex={showBar ? 0 : -1} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--ink)] text-[15px] font-medium text-white">
+                    <Link to="/instalar" tabIndex={showBar ? 0 : -1} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--accent)] text-[15px] font-medium text-[var(--on-accent)]">
                         Monte o seu <ArrowRight size={17} />
                     </Link>
-                    <a href="#pronto" tabIndex={showBar ? 0 : -1} className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/15 bg-white px-5 text-[15px] font-medium">Prefiro o pronto</a>
+                    <a href="#pronto" tabIndex={showBar ? 0 : -1} className="inline-flex min-h-12 items-center justify-center rounded-full border border-[var(--line-strong)] bg-[var(--fill)] px-5 text-[15px] font-medium">Prefiro o pronto</a>
                 </div>
             </div>
         </div>

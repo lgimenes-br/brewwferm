@@ -33,7 +33,7 @@ const paperGrid = {
 } as const;
 
 const btn = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
-const btnPrimary = `${btn} bg-[var(--accent)] text-[var(--ink)] hover:brightness-95`;
+const btnPrimary = `${btn} bg-[var(--accent)] text-[var(--on-accent)] hover:brightness-95`;
 const btnDark = `${btn} bg-[var(--ink)] text-white hover:bg-black`;
 const btnGhost = `${btn} border border-black/10 bg-white text-[var(--ink)] hover:bg-black/[0.03]`;
 
@@ -554,7 +554,7 @@ export const InstallWizard: React.FC = () => {
                         {STEPS.map((s, k) => (
                             <li key={s.id} aria-current={k === current ? 'step' : undefined}
                                 className={`relative flex min-h-14 items-center gap-4 text-[15px] ${k === current ? 'font-medium text-[var(--ink)]' : k < current ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
-                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs tabular-nums ${k < current ? 'bg-[#1fa84a] text-white' : k === current ? 'bg-[var(--accent)] text-[var(--ink)] ring-4 ring-[#1fa84a]/20' : 'border border-dashed border-[var(--ink)]/40 bg-[var(--bg)]'}`}>
+                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs tabular-nums ${k < current ? 'bg-[#1fa84a] text-white' : k === current ? 'bg-[var(--accent)] text-[var(--on-accent)] ring-4 ring-[#1fa84a]/20' : 'border border-dashed border-[var(--ink)]/40 bg-[var(--bg)]'}`}>
                                     {k < current ? <Check size={14} strokeWidth={2.5} /> : k + 1}
                                 </span>
                                 {s.label}
@@ -696,7 +696,7 @@ export const InstallWizard: React.FC = () => {
                                                 const now = order.indexOf(stage === 'connect' ? 'erase' : stage); // conectar conta como inicio do apagar
                                                 const state = pos < now ? 'feito' : pos === now ? 'atual' : 'futuro';
                                                 return (
-                                                    <li key={id} aria-current={state === 'atual' ? 'step' : undefined} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${state === 'feito' ? 'bg-[var(--accent)] text-[var(--ink)]' : state === 'atual' ? 'border border-[var(--accent)] text-white' : 'border border-dashed border-white/25 text-[#a3a7b0]'}`}>
+                                                    <li key={id} aria-current={state === 'atual' ? 'step' : undefined} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${state === 'feito' ? 'bg-[var(--accent)] text-[var(--on-accent)]' : state === 'atual' ? 'border border-[var(--accent)] text-white' : 'border border-dashed border-white/25 text-[#a3a7b0]'}`}>
                                                         {state === 'feito' ? <Check size={13} strokeWidth={2.5} /> : state === 'atual' ? <Loader2 size={13} className="animate-spin text-[var(--accent)]" /> : null}{label}
                                                     </li>
                                                 );

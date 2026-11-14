@@ -47,7 +47,7 @@ export const WaitlistCard = () => {
     return (
         <div className="bg-white border border-black/[0.07] rounded-xl p-5">
             <div className="mb-5 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-[var(--muted)] flex items-center gap-2"><ListChecks size={16} /> Lista de espera</h3>
+                <h3 className="text-sm font-medium text-[var(--muted)] flex items-center gap-2"><ListChecks size={16} /> Lista de espera</h3>
                 {!!rows?.length && (
                     <button type="button" onClick={exportCsv} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[var(--ink)] hover:bg-black/[0.04]">
                         <Download size={15} /> Exportar CSV
@@ -59,8 +59,8 @@ export const WaitlistCard = () => {
                     <div className="mb-5 grid grid-cols-2 gap-3">
                         {(['pronto', 'pro'] as const).map(i => (
                             <div key={i} className="rounded-lg border border-black/[0.07] bg-[var(--bg)] p-4">
-                                <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]">{count(i)}</div>
-                                <div className="text-xs font-semibold text-[var(--muted)]">{LABEL[i]}</div>
+                                <div className="text-2xl font-medium tabular-nums text-[var(--ink)]">{count(i)}</div>
+                                <div className="text-xs font-medium text-[var(--muted)]">{LABEL[i]}</div>
                             </div>
                         ))}
                     </div>

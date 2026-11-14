@@ -44,7 +44,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={onCancel}
         >
             <div
-                className={`bg-white border border-black/[0.07] p-6 rounded-3xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200`}
+                className={`bg-white border border-black/[0.07] p-6 rounded-[26px] w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex flex-col items-center text-center">
@@ -70,8 +70,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                             onClick={onConfirm}
                             className={`flex-1 py-3 rounded-full font-medium transition-colors ${
                                 isWarning
-                                    ? 'bg-[var(--ink)] hover:bg-black text-white font-semibold'
-                                    : 'bg-[#d63a4d] hover:bg-[#b92e40] text-white font-semibold'
+                                    ? 'bg-[var(--ink)] hover:bg-black text-white font-medium'
+                                    : 'bg-[#d63a4d] hover:bg-[#b92e40] text-white font-medium'
                             }`}
                         >
                             {confirmLabel}

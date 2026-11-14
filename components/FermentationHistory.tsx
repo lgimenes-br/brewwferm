@@ -8,6 +8,7 @@ import { Calendar, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 import { deleteBatch, fetchBatches } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { ConfirmDialog } from './ConfirmDialog';
+import { PageHeader } from './app/AppUI';
 
 export const FermentationHistory: React.FC = () => {
     const { token } = useAuth();
@@ -76,7 +77,7 @@ export const FermentationHistory: React.FC = () => {
     }
 
     return (
-        <div className="p-6 md:px-10 w-full mx-auto animate-in fade-in duration-500">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16">
             <ConfirmDialog
                 open={Boolean(pendingDeleteId)}
                 title="Excluir Lote?"
@@ -86,20 +87,14 @@ export const FermentationHistory: React.FC = () => {
                 onConfirm={() => pendingDeleteId && executeDeleteBatch(pendingDeleteId)}
                 onCancel={() => setPendingDeleteId(null)}
             />
-            <header className="mb-12 flex justify-between items-end border-b border-black/[0.07] pb-6">
-                <div>
-                    <h1 className="text-4xl font-light tracking-tight text-[var(--ink)] mb-2">Logs de Produção</h1>
-                    <p className="text-[var(--muted)] font-light">Histórico completo de lotes finalizados.</p>
-                </div>
-                <div className="text-right hidden md:block">
-                    <span className="text-3xl font-light text-[#2b2f37]">{history.length}</span>
-                    <p className="text-xs text-black/40 font-bold mt-1">Lotes Arquivados</p>
-                </div>
-            </header>
+            <PageHeader
+                title="Histórico"
+                subtitle={history.length ? `${history.length} ${history.length === 1 ? 'lote finalizado' : 'lotes finalizados'}` : 'Os lotes finalizados aparecem aqui'}
+            />
 
             <div className="space-y-4">
                 {/* Table Header (Visual only) */}
-                <div className="hidden md:grid grid-cols-12 gap-4 px-6 text-xs font-bold text-black/40 pb-2">
+                <div className="hidden md:grid grid-cols-12 gap-4 px-6 text-xs font-medium text-black/40 pb-2">
                     <div className="col-span-4">Lote / Cerveja</div>
                     <div className="col-span-2">Estilo</div>
                     <div className="col-span-2">Data Fim</div>
@@ -114,7 +109,7 @@ export const FermentationHistory: React.FC = () => {
                         <button
                             type="button"
                             onClick={fetchHistory}
-                            className="px-4 py-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-lg text-xs font-bold transition-colors"
+                            className="px-4 py-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-lg text-xs font-medium transition-colors"
                         >
                             Tentar novamente
                         </button>
@@ -162,15 +157,15 @@ export const FermentationHistory: React.FC = () => {
                         {/* Stats */}
                         <div className="col-span-3 flex justify-center gap-6">
                             <div className="text-center">
-                                <span className="block text-[10px] text-black/40 font-bold">ABV</span>
+                                <span className="block text-[12px] text-black/40 font-medium">ABV</span>
                                 <span className="text-sm font-mono text-green-500/80 group-hover:text-[#178a3f]">{brew.abv.toFixed(1)}%</span>
                             </div>
                             <div className="text-center">
-                                <span className="block text-[10px] text-black/40 font-bold">OG</span>
+                                <span className="block text-[12px] text-black/40 font-medium">OG</span>
                                 <span className="text-sm font-mono text-[var(--muted)] group-hover:text-[#2b2f37]">{brew.og.toFixed(3)}</span>
                             </div>
                             <div className="text-center">
-                                <span className="block text-[10px] text-black/40 font-bold">FG</span>
+                                <span className="block text-[12px] text-black/40 font-medium">FG</span>
                                 <span className="text-sm font-mono text-purple-500/80 group-hover:text-purple-600">{brew.fg.toFixed(3)}</span>
                             </div>
                         </div>

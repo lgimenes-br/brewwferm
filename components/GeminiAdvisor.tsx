@@ -112,7 +112,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
           />
         </svg>
         <div className="absolute flex flex-col items-center">
-          <span className="text-2xl font-bold text-[var(--ink)]">{score}</span>
+          <span className="text-2xl font-medium text-[var(--ink)]">{score}</span>
           <span className="text-xs text-[var(--muted)]">SAÚDE</span>
         </div>
       </div>
@@ -154,7 +154,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="text-[var(--ink)]" size={20} />
-              <h3 className="text-lg font-bold text-[#2b2f37]">Breww.AI</h3>
+              <h3 className="text-lg font-medium text-[#2b2f37]">Breww.AI</h3>
             </div>
             {!insight ? (
               <button
@@ -164,7 +164,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 className="flex items-center gap-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] px-4 py-2 rounded-lg transition-all disabled:opacity-50 text-sm font-medium border border-black/15"
               >
                 {loading ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} />}
-                {loading ? "Analisando..." : "Analisar Fermentação"}
+                {loading ? "Analisando…" : "Analisar a fermentação"}
               </button>
             ) : (
               <button
@@ -215,7 +215,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                   <Sparkles className="text-[var(--ink)]" size={24} />
                 </div>
                 <div>
-                  <h2 id="breww-ai-modal-title" className="text-xl font-bold text-[var(--ink)]">Análise Breww.AI</h2>
+                  <h2 id="breww-ai-modal-title" className="text-xl font-medium text-[var(--ink)]">Análise Breww.AI</h2>
                   <p className="text-[var(--muted)] text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString()}</p>
                 </div>
               </div>
@@ -246,7 +246,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 {/* Header Info */}
                 <div className="flex justify-between items-end mb-8 pb-6 border-b border-black/[0.07]">
                   <div>
-                    <h1 className="text-3xl font-bold text-[var(--ink)] mb-2">{fermenter.beerName}</h1>
+                    <h1 className="text-3xl font-medium text-[var(--ink)] mb-2">{fermenter.beerName}</h1>
                     <p className="text-[var(--muted)] text-lg">{fermenter.style} • Lote #{fermenter.batchId || fermenter.id || 'N/A'}</p>
                   </div>
                   <div className="text-right">
@@ -268,13 +268,13 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                       <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white p-4 rounded-xl border border-black/[0.07]">
                           <div className="text-[var(--muted)] text-xs mb-1 flex items-center gap-1"><Calendar size={12} /> EST. TÉRMINO</div>
-                          <div className="text-2xl font-bold text-[var(--ink)]">
+                          <div className="text-2xl font-medium text-[var(--ink)]">
                             {insight.estimated_completion_days} <span className="text-sm font-normal text-[var(--muted)]">dias</span>
                           </div>
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-black/[0.07]">
                           <div className="text-[var(--muted)] text-xs mb-1 flex items-center gap-1"><AlertTriangle size={12} /> RISCO</div>
-                          <div className={`text-xl font-bold capitalize ${insight.risk_level === 'high' ? 'text-[#d63a4d]' :
+                          <div className={`text-xl font-medium capitalize ${insight.risk_level === 'high' ? 'text-[#d63a4d]' :
                               insight.risk_level === 'medium' ? 'text-orange-600' : 'text-[#178a3f]'
                             }`}>
                             {insight.risk_level === 'high' ? 'Alto' : insight.risk_level === 'medium' ? 'Médio' : 'Baixo'}
@@ -336,7 +336,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 ) : (
                   // Fallback for error messages or raw strings
                   <div className="bg-white p-6 rounded-xl border border-red-200 text-red-700">
-                    <h3 className="font-bold mb-2 flex items-center gap-2">
+                    <h3 className="font-medium mb-2 flex items-center gap-2">
                       <AlertTriangle size={20} /> Resposta não estruturada
                     </h3>
                     <p>{String(insight)}</p>

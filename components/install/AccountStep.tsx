@@ -71,7 +71,7 @@ export const AccountStep: React.FC<{
                     </div>
                     <button type="button" className="inline-flex min-h-11 items-center text-sm text-[var(--muted)] underline underline-offset-4 hover:text-[var(--ink)]" onClick={() => onSession(null)}>Trocar de conta</button>
                 </div>
-                <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3 text-[15px] font-semibold text-[var(--ink)] hover:brightness-95" onClick={onContinue}>
+                <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3 text-[15px] font-semibold text-[var(--on-accent)] hover:brightness-95" onClick={onContinue}>
                     Continuar <ArrowRight size={18} />
                 </button>
             </div>

@@ -285,18 +285,18 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
 
         // 1. Verifica que por padrão um novo equipamento inicia no Modo Geladeira (Set-Point / Umidade Relativa)
-        expect(container.textContent).toContain('Temperatura Atual');
-        expect(container.textContent).toContain('Set-Point');
-        expect(container.textContent).toContain('Umidade Relativa');
+        expect(container.querySelector('[aria-label="Temperatura"]')).toBeTruthy();
+        expect(container.textContent).toContain('Alvo');
+        expect(container.textContent).toContain('Umidade');
 
         // Troca para o Modo Fermentador para iniciar uma nova brassagem
         await act(async () => {
             window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FERMENTER } }));
             await new Promise(r => setTimeout(r, 20));
         });
-        expect(container.textContent).toContain('Modo selecionado: Fermentador');
+        expect(container.textContent).toContain('Mudar para Fermentador?');
         await act(async () => {
-            findButtonByText('Ativar Modo')!.click();
+            findButtonByText('Mudar para')!.click();
             await new Promise(r => setTimeout(r, 40));
         });
 
@@ -397,7 +397,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         // Verifica que o display mudou IMEDIATAMENTE do Wizard para o Painel de Fermentação Ativa!
         expect(container.textContent).not.toContain('O que vamos produzir hoje?');
         expect(container.textContent).toContain('West Coast IPA');
-        expect(container.textContent).toContain('Lote #501');
+        expect(container.textContent).toContain('Lote 501');
         expect(container.textContent).toContain('1.065'); // OG no display
         expect(container.textContent).toContain('1.012'); // Meta FG no display
         expect(container.textContent).toContain('19.0°'); // Set-point atualizado para a 1ª rampa (19°C)
@@ -408,11 +408,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
 
         // 3.5 Testa botão "Compartilhar Ao Vivo" (geração de public_token)
         await act(async () => {
-            findButtonByText('Compartilhar Ao Vivo')!.click();
+            findButtonByText('Compartilhar ao vivo')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
         expect(fetchCalls.some(c => c.url.includes('/batches/501/share-token') && c.method === 'POST')).toBe(true);
-        expect(container.textContent).toContain('Link Ao Vivo Copiado');
+        expect(container.textContent).toContain('Link copiado');
 
         // 4. Testa Pausar e Retomar Fermentação
         const pauseBtn = findButtonByText('Pausar')!;
@@ -450,10 +450,10 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('19.0°');
 
         // 6. Testa Edição dos Dados do Lote (Nome, OG, FG) no topo do painel
-        const editBatchBtn = container.querySelector('button[title="Editar Batch"]') as HTMLButtonElement;
+        const editBatchBtn = container.querySelector('button[title="Editar o lote"]') as HTMLButtonElement;
         clickElement(editBatchBtn);
 
-        const editNameInput = container.querySelector('input[placeholder="Nome da Cerveja"]') as HTMLInputElement;
+        const editNameInput = container.querySelector('input[placeholder="Ex.: Pilsen de outono"]') as HTMLInputElement;
         expect(editNameInput).toBeTruthy();
         setInputValue(editNameInput, 'Double West Coast IPA');
 
@@ -487,21 +487,21 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         act(() => {
             window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.KEGERATOR } }));
         });
-        expect(container.textContent).toContain('Aguardando confirmação');
+        expect(container.textContent).toContain('quando você confirmar');
         await act(async () => {
-            findButtonByText('Ativar Modo')!.click();
+            findButtonByText('Mudar para')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
 
         // Deve exibir o layout de Chopeira e enviar comando setMode (value: 2)
         expectCommand('ESP32_01', '"type":"setMode"');
-        expect(container.textContent).toContain('Editar Informações do Display');
+        expect(container.textContent).toContain('Texto da tela da choppeira');
 
         // Altera Linha 1 da Chopeira e clica em Atualizar Display
-        const line1Input = container.querySelector('input[placeholder="LINHA 1..."]') as HTMLInputElement;
+        const line1Input = container.querySelector('input[placeholder="Ex.: IPA do quintal"]') as HTMLInputElement;
         setInputValue(line1Input, 'CHOPP IPA ARTESANAL');
         await act(async () => {
-            findButtonByText('Atualizar Display')!.click();
+            findButtonByText('Atualizar a tela')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
         expect(fetchCalls.some(c => c.url.includes('/chopp_name') && c.body?.choppName === 'CHOPP IPA ARTESANAL')).toBe(true);
@@ -511,7 +511,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FERMENTER } }));
         });
         await act(async () => {
-            findButtonByText('Ativar Modo')!.click();
+            findButtonByText('Mudar para')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
 
@@ -615,8 +615,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         // Verifica que o card inicial aparece com OG/FG/SG normalizados (1.048, 1.010, 1.020)
         expect(container.textContent).toContain('Fermentador 01');
         expect(container.textContent).toContain('Session IPA');
-        expect(container.textContent).toContain('1.048');
-        expect(container.textContent).toContain('1.010');
+        // O cartao mostra a densidade atual e o alvo, como o app (OG/FG ficam no detalhe do aparelho)
         expect(container.textContent).toContain('1.020');
 
         // 1. Abre modal "+ Adicionar" e verifica trava de validação
@@ -642,11 +641,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
 
         // Verifica que o novo card apareceu imediatamente no Dashboard!
         expect(container.textContent).toContain('Fermentador Inox 02');
-        expect(container.textContent).toContain('ESP32_02');
+        // O serial nao aparece no cartao (como no app); o nome identifica o aparelho
 
         // 2. Testa Buscar na Rede ("Procurar") e adicionar dispositivo escaneado
         await act(async () => {
-            findButtonByText('Procurar')!.click();
+            findButtonByText('Buscar na rede')!.click();
             await new Promise(r => setTimeout(r, 60));
         });
         expect(container.textContent).toContain('BrewController Pro');
@@ -665,7 +664,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('Novo BrewController Pro');
 
         // 3. Testa Editar nome de um dispositivo pelo modal de Configurações
-        const editBtn = container.querySelector('button[title="Configurações"]') as HTMLButtonElement;
+        const editBtn = container.querySelector('button[title="Editar"]') as HTMLButtonElement;
         clickElement(editBtn);
         expect(container.textContent).toContain('Editar Dispositivo');
 
@@ -679,7 +678,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('Fermentador Master');
 
         // 4. Testa Excluir Dispositivo com modal de confirmação
-        const deleteBtn = container.querySelector('button[title="Excluir Dispositivo"]') as HTMLButtonElement;
+        const deleteBtn = container.querySelector('button[title="Excluir"]') as HTMLButtonElement;
         clickElement(deleteBtn);
         expect(container.textContent).toContain('Excluir Dispositivo?');
 
@@ -1142,6 +1141,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
                 return new Response(JSON.stringify([{
                     id: 1,
                     serial_code: 'ESP32_LIVE',
+                    is_online: true, // os botoes de alvo so funcionam com o aparelho conectado (como no app)
                     device_name: 'Fermentador Live',
                     active_batch_id: 777,
                     active_batch_name: 'Belgian Blonde',
@@ -1186,8 +1186,8 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('Adição de Saaz');
 
         // 1. Testa Editar Batch e clicar em "Cancelar" (deve manter "Belgian Blonde" e não chamar updateBatch)
-        clickElement(container.querySelector('button[title="Editar Batch"]'));
-        const nameInput = container.querySelector('input[placeholder="Nome da Cerveja"]') as HTMLInputElement;
+        clickElement(container.querySelector('button[title="Editar o lote"]'));
+        const nameInput = container.querySelector('input[placeholder="Ex.: Pilsen de outono"]') as HTMLInputElement;
         setInputValue(nameInput, 'Nome Descartado');
         clickElement(findButtonByText('Cancelar'));
         expect(container.textContent).toContain('Belgian Blonde');
@@ -1195,7 +1195,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(apiCalls.some(c => c.url.includes('/batch/update'))).toBe(false);
 
         // 2. Edita o Perfil de Fermentação ao vivo: remove a 2ª rampa (onde currentStepIndex estava em 1) e altera a 1ª rampa para 21.5°C
-        const profileCard = Array.from(container.querySelectorAll('h3')).find(h => h.textContent === 'Perfil de Fermentação')?.parentElement;
+        const profileCard = Array.from(container.querySelectorAll('h3')).find(h => h.textContent === 'Perfil de fermentação')?.parentElement;
         const editProfileBtn = profileCard?.querySelector('button') as HTMLButtonElement;
         clickElement(editProfileBtn);
 
@@ -1235,23 +1235,23 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FRIDGE } }));
         });
         expect(container.textContent).toContain('Geladeira');
-        expect(container.textContent).toContain('Aguardando confirmação');
+        expect(container.textContent).toContain('quando você confirmar');
         clickElement(findButtonByText('Cancelar'));
-        expect(container.textContent).not.toContain('Aguardando confirmação');
+        expect(container.textContent).not.toContain('quando você confirmar');
 
         // Agora ativa o Modo Geladeira e clica no botão '+' de Set-Point (+0.5°C)
         act(() => {
             window.dispatchEvent(new CustomEvent('requestModeChange', { detail: { mode: DeviceMode.FRIDGE } }));
         });
         await act(async () => {
-            findButtonByText('Ativar Modo')!.click();
+            findButtonByText('Mudar para')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
-        expect(container.textContent).toContain('Temperatura Atual');
+        expect(container.querySelector('[aria-label="Temperatura"]')).toBeTruthy();
         expect(container.textContent).toContain('21.5°C'); // Set-Point antes do clique
 
         // Clica no botão '+' (aumenta 0.5°C -> 22.0°C imediatamente no display)
-        const setpointBox = Array.from(container.querySelectorAll('span')).find(s => s.textContent === 'Set-Point')?.parentElement?.parentElement;
+        const setpointBox = Array.from(container.querySelectorAll('span')).find(s => s.textContent === 'Alvo')?.parentElement;
         const plusMinusButtons = setpointBox?.querySelectorAll('button');
         expect(plusMinusButtons?.length).toBe(2);
 
@@ -1326,12 +1326,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
 
         // Verifica que o Dashboard atualizou IMEDIATAMENTE para Online (1 / 1) e refletiu todas as leituras ao vivo!
         expect(container.textContent).toContain('1 de 1 aparelho online');
-        expect(container.textContent).toContain('19.7');
-        expect(container.textContent).toContain('Alvo: 19.5°');
-        expect(container.textContent).toContain('Geladeira: 11.4°');
+        expect(container.querySelector('[aria-label="19.7 graus"]')).toBeTruthy();
+        expect(container.textContent).toContain('19.5°C'); // alvo
+        expect(container.textContent).toContain('11.4°C'); // geladeira
         expect(container.textContent).toContain('1.028');
-        expect(container.textContent).toContain('-52 dBm'); // indicador de sinal Wi-Fi (RSSI em dBm)
-        expect(container.textContent).toContain('192.168.1.120');
+        // Wi-Fi e endereco ficam no detalhe do aparelho; o cartao so avisa quando o sinal esta fraco
     });
 
     it('Fluxo 8: Recuperação de Senha ("Esqueci minha senha" -> Solicitar Código de 6 dígitos -> Confirmar Nova Senha)', async () => {
@@ -1360,7 +1359,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         const forgotBtn = findButtonByText('Esqueci minha senha');
         expect(forgotBtn).toBeTruthy();
         clickElement(forgotBtn);
-        expect(container.textContent).toContain('Recuperar Senha');
+        expect(container.textContent).toContain('Recuperar senha');
 
         // 2. Preenche o e-mail e solicita o código
         const recEmailInput = container.querySelector('#recovery-email') as HTMLInputElement;
@@ -1373,7 +1372,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
 
         expect(authCalls.some(c => c.url.endsWith('/auth/forgot-password') && c.body?.email === 'cervejeiro@breww.live')).toBe(true);
-        expect(container.textContent).toContain('Código de 6 Dígitos');
+        expect(container.textContent).toContain('Código de 6 dígitos');
 
         // 3. Preenche o código de 6 dígitos + Nova Senha + Confirmação
         const codeInput = container.querySelector('#recovery-code') as HTMLInputElement;

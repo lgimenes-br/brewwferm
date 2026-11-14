@@ -85,47 +85,47 @@ export const BoilOffCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* Current Grav */}
                         <div>
-                            <label htmlFor="boil-current-grav" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Densidade Atual</label>
+                            <label htmlFor="boil-current-grav" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Densidade Atual</label>
                             <div className="relative">
                                 <input 
                                     id="boil-current-grav"
                                     type="number" step="0.001" value={currentGravInput} onChange={(e) => setCurrentGravInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">SG</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium text-xs">SG</span>
                             </div>
                         </div>
 
                         {/* Target Grav */}
                         <div>
-                            <label htmlFor="boil-target-grav" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Densidade Alvo</label>
+                            <label htmlFor="boil-target-grav" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Densidade Alvo</label>
                             <div className="relative">
                                 <input 
                                     id="boil-target-grav"
                                     type="number" step="0.001" value={targetGravInput} onChange={(e) => setTargetGravInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">SG</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium text-xs">SG</span>
                             </div>
                         </div>
 
                         {/* Current Vol */}
                         <div>
-                            <label htmlFor="boil-current-vol" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Volume Atual</label>
+                            <label htmlFor="boil-current-vol" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Volume Atual</label>
                             <div className="relative">
                                 <input 
                                     id="boil-current-vol"
                                     type="number" step="1" value={currentVolInput} onChange={(e) => setCurrentVolInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs">L</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium text-xs">L</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-5 space-y-4">
                         <div>
-                            <label htmlFor="boil-extract-type" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Qual Adição Usar?</label>
+                            <label htmlFor="boil-extract-type" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Qual Adição Usar?</label>
                             <select 
                                 id="boil-extract-type"
                                 value={extractType} onChange={(e) => setExtractType(e.target.value as any)} 
@@ -148,14 +148,14 @@ export const BoilOffCalculator: React.FC = () => {
                         </label>
 
                         <div>
-                            <label htmlFor="boil-off-rate" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Evaporação do Equipamento</label>
+                            <label htmlFor="boil-off-rate" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Evaporação do Equipamento</label>
                             <div className="relative">
                                 <input 
                                     id="boil-off-rate"
                                     type="number" step="1" value={boilOffRateInput} onChange={(e) => setBoilOffRateInput(e.target.value)} disabled={!calcBoil}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-xs ">L/hora</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium text-xs ">L/hora</span>
                             </div>
                         </div>
                     </div>
@@ -167,11 +167,11 @@ export const BoilOffCalculator: React.FC = () => {
                     {results.isDilution ? (
                         <>
                             <div className="text-center mb-8">
-                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">Diluição Necessária</span>
-                                <div className="text-6xl font-semibold text-cyan-700 tracking-tighter mb-2">
+                                <span className="block text-xs font-medium text-[var(--muted)] mb-2">Diluição Necessária</span>
+                                <div className="text-6xl font-medium text-cyan-700 tracking-tighter mb-2">
                                     +{results.diluteNeeded.toFixed(2)}<span className="text-2xl text-cyan-700/70 ml-1">L</span>
                                 </div>
-                                <div className="text-sm font-bold text-[var(--ink)]">de Água Purificada</div>
+                                <div className="text-sm font-medium text-[var(--ink)]">de Água Purificada</div>
                             </div>
 
                             <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
@@ -183,21 +183,21 @@ export const BoilOffCalculator: React.FC = () => {
                     ) : (
                         <>
                             <div className="text-center mb-6 border-b border-black/[0.07] pb-6">
-                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">Adição de {extractType}</span>
-                                <div className="text-5xl font-semibold text-[#b45309] tracking-tighter mb-2">
+                                <span className="block text-xs font-medium text-[var(--muted)] mb-2">Adição de {extractType}</span>
+                                <div className="text-5xl font-medium text-[#b45309] tracking-tighter mb-2">
                                     +{results.extractNeeded.toFixed(1)}<span className="text-2xl text-[#b45309]/70 ml-1">g</span>
                                 </div>
-                                <div className="text-[10px] text-[var(--muted)] font-bold">
+                                <div className="text-[12px] text-[var(--muted)] font-medium">
                                     Para atingir {targetGravInput} sem ferver a mais
                                 </div>
                             </div>
 
                             <div className="text-center mb-6">
-                                <span className="block text-xs font-bold text-[var(--muted)] mb-2">OU: Evaporação por Fervura</span>
-                                <div className="text-5xl font-semibold text-cyan-700 tracking-tighter mb-2">
+                                <span className="block text-xs font-medium text-[var(--muted)] mb-2">OU: Evaporação por Fervura</span>
+                                <div className="text-5xl font-medium text-cyan-700 tracking-tighter mb-2">
                                     -{results.evapNeeded.toFixed(2)}<span className="text-2xl text-cyan-700/70 ml-1">L</span>
                                 </div>
-                                <div className="text-[10px] text-[var(--muted)] font-bold">
+                                <div className="text-[12px] text-[var(--muted)] font-medium">
                                     Volume de água a ser evaporado
                                 </div>
                             </div>
@@ -205,8 +205,8 @@ export const BoilOffCalculator: React.FC = () => {
                             {calcBoil && (
                                 <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
                                     <div className="flex justify-between items-center py-1">
-                                        <span className="text-xs text-[var(--muted)] font-bold ">Estender a Fervura em</span>
-                                        <span className="font-mono font-bold text-[var(--ink)] text-lg">+{results.boilTimeMins.toFixed(0)} mins</span>
+                                        <span className="text-xs text-[var(--muted)] font-medium ">Estender a Fervura em</span>
+                                        <span className="font-mono font-medium text-[var(--ink)] text-lg">+{results.boilTimeMins.toFixed(0)} mins</span>
                                     </div>
                                 </div>
                             )}

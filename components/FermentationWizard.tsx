@@ -417,7 +417,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         <ArrowLeft size={18} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--ink)] tracking-tight">Nova Fermentação</h1>
+                        <h1 className="text-2xl font-medium text-[var(--ink)] tracking-tight">Nova Fermentação</h1>
                         <p className="text-[var(--muted)] text-xs font-mono mt-0.5">
                             Equipamento: {fermenter.name || 'Dispositivo'} ({fermenter.id})
                         </p>
@@ -436,7 +436,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2.5 bg-white hover:bg-[var(--bg)] text-[#2b2f37] border border-black/[0.07] rounded-xl text-xs font-bold flex items-center gap-2 transition-colors"
+                        className="px-4 py-2.5 bg-white hover:bg-[var(--bg)] text-[#2b2f37] border border-black/[0.07] rounded-xl text-xs font-medium flex items-center gap-2 transition-colors"
                     >
                         <Upload size={14} /> Importar BeerXML / JSON
                     </button>
@@ -461,7 +461,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                             }`}
                         >
                             <span
-                                className={`font-mono font-bold text-xs px-2 py-1 rounded-md shrink-0 ${
+                                className={`font-mono font-medium text-xs px-2 py-1 rounded-md shrink-0 ${
                                     isActive
                                         ? 'bg-[var(--ink)] text-white'
                                         : isDone
@@ -474,7 +474,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                             <span
                                 className={`text-xs truncate ${
                                     isActive
-                                        ? 'text-[var(--ink)] font-bold'
+                                        ? 'text-[var(--ink)] font-medium'
                                         : isDone
                                         ? 'text-[#2b2f37] font-medium'
                                         : 'text-[var(--muted)] font-medium'
@@ -492,7 +492,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                 {step === 1 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="border-b border-black/[0.07] pb-4">
-                            <h2 className="text-lg font-bold text-[var(--ink)]">Identificação do Lote</h2>
+                            <h2 className="text-lg font-medium text-[var(--ink)]">Identificação do Lote</h2>
                             <p className="text-xs text-[var(--muted)] mt-0.5">
                                 O que vamos produzir hoje? Defina o nome da cerveja, volume do lote e estilo base.
                             </p>
@@ -509,7 +509,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2">
-                                <label htmlFor="wizard-recipe-name" className="block text-[10px] font-bold text-[var(--muted)] mb-2">
+                                <label htmlFor="wizard-recipe-name" className="block text-[12px] font-medium text-[var(--muted)] mb-2">
                                     Nome da Cerveja / Lote
                                 </label>
                                 <input
@@ -522,7 +522,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                 />
                             </div>
                             <div>
-                                <label htmlFor="wizard-recipe-volume" className="block text-[10px] font-bold text-[var(--muted)] mb-2">
+                                <label htmlFor="wizard-recipe-volume" className="block text-[12px] font-medium text-[var(--muted)] mb-2">
                                     Volume do Lote (Litros)
                                 </label>
                                 <input
@@ -536,7 +536,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         </div>
 
                         <div>
-                            <label htmlFor="wizard-recipe-style" className="block text-[10px] font-bold text-[var(--muted)] mb-2">
+                            <label htmlFor="wizard-recipe-style" className="block text-[12px] font-medium text-[var(--muted)] mb-2">
                                 Estilo Base
                             </label>
                             <select
@@ -555,7 +555,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             key={s}
                                             type="button"
                                             onClick={() => setStyle(s)}
-                                            className={`rounded-xl py-3 px-3 text-xs font-mono font-bold border transition-all ${
+                                            className={`rounded-xl py-3 px-3 text-xs font-mono font-medium border transition-all ${
                                                 active
                                                     ? 'bg-[var(--ink)] text-white border-[var(--ink)]'
                                                     : 'bg-[var(--bg)] border-black/[0.07] text-[var(--muted)] hover:border-black/15 hover:text-[var(--ink)]'
@@ -574,7 +574,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                 {step === 2 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="border-b border-black/[0.07] pb-4">
-                            <h2 className="text-lg font-bold text-[var(--ink)]">Densidade Prevista (OG & FG)</h2>
+                            <h2 className="text-lg font-medium text-[var(--ink)]">Densidade Prevista (OG & FG)</h2>
                             <p className="text-xs text-[var(--muted)] mt-0.5">
                                 Configure a gravidade original e a gravidade final esperada para cálculo de atenuação e ABV.
                             </p>
@@ -582,7 +582,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-[var(--bg)] p-6 rounded-2xl border border-black/[0.07]">
-                                <label htmlFor="wizard-recipe-og" className="block text-[10px] font-bold text-[var(--muted)] mb-4">OG (Original Gravity)</label>
+                                <label htmlFor="wizard-recipe-og" className="block text-[12px] font-medium text-[var(--muted)] mb-4">OG (Original Gravity)</label>
                                 <input
                                     id="wizard-recipe-og"
                                     type="number"
@@ -594,7 +594,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                 <p className="text-center text-[var(--muted)] text-xs mt-4">Gravidade antes da fermentação</p>
                             </div>
                             <div className="bg-[var(--bg)] p-6 rounded-2xl border border-black/[0.07]">
-                                <label htmlFor="wizard-recipe-fg" className="block text-[10px] font-bold text-[var(--muted)] mb-4">FG (Final Gravity)</label>
+                                <label htmlFor="wizard-recipe-fg" className="block text-[12px] font-medium text-[var(--muted)] mb-4">FG (Final Gravity)</label>
                                 <input
                                     id="wizard-recipe-fg"
                                     type="number"
@@ -614,7 +614,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/[0.07] pb-4">
                             <div>
-                                <h2 className="text-lg font-bold text-[var(--ink)]">Perfil de Temperatura</h2>
+                                <h2 className="text-lg font-medium text-[var(--ink)]">Perfil de Temperatura</h2>
                                 <p className="text-xs text-[var(--muted)] mt-0.5">
                                     Configure as rampas de temperatura e gatilhos opcionais de densidade (SG).
                                 </p>
@@ -624,14 +624,14 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                     type="button"
                                     onClick={handleSaveFavoriteProfile}
                                     disabled={isSavingProfile}
-                                    className="px-3.5 py-2 bg-white hover:bg-[var(--bg)] text-[#2b2f37] border border-black/[0.07] rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                                    className="px-3.5 py-2 bg-white hover:bg-[var(--bg)] text-[#2b2f37] border border-black/[0.07] rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
                                 >
                                     <Bookmark size={14} /> Salvar Favorito
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleAddStep}
-                                    className="px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                                    className="px-4 py-2 bg-[var(--ink)] hover:bg-black text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
                                 >
                                     <Plus size={14} /> Adicionar Rampa
                                 </button>
@@ -640,7 +640,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
 
                         {/* Presets e Perfis Favoritos Salvos */}
                         <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-4 space-y-3">
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--muted)] ">
+                            <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--muted)] ">
                                 <Sparkles size={13} className="text-[var(--muted)]" /> Presets Rápidos de Fermentação
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -658,7 +658,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
 
                             {savedRecipes.length > 0 && (
                                 <div className="pt-3 border-t border-black/[0.07] space-y-2">
-                                    <div className="text-[10px] font-bold text-[var(--muted)] ">
+                                    <div className="text-[12px] font-medium text-[var(--muted)] ">
                                         Meus Perfis Favoritos
                                     </div>
                                     <div className="flex flex-wrap gap-2">
@@ -689,7 +689,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         <div className="space-y-3">
                             {profile.map((p, index) => (
                                 <div key={p.id} className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-[var(--bg)] border border-black/[0.07] p-4 rounded-xl">
-                                    <div className="w-8 h-8 rounded-lg bg-white border border-black/[0.07] flex items-center justify-center text-[var(--muted)] font-mono text-xs font-bold shrink-0">
+                                    <div className="w-8 h-8 rounded-lg bg-white border border-black/[0.07] flex items-center justify-center text-[var(--muted)] font-mono text-xs font-medium shrink-0">
                                         {String(index + 1).padStart(2, '0')}
                                     </div>
                                     <div className="flex-1 w-full">
@@ -704,7 +704,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                     </div>
                                     <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
                                         <div className="flex-1 md:w-28">
-                                            <div className="text-[10px] text-[var(--muted)] font-bold ml-1 mb-1">Temp (°C)</div>
+                                            <div className="text-[12px] text-[var(--muted)] font-medium ml-1 mb-1">Temp (°C)</div>
                                             <input 
                                                 type="number" 
                                                 aria-label={`Temp (°C) da etapa ${index + 1}`}
@@ -714,7 +714,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             />
                                         </div>
                                         <div className="flex-1 md:w-28">
-                                            <div className="text-[10px] text-[var(--muted)] font-bold ml-1 mb-1">Tempo (Dias)</div>
+                                            <div className="text-[12px] text-[var(--muted)] font-medium ml-1 mb-1">Tempo (Dias)</div>
                                             <input 
                                                 type="number" 
                                                 aria-label={`Tempo (Dias) da etapa ${index + 1}`}
@@ -724,7 +724,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                                             />
                                         </div>
                                         <div className="flex-1 md:w-36" title="Opcional: Avança automaticamente para a próxima rampa quando o densímetro atingir esta gravidade (ex: 1.018)">
-                                            <div className="text-[10px] text-[var(--muted)] font-bold ml-1 mb-1">Avançar em SG (Opc.)</div>
+                                            <div className="text-[12px] text-[var(--muted)] font-medium ml-1 mb-1">Avançar em SG (Opc.)</div>
                                             <input 
                                                 type="number"
                                                 step="0.001"
@@ -759,9 +759,9 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                         <div className="w-16 h-16 bg-white border border-black/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-2">
                             <Rocket size={28} className="text-[var(--ink)]" />
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--ink)]">Tudo Pronto!</h2>
+                        <h2 className="text-2xl font-medium text-[var(--ink)]">Tudo Pronto!</h2>
                         <p className="text-[var(--muted)] text-sm max-w-md mx-auto leading-relaxed">
-                            A receita <strong className="text-[var(--ink)]">{name || 'Sem Nome'} ({style})</strong> está configurada para durar um total de <span className="font-mono text-[var(--ink)] font-bold">{profile.reduce((acc, curr) => acc + (isNaN(curr.duration) ? 0 : curr.duration), 0)} dias</span> em <span className="font-mono text-[var(--ink)] font-bold">{profile.length} rampas</span> de temperatura.
+                            A receita <strong className="text-[var(--ink)]">{name || 'Sem Nome'} ({style})</strong> está configurada para durar um total de <span className="font-mono text-[var(--ink)] font-medium">{profile.reduce((acc, curr) => acc + (isNaN(curr.duration) ? 0 : curr.duration), 0)} dias</span> em <span className="font-mono text-[var(--ink)] font-medium">{profile.length} rampas</span> de temperatura.
                         </p>
                         <p className="text-[var(--muted)] text-xs">
                             O controlador será configurado imediatamente e a contagem regressiva da primeira etapa será iniciada.
@@ -774,7 +774,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                     <button
                         type="button"
                         onClick={handleBack}
-                        className="px-5 py-2.5 rounded-xl border border-black/[0.07] bg-white hover:bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--ink)] text-xs font-bold transition-colors"
+                        className="px-5 py-2.5 rounded-xl border border-black/[0.07] bg-white hover:bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--ink)] text-xs font-medium transition-colors"
                     >
                         {step === 1 ? 'Cancelar' : 'Voltar'}
                     </button>
@@ -784,7 +784,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                             type="button"
                             onClick={handleNext}
                             disabled={step === 1 && (!name.trim() || !style)}
-                            className="px-6 py-2.5 bg-[var(--ink)] text-white text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-2.5 bg-[var(--ink)] text-white text-xs font-medium rounded-xl flex items-center gap-2 hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Próximo <ArrowRight size={16} />
                         </button>
@@ -793,7 +793,7 @@ export const FermentationWizard: React.FC<FermentationWizardProps> = ({ fermente
                             type="button"
                             onClick={handleStart}
                             disabled={isStarting}
-                            className="px-8 py-3 bg-[var(--ink)] text-white font-bold text-xs rounded-xl flex items-center gap-2.5 hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-8 py-3 bg-[var(--ink)] text-white font-medium text-xs rounded-xl flex items-center gap-2.5 hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <CheckCircle2 size={18} /> {isStarting ? 'INICIANDO...' : 'INICIAR FERMENTAÇÃO'}
                         </button>

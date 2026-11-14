@@ -221,27 +221,27 @@ export const YeastCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         {/* OG SG */}
                         <div>
-                            <label htmlFor="yeast-og" className="block text-xs font-bold text-[var(--muted)] mb-2">Original Gravity</label>
+                            <label htmlFor="yeast-og" className="block text-xs font-medium text-[var(--muted)] mb-2">Original Gravity</label>
                             <div className="relative">
                                 <input 
                                     id="yeast-og"
                                     type="number" step="0.001" value={ogSgInput} onChange={(e) => setOgSgInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-amber-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">SG</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">SG</span>
                             </div>
                         </div>
 
                         {/* Volume */}
                         <div>
-                            <label htmlFor="yeast-vol" className="block text-xs font-bold text-[var(--muted)] mb-2">Volume do Lote</label>
+                            <label htmlFor="yeast-vol" className="block text-xs font-medium text-[var(--muted)] mb-2">Volume do Lote</label>
                             <div className="relative">
                                 <input 
                                     id="yeast-vol"
                                     type="number" step="1" value={volumeInput} onChange={(e) => setVolumeInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-amber-500 transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">L</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">L</span>
                             </div>
                         </div>
                     </div>
@@ -250,8 +250,8 @@ export const YeastCalculator: React.FC = () => {
                     <div className="bg-[var(--bg)] border border-black/[0.07] rounded-xl p-5 space-y-4">
                         <div className="flex justify-between items-end">
                             <div>
-                                <label htmlFor="yeast-pitch-rate" className="block text-[10px] text-[var(--muted)] font-bold mb-1">Taxa de Inoculação</label>
-                                <span className="text-sm text-[#b45309] font-bold">{pitchRateSlider.toFixed(2)} <span className="text-[var(--muted)] font-normal ml-1">(M/ml/°P)</span></span>
+                                <label htmlFor="yeast-pitch-rate" className="block text-[12px] text-[var(--muted)] font-medium mb-1">Taxa de Inoculação</label>
+                                <span className="text-sm text-[#b45309] font-medium">{pitchRateSlider.toFixed(2)} <span className="text-[var(--muted)] font-normal ml-1">(M/ml/°P)</span></span>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -271,7 +271,7 @@ export const YeastCalculator: React.FC = () => {
                         
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="yeast-type" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Tipo</label>
+                                <label htmlFor="yeast-type" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Tipo</label>
                                 <select 
                                     id="yeast-type"
                                     value={yeastType} onChange={(e) => setYeastType(e.target.value as any)} 
@@ -282,7 +282,7 @@ export const YeastCalculator: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label htmlFor="yeast-cells-per-pack" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Bilhões/pct</label>
+                                <label htmlFor="yeast-cells-per-pack" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Bilhões/pct</label>
                                 <input 
                                     id="yeast-cells-per-pack"
                                     type="number" step="1" 
@@ -307,13 +307,13 @@ export const YeastCalculator: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="yeast-mfg-date" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Fabricação</label>
+                                    <label htmlFor="yeast-mfg-date" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Fabricação</label>
                                     <input id="yeast-mfg-date" type="date" value={mfgDate} onChange={(e) => setMfgDate(e.target.value)} disabled={!calcViability} className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] text-sm focus:outline-none focus:border-amber-500" />
                                 </div>
                                 <div className="relative">
-                                    <label htmlFor="yeast-viability" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Viabilidade</label>
+                                    <label htmlFor="yeast-viability" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Viabilidade</label>
                                     <input id="yeast-viability" type="number" value={viability} onChange={(e) => setViability(e.target.value)} disabled={calcViability} className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-amber-500" />
-                                    <span className="absolute right-4 top-10 text-[var(--muted)] font-bold">%</span>
+                                    <span className="absolute right-4 top-10 text-[var(--muted)] font-medium">%</span>
                                 </div>
                             </div>
                         </div>
@@ -323,26 +323,26 @@ export const YeastCalculator: React.FC = () => {
                     {/* Result Card Left */}
                     <div className="bg-[var(--bg)] rounded-2xl p-6 border border-black/[0.07] flex flex-col justify-center">
                         <div className="text-center mb-6">
-                            <span className="block text-xs font-bold text-[var(--muted)] mb-2">Alvo de Inoculação</span>
-                            <div className="text-5xl font-semibold text-[#b45309] tracking-tighter">
+                            <span className="block text-xs font-medium text-[var(--muted)] mb-2">Alvo de Inoculação</span>
+                            <div className="text-5xl font-medium text-[#b45309] tracking-tighter">
                                 {results.targetCells.toFixed(0)}<span className="text-2xl text-[#b45309]/70 ml-1">bi</span>
                             </div>
                         </div>
 
                         <div className="bg-white rounded-xl p-4 border border-black/[0.07]">
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs font-bold text-[var(--muted)]">Leveduras p/ usar:</span>
-                                <span className="text-lg font-bold text-[#b45309] font-mono">{results.packsToUse} pct <span className="text-xs text-[var(--muted)]">({results.packsToUseDecimal.toFixed(1)})</span></span>
+                                <span className="text-xs font-medium text-[var(--muted)]">Leveduras p/ usar:</span>
+                                <span className="text-lg font-medium text-[#b45309] font-mono">{results.packsToUse} pct <span className="text-xs text-[var(--muted)]">({results.packsToUseDecimal.toFixed(1)})</span></span>
                             </div>
-                            <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[10px] text-[var(--muted)]">
+                            <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[12px] text-[var(--muted)]">
                                 <span>Células Disponíveis</span>
                                 <span className="font-mono text-[var(--ink)]">{results.cellsAvailable.toFixed(0)} bi</span>
                             </div>
-                            <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[10px] text-[var(--muted)]">
+                            <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[12px] text-[var(--muted)]">
                                 <span>Diferença do Alvo</span>
-                                <span className={`font-mono font-bold ${results.difference < 0 ? 'text-[#d63a4d]' : 'text-[#178a3f]'}`}>{results.difference > 0 ? '+' : ''}{results.difference.toFixed(0)} bi</span>
+                                <span className={`font-mono font-medium ${results.difference < 0 ? 'text-[#d63a4d]' : 'text-[#178a3f]'}`}>{results.difference > 0 ? '+' : ''}{results.difference.toFixed(0)} bi</span>
                             </div>
-                            <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[10px] text-[var(--muted)]">
+                            <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[12px] text-[var(--muted)]">
                                 <span>Pitch Rate Resultante</span>
                                 <span className="font-mono text-[var(--ink)]">{results.pitchRateMml.toFixed(1)} M/ml</span>
                             </div>
@@ -358,14 +358,14 @@ export const YeastCalculator: React.FC = () => {
                         {/* Propagação Config Inicial */}
                         <div className="grid grid-cols-2 gap-4 border-b border-black/[0.07] pb-6">
                             <div>
-                                <label htmlFor="yeast-starter-packs" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Pct. Iniciais</label>
+                                <label htmlFor="yeast-starter-packs" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Pct. Iniciais</label>
                                 <div className="relative">
                                     <input id="yeast-starter-packs" type="number" step="1" value={starterPacks} onChange={(e) => setStarterPacks(e.target.value)} className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-amber-500" />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">pct</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">pct</span>
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="yeast-prop-model" className="block text-[10px] text-[var(--muted)] font-bold mb-2">Modelo de Propagação</label>
+                                <label htmlFor="yeast-prop-model" className="block text-[12px] text-[var(--muted)] font-medium mb-2">Modelo de Propagação</label>
                                 <select
                                     id="yeast-prop-model"
                                     value={propagationModel}
@@ -385,7 +385,7 @@ export const YeastCalculator: React.FC = () => {
                                 return (
                                     <div key={stage.id} className="relative">
                                         <div className="flex justify-between items-center mb-4">
-                                            <span className="text-[#b45309] font-bold text-sm ">Etapa {index + 1}</span>
+                                            <span className="text-[#b45309] font-medium text-sm ">Etapa {index + 1}</span>
                                             {stages.length > 1 && (
                                                 <button 
                                                     type="button"
@@ -405,14 +405,14 @@ export const YeastCalculator: React.FC = () => {
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label htmlFor={`yeast-stage-sg-${stage.id}`} className="block text-[10px] text-[var(--muted)] font-bold mb-2">Densidade</label>
+                                                <label htmlFor={`yeast-stage-sg-${stage.id}`} className="block text-[12px] text-[var(--muted)] font-medium mb-2">Densidade</label>
                                                 <div className="relative">
                                                     <input id={`yeast-stage-sg-${stage.id}`} type="number" step="0.001" value={stage.sg} onChange={(e) => updateStage(stage.id, 'sg', e.target.value)} className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-amber-500" />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">SG</span>
+                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">SG</span>
                                                 </div>
                                             </div>
                                             <div>
-                                                <label htmlFor={`yeast-stage-vol-${stage.id}`} className="block text-[10px] text-[var(--muted)] font-bold mb-2">Tamanho</label>
+                                                <label htmlFor={`yeast-stage-vol-${stage.id}`} className="block text-[12px] text-[var(--muted)] font-medium mb-2">Tamanho</label>
                                                 <div className="relative">
                                                     <input 
                                                         id={`yeast-stage-vol-${stage.id}`}
@@ -422,7 +422,7 @@ export const YeastCalculator: React.FC = () => {
                                                         disabled={stage.auto} 
                                                         className="w-full bg-[var(--bg)] border border-black/15 rounded-lg px-4 py-3 text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-amber-500" 
                                                     />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">L</span>
+                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">L</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -430,11 +430,11 @@ export const YeastCalculator: React.FC = () => {
                                         {/* Result per stage */}
                                         {stageResult && stageResult.vol > 0 && (
                                             <div className="mt-4 bg-white rounded-xl p-4 border border-black/[0.07]">
-                                                <h4 className="text-[#178a3f] font-bold text-sm mb-1">
+                                                <h4 className="text-[#178a3f] font-medium text-sm mb-1">
                                                     {stageResult.vol.toFixed(1)} L <span className="text-[#2b2f37]">starter c/ {stageResult.dme.toFixed(0)}g DME</span>
                                                 </h4>
-                                                <p className="text-[var(--ink)] font-bold text-xs">Nova contagem: {stageResult.newCells.toFixed(0)} bi células</p>
-                                                <div className="mt-2 text-[10px] text-[var(--muted)] space-y-0.5">
+                                                <p className="text-[var(--ink)] font-medium text-xs">Nova contagem: {stageResult.newCells.toFixed(0)} bi células</p>
+                                                <div className="mt-2 text-[12px] text-[var(--muted)] space-y-0.5">
                                                     <p>Pitch Rate (Starter): {stageResult.pitchRateMml.toFixed(0)} M/ml</p>
                                                     <p>Fator de Crescimento: {stageResult.growthFactor.toFixed(2)}x</p>
                                                 </div>
@@ -450,7 +450,7 @@ export const YeastCalculator: React.FC = () => {
                             <button 
                                 type="button"
                                 onClick={addStage}
-                                className="w-full flex items-center justify-center gap-2 bg-white text-[#b45309] border border-black/10 px-4 py-3 text-xs font-bold rounded-xl hover:bg-[var(--bg)] transition-colors "
+                                className="w-full flex items-center justify-center gap-2 bg-white text-[#b45309] border border-black/10 px-4 py-3 text-xs font-medium rounded-xl hover:bg-[var(--bg)] transition-colors "
                             >
                                 <Plus size={16} /> Adicionar Etapa de Propagação
                             </button>
@@ -464,25 +464,25 @@ export const YeastCalculator: React.FC = () => {
                         {results.starterNeeded || !stages[0]?.auto ? (
                             <>
                                 <div className="text-center mb-6">
-                                    <span className="block text-xs font-bold text-[var(--muted)] mb-2">Contagem Final (Starter)</span>
-                                    <div className="text-4xl font-semibold text-[#b45309] tracking-tighter mb-2">
+                                    <span className="block text-xs font-medium text-[var(--muted)] mb-2">Contagem Final (Starter)</span>
+                                    <div className="text-4xl font-medium text-[#b45309] tracking-tighter mb-2">
                                         {results.starterFinalCells.toFixed(0)}<span className="text-xl text-[#b45309]/70 ml-1">bi</span>
                                     </div>
                                 </div>
 
                                 <div className="bg-white rounded-xl p-4 border border-black/[0.07]">
-                                    <div className="flex justify-between items-center py-1 text-[10px] text-[var(--muted)]">
+                                    <div className="flex justify-between items-center py-1 text-[12px] text-[var(--muted)]">
                                         <span>Diferença do Alvo</span>
-                                        <span className={`font-mono font-bold ${results.starterDiff >= 0 ? 'text-[#178a3f]' : 'text-[#d63a4d]'}`}>
+                                        <span className={`font-mono font-medium ${results.starterDiff >= 0 ? 'text-[#178a3f]' : 'text-[#d63a4d]'}`}>
                                             {results.starterDiff > 0 ? '+' : ''}{results.starterDiff.toFixed(0)} bi
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[10px] text-[var(--muted)]">
+                                    <div className="flex justify-between items-center py-1 border-t border-black/[0.07] text-[12px] text-[var(--muted)]">
                                         <span>Pitch Rate (Final do Lote)</span>
                                         <span className="font-mono text-[var(--ink)]">{results.starterFinalPitchRate.toFixed(0)} M/ml</span>
                                     </div>
                                 </div>
-                                <div className="mt-4 text-[10px] text-black/40 text-center">
+                                <div className="mt-4 text-[12px] text-black/40 text-center">
                                     O cálculo final compõe todas as {stages.length} etapas de propagação sucessivas.
                                 </div>
                             </>
@@ -493,7 +493,7 @@ export const YeastCalculator: React.FC = () => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
                                 </div>
-                                <h3 className="text-[var(--ink)] font-bold mb-1">Pitch Rate Adequado</h3>
+                                <h3 className="text-[var(--ink)] font-medium mb-1">Pitch Rate Adequado</h3>
                                 <p className="text-[var(--muted)] text-sm">Não é necessário propagar levedura. Você já possui células suficientes nos pacotes.</p>
                             </div>
                         )}

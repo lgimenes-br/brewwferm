@@ -74,7 +74,7 @@ export const RefractometerCalculator: React.FC = () => {
                         className="w-full flex items-center justify-between p-4 bg-[var(--bg)] border border-black/[0.07] rounded-xl cursor-pointer select-none text-left focus:outline-none focus:border-[#2fbf55] transition-colors"
                     >
                         <div>
-                            <span className="block text-sm font-bold text-[var(--ink)]">Mosto Fermentado?</span>
+                            <span className="block text-sm font-medium text-[var(--ink)]">Mosto Fermentado?</span>
                             <span className="text-xs text-[var(--muted)]">Ative se a fermentação já começou</span>
                         </div>
                         <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isFermented ? 'bg-[#2fbf55]' : 'bg-[var(--bg)]'}`}>
@@ -86,7 +86,7 @@ export const RefractometerCalculator: React.FC = () => {
                         {/* OG SG - Only if Fermented */}
                         {isFermented && (
                             <div className="col-span-2">
-                                <label htmlFor="refract-og-sg" className="block text-xs font-bold text-[var(--muted)] mb-2">Densidade Original (OG)</label>
+                                <label htmlFor="refract-og-sg" className="block text-xs font-medium text-[var(--muted)] mb-2">Densidade Original (OG)</label>
                                 <div className="relative">
                                     <input 
                                         id="refract-og-sg"
@@ -96,14 +96,14 @@ export const RefractometerCalculator: React.FC = () => {
                                         onChange={(e) => setOgSgInput(e.target.value)}
                                         className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#2fbf55] transition-colors"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">SG</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">SG</span>
                                 </div>
                             </div>
                         )}
 
                         {/* Current/FG Brix */}
                         <div>
-                            <label htmlFor="refract-brix-wri" className="block text-xs font-bold text-[var(--muted)] mb-2">Brix WRI</label>
+                            <label htmlFor="refract-brix-wri" className="block text-xs font-medium text-[var(--muted)] mb-2">Brix WRI</label>
                             <div className="relative">
                                 <input 
                                     id="refract-brix-wri"
@@ -113,13 +113,13 @@ export const RefractometerCalculator: React.FC = () => {
                                     onChange={(e) => setBrixWriInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#2fbf55] transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">Bx</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">Bx</span>
                             </div>
                         </div>
 
                         {/* WCF */}
                         <div>
-                            <label htmlFor="refract-wcf" className="block text-xs font-bold text-[var(--muted)] mb-2">Fator de Correção</label>
+                            <label htmlFor="refract-wcf" className="block text-xs font-medium text-[var(--muted)] mb-2">Fator de Correção</label>
                             <div className="relative">
                                 <input 
                                     id="refract-wcf"
@@ -129,7 +129,7 @@ export const RefractometerCalculator: React.FC = () => {
                                     onChange={(e) => setWcfInput(e.target.value)}
                                     className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3.5 text-[var(--ink)] font-mono text-lg focus:outline-none focus:border-[#2fbf55] transition-colors"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">WCF</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-medium">WCF</span>
                             </div>
                         </div>
                     </div>
@@ -140,8 +140,8 @@ export const RefractometerCalculator: React.FC = () => {
                     
                     {/* Main FG Result */}
                     <div className="text-center mb-8">
-                        <span className="block text-xs font-bold text-[var(--muted)] mb-2">Densidade Corrigida</span>
-                        <div className="text-6xl font-semibold text-[#178a3f] tracking-tighter font-mono">
+                        <span className="block text-xs font-medium text-[var(--muted)] mb-2">Densidade Corrigida</span>
+                        <div className="text-6xl font-medium text-[#178a3f] tracking-tighter font-mono">
                             {results.sg.toFixed(3)}
                         </div>
                     </div>
@@ -150,12 +150,12 @@ export const RefractometerCalculator: React.FC = () => {
                     {isFermented && (
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
-                                <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">ABV Estimado</span>
-                                <div className="text-xl font-bold text-[var(--ink)] font-mono">{results.abv.toFixed(2)}%</div>
+                                <span className="block text-[12px] font-medium text-[var(--muted)] mb-1">ABV Estimado</span>
+                                <div className="text-xl font-medium text-[var(--ink)] font-mono">{results.abv.toFixed(2)}%</div>
                             </div>
                             <div className="bg-white rounded-xl p-4 border border-black/[0.07] text-center">
-                                <span className="block text-[10px] font-bold text-[var(--muted)] mb-1">ABW Estimado</span>
-                                <div className="text-xl font-bold text-[#b45309] font-mono">{results.abw.toFixed(2)}%</div>
+                                <span className="block text-[12px] font-medium text-[var(--muted)] mb-1">ABW Estimado</span>
+                                <div className="text-xl font-medium text-[#b45309] font-mono">{results.abw.toFixed(2)}%</div>
                             </div>
                         </div>
                     )}

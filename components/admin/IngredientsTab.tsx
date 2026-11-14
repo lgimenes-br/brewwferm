@@ -117,7 +117,7 @@ export const IngredientsTab: React.FC = () => {
                             type="button"
                             key={tab.id}
                             onClick={() => { setSubTab(tab.id as any); setSearchTerm(''); }}
-                            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all whitespace-nowrap ${
+                            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
                                 subTab === tab.id ? 'bg-[var(--ink)] text-white shadow-lg shadow-indigo-900/20' : 'text-[var(--muted)] hover:text-[#2b2f37] hover:bg-[var(--bg)]'
                             }`}
                         >
@@ -189,12 +189,12 @@ export const IngredientsTab: React.FC = () => {
                 <div role="dialog" aria-modal="true" aria-labelledby="ingredient-modal-title" className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-white border border-black/[0.07] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 id="ingredient-modal-title" className="text-lg font-semibold text-[var(--ink)]">{editingItem.id ? 'Editar Ingrediente' : 'Novo Ingrediente'}</h3>
+                            <h3 id="ingredient-modal-title" className="text-lg font-medium text-[var(--ink)]">{editingItem.id ? 'Editar Ingrediente' : 'Novo Ingrediente'}</h3>
                             <button type="button" aria-label="Fechar" onClick={() => setEditingItem(null)} className="text-[var(--muted)] hover:text-[var(--ink)]"><X size={20} /></button>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="ingredient-name-input" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Nome Original (Inglês)</label>
+                                <label htmlFor="ingredient-name-input" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">Nome Original (Inglês)</label>
                                 <input
                                     id="ingredient-name-input"
                                     type="text"
@@ -204,7 +204,7 @@ export const IngredientsTab: React.FC = () => {
                                 />
                             </div>
                             <div>
-                                <label htmlFor="ingredient-name-pt-input" className="block text-xs font-semibold text-[var(--muted)] mb-1 ml-1">Nome PT-BR</label>
+                                <label htmlFor="ingredient-name-pt-input" className="block text-xs font-medium text-[var(--muted)] mb-1 ml-1">Nome PT-BR</label>
                                 <input
                                     id="ingredient-name-pt-input"
                                     type="text"
