@@ -53,7 +53,7 @@ export const BOARDS: Board[] = [
         sensorPins: [0, 1, 3, 4, 20, 21],
     },
     {
-        id: 'esp8266-lite', name: 'ESP8266', hint: 'NodeMCU ou Wemos D1 mini, com 4 MB. Versão Lite do firmware.',
+        id: 'esp8266-lite', name: 'ESP8266', hint: 'NodeMCU, Wemos D1 mini ou NodeMCU com telinha OLED, com 4 MB. Versão Lite do firmware.',
         wires: [
             { pin: 'D5, D6 ou D7', to: 'Sensor DS18B20 · dados', note: 'resistor de 4,7 kΩ para o 3,3 V', free: true },
             { pin: 'D1 (GPIO 5)', to: 'Relé de aquecer · IN' },
@@ -339,10 +339,11 @@ export const Installer: React.FC = () => {
                                 <p className="font-semibold">O que muda na versão Lite</p>
                                 <p className="mt-1 max-w-[46rem] text-pretty text-[15px] leading-relaxed text-[var(--muted)]">O ESP8266 tem cerca de um quarto da memória do ESP32. O controle da fermentação, os perfis, o app, o iSpindel e as atualizações pelo app funcionam igual. Ficam de fora:</p>
                                 <ul className="mt-3 grid gap-x-8 gap-y-1.5 text-[15px] sm:grid-cols-2">
-                                    {['Telinha OLED/LCD, botões e sensores I²C (umidade só pelo DHT22)', 'Volta automática para a versão anterior se uma atualização falhar', 'Progresso da atualização no app (a placa some por um minuto e volta)', 'Troca automática de roteador em rede mesh'].map(t => (
+                                    {['Botões, LCD e sensores I²C (umidade só pelo DHT22). A telinha OLED funciona nos pinos D5/D6, como na NodeMCU com OLED', 'Volta automática para a versão anterior se uma atualização falhar', 'Progresso da atualização no app (a placa some por um minuto e volta)', 'Troca automática de roteador em rede mesh'].map(t => (
                                         <li key={t} className="flex gap-2.5"><span className="mt-2.5 h-px w-3 shrink-0 border-t border-dashed border-[var(--ink)]/40" aria-hidden />{t}</li>
                                     ))}
                                 </ul>
+                                <p className="mt-3 text-pretty text-sm leading-relaxed text-[var(--ink)]"><b>NodeMCU com telinha OLED</b> (ex.: HW-364A): a tela é reconhecida sozinha e mostra a temperatura, o alvo e o código de vínculo. Nela o sensor DS18B20 vai no <b>D7</b>, porque o D5 e o D6 são da tela.</p>
                                 <p className="mt-3 text-sm text-[var(--muted)]">Comprando agora? O <button type="button" className="font-medium text-[var(--ink)] underline underline-offset-4" onClick={() => setBoardId('c3-headless')}>ESP32-C3 SuperMini</button> custa parecido e roda a versão completa.</p>
                             </div>
                         )}
