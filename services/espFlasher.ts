@@ -60,6 +60,12 @@ export const detectChip = (port: Port): Promise<ChipInfo> => withLoader(port, as
     let flashSize: string | undefined;
     let mac: string | undefined;
     try { features = await loader.chip.getChipFeatures(loader); } catch { /* opcional */ }
+    // esptool-js 0.7.0 marca os registradores de tamanho do SPI do ESP8266 como 0 (deveriam ser "nao existe"):
+    // a leitura do ID da flash ia pelo caminho do ESP32 e a memoria aparecia como "—". Corrige antes de ler.
+    if (chip.toUpperCase() === 'ESP8266') {
+        (loader.chip as any).SPI_MOSI_DLEN_OFFS = null;
+        (loader.chip as any).SPI_MISO_DLEN_OFFS = null;
+    }
     try { flashSize = await loader.detectFlashSize(); } catch { /* opcional */ }
     try { mac = await (loader.chip as any).readMac(loader); } catch { /* opcional */ }
     try { await loader.after('hard_reset'); } catch { /* opcional */ }

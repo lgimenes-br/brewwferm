@@ -179,7 +179,7 @@ export const InstallWizard: React.FC = () => {
 
     const [pairFailed, setPairFailed] = useState(false);
     const [pairTry, setPairTry] = useState(0);
-    const [name, setName] = useState('Meu Breww');
+    const [name, setName] = useState(''); // vazio = "Meu Breww" (no vinculo)
     const [linked, setLinked] = useState(false);
     const [addedInApp, setAddedInApp] = useState(false);
     const [copied, setCopied] = useState<'id' | 'code' | null>(null);
@@ -586,6 +586,14 @@ export const InstallWizard: React.FC = () => {
                                         </li>
                                     ))}
                                 </ul>
+                                {/* Nome ja na entrada: o aparelho entra na conta com ele (antes era sempre "Meu Breww") */}
+                                <label className="block max-w-md">
+                                    <span className="font-medium">Nome do aparelho</span>
+                                    <input value={name} onChange={e => setName(e.target.value)} maxLength={40} autoComplete="off"
+                                        placeholder="Ex.: Fermentador da garagem"
+                                        className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[var(--ink)]" />
+                                    <span className="mt-1.5 block text-sm text-[var(--muted)]">É como ele aparece no app. Dá para trocar depois. Em branco, fica "Meu Breww".</span>
+                                </label>
                                 {!webSerialSupported() ? (
                                     <Notice kind="warn">Este navegador não acessa o USB. Abra esta página no <b>Chrome</b> ou no <b>Edge</b> de um computador.</Notice>
                                 ) : (
