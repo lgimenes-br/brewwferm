@@ -145,6 +145,10 @@ export const normalizeGravity = (val: any, fallback = 0): number => {
     return n > 500 ? n / 1000 : n;
 };
 
+/** Densidade para mostrar: fora da faixa possivel (0,980 a 1,200, ex.: 0 sem densimetro ou 32.293 vindo
+ *  de outra grandeza) vira "--", como no app. */
+export const formatGravity = (g: number): string => (Number.isFinite(g) && g >= 0.98 && g <= 1.2 ? g.toFixed(3) : '--');
+
 export const isDeviceOnline = (fermenter?: Fermenter | null, nowMs = Date.now(), timeoutMs = 30000): boolean => {
     if (!fermenter?.currentDevice?.lastUpdate) return false;
     const lastUpdate = new Date(fermenter.currentDevice.lastUpdate).getTime();

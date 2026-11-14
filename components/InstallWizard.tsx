@@ -338,7 +338,15 @@ export const InstallWizard: React.FC = () => {
         const link = linkRef.current;
         if (!link) return;
         setNetworks(null);
-        try { setNetworks(await link.scan()); } catch { setNetworks([]); }
+        // A 1a busca logo depois de gravar as vezes volta vazia (a placa ainda esta com uma busca propria em
+        // andamento): tenta de novo sozinho uma vez antes de mostrar "nenhuma rede"
+        for (let attempt = 0; attempt < 2; attempt++) {
+            let found: WifiNetwork[] = [];
+            try { found = await link.scan(); } catch { found = []; }
+            ilog('site', `Busca de redes ${attempt + 1}: ${found.length} rede(s)`);
+            if (found.length || attempt === 1) { setNetworks(found); return; }
+            await sleep(1500);
+        }
     }, []);
     useEffect(() => { if (step === 'wifi' && improvOk) scan(); }, [step, improvOk, scan]);
 

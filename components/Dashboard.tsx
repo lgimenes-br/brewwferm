@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, isDeviceOnline as checkDeviceOnline } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline } from '../types';
 import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -557,7 +557,7 @@ export const Dashboard: React.FC = () => {
                                         <>
                                             <div className="flex items-start justify-end gap-1">
                                                 <span className="text-4xl font-bold tracking-tighter text-[#178a3f] font-mono">
-                                                    {safeGravity.toFixed(3)}
+                                                    {formatGravity(safeGravity)}
                                                 </span>
                                                 <span className="text-lg text-[var(--muted)] font-light mt-1">SG</span>
                                             </div>

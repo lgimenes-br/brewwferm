@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity } from '../types';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity } from '../types';
 import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, X, Share2, Check, Thermometer } from 'lucide-react';
 import { generateBatchShareToken } from '../services/api';
 import { TemperatureChart } from './TemperatureChart';
@@ -791,7 +791,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                         <span className="text-black/40 text-sm mb-1">{fermenter.sensor_sg_name || 'Gravidade (SG)'}</span>
                                         <div className="flex items-center gap-1">
                                             <span className="text-4xl font-bold text-[#178a3f] font-mono">
-                                                {safeCurrentGravity.toFixed(3)}
+                                                {formatGravity(safeCurrentGravity)}
                                             </span>
                                         </div>
                                     </div>
