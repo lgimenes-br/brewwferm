@@ -51,6 +51,20 @@ const loadParams = (): AppLoginParams | null => {
     }
 };
 
+/**
+ * Tela de retorno ao app. No Android o Chrome bloqueia o salto automatico para breww:// / exp://
+ * quando ele nao vem de um toque; o link abaixo e o toque que destrava (no iOS o app ja assume antes).
+ */
+const BackToApp: React.FC<{ url: string; title: string }> = ({ url, title }) => (
+    <div className="min-h-screen min-h-[100dvh] bg-[var(--bg)] flex items-center justify-center p-6">
+        <div className="w-full max-w-sm text-center space-y-4">
+            <p className="text-[var(--ink)] text-lg font-medium">{title}</p>
+            <a href={url} className="block w-full bg-[var(--ink)] text-white font-bold py-3 rounded-xl hover:bg-black">Voltar ao app</a>
+            <p className="text-[var(--muted)] text-xs">Se o app não abrir sozinho, toque no botão.</p>
+        </div>
+    </div>
+);
+
 const AppLoginFlow: React.FC = () => {
     const { token, user, login, loginWithGoogle, logout } = useAuth();
     const [params] = useState<AppLoginParams | null>(loadParams);
@@ -63,6 +77,7 @@ const AppLoginFlow: React.FC = () => {
     // Lido uma vez, antes de qualquer efeito: o efeito da volta do Google apaga o #access_token da URL
     const [returningFromGoogle] = useState(() => /(^#|&)(access_token|error)=/.test(window.location.hash));
     const [autoContinue, setAutoContinue] = useState(false);
+    const [returnUrl, setReturnUrl] = useState<string | null>(null);
 
     const valid = useMemo(() => !!params && isAllowedAppRedirect(params.redirectUri) && /^[A-Za-z0-9_-]{43}$/.test(params.challenge), [params]);
     const direct = valid && params?.provider === 'google';
@@ -120,7 +135,9 @@ const AppLoginFlow: React.FC = () => {
             const code = await requestAppLoginCode(token, params.redirectUri, params.challenge);
             try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
             const sep = params.redirectUri.includes('?') ? '&' : '?';
-            window.location.assign(`${params.redirectUri}${sep}code=${encodeURIComponent(code)}&state=${encodeURIComponent(params.state)}`);
+            const back = `${params.redirectUri}${sep}code=${encodeURIComponent(code)}&state=${encodeURIComponent(params.state)}`;
+            setReturnUrl(back);
+            window.location.assign(back);
         } catch (e: any) {
             setError(e?.message || 'Não foi possível conectar o app.');
             setBusy(false);
@@ -140,6 +157,8 @@ const AppLoginFlow: React.FC = () => {
         if (autoContinue && token) { setAutoContinue(false); continueToApp(); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoContinue, token]);
+
+    if (returnUrl) return <BackToApp url={returnUrl} title="Pronto, você entrou." />;
 
     if (direct && !error) {
         return (
@@ -272,13 +291,16 @@ const AppLink: React.FC<{ initial: AppLinkParams }> = ({ initial }) => {
     const [account, setAccount] = useState<{ name: string; email: string } | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [returnUrl, setReturnUrl] = useState<string | null>(null);
     const handledHash = useRef(false);
     const valid = isAllowedAppRedirect(params.redirectUri) && /^[A-Za-z0-9_-]{20,64}$/.test(params.ticket);
 
     const backToApp = (query: string) => {
         try { sessionStorage.removeItem(LINK_KEY); } catch { /* ignore */ }
         const sep = params.redirectUri.includes('?') ? '&' : '?';
-        window.location.assign(`${params.redirectUri}${sep}${query}&state=${encodeURIComponent(params.state)}`);
+        const back = `${params.redirectUri}${sep}${query}&state=${encodeURIComponent(params.state)}`;
+        setReturnUrl(back);
+        window.location.assign(back);
     };
 
     // Conta do bilhete (antes de ir ao Google)
@@ -330,6 +352,8 @@ const AppLink: React.FC<{ initial: AppLinkParams }> = ({ initial }) => {
         url.searchParams.set('prompt', 'select_account');
         window.location.assign(url.toString());
     };
+
+    if (returnUrl) return <BackToApp url={returnUrl} title="Tudo certo." />;
 
     return (
         <div className="min-h-screen min-h-[100dvh] bg-[var(--bg)] flex items-center justify-center p-6">
