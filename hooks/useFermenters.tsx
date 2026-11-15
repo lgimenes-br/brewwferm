@@ -171,6 +171,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             lastSeen: d.last_seen || undefined,
             sensor1_name: d.sensor1_name,
             sensor2_name: d.sensor2_name,
+            sensor3_name: d.sensor3_name || undefined,
+            sensor4_name: d.sensor4_name || undefined,
             sensor_sg_name: d.sensor_sg_name,
             mode: (() => {
                 if (prevDev?.mode) return prevDev.mode;

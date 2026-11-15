@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import { SensorTestModal } from './SensorTestModal';
 import { isFirmwareUpdateAvailable } from '../services/firmware';
 import { SensorScanModal, SensorMapping } from './SensorScanModal';
+import { sensorView } from '../types';
 
 interface PIDParams {
   kp: number;
@@ -224,21 +225,27 @@ export const Settings: React.FC = () => {
   const currentMacCtrl: string = typeof rawPayload.macCtrl === 'string' ? rawPayload.macCtrl : '';
   const currentMac2: string = typeof rawPayload.mac2 === 'string' ? rawPayload.mac2 : '';
 
-  const handleSaveMapping = async ({ macCtrl, mac2, name1, name2 }: SensorMapping) => {
+  const sv = activeDevice ? sensorView(activeDevice) : null;
+
+  const handleSaveMapping = async ({ macs, names, control, macCtrl, mac2, name1, name2 }: SensorMapping) => {
       if (!selectedDeviceId) return;
+      // macs: firmware 2.11+ (Sensor 1..4); macSensorControle/extraSensors: firmware anterior (so 1 e 2)
       sendCommand(selectedDeviceId, 'set_sensors', {
+          macs,
           macSensorControle: macCtrl,
-          nameSensorControle: name1,
           extraSensors: mac2 ? [{ mac: mac2, name: name2 }] : []
       });
+      if (control) sendCommand(selectedDeviceId, 'set_control', { ferm: control[0], fridge: control[1], chopp: control[2] });
       setSettings(prev => ({ ...prev, sensor1Name: name1, sensor2Name: name2 }));
       updateFermenterLocal(selectedDeviceId, {
-          sensor1_name: name1,
-          sensor2_name: name2,
+          sensor1_name: names[0],
+          sensor2_name: names[1],
+          sensor3_name: names[2],
+          sensor4_name: names[3],
           sensor_sg_name: settings.sensorSgName
       });
       try {
-          await updateSensors(token || '', selectedDeviceId, name1, name2, settings.sensorSgName);
+          await updateSensors(token || '', selectedDeviceId, names[0], names[1], settings.sensorSgName, names[2], names[3]);
       } catch (e) {
           console.error('Failed to save sensor names to db', e);
           toast.error('Mapeamento enviado à placa, mas falhou ao salvar os nomes no servidor.');
@@ -954,19 +961,24 @@ export const Settings: React.FC = () => {
             </button>
         </div>
 
+        {/* Sensor 1..4: nome, leitura e quais modos ele controla */}
         <div className="space-y-2">
-            {[
-                { label: 'Sensor 1 · Controle', name: settings.sensor1Name, mac: currentMacCtrl },
-                { label: 'Sensor 2', name: settings.sensor2Name, mac: currentMac2 }
-            ].map(row => (
-                <div key={row.label} className="flex items-center justify-between gap-4 bg-[var(--bg)] p-4 rounded-xl border border-black/[0.07]">
-                    <div className="min-w-0">
-                        <p className="text-[11px] text-[var(--muted)] font-medium">{row.label}</p>
-                        <p className="text-[var(--ink)] text-sm truncate">{row.name}</p>
+            {sv && sv.names.map((name, i) => {
+                const modes = ['Fermentador', 'Geladeira', 'Choppeira'].filter((_, m) => {
+                    const chosen = sv.controlMap?.[m] ?? -1;
+                    return chosen >= 0 ? chosen === i : (m === 0 ? i === 0 : i === (sv.temps[1] !== undefined || sv.temps[0] === undefined ? 1 : 0));
+                });
+                if (sv.temps[i] === undefined && i > 1) return null;
+                return (
+                    <div key={i} className="flex items-center justify-between gap-4 rounded-[22px] border border-[var(--line)] bg-[var(--cell-2)] p-4">
+                        <div className="min-w-0">
+                            <p className="text-[12px] text-[var(--muted)]">Sensor {i + 1}{modes.length ? ` · controla ${modes.join(', ').toLowerCase()}` : ' · só leitura'}</p>
+                            <p className="text-[var(--ink)] text-sm truncate">{name}</p>
+                        </div>
+                        <span className="tabular text-[15px] text-[var(--ink)] shrink-0">{sv.temps[i] !== undefined ? `${sv.temps[i]!.toFixed(1)} °C` : '--'}</span>
                     </div>
-                    <span className="font-mono text-[11px] text-[var(--muted)] shrink-0">{row.mac || 'automático (ordem do barramento)'}</span>
-                </div>
-            ))}
+                );
+            })}
         </div>
       </section>
 
@@ -1069,7 +1081,8 @@ export const Settings: React.FC = () => {
         scan={scanDetails[(selectedDeviceId || '').toUpperCase()]}
         currentMacCtrl={currentMacCtrl}
         currentMac2={currentMac2}
-        names={{ sensor1: settings.sensor1Name, sensor2: settings.sensor2Name }}
+        currentControl={sv?.controlMap}
+        names={{ sensor1: settings.sensor1Name, sensor2: settings.sensor2Name, sensor3: activeDevice?.sensor3_name, sensor4: activeDevice?.sensor4_name }}
         sendCommand={sendCommand}
         onSave={handleSaveMapping}
       />

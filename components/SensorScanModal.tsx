@@ -2,9 +2,21 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Loader2, XCircle, RotateCcw, X, Save, Thermometer, Info } from 'lucide-react';
 import type { ScanDetails } from '../context/BrewContext';
 
-export type SensorRole = 's1' | 's2' | 'none';
+// Sensores numerados (fw 2.11+): ate 4 DS18B20, Sensor 1..4, cada um preso ao MAC. Nomes livres e,
+// separado, qual sensor CONTROLA cada modo (so um por modo; os outros aparecem so para ver).
+// Mesma regra do app (breww-app/src/core/sensors.ts). Manter igual.
+
+export type SensorRole = 's1' | 's2' | 's3' | 's4' | 'none';
+export const SLOT_ROLES: SensorRole[] = ['s1', 's2', 's3', 's4'];
 
 export interface SensorMapping {
+    /** MAC de cada Sensor 1..4 ('' = livre) */
+    macs: string[];
+    /** Nome de cada Sensor 1..4 */
+    names: string[];
+    /** Sensor que controla cada modo [fermentador, geladeira, choppeira]; -1 = automatico. Ausente = nao mudou */
+    control?: number[];
+    // Formato antigo (firmware anterior a 2.11 so entende o Sensor 1 e o 2)
     macCtrl: string;
     mac2: string;
     name1: string;
@@ -12,21 +24,20 @@ export interface SensorMapping {
 }
 
 /**
- * Papel inicial de cada sensor encontrado: usa o mapeamento salvo na placa (macCtrl/mac2);
- * sem mapeamento, segue a ordem do barramento (1o = Sensor 1, 2o = Sensor 2), igual ao firmware.
+ * Numero inicial de cada sensor encontrado: usa o que esta salvo na placa (slots no fw 2.11+, ou
+ * macCtrl/mac2 antes); sem nada salvo, segue a ordem do barramento, igual ao firmware. Um numero salvo
+ * cujo sensor sumiu do barramento fica vazio (nao promove outro sensor sem o usuario decidir).
  */
-export const initialRoles = (macs: string[], macCtrl?: string, mac2?: string): Record<string, SensorRole> => {
-    const ctrl = (macCtrl || '').toUpperCase();
-    const second = (mac2 || '').toUpperCase();
+export const initialRoles = (macs: string[], macCtrl?: string, mac2?: string, slots?: string[]): Record<string, SensorRole> => {
+    const saved = (slots && slots.length ? slots : [macCtrl || '', mac2 || '']).concat(['', '', '', '']).slice(0, 4).map(m => (m || '').toUpperCase());
     const roles: Record<string, SensorRole> = {};
     macs.forEach(m => { roles[m] = 'none'; });
-    const ctrlFound = macs.find(m => m.toUpperCase() === ctrl && ctrl);
-    const secondFound = macs.find(m => m.toUpperCase() === second && second);
-    if (ctrlFound) roles[ctrlFound] = 's1';
-    if (secondFound) roles[secondFound] = 's2';
+    saved.forEach((mac, i) => {
+        const found = mac && macs.find(m => m.toUpperCase() === mac);
+        if (found) roles[found] = SLOT_ROLES[i];
+    });
     const free = macs.filter(m => roles[m] === 'none');
-    if (!ctrlFound && !ctrl && free.length) roles[free.shift()!] = 's1';
-    if (!secondFound && !second && free.length) roles[free.shift()!] = 's2';
+    saved.forEach((mac, i) => { if (!mac && free.length) roles[free.shift()!] = SLOT_ROLES[i]; });
     return roles;
 };
 
@@ -39,7 +50,11 @@ export interface SensorScanModalProps {
     /** Mapeamento atual vindo da telemetria (fallback se a resposta do scan nao trouxer) */
     currentMacCtrl?: string;
     currentMac2?: string;
-    names: { sensor1: string; sensor2: string };
+    names: { sensor1: string; sensor2: string; sensor3?: string; sensor4?: string };
+    /** MAC salvo em cada Sensor 1..4 (fw 2.11+, telemetria/scan) */
+    currentSlots?: string[];
+    /** Escolha atual por modo (fw 2.11+); ausente = firmware antigo, sem escolha */
+    currentControl?: number[];
     sendCommand: (serial: string, type: string, payload: any) => void;
     onSave: (mapping: SensorMapping) => Promise<void> | void;
     timeoutMs?: number;
@@ -48,10 +63,15 @@ export interface SensorScanModalProps {
 type Phase = 'scanning' | 'done' | 'timeout';
 
 const ROLE_OPTIONS: { value: SensorRole; label: string }[] = [
-    { value: 's1', label: 'Sensor 1 · Controle' },
-    { value: 's2', label: 'Sensor 2' },
+    { value: 's1', label: '1' },
+    { value: 's2', label: '2' },
+    { value: 's3', label: '3' },
+    { value: 's4', label: '4' },
     { value: 'none', label: 'Não usar' }
 ];
+const MODES = ['Fermentador', 'Geladeira', 'Choppeira'];
+const CONTROL_VALUES = [-1, 0, 1, 2, 3];
+const cleanName = (n: string | undefined, i: number) => (n && n !== `Sensor ${i + 1}` ? n : '');
 
 export const SensorScanModal: React.FC<SensorScanModalProps> = ({
     open,
@@ -61,6 +81,8 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
     currentMacCtrl,
     currentMac2,
     names,
+    currentSlots,
+    currentControl,
     sendCommand,
     onSave,
     timeoutMs = 15000
@@ -68,8 +90,9 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
     const [startedAt, setStartedAt] = useState(0);
     const [phase, setPhase] = useState<Phase>('scanning');
     const [roles, setRoles] = useState<Record<string, SensorRole>>({});
-    const [name1, setName1] = useState(names.sensor1);
-    const [name2, setName2] = useState(names.sensor2);
+    const initialNames = () => [names.sensor1, names.sensor2, names.sensor3, names.sensor4].map(cleanName);
+    const [slotNames, setSlotNames] = useState<string[]>(initialNames);
+    const [control, setControl] = useState<number[] | null>(null);
     const [saving, setSaving] = useState(false);
     const [openedAt, setOpenedAt] = useState(0);
     const rolesTouchedRef = useRef(false);
@@ -92,8 +115,8 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
             rolesTouchedRef.current = false;
             setOpenedAt(Date.now());
             setRoles({});
-            setName1(names.sensor1);
-            setName2(names.sensor2);
+            setSlotNames(initialNames());
+            setControl(null);
             runScan();
         }
         return () => {
@@ -116,7 +139,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                 macs.forEach(m => { next[m] = prev[m] ?? 'none'; });
                 return next;
             }
-            return initialRoles(macs, scan.macCtrl ?? currentMacCtrl, scan.mac2 ?? currentMac2);
+            return initialRoles(macs, scan.macCtrl ?? currentMacCtrl, scan.mac2 ?? currentMac2, (scan as any).slots ?? currentSlots);
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [receivedAt, startedAt, open]);
@@ -140,7 +163,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
         setRoles(prev => {
             const next = { ...prev };
             const previousRole = next[mac] ?? 'none';
-            // Sensor 1 e Sensor 2 sao exclusivos: quem tinha esse papel troca com este sensor
+            // Cada numero e de um sensor so: quem tinha esse numero troca com este sensor
             if (role !== 'none') {
                 Object.keys(next).forEach(m => { if (m !== mac && next[m] === role) next[m] = previousRole; });
             }
@@ -150,16 +173,22 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
     };
 
     const macFor = (role: SensorRole) => Object.keys(roles).find(m => roles[m] === role) || '';
-    const hasS1 = !!macFor('s1');
+    const hasAny = SLOT_ROLES.some(r => !!macFor(r));
+    const shownControl = control ?? currentControl ?? [-1, -1, -1];
 
     const handleSave = async () => {
         setSaving(true);
         try {
+            const macs = SLOT_ROLES.map(macFor);
+            const finalNames = slotNames.map((n, i) => n.trim() || `Sensor ${i + 1}`);
             await onSave({
-                macCtrl: macFor('s1'),
-                mac2: macFor('s2'),
-                name1: name1.trim() || 'Fermentador',
-                name2: name2.trim() || 'Geladeira'
+                macs,
+                names: finalNames,
+                control: currentControl && control ? control : undefined,
+                macCtrl: macs[0],
+                mac2: macs[1],
+                name1: finalNames[0],
+                name2: finalNames[1]
             });
             onClose();
         } finally {
@@ -221,7 +250,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                 {sensors.length > 0 && (
                     <>
                         <p className="text-[var(--muted)] text-xs mb-3">
-                            {sensors.length} {sensors.length === 1 ? 'sensor encontrado' : 'sensores encontrados'}. O <span className="text-[var(--ink)]">Sensor 1</span> controla aquecimento e resfriamento.
+                            {sensors.length} {sensors.length === 1 ? 'sensor encontrado' : 'sensores encontrados'}. Dê um número a cada um (até 4); quem controla cada modo você escolhe abaixo.
                         </p>
                         <div className="space-y-2 mb-3">
                             {sensors.map(s => {
@@ -237,7 +266,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                                                 {s.temp !== null ? `${s.temp.toFixed(2)} °C` : '--'}
                                             </span>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-1 bg-[var(--bg)] p-1 rounded-lg" role="radiogroup" aria-label={`Função do sensor ${s.mac}`}>
+                                        <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_1.8fr] gap-1 bg-[var(--bg)] p-1 rounded-full" role="radiogroup" aria-label={`Função do sensor ${s.mac}`}>
                                             {ROLE_OPTIONS.map(opt => (
                                                 <button
                                                     key={opt.value}
@@ -245,23 +274,12 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                                                     role="radio"
                                                     aria-checked={role === opt.value}
                                                     onClick={() => setRole(s.mac, opt.value)}
-                                                    className={`py-1.5 rounded-md text-[11px] font-medium transition-colors ${role === opt.value ? 'bg-[var(--ink)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
+                                                    className={`py-1.5 rounded-full text-[13px] transition-colors ${role === opt.value ? 'bg-[var(--fill)] text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
                                                 >
                                                     {opt.label}
                                                 </button>
                                             ))}
                                         </div>
-                                        {role !== 'none' && (
-                                            <input
-                                                type="text"
-                                                aria-label={role === 's1' ? 'Nome do Sensor 1' : 'Nome do Sensor 2'}
-                                                placeholder={role === 's1' ? 'Nome (ex: Fermentador)' : 'Nome (ex: Geladeira)'}
-                                                maxLength={30}
-                                                value={role === 's1' ? name1 : name2}
-                                                onChange={(e) => (role === 's1' ? setName1 : setName2)(e.target.value)}
-                                                className="mt-2 w-full bg-[var(--bg)] border border-black/15 rounded-lg p-2 text-sm text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
-                                            />
-                                        )}
                                     </div>
                                 );
                             })}
@@ -270,8 +288,43 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                             <Info size={12} className="mt-0.5 shrink-0" />
                             Não sabe qual é qual? Segure um sensor na mão por alguns segundos e clique em "Escanear novamente": o que esquentar é ele.
                         </p>
-                        {!hasS1 && (
-                            <p className="text-[#b45309] text-xs mb-4">Escolha um sensor como Sensor 1 para o controle de temperatura funcionar.</p>
+                        <div className="mb-4">
+                            <p className="text-[13px] text-[var(--muted)] mb-2">Nomes (opcional)</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {SLOT_ROLES.map((r, i) => (
+                                    <input key={r} type="text" aria-label={`Nome do Sensor ${i + 1}`} maxLength={30}
+                                        placeholder={`Sensor ${i + 1} (ex.: ${['Cerveja', 'Geladeira', 'Ambiente', 'Barril'][i]})`}
+                                        value={slotNames[i]} onChange={e => setSlotNames(n => n.map((x, k) => (k === i ? e.target.value : x)))}
+                                        className="w-full h-10 rounded-full border border-[var(--line)] bg-[var(--cell-2)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--tertiary)] focus:outline-none focus:border-[rgba(113,252,143,0.55)]" />
+                                ))}
+                            </div>
+                        </div>
+                        {currentControl ? (
+                            <div className="mb-4">
+                                <p className="text-[13px] text-[var(--muted)] mb-2">Quem controla a temperatura</p>
+                                <div className="space-y-2">
+                                    {MODES.map((label, m) => (
+                                        <div key={label} className="flex items-center gap-3">
+                                            <span className="w-24 shrink-0 text-sm text-[var(--ink)]">{label}</span>
+                                            <div className="grid flex-1 grid-cols-[1.4fr_repeat(4,minmax(0,1fr))] gap-1 rounded-full bg-[var(--bg)] p-1" role="radiogroup" aria-label={`Sensor que controla o modo ${label}`}>
+                                                {CONTROL_VALUES.map(v => (
+                                                    <button key={v} type="button" role="radio" aria-checked={(shownControl[m] ?? -1) === v}
+                                                        onClick={() => setControl(shownControl.map((x, k) => (k === m ? v : x)))}
+                                                        className={`py-1.5 rounded-full text-[13px] transition-colors ${(shownControl[m] ?? -1) === v ? 'bg-[var(--fill)] text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                                                        {v < 0 ? 'Auto' : v + 1}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="mt-2 text-[12px] text-[var(--tertiary)]">Só um sensor controla cada modo; os outros aparecem só para ver. Automático: fermentador pelo Sensor 1, geladeira e choppeira pelo Sensor 2.</p>
+                            </div>
+                        ) : (
+                            <p className="text-[12px] text-[var(--muted)] mb-4">Para escolher qual sensor controla cada modo, atualize o firmware do aparelho para a versão 2.11 ou mais nova.</p>
+                        )}
+                        {!hasAny && (
+                            <p className="text-[var(--danger)] text-xs mb-4">Dê um número a pelo menos um sensor para o controle de temperatura funcionar.</p>
                         )}
                     </>
                 )}
@@ -288,7 +341,7 @@ export const SensorScanModal: React.FC<SensorScanModalProps> = ({
                     <button
                         type="button"
                         onClick={handleSave}
-                        disabled={!hasS1 || saving || phase !== 'done'}
+                        disabled={!hasAny || saving || phase !== 'done'}
                         className="flex-1 bg-[var(--ink)] text-white hover:bg-black py-3 rounded-xl font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar

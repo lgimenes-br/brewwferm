@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isDeviceOnline } from '../types';
-import { Snowflake, Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu } from 'lucide-react';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isDeviceOnline, sensorView, otherSensors } from '../types';
+import { Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu } from 'lucide-react';
 import { TempDisplay, SmallValue, StatTile } from './app/AppUI';
 import { generateBatchShareToken } from '../services/api';
 import { TemperatureChart } from './TemperatureChart';
@@ -383,6 +383,11 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const modeName = (m?: DeviceMode | null) => m === DeviceMode.KEGERATOR ? 'Choppeira' : m === DeviceMode.FRIDGE ? 'Geladeira' : 'Fermentador';
     // Sem leitura (0,0 exato com o aparelho fora, ou erro do DS18B20) mostra "--"
     const readTemp = (v: number) => (!Number.isFinite(v) || hasInvalidTemp || (!isOnline && v === 0) ? undefined : v);
+    // Sensores numerados: a temperatura grande e a do sensor que controla o modo; os outros so para ver
+    const sv = sensorView(fermenter);
+    const ctlRaw = sv.temps[sv.control];
+    const ctlTemp = ctlRaw === undefined ? undefined : readTemp(ctlRaw);
+    const others = otherSensors(sv).filter(o => isOnline || o.temp !== 0); // 0,0 com o aparelho fora = nunca leu
     const humidityNum = safeHumidity !== undefined && safeHumidity !== null ? parseFloat(String(safeHumidity)) : NaN;
     const step = fermenter.profile?.[fermenter.currentStepIndex || 0];
     const inputCls = 'w-full h-12 rounded-2xl bg-[var(--cell-2)] border border-[var(--line)] px-4 text-[16px] text-[var(--ink)] placeholder:text-[var(--tertiary)] focus:outline-none focus:border-[rgba(113,252,143,0.55)] transition-colors';
@@ -505,8 +510,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                 <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <section className="app-card lg:col-span-2 py-8 px-6 flex flex-col items-center gap-2" aria-label="Temperatura">
-                            <span className="text-[15px] text-[var(--muted)]">{fermenter.sensor2_name || 'Geladeira'}</span>
-                            <TempDisplay value={readTemp(safeCurrentTemp)} size={116} dim={!isOnline} />
+                            <span className="text-[15px] text-[var(--muted)]">{sv.names[sv.control]}</span>
+                            <TempDisplay value={ctlTemp} size={116} dim={!isOnline} />
                         </section>
                         <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
                             <div className="app-card p-4 flex flex-col gap-2.5" role="group" aria-label={`Estado: ${state.label}`}>
@@ -525,7 +530,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                         </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <StatTile label={fermenter.sensor1_name || 'Sensor 1'} value={readTemp(safeCurrentFridgeTemp) !== undefined ? safeCurrentFridgeTemp.toFixed(1) : '--'} unit="°C" icon={<Thermometer size={14} />} />
+                        {/* Os outros sensores: so para ver (quem controla e a temperatura grande) */}
+                        {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
                         <StatTile label="Umidade" value={Number.isFinite(humidityNum) ? humidityNum.toFixed(0) : '--'} unit="%" icon={<Droplets size={14} />} />
                         <StatTile label="Wi-Fi" value={fermenter.currentDevice?.rssi ? String(fermenter.currentDevice.rssi) : '--'} unit="dBm" icon={<Wifi size={14} />} />
                         <StatTile label="Firmware" value={fermenter.currentDevice?.version || '--'} icon={<Cpu size={14} />} />
@@ -572,8 +578,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     {/* Leitura principal: temperatura em destaque; estado, alvo, densidade e etapa ao lado */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         <section className="app-card col-span-2 lg:row-span-2 py-8 px-6 flex flex-col items-center justify-center gap-2" aria-label="Temperatura da cerveja">
-                            <span className="text-[15px] text-[var(--muted)]">{fermenter.sensor1_name || 'Cerveja'}</span>
-                            <TempDisplay value={readTemp(safeCurrentTemp)} size={116} dim={!isOnline} />
+                            <span className="text-[15px] text-[var(--muted)]">{sv.names[sv.control]}</span>
+                            <TempDisplay value={ctlTemp} size={116} dim={!isOnline} />
                             {hasInvalidTemp && <span className="text-[13px] text-[var(--danger)]">Sem leitura do sensor: aquecer e resfriar ficam desligados</span>}
                         </section>
                         <div className="app-card p-4 flex flex-col gap-2.5" role="group" aria-label={`Estado: ${state.label}. ${state.caption}`}>
@@ -595,7 +601,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                         <StatTile label="FG" value={safeFG ? safeFG.toFixed(3) : '--'} caption="densidade final (alvo)" icon={<Target size={14} />} />
                         <StatTile label="Atenuação" value={currentAttenuation} unit="%" icon={<Percent size={14} />} />
                         <StatTile label="Álcool estimado" value={abv} unit="%" icon={<FlaskConical size={14} />} />
-                        <StatTile label={fermenter.sensor2_name || 'Geladeira'} value={readTemp(safeCurrentFridgeTemp) !== undefined ? safeCurrentFridgeTemp.toFixed(1) : '--'} unit="°C" icon={<Snowflake size={14} />} />
+                        {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
                         <StatTile
                             label="Bateria do densímetro"
                             value={safeBattery > 0 ? safeBattery.toFixed(2) : '--'}

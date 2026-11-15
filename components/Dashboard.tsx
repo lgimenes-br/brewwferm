@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline, sensorView, otherSensors } from '../types';
 import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode, Pencil, Droplets } from 'lucide-react';
 import { PageHeader, TempDisplay, SmallValue, Chip, formatAgo } from './app/AppUI';
 
@@ -295,12 +295,12 @@ export const Dashboard: React.FC = () => {
                 {fermenters.map((f) => {
                     const isOnline = isDeviceOnline(f);
                     const isFermenter = f.mode === DeviceMode.FERMENTER;
-                    const isCold = f.mode === DeviceMode.KEGERATOR || f.mode === DeviceMode.FRIDGE;
                     const num = (v: unknown) => { const n = parseFloat(String(v ?? '')); return Number.isFinite(n) ? n : undefined; };
 
-                    const mainTemp = isCold ? num(f.currentFridgeTemp) : num(f.currentDevice?.temperature);
-                    const otherTemp = isCold ? num(f.currentDevice?.temperature) : num(f.currentFridgeTemp);
-                    const otherName = isCold ? (f.sensor1_name || 'Sensor 1') : (f.sensor2_name || 'Geladeira');
+                    // Temperatura grande: o sensor que controla o modo; os outros so para ver
+                    const sv = sensorView(f);
+                    const mainTemp = sv.temps[sv.control];
+                    const others = otherSensors(sv);
                     const target = num(f.targetTemp);
                     const lastChartGravity = f.readings && f.readings.length > 0 ? f.readings[f.readings.length - 1].gravity : 0;
                     const gravity = normalizeGravity(f.currentDevice?.gravity > 0 ? f.currentDevice.gravity : lastChartGravity, 0);
@@ -382,9 +382,9 @@ export const Dashboard: React.FC = () => {
                                 ) : (
                                     <Chip dot="off">Offline · {formatAgo(f.lastSeen)}</Chip>
                                 )}
-                                {shown(otherTemp) !== undefined && (
-                                    <Chip icon={<Thermometer size={14} />} title={otherName}>{otherTemp!.toFixed(1)}°C</Chip>
-                                )}
+                                {others.filter(o => shown(o.temp) !== undefined).map(o => (
+                                    <Chip key={o.slot} icon={<Thermometer size={14} />} title={o.name}>{o.temp.toFixed(1)}°C</Chip>
+                                ))}
                                 {isFermenter && humidity !== undefined && <Chip icon={<Droplets size={14} />} title="Umidade">{Math.round(humidity)}%</Chip>}
                                 {weakWifi && <Chip dot="warn">Wi-Fi fraco</Chip>}
                             </div>

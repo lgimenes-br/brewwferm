@@ -1021,15 +1021,16 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         const nameInput = scanDialog()!.querySelector('input[aria-label="Nome do Sensor 1"]') as HTMLInputElement;
         expect(nameInput).toBeTruthy();
 
-        // Inverte: o 2º sensor vira Sensor 1 (controle)
+        // Inverte: o 2º sensor vira Sensor 1 (o 1º troca e vira Sensor 2)
         const row2 = scanDialog()!.querySelector('[data-testid="scan-row-28FFBB445566"]')!;
-        clickElement(Array.from(row2.querySelectorAll('button')).find(b => (b.textContent || '').includes('Sensor 1')));
+        clickElement(Array.from(row2.querySelectorAll('button')).find(b => (b.textContent || '').trim() === '1'));
 
         await act(async () => {
             Array.from(scanDialog()!.querySelectorAll('button')).find(b => (b.textContent || '').trim() === 'Salvar')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
-        expectCommand('ESP32_CFG', '"macSensorControle":"28FFBB445566"');
+        expectCommand('ESP32_CFG', '"macs":["28FFBB445566","28FFAA112233","",""]'); // fw 2.11+: Sensor 1..4
+        expectCommand('ESP32_CFG', '"macSensorControle":"28FFBB445566"'); // firmware anterior
         expectCommand('ESP32_CFG', '"extraSensors":[{"mac":"28FFAA112233"');
         expect(scanDialog()).toBeNull();
 

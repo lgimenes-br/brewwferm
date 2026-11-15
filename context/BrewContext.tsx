@@ -28,6 +28,8 @@ interface BrewContextType {
 export interface ScanDetails {
     sensors: { mac: string; temp: number | null }[];
     macCtrl?: string;
+    /** MAC salvo em cada Sensor 1..4 (fw 2.11+) */
+    slots?: string[];
     mac2?: string;
     receivedAt: number;
 }
@@ -139,6 +141,7 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             [String(respId).toUpperCase()]: {
                                 sensors,
                                 macCtrl: typeof payload.macCtrl === 'string' ? payload.macCtrl : undefined,
+                                slots: Array.isArray(payload.slots) ? payload.slots.map((m: unknown) => (typeof m === 'string' ? m : '')) : undefined,
                                 mac2: typeof payload.mac2 === 'string' ? payload.mac2 : undefined,
                                 receivedAt: Date.now()
                             }

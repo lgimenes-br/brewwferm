@@ -89,6 +89,8 @@ export interface Fermenter {
   mode: DeviceMode; // Novo campo: Modo de Operação
   sensor1_name?: string;
   sensor2_name?: string;
+  sensor3_name?: string;
+  sensor4_name?: string;
   sensor_sg_name?: string;
   chopp_name?: string;
   status: FermenterStatus;
@@ -129,6 +131,8 @@ export interface FinishedBrew {
   ingredients?: any; // Receita (Maltes, Lúpulos, Levedura)
   sensor1_name?: string;
   sensor2_name?: string;
+  sensor3_name?: string;
+  sensor4_name?: string;
   sensor_sg_name?: string;
   chopp_name?: string;
 }
@@ -222,3 +226,45 @@ export const getEventReferenceMarks = (safeData: { timestamp: string }[], events
         })
         .filter(e => Boolean(e.markTime));
 };
+
+// ---------- Sensores numerados (fw 2.11+) ----------
+// Ate 4 DS18B20 (Sensor 1..4). Um so controla a temperatura do modo; os outros aparecem so para ver.
+// Mesma regra do app (breww-app/src/core/device.ts: controlSlot/otherSensors). Manter igual.
+
+export interface SensorView {
+    temps: (number | undefined)[]; // indice 0 = Sensor 1
+    names: string[];
+    control: number;               // sensor que controla agora
+    controlMap?: number[];         // escolha por modo [fermentador, geladeira, choppeira]; -1 = automatico
+    supportsControl: boolean;      // firmware 2.11+ (informa ctlMap)
+}
+
+const finiteOrUndef = (v: unknown): number | undefined => {
+    if (v === null || v === undefined || v === '') return undefined;
+    const n = typeof v === 'number' ? v : parseFloat(String(v));
+    return Number.isFinite(n) ? n : undefined;
+};
+
+export const sensorView = (f: Fermenter): SensorView => {
+    const raw: any = (f.currentDevice as any)?.rawPayload || {};
+    const ext: any = f.currentDevice?.extSens || {};
+    const t = Array.isArray(raw.t) ? raw.t : null;
+    const temps = [
+        t ? finiteOrUndef(t[0]) : finiteOrUndef(f.currentDevice?.temperature),
+        t ? finiteOrUndef(t[1]) : finiteOrUndef(f.currentFridgeTemp),
+        t ? finiteOrUndef(t[2]) : finiteOrUndef(ext.s3),
+        t ? finiteOrUndef(t[3]) : finiteOrUndef(ext.s4),
+    ];
+    const names = [f.sensor1_name, f.sensor2_name, f.sensor3_name, f.sensor4_name].map((n, i) => (n || '').trim() || `Sensor ${i + 1}`);
+    const reported = Number.isInteger(raw.ctl) ? raw.ctl : Number.isInteger(ext.ctl) ? ext.ctl : undefined;
+    const cold = f.mode === DeviceMode.FRIDGE || f.mode === DeviceMode.KEGERATOR;
+    // Sem o aparelho informar (firmware antigo): fermentador pelo Sensor 1; geladeira/choppeira pelo 2 (sem ele, pelo 1)
+    const control = reported !== undefined && reported >= 0 && reported < 4 ? reported : cold ? (temps[1] !== undefined || temps[0] === undefined ? 1 : 0) : 0;
+    const controlMap = Array.isArray(raw.ctlMap) ? raw.ctlMap.map((v: unknown) => (Number.isInteger(v) ? Number(v) : -1)) : undefined;
+    return { temps, names, control, controlMap, supportsControl: !!controlMap };
+};
+
+/** Os outros sensores com leitura (nao controlam) */
+export const otherSensors = (v: SensorView) =>
+    v.temps.map((temp, slot) => ({ slot, name: v.names[slot], temp }))
+        .filter((s): s is { slot: number; name: string; temp: number } => s.slot !== v.control && s.temp !== undefined);

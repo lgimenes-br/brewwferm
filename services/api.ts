@@ -131,11 +131,11 @@ export const updateChoppName = async (token: string, deviceId: string, choppName
     return res.json();
 };
 
-export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string, sensorSgName: string) => {
+export const updateSensors = async (token: string, deviceId: string, sensor1Name: string, sensor2Name: string, sensorSgName: string, sensor3Name?: string, sensor4Name?: string) => {
     const res = await fetch(`${API_URL}/devices/${encodeURIComponent(deviceId)}/sensors`, {
         method: 'PUT',
         headers: getHeaders(token),
-        body: JSON.stringify({ sensor1Name, sensor2Name, sensorSgName })
+        body: JSON.stringify({ sensor1Name, sensor2Name, sensorSgName, sensor3Name, sensor4Name })
     });
     checkUnauthorized(res);
     if (!res.ok) throw new Error('Falha ao atualizar sensores');

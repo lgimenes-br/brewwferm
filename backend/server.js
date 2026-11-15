@@ -159,6 +159,9 @@ const initDb = async () => {
         await ensureIdentityTable(pool).catch(e => console.error('⚠️ [DB Migration] user_identities:', e.message));
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
+        // Sensores numerados (fw 2.11): ate 4; nome vazio = "Sensor N" nos apps
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor3_name VARCHAR(50) DEFAULT NULL`);
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor4_name VARCHAR(50) DEFAULT NULL`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp'`);
         await runMigration(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`);
@@ -624,7 +627,15 @@ mqttClient.on('message', async (topic, message, packet) => {
                 }
 
                 let dateSQL = 'NOW()';
-                let extraSensorsJSON = payload.ext_s ? JSON.stringify(payload.ext_s) : null;
+                // Extras da leitura: umidade e, no fw 2.11+, os Sensores 3 e 4 e qual sensor controlava (0 = Sensor 1)
+                const extra = payload.ext_s && typeof payload.ext_s === 'object' ? { ...payload.ext_s } : {};
+                if (Array.isArray(payload.t)) {
+                    const t3 = sanitizeNum(payload.t[2], 1), t4 = sanitizeNum(payload.t[3], 1);
+                    if (t3 !== null) extra.s3 = Number(t3);
+                    if (t4 !== null) extra.s4 = Number(t4);
+                }
+                if (Number.isInteger(payload.ctl) && payload.ctl >= 0 && payload.ctl < 4) extra.ctl = payload.ctl;
+                let extraSensorsJSON = Object.keys(extra).length ? JSON.stringify(extra) : null;
                 let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
                 
                 // Apenas confia no timestamp do ESP32 se ele for maior que o ano 2020 (NTP Sincronizado)
@@ -1187,9 +1198,10 @@ app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
 
 app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
     try {
-        const { sensor1Name, sensor2Name, sensorSgName } = req.body || {};
-        await pool.execute('UPDATE devices SET sensor1_name = COALESCE(?, sensor1_name), sensor2_name = COALESCE(?, sensor2_name), sensor_sg_name = COALESCE(?, sensor_sg_name) WHERE serial_code = ? AND user_id = ?', 
-            [sensor1Name ?? null, sensor2Name ?? null, sensorSgName ?? null, req.params.id, req.user.id]);
+        const { sensor1Name, sensor2Name, sensorSgName, sensor3Name, sensor4Name } = req.body || {};
+        const clip = (v) => (typeof v === 'string' ? v.trim().slice(0, 50) : null);
+        await pool.execute('UPDATE devices SET sensor1_name = COALESCE(?, sensor1_name), sensor2_name = COALESCE(?, sensor2_name), sensor_sg_name = COALESCE(?, sensor_sg_name), sensor3_name = COALESCE(?, sensor3_name), sensor4_name = COALESCE(?, sensor4_name) WHERE serial_code = ? AND user_id = ?', 
+            [clip(sensor1Name), clip(sensor2Name), clip(sensorSgName), clip(sensor3Name), clip(sensor4Name), req.params.id, req.user.id]);
         notifyUpdate(req.params.id);
         res.json({ message: 'Sensores atualizados no backend' });
     } catch (err) {
