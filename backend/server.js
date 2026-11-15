@@ -1848,11 +1848,15 @@ Sensores Atuais: Temp Mosto ${beerTemp || 0}°C, Temp Geladeira ${fridgeTemp || 
 Histórico recente: ${JSON.stringify(Array.isArray(readings) ? readings.slice(-15) : [])}
 Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score" (0-100), "estimated_completion_days" (number), "risk_level" ("low"|"medium"|"high"), "insights" (array de strings), "ideal_curve" (array de { "hours": number, "gravity": number }). Responda em Português do Brasil.`;
 
-        const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+        // Modelos: os nomes fixos envelhecem (o Google aposenta versoes; 1.5 e 2.0 ja sairam). Tenta o
+        // configurado, o apelido "latest" e, se nenhum servir, pergunta a API quais "flash" existem.
+        const preferred = [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean);
+        const tried = new Set();
         let parsedResult = null;
-        let lastErr = 'Falha ao consultar Gemini';
+        let lastErr = 'Falha ao consultar o Gemini';
 
-        for (const model of modelsToTry) {
+        const callModel = async (model) => {
+            tried.add(model);
             const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1864,13 +1868,33 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
             const gData = await gRes.json().catch(() => ({}));
             if (!gRes.ok) {
                 lastErr = gData?.error?.message || `HTTP ${gRes.status}`;
-                continue;
+                return null;
             }
             const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (typeof text === 'string' && text.trim()) {
-                const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                parsedResult = JSON.parse(cleanText);
-                break;
+            if (typeof text !== 'string' || !text.trim()) return null;
+            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            try { return JSON.parse(cleanText); } catch { lastErr = 'Resposta do Gemini fora do formato esperado'; return null; }
+        };
+
+        for (const model of preferred) {
+            parsedResult = await callModel(model);
+            if (parsedResult) break;
+        }
+        if (!parsedResult) {
+            try {
+                const lRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(apiKey)}`);
+                const lData = await lRes.json().catch(() => ({}));
+                const available = (Array.isArray(lData?.models) ? lData.models : [])
+                    .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+                    .map(m => String(m.name || '').replace(/^models\//, ''))
+                    .filter(n => /flash/.test(n) && !/(image|tts|audio|live|thinking|exp)/.test(n) && !tried.has(n))
+                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true })); // versao mais nova primeiro
+                for (const model of available.slice(0, 3)) {
+                    parsedResult = await callModel(model);
+                    if (parsedResult) { console.log(`[AI] usando o modelo ${model} (defina GEMINI_MODEL para fixar)`); break; }
+                }
+            } catch (e) {
+                lastErr = e.message || lastErr;
             }
         }
 
