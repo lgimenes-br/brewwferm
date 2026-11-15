@@ -32,6 +32,7 @@ const CompareBatches = React.lazy(() => import('./components/CompareBatches').th
 const PublicLiveBatch = React.lazy(() => import('./components/PublicLiveBatch').then(m => ({ default: m.PublicLiveBatch })));
 const Help = React.lazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const Installer = React.lazy(() => import('./components/Installer').then(m => ({ default: m.Installer })));
+const LandingApp = React.lazy(() => import('./components/landing2/LandingApp').then(m => ({ default: m.LandingApp })));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 
 const NavConfig = () => {
@@ -85,7 +86,7 @@ const NavConfig = () => {
     if (role === 'admin') return null;
 
     // Hide navigation bar on public or landing pages
-    const publicRoutes = ['/home-nova', '/login', '/register', '/app-login', '/instalar', '/instalar/assistente', '/ajuda', '/privacidade', '/termos'];
+    const publicRoutes = ['/home', '/home-nova', '/login', '/register', '/app-login', '/instalar', '/instalar/assistente', '/ajuda', '/privacidade', '/termos'];
     if (publicRoutes.includes(location.pathname) || location.pathname.startsWith('/live/')) return null;
 
     // Check if we are inside a device page
@@ -371,8 +372,9 @@ const AppRoutes = () => {
                     <Route path="/instalar" element={<Installer />} />
                     <Route path="/instalar/assistente" element={<InstallWizard />} />
                     <Route path="/ajuda" element={<Help />} />
-                    {/* Endereco usado para comparar as duas homes: agora a nova e a oficial em "/" */}
-                    <Route path="/home-nova" element={<Navigate to="/" replace />} />
+                    {/* Home publica tambem para quem esta logado */}
+                    <Route path="/home" element={<LandingApp />} />
+                    <Route path="/home-nova" element={<Navigate to="/home" replace />} />
                     <Route path="/privacidade" element={<Privacy />} />
                     <Route path="/termos" element={<Terms />} />
 

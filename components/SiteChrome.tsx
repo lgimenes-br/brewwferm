@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { BrewwLogo } from './BrewwMark';
+import { HeaderFloatingMenu } from './headers/HeaderVariants';
 
 // Cabecalho e rodape das paginas publicas (home, instalador, ajuda, legais). Usar dentro de .brew-landing.
 // No celular os links vao para um menu que abre abaixo do cabecalho; tudo o que se toca tem 44 px ou mais.
@@ -19,20 +19,9 @@ const NavLink: React.FC<{ item: NavItem; className: string; onClick?: () => void
         ? <a href={item.to} className={className} onClick={onClick}>{item.label}</a>
         : <Link to={item.to} className={className} onClick={onClick}>{item.label}</Link>;
 
-/** minimal: modo tarefa (assistente). So o logo e uma saida; com locked (gravando) nem isso, para nao abandonar a gravacao. */
-/** nav: links proprios da pagina (ex.: secoes da home nova); signIn: mostra "Entrar" ao lado de "Criar conta" */
-export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locked?: boolean }; nav?: NavItem[]; signIn?: boolean }> = ({ minimal, nav: navItems = NAV, signIn }) => {
-    const [open, setOpen] = useState(false);
-    const { pathname, hash } = useLocation();
-
-    useEffect(() => { setOpen(false); }, [pathname, hash]);
-    useEffect(() => {
-        if (!open) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [open]);
-
+/** minimal: modo tarefa (assistente). So o logo e uma saida; com locked (gravando) nem isso, para nao abandonar a gravacao.
+ *  nav: links proprios da pagina (ex.: secoes da home nova). "Entrar" fica no menu. */
+export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locked?: boolean }; nav?: NavItem[] }> = ({ minimal, nav: navItems = NAV }) => {
     if (minimal) {
         return (
             <header className="sticky top-0 z-30 border-b border-black/5 bg-[var(--bg)]">
@@ -48,43 +37,8 @@ export const SiteHeader: React.FC<{ minimal?: { label: string; to: string; locke
         );
     }
 
-    return (
-        <header className="sticky top-0 z-30 border-b border-black/5 bg-[var(--bg)]/85 backdrop-blur-md">
-            <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:px-6" aria-label="Principal">
-                <Link to="/" aria-label="Breww, início" className="-ml-1 flex min-h-11 items-center px-1">
-                    <BrewwLogo />
-                </Link>
-                <div className="hidden items-center gap-1 text-sm text-[var(--muted)] md:flex">
-                    {navItems.map(item => <NavLink key={item.label} item={item} className="flex min-h-11 items-center rounded-full px-3.5 hover:text-[var(--ink)]" />)}
-                </div>
-                <div className="flex items-center gap-1">
-                    {signIn && <Link to="/login" className="hidden min-h-11 items-center rounded-full px-4 text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:inline-flex">Entrar</Link>}
-                    <Link to="/register" className="inline-flex min-h-11 items-center rounded-full bg-[var(--ink)] px-5 text-sm font-medium text-white hover:bg-black">Criar conta</Link>
-                    <button
-                        type="button"
-                        className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--ink)] hover:bg-black/[0.04] md:hidden"
-                        aria-label={open ? 'Fechar menu' : 'Abrir menu'}
-                        aria-expanded={open}
-                        aria-controls="menu-celular"
-                        onClick={() => setOpen(o => !o)}
-                    >
-                        {open ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
-                    </button>
-                </div>
-            </nav>
-            {open && (
-                <div id="menu-celular" className="border-t border-black/5 bg-[var(--bg)] md:hidden">
-                    <ul className="mx-auto max-w-6xl px-4 py-2">
-                        {navItems.map(item => (
-                            <li key={item.label}>
-                                <NavLink item={item} onClick={() => setOpen(false)} className="flex min-h-12 items-center border-b border-black/5 text-lg text-[var(--ink)]" />
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-        </header>
-    );
+    // Paginas publicas: capsula flutuante com menu em tela cheia (components/headers/HeaderVariants.tsx)
+    return <HeaderFloatingMenu nav={navItems} />;
 };
 
 const footLink = 'inline-flex min-h-11 min-w-11 items-center hover:text-white';

@@ -359,20 +359,19 @@ const Closing: React.FC = () => (
     </section>
 );
 
+const NAV = [
+    { label: 'Como funciona', to: '#recursos', anchor: true },
+    { label: 'Monte o seu', to: '/instalar' },
+    { label: 'Preços', to: '#precos', anchor: true },
+    { label: 'Ajuda', to: '/ajuda' },
+];
+
 export const LandingApp: React.FC = () => {
     const reduced = useReducedMotion();
     useEffect(() => { document.title = 'Breww — Controle de fermentação no celular'; }, []);
     return (
         <div className="min-h-screen text-[var(--ink)]">
-            <SiteHeader
-                signIn
-                nav={[
-                    { label: 'Como funciona', to: '#recursos', anchor: true },
-                    { label: 'Monte o seu', to: '/instalar' },
-                    { label: 'Preços', to: '#precos', anchor: true },
-                    { label: 'Ajuda', to: '/ajuda' },
-                ]}
-            />
+            <SiteHeader nav={NAV} />
             <main>
                 <Hero reduced={reduced} />
                 <Paths />
