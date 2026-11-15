@@ -26,9 +26,7 @@ import { YeastCalculator } from '../components/calculators/YeastCalculator';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { BrewProvider } from '../context/BrewContext';
 import { ForecastingEngine } from '../components/ForecastingEngine';
-import { DualAxisChart } from '../components/DualAxisChart';
-import { GravityChart } from '../components/GravityChart';
-import { TemperatureChart } from '../components/TemperatureChart';
+import { BatchCharts } from '../components/BatchCharts';
 import { FermentationTimeline } from '../components/FermentationTimeline';
 import { FermentationProfile } from '../components/FermentationProfile';
 import { FermentationWizard } from '../components/FermentationWizard';
@@ -45,7 +43,7 @@ import { Login } from '../components/Login';
 import { Register } from '../components/Register';
 import { SystemBanner } from '../components/SystemBanner';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { FermenterStatus, DeviceMode, BeerStyle, Fermenter, FinishedBrew } from '../types';
+import { FermenterStatus, DeviceMode, BeerStyle, Fermenter, FinishedBrew, EventType, formatGravity, isPlausibleGravity } from '../types';
 import * as api from '../services/api';
 import { getBrewingInsights } from '../services/geminiService';
 // @ts-ignore - CommonJS/untyped JS backend module
@@ -399,10 +397,8 @@ describe('3. Charts, Forecasting, Advisor, Profile, Wizard, History & Details Ed
     it('renders multiple Charts on the same page with unique SVG defs IDs and filters invalid data points', () => {
         renderUI(
             <div>
-                <DualAxisChart data={mockFermenter.readings} events={[]} />
-                <DualAxisChart data={mockFermenter.readings} events={[]} />
-                <GravityChart data={mockFermenter.readings} events={[]} />
-                <TemperatureChart data={mockFermenter.readings} events={[]} />
+                <BatchCharts readings={mockFermenter.readings} events={[]} live />
+                <BatchCharts readings={mockFermenter.readings} events={[]} />
             </div>
         );
         expect(container.innerHTML.length).toBeGreaterThan(0);
@@ -425,6 +421,28 @@ describe('3. Charts, Forecasting, Advisor, Profile, Wizard, History & Details Ed
         );
         expect(container.textContent).not.toContain('NaN');
         expect(container.textContent).not.toContain('Infinity');
+    });
+
+    it('Diario mostra os 5 mais recentes primeiro e "Ver todos" abre o restante', () => {
+        const events = Array.from({ length: 8 }, (_, i) => ({ id: `e${i}`, type: EventType.OTHER, description: `Nota ${i}`, timestamp: new Date(2026, 10, 1 + i).toISOString() }));
+        renderUI(<FermentationTimeline events={events} startDate={undefined as any} onAddEvent={() => {}} onRemoveEvent={() => {}} />);
+        const text = () => container.textContent || '';
+        expect(text()).toContain('Nota 7');
+        expect(text()).toContain('Nota 3');
+        expect(text()).not.toContain('Nota 2');
+        expect(text().indexOf('Nota 7')).toBeLessThan(text().indexOf('Nota 6'));
+        const more = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Ver todos (8)'))!;
+        act(() => { more.click(); });
+        expect(text()).toContain('Nota 0');
+        expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+    });
+
+    it('Densidade aparece mesmo fora da faixa; so as contas exigem valor plausivel', () => {
+        expect(formatGravity(32.949)).toBe('32.949');
+        expect(formatGravity(0)).toBe('--');
+        expect(formatGravity(NaN)).toBe('--');
+        expect(isPlausibleGravity(1.012)).toBe(true);
+        expect(isPlausibleGravity(32.949)).toBe(false);
     });
 
     it('GeminiAdvisor renders cleanly with 4-digit OG/FG without NaN%', () => {

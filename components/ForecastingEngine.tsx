@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Fermenter } from '../types';
+import { Fermenter, isPlausibleGravity } from '../types';
 import { Activity, CheckCircle2 } from 'lucide-react';
 
 interface ForecastingEngineProps {
@@ -9,14 +9,14 @@ interface ForecastingEngineProps {
 export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter }) => {
   const { og, fg, readings } = fermenter || ({} as Fermenter);
 
-  const { progress, isStabilized } = useMemo(() => {
+  const { progress, isStabilized, hasData } = useMemo(() => {
     const validReadings = (Array.isArray(readings) ? readings : []).filter(r => {
-      const g = parseFloat(String(r?.gravity));
-      return !isNaN(g) && g > 0;
+      // So leituras plausiveis (0,980 a 1,200) entram na previsao, como no app
+      return isPlausibleGravity(parseFloat(String(r?.gravity)));
     });
 
     if (validReadings.length === 0) {
-      return { progress: 0, isStabilized: false };
+      return { progress: 0, isStabilized: false, hasData: false };
     }
 
     // Sort by timestamp just in case
@@ -49,7 +49,7 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
 
     if (reading48hAgo) {
       const oldGravity = parseFloat(String(reading48hAgo.gravity));
-      if (!isNaN(oldGravity) && oldGravity > 0) {
+      if (isPlausibleGravity(oldGravity)) {
         const diff = Math.abs(oldGravity - currentG);
         // If gravity varied by less than 0.002 points in 48h, it's considered stabilized
         if (diff <= 0.002 && prog > 80) { // Also require at least 80% expected attenuation to avoid false positives early on
@@ -60,7 +60,8 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
 
     return {
       progress: prog,
-      isStabilized: stabilized
+      isStabilized: stabilized,
+      hasData: true
     };
   }, [readings, og, fg]);
 
@@ -74,7 +75,7 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
         <div className="flex-1 w-full">
           <div className="flex justify-between items-end mb-2 px-1">
             <span className="text-[17px] text-[var(--ink)]">Atenuação aparente</span>
-            <span className="text-[26px] font-light tabular text-[var(--ink)] leading-none">{progress.toFixed(1)}<span className="text-[13px] text-[var(--muted)] ml-0.5 align-top">%</span></span>
+            <span className="text-[26px] font-light tabular text-[var(--ink)] leading-none">{hasData ? <>{progress.toFixed(1)}<span className="text-[13px] text-[var(--muted)] ml-0.5 align-top">%</span></> : '--'}</span>
           </div>
           
           <div
@@ -104,7 +105,17 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
             ? 'bg-blue-50 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
             : 'bg-[var(--bg)] border-black/[0.07]'
         }`}>
-          {isStabilized ? (
+          {!hasData ? (
+            <>
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
+                <Activity size={20} className="text-[var(--muted)]" />
+              </div>
+              <div>
+                <p className="text-[var(--ink)] text-[15px] mb-0.5">Sem leitura válida</p>
+                <p className="text-[var(--muted)] text-[13px] leading-snug">O densímetro está fora da faixa de mosto ou sem sinal.</p>
+              </div>
+            </>
+          ) : isStabilized ? (
             <>
               <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
                 <CheckCircle2 size={20} className="text-[var(--accent)]" />

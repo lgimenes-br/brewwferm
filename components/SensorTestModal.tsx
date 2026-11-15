@@ -239,7 +239,7 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
                     <div className="text-[11px] text-[var(--muted)] grid grid-cols-2 gap-2 mb-4">
                         <span>RSSI: {raw.rssi ?? '--'} dBm</span>
                         <span>Firmware: {raw.ver || raw.fw || '--'}</span>
-                        <span className="col-span-2">Último pacote: {lastPacketMs ? new Date(lastPacketMs).toLocaleTimeString() : '--'}</span>
+                        <span className="col-span-2">Último pacote: {lastPacketMs ? new Date(lastPacketMs).toLocaleTimeString('pt-BR') : '--'}</span>
                     </div>
                 )}
 

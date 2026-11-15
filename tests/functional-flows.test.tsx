@@ -465,7 +465,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(fetchCalls.some(c => c.url.includes('/batch/update') && c.body?.name === 'Double West Coast IPA')).toBe(true);
 
         // 7. Testa Adicionar Anotação no Diário de Bordo (FermentationTimeline) com validação
-        const addNoteBtn = container.querySelector('button[title="Nova Nota"]') as HTMLButtonElement;
+        const addNoteBtn = container.querySelector('button[title="Nova anotação"]') as HTMLButtonElement;
         clickElement(addNoteBtn);
         expect(container.textContent).toContain('Nova Anotação');
 
@@ -1224,7 +1224,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(apiCalls.some(c => c.url.includes('/batch/update') && Array.isArray(c.body?.profile) && c.body.profile.length === 1)).toBe(true);
 
         // 3. Exclui o evento "Adição de Saaz" do Diário de Bordo
-        const removeEventBtn = container.querySelector('button[title="Remover evento"]') as HTMLButtonElement;
+        const removeEventBtn = container.querySelector('button[title="Remover"]') as HTMLButtonElement;
         await act(async () => {
             removeEventBtn.click();
             await new Promise(r => setTimeout(r, 30));

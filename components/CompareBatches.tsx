@@ -103,7 +103,7 @@ export const CompareBatches: React.FC = () => {
                         >
                             <option value="">Selecione um lote</option>
                             {batches.map(b => (
-                                <option key={b.id} value={b.id}>{b.name} - {new Date(b.started_at).toLocaleDateString()}</option>
+                                <option key={b.id} value={b.id}>{b.name} - {new Date(b.started_at).toLocaleDateString('pt-BR')}</option>
                             ))}
                         </select>
                     </div>
@@ -117,7 +117,7 @@ export const CompareBatches: React.FC = () => {
                         >
                             <option value="">Selecione um lote</option>
                             {batches.map(b => (
-                                <option key={b.id} value={b.id}>{b.name} - {new Date(b.started_at).toLocaleDateString()}</option>
+                                <option key={b.id} value={b.id}>{b.name} - {new Date(b.started_at).toLocaleDateString('pt-BR')}</option>
                             ))}
                         </select>
                     </div>

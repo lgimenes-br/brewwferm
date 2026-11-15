@@ -150,7 +150,7 @@ export const FermentationHistory: React.FC = () => {
                         <div className="col-span-2 text-[var(--muted)] text-sm font-light">
                             <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-black/35" />
-                                {brew.endDate ? new Date(brew.endDate).toLocaleDateString() : <span className="text-[#178a3f] text-xs font-medium">Em andamento</span>}
+                                {brew.endDate ? new Date(brew.endDate).toLocaleDateString('pt-BR') : <span className="text-[#178a3f] text-xs font-medium">Em andamento</span>}
                             </div>
                         </div>
 

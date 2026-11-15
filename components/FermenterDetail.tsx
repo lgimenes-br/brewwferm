@@ -2,13 +2,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isDeviceOnline, sensorView, otherSensors } from '../types';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isPlausibleGravity, isDeviceOnline, sensorView, otherSensors } from '../types';
 import { Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu } from 'lucide-react';
 import { TempDisplay, SmallValue, StatTile } from './app/AppUI';
 import { generateBatchShareToken } from '../services/api';
-import { TemperatureChart } from './TemperatureChart';
-import { GravityChart } from './GravityChart';
-import { DualAxisChart } from './DualAxisChart';
+import { BatchCharts } from './BatchCharts';
 import { FermentationTimeline } from './FermentationTimeline';
 import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
@@ -303,13 +301,15 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // Calculations
 
-    const abv = (safeOG > 0 && safeCurrentGravity > 0)
+    // Contas so com leitura plausivel: 32.949 (densimetro fora do liquido) daria "0%" falso
+    const gravityOk = isPlausibleGravity(safeCurrentGravity);
+    const abv = (safeOG > 0 && gravityOk)
         ? Math.max(0, (safeOG - safeCurrentGravity) * 131.25).toFixed(1)
-        : "0.0";
+        : '--';
 
-    const currentAttenuation = (safeOG > 1.000 && safeCurrentGravity > 0)
+    const currentAttenuation = (safeOG > 1.000 && gravityOk)
         ? Math.max(0, ((safeOG - safeCurrentGravity) / (safeOG - 1.000)) * 100).toFixed(0)
-        : "0";
+        : '--';
 
     const getStepTimeRemaining = () => {
         if (fermenter.status === FermenterStatus.IDLE || !fermenter.profile || fermenter.profile.length === 0) {
@@ -592,15 +592,15 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <SmallValue value={safeTargetTemp.toFixed(1)} unit="°C" size={26} />
                             <span className="text-[12px] text-[var(--tertiary)]">{step ? `definido pelo perfil · ${step.name}` : 'definido pelo perfil'}</span>
                         </div>
-                        <StatTile label={fermenter.sensor_sg_name || 'Densidade'} value={formatGravity(safeCurrentGravity)} caption={formatGravity(safeCurrentGravity) === '--' ? 'sem leitura do densímetro' : 'densidade atual'} icon={<Droplets size={14} />} />
+                        <StatTile label={fermenter.sensor_sg_name || 'Densidade'} value={formatGravity(safeCurrentGravity)} caption={formatGravity(safeCurrentGravity) === '--' ? 'sem leitura do densímetro' : gravityOk ? 'densidade atual' : 'fora da faixa de mosto'} icon={<Droplets size={14} />} />
                         <StatTile label="Fim da etapa" value={getStepTimeRemaining()} caption={step ? step.name : undefined} icon={<Clock size={14} />} />
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mt-3 sm:mt-4">
                         <StatTile label="OG" value={safeOG > 0 ? safeOG.toFixed(3) : '--'} caption="densidade inicial" icon={<ArrowDown size={14} />} />
                         <StatTile label="FG" value={safeFG ? safeFG.toFixed(3) : '--'} caption="densidade final (alvo)" icon={<Target size={14} />} />
-                        <StatTile label="Atenuação" value={currentAttenuation} unit="%" icon={<Percent size={14} />} />
-                        <StatTile label="Álcool estimado" value={abv} unit="%" icon={<FlaskConical size={14} />} />
+                        <StatTile label="Atenuação" value={currentAttenuation} unit={currentAttenuation === '--' ? undefined : '%'} icon={<Percent size={14} />} />
+                        <StatTile label="Álcool estimado" value={abv} unit={abv === '--' ? undefined : '%'} icon={<FlaskConical size={14} />} />
                         {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
                         <StatTile
                             label="Bateria do densímetro"
@@ -613,22 +613,19 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     </div>
 
                     {/* Graficos a esquerda; perfil, diario e analise a direita */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mt-8 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 mt-8 items-stretch">
                         <div className="order-2 lg:order-1 lg:col-span-2 flex flex-col gap-4 min-w-0">
                             <ForecastingEngine fermenter={fermenter} />
-                            <ErrorBoundary name="Gráfico de Temperatura">
-                                <TemperatureChart
-                                    data={fermenter.readings}
+                            <ErrorBoundary name="Gráficos do lote">
+                                <BatchCharts
+                                    readings={fermenter.readings}
                                     events={fermenter.events}
-                                    sensor1Name={fermenter.sensor1_name || 'Cerveja'}
-                                    sensor2Name={fermenter.sensor2_name || 'Geladeira'}
+                                    sensor1Name={sv.names[0]}
+                                    sensor2Name={sv.names[1]}
+                                    sensorSgName={fermenter.sensor_sg_name || 'Densidade'}
+                                    live
+                                    className="lg:flex-1"
                                 />
-                            </ErrorBoundary>
-                            <ErrorBoundary name="Gráfico de Densidade">
-                                <GravityChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} sensorSgName={fermenter.sensor_sg_name || 'Densidade'} />
-                            </ErrorBoundary>
-                            <ErrorBoundary name="Gráfico Duplo (Temp + Densidade)">
-                                <DualAxisChart data={fermenter.readings} og={fermenter.og} fg={fermenter.fg} events={fermenter.events} sensor1Name={fermenter.sensor1_name || 'Cerveja'} sensorSgName={fermenter.sensor_sg_name || 'Densidade'} />
                             </ErrorBoundary>
                         </div>
                         <div className="order-1 lg:order-2 flex flex-col gap-4 min-w-0">
@@ -655,8 +652,11 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                 <div className="app-card p-6 text-center text-[15px] text-[var(--muted)]">Nenhum perfil em andamento.</div>
                             )}
                             <FermentationTimeline events={fermenter.events || []} startDate={fermenter.startDate} onAddEvent={handleAddEvent} onRemoveEvent={handleRemoveEvent} />
-                            <GeminiAdvisor fermenter={fermenter} className="min-h-[200px]" />
                         </div>
+                    </div>
+                    {/* Breww.AI numa faixa propria, da largura toda: as duas colunas acima terminam juntas */}
+                    <div className="mt-4 lg:mt-5">
+                        <GeminiAdvisor fermenter={fermenter} />
                     </div>
                     {metaLine}
                 </>

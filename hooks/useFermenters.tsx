@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Fermenter, FermenterStatus, DeviceMode, normalizeGravity, parseBeerStyle } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, normalizeGravity, parseBeerStyle, eventTypeFromServer } from '../types';
 
 // Store latest live MQTT updates per device in memory so in-flight HTTP queries never overwrite real-time MQTT telemetry
 const liveDeviceState = new Map<string, Partial<Fermenter>>();
@@ -294,7 +294,7 @@ export const useFermenters = () => {
                     if (Array.isArray(backendEvents)) {
                         mappedEvents = backendEvents.map((e: any) => ({
                             id: e.id?.toString() || Math.random().toString(36).substr(2, 9),
-                            type: e.event_type,
+                            type: eventTypeFromServer(e.event_type),
                             description: e.description,
                             timestamp: e.recorded_at
                         }));

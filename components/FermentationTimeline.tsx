@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FermentationEvent, EventType } from '../types';
-import { Plus, Calendar, X, MessageSquareText } from 'lucide-react';
+import { Plus, X, ChevronRight, Settings, Leaf, StickyNote } from 'lucide-react';
 
 interface FermentationTimelineProps {
   events: FermentationEvent[];
@@ -9,19 +9,23 @@ interface FermentationTimelineProps {
   onRemoveEvent: (id: string) => void;
 }
 
+/** Quantos acontecimentos aparecem antes do "Ver todos" (igual ao app) */
+export const DIARY_PREVIEW = 5;
+
 export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ events, startDate, onAddEvent, onRemoveEvent }) => {
   const [isAdding, setIsAdding] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [newType, setNewType] = useState<EventType>(EventType.OTHER);
   const [newDesc, setNewDesc] = useState('');
 
   useEffect(() => {
-    if (!isAdding) return;
+    if (!isAdding && !showAll) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsAdding(false);
+      if (e.key === 'Escape') { setIsAdding(false); setShowAll(false); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAdding]);
+  }, [isAdding, showAll]);
 
   const safeEvents = Array.isArray(events) ? events : [];
   
@@ -36,13 +40,14 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
     });
   }
   
-  // Sort events chronologically, oldest first
+  // Mais recentes primeiro (como no app); mostra os ultimos 5 e "Ver todos"
   const allEvents = [...safeEvents, ...syntheticEvents];
   const sortedEvents = allEvents.sort((a, b) => {
     const tA = new Date(a.timestamp).getTime();
     const tB = new Date(b.timestamp).getTime();
-    return (isNaN(tA) ? 0 : tA) - (isNaN(tB) ? 0 : tB);
+    return (isNaN(tB) ? 0 : tB) - (isNaN(tA) ? 0 : tA);
   });
+  const visibleEvents = sortedEvents.slice(0, DIARY_PREVIEW);
 
   const handleAdd = () => {
     if (!newDesc.trim()) return;
@@ -55,88 +60,59 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
     setIsAdding(false);
   };
 
-  const getColorForType = (type: EventType) => {
-    switch (type) {
-      case EventType.DRY_HOP: return 'bg-[#2fbf55]';
-      case EventType.FRUIT: return 'bg-pink-500';
-      case EventType.CLARIFIER: return 'bg-blue-400';
-      case EventType.SPICE: return 'bg-orange-400';
-      case EventType.SYSTEM_ACTION: return 'bg-black/20';
-      default: return 'bg-purple-500';
-    }
+  const when = (ts: string) => {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '--/--';
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
+  // Diario compacto, como no app: uma lista agrupada (icone, texto e "tipo · data"), sem um cartao por evento
   return (
-    <div className="relative bg-white border border-black/[0.07] rounded-[26px] p-6 h-full flex flex-col min-h-[400px] max-h-[600px]">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-[var(--muted)] font-medium text-xs flex items-center gap-2">
-          <MessageSquareText size={14} />
-          Diário do lote
-        </h3>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] rounded-full border border-black/15 transition-all shadow-sm text-xs font-medium "
-          title="Nova Nota"
-        >
-          <Plus size={14} />
-          <span>Adicionar</span>
+    <section className={`relative app-card p-5 flex flex-col gap-3 lg:flex-1 ${isAdding ? 'min-h-[440px]' : ''}`} aria-label="Diário do lote">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <h3 className="text-[15px] text-[var(--muted)]">Diário</h3>
+        <button type="button" onClick={() => setIsAdding(true)} className="app-pill !h-9 hover:bg-[var(--cell-2)]" title="Nova anotação">
+          <Plus size={14} aria-hidden /> Adicionar
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain pr-2 custom-scrollbar space-y-6 relative">
-        {/* Continuous vertical line connecting all events */}
-        {sortedEvents.length > 0 && (
-          <div className="absolute left-3 top-2 bottom-6 w-px bg-[var(--bg)] z-0"></div>
-        )}
-
-        {sortedEvents.length === 0 && !isAdding && (
-          <div className="flex flex-col items-center justify-center text-black/40 h-32 opacity-50">
-            <MessageSquareText size={24} className="mb-2" />
-            <span className="text-xs">Nenhum evento registrado.</span>
-          </div>
-        )}
-
-        {sortedEvents.map((event) => (
-          <div key={event.id} className="relative z-10 flex gap-4 group">
-            {/* Timeline Dot */}
-            <div className="flex flex-col items-center">
-              <div className={`w-6 h-6 rounded-full border-4 border-black flex items-center justify-center ${getColorForType(event.type)}`}>
-                <div className="w-1.5 h-1.5 bg-[var(--bg)] rounded-full opacity-50"></div>
-              </div>
-            </div>
-
-            {/* Event Card */}
-            <div className="flex-1 bg-white border border-black/[0.07] p-4 rounded-2xl hover:border-black/15 transition-colors relative">
-              {event.id !== 'system-start' && (
-                <button
-                  type="button"
-                  aria-label="Remover evento"
-                  onClick={() => onRemoveEvent(event.id)}
-                  className="absolute top-3 right-3 text-black/40 hover:text-[#d63a4d] opacity-60 md:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                  title="Remover evento"
-                >
-                  <X size={14} />
-                </button>
-              )}
-              
-              <div className="flex justify-between items-start mb-2 pr-6">
-                <span className="text-[12px] font-medium text-[var(--ink)] bg-[var(--bg)] px-2 py-1 rounded-md">
-                  {event.type}
+      {sortedEvents.length === 0 && !isAdding ? (
+        <p className="py-6 text-center text-[14px] text-[var(--muted)]">Nenhum acontecimento ainda.</p>
+      ) : (
+        <ul className="rounded-[18px] border border-[var(--line)] overflow-hidden divide-y divide-[var(--line)]">
+          {visibleEvents.map(event => <EventRow key={event.id} event={event} when={when} onRemove={onRemoveEvent} />)}
+          {sortedEvents.length > DIARY_PREVIEW && (
+            <li>
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                aria-haspopup="dialog"
+                className="w-full flex items-center gap-3 px-3 min-h-[48px] text-[14px] text-[var(--ink)] hover:bg-[var(--fill)] transition-colors"
+              >
+                <span aria-hidden className="w-8 h-8 rounded-full bg-[var(--fill)] flex items-center justify-center text-[var(--muted)]">
+                  <ChevronRight size={14} />
                 </span>
-                <span className="text-[12px] font-mono text-[var(--muted)] flex items-center gap-1">
-                  <Calendar size={10} />
-                  {(() => {
-                    const d = new Date(event.timestamp);
-                    if (isNaN(d.getTime())) return '--/--';
-                    return `${d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })} às ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
-                  })()}
-                </span>
-              </div>
-              <p className="text-sm text-[#2b2f37] font-light leading-relaxed whitespace-pre-wrap">{event.description}</p>
+                Ver todos ({sortedEvents.length})
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+
+      {/* Diario completo: abre num modal (a lista do layout fica sempre com os 5 ultimos) */}
+      {showAll && (
+        <div role="dialog" aria-modal="true" aria-labelledby="diary-all-title" className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-[#04070B]/70 backdrop-blur-sm sm:p-4" onClick={() => setShowAll(false)}>
+          <div className="app-card w-full sm:max-w-lg max-h-[85dvh] flex flex-col !rounded-b-none sm:!rounded-[26px]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+              <h3 id="diary-all-title" className="text-[19px] text-[var(--ink)]">Diário <span className="text-[var(--muted)] tabular">· {sortedEvents.length}</span></h3>
+              <button type="button" onClick={() => setShowAll(false)} aria-label="Fechar o diário" className="app-icon-btn !w-9 !h-9 text-[var(--muted)]" autoFocus><X size={16} /></button>
             </div>
+            <ul className="mx-5 mb-5 rounded-[18px] border border-[var(--line)] divide-y divide-[var(--line)] overflow-y-auto overscroll-contain">
+              {sortedEvents.map(event => <EventRow key={event.id} event={event} when={when} onRemove={onRemoveEvent} />)}
+            </ul>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Add Event Overlay */}
       {isAdding && (
@@ -197,6 +173,36 @@ export const FermentationTimeline: React.FC<FermentationTimelineProps> = ({ even
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };
+
+const iconFor = (type: EventType) => type === EventType.SYSTEM_ACTION ? Settings : type === EventType.DRY_HOP ? Leaf : StickyNote;
+
+/** Uma linha do diario: icone, texto, "tipo · data" e remover (so anotacoes; acoes do sistema nao se apagam, como no app) */
+function EventRow({ event, when, onRemove }: { event: FermentationEvent; when: (ts: string) => string; onRemove: (id: string) => void }) {
+  const Icon = iconFor(event.type);
+  const system = event.type === EventType.SYSTEM_ACTION;
+  return (
+    <li className="group flex items-center gap-3 px-3 py-2.5 min-h-[56px]">
+      <span aria-hidden className="w-8 h-8 shrink-0 rounded-full bg-[var(--fill)] flex items-center justify-center" style={{ color: system ? 'var(--tertiary)' : 'var(--accent)' }}>
+        <Icon size={14} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] text-[var(--ink)] leading-snug whitespace-pre-wrap break-words">{event.description || event.type}</p>
+        <p className="text-[12px] text-[var(--muted)] tabular">{event.type} · {when(event.timestamp)}</p>
+      </div>
+      {!system && (
+        <button
+          type="button"
+          aria-label={`Remover: ${event.description || event.type}`}
+          onClick={() => onRemove(event.id)}
+          className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[var(--muted)] hover:text-[var(--danger)] opacity-60 md:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+          title="Remover"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </li>
+  );
+}

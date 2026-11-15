@@ -1,6 +1,6 @@
 // O campo bruto extra_sensors ({hum: 61}) nao pode virar linha do grafico (React error #31 em producao)
 import { describe, it, expect } from 'vitest';
-import { prepareTemperatureData, extraSensorKeys } from '../components/TemperatureChart';
+import { prepareTemperatureData, extraSensorKeys } from '../components/chartData';
 
 const row = (i: number, extra: unknown) => ({ recorded_at: new Date(Date.now() - (5 - i) * 60000).toISOString(), temp_ferm: 18 + i * 0.1, temp_amb: 5, target_temp: 18, extra_sensors: extra });
 

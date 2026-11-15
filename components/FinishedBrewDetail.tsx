@@ -5,8 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { Award, Share2, FileDown, Quote, CheckCircle, Loader2, Save, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { TemperatureChart } from './TemperatureChart';
-import { GravityChart } from './GravityChart';
+import { BatchCharts } from './BatchCharts';
 
 interface FinishedBrewDetailProps {
   brew: FinishedBrew;
@@ -283,7 +282,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
         <div className="flex items-center gap-3 mb-2">
           <span className="text-[var(--muted)] text-sm font-mono ">{brew.batchNumber}</span>
           <span className="h-px w-8 bg-[var(--bg)]"></span>
-          <span className="text-[var(--muted)] text-sm font-light">{brew.endDate ? new Date(brew.endDate).toLocaleDateString() : 'Em andamento'}</span>
+          <span className="text-[var(--muted)] text-sm font-light">{brew.endDate ? new Date(brew.endDate).toLocaleDateString('pt-BR') : 'Em andamento'}</span>
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -481,23 +480,12 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               <div className="mb-4 text-center text-black/40 text-xs">
                 {readings.length} leituras de telemetria carregadas
               </div>
-              <div className="grid grid-cols-1 gap-8 min-w-0">
-                <div className="space-y-4 min-w-0">
-                  <TemperatureChart 
-                    data={readings} 
-                    sensor1Name={brew.sensor1_name || 'Fermentador'}
-                    sensor2Name={brew.sensor2_name || 'Geladeira'}
-                  />
-                </div>
-                <div className="space-y-4 min-w-0">
-                  <GravityChart 
-                    data={readings} 
-                    og={brew.og} 
-                    fg={brew.fg}
-                    sensorSgName={brew.sensor_sg_name || 'Gravidade (SG)'}
-                  />
-                </div>
-              </div>
+              <BatchCharts
+                readings={readings}
+                sensor1Name={brew.sensor1_name || 'Fermentador'}
+                sensor2Name={brew.sensor2_name || 'Geladeira'}
+                sensorSgName={brew.sensor_sg_name || 'Densidade'}
+              />
             </>
           )}
         </>

@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchPublicBatch } from '../services/api';
-import { Reading, FermentationEvent, EventType, normalizeGravity } from '../types';
-import { TemperatureChart } from './TemperatureChart';
-import { GravityChart } from './GravityChart';
+import { Reading, FermentationEvent, EventType, normalizeGravity, eventTypeFromServer } from '../types';
+import { BatchCharts } from './BatchCharts';
 import { Eye, RefreshCw, Snowflake, Target, Battery, ArrowDown, Percent, FlaskConical, Clock, CheckCircle2 } from 'lucide-react';
 
 export const PublicLiveBatch: React.FC = () => {
@@ -71,7 +70,7 @@ export const PublicLiveBatch: React.FC = () => {
 
     const mappedEvents: FermentationEvent[] = events.map((e: any) => ({
         id: String(e.id),
-        type: (e.event_type as EventType) || EventType.OTHER,
+        type: eventTypeFromServer(e.event_type),
         description: e.description || '',
         timestamp: e.recorded_at
     }));
@@ -123,7 +122,7 @@ export const PublicLiveBatch: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-[var(--muted)]">
-                    <span className="font-mono hidden sm:inline">Atualizado às {lastRefresh.toLocaleTimeString()}</span>
+                    <span className="font-mono hidden sm:inline">Atualizado às {lastRefresh.toLocaleTimeString('pt-BR')}</span>
                     <button
                         type="button"
                         onClick={loadBatch}
@@ -234,21 +233,14 @@ export const PublicLiveBatch: React.FC = () => {
                 )}
 
                 {/* Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <TemperatureChart
-                        data={readings}
-                        events={mappedEvents}
-                        sensor1Name={batch.sensor1_name || 'Mosto'}
-                        sensor2Name={batch.sensor2_name || 'Geladeira'}
-                    />
-                    <GravityChart
-                        data={readings}
-                        og={safeOG}
-                        fg={safeFG}
-                        events={mappedEvents}
-                        sensorSgName={batch.sensor_sg_name || 'Densidade (SG)'}
-                    />
-                </div>
+                <BatchCharts
+                    readings={readings}
+                    events={mappedEvents}
+                    sensor1Name={batch.sensor1_name || 'Fermentador'}
+                    sensor2Name={batch.sensor2_name || 'Geladeira'}
+                    sensorSgName={batch.sensor_sg_name || 'Densidade'}
+                    live
+                />
             </div>
         </div>
     );

@@ -178,7 +178,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
             )}
           </div>
 
-          <div className="flex-1 flex flex-col justify-center items-center text-center">
+          <div className="flex-1 flex flex-col justify-center items-start text-left">
             {insight ? (
               <div className="bg-white rounded-lg p-4 border border-black/[0.07] w-full text-left">
                 <p className="text-[var(--muted)] text-sm line-clamp-3 italic">
@@ -216,7 +216,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 </div>
                 <div>
                   <h2 id="breww-ai-modal-title" className="text-xl font-medium text-[var(--ink)]">Análise Breww.AI</h2>
-                  <p className="text-[var(--muted)] text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString()}</p>
+                  <p className="text-[var(--muted)] text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 )}
 
                 <div className="mt-8 pt-8 border-t border-black/[0.07] text-center text-[var(--muted)] text-sm italic">
-                  Relatório Visual gerado em {new Date().toLocaleTimeString()}
+                  Relatório Visual gerado em {new Date().toLocaleTimeString('pt-BR')}
                 </div>
               </div>
             </div>

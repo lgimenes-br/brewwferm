@@ -151,9 +151,12 @@ export const normalizeGravity = (val: any, fallback = 0): number => {
     return n > 500 ? n / 1000 : n;
 };
 
-/** Densidade para mostrar: fora da faixa possivel (0,980 a 1,200, ex.: 0 sem densimetro ou 32.293 vindo
- *  de outra grandeza) vira "--", como no app. */
-export const formatGravity = (g: number): string => (Number.isFinite(g) && g >= 0.98 && g <= 1.2 ? g.toFixed(3) : '--');
+/** Faixa de mosto (SG 0,980 a 1,200): fora disso o densimetro esta fora do liquido ou descalibrado */
+export const isPlausibleGravity = (g: number | null | undefined): g is number => typeof g === 'number' && Number.isFinite(g) && g >= 0.98 && g <= 1.2;
+
+/** Densidade para mostrar: qualquer leitura aparece, por mais estranha que seja (como no app); "--" so
+ *  sem leitura. As contas (ABV, atenuacao) usam apenas valores plausiveis. */
+export const formatGravity = (g: number): string => (Number.isFinite(g) && g > 0 ? g.toFixed(3) : '--');
 
 export const isDeviceOnline = (fermenter?: Fermenter | null, nowMs = Date.now(), timeoutMs = 30000): boolean => {
     if (!fermenter?.currentDevice?.lastUpdate) return false;
@@ -206,6 +209,10 @@ export const mapBatchToFinishedBrew = (b: any): FinishedBrew => {
         readings: []
     };
 };
+
+/** Tipo do evento vindo do servidor: os automaticos chegam como SYSTEM_ACTION (como no app) */
+export const eventTypeFromServer = (raw: unknown): EventType =>
+    raw === 'SYSTEM_ACTION' || raw === EventType.SYSTEM_ACTION ? EventType.SYSTEM_ACTION : ((raw as EventType) || EventType.OTHER);
 
 export const getEventReferenceMarks = (safeData: { timestamp: string }[], events?: FermentationEvent[]) => {
     if (!Array.isArray(safeData) || safeData.length < 2 || !Array.isArray(events)) return [];
