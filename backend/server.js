@@ -1852,26 +1852,25 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
 
         // Modelos: os nomes fixos envelhecem (o Google aposenta versoes; 1.5 e 2.0 ja sairam). Tenta o
         // configurado, o apelido "latest" e, se nenhum servir, pergunta a API quais "flash" existem.
-        const preferred = [...new Set([process.env.GEMINI_MODEL, aiWorkingModel, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean))];
+        // 2.5 Flash sem "pensamento" responde em poucos segundos; com ele passava de 30 s
+        const preferred = [...new Set([process.env.GEMINI_MODEL, aiWorkingModel, 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'].filter(Boolean))];
         const tried = new Set();
         const deadline = Date.now() + 50000; // abaixo do limite do proxy e do navegador
         let parsedResult = null;
         let lastErr = 'Falha ao consultar o Gemini';
 
-        const callModel = async (model) => {
+        const callModel = async (model, noThinking = true) => {
             tried.add(model);
             const left = deadline - Date.now();
             if (left < 5000) { lastErr = 'A análise demorou demais para responder. Tente de novo.'; return null; }
+            const generationConfig = { responseMimeType: 'application/json', ...(noThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}) };
             let gRes;
             try {
                 gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-                signal: AbortSignal.timeout(Math.min(left, 30000)),
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: { responseMimeType: 'application/json' }
-                })
+                    signal: AbortSignal.timeout(Math.min(left, 25000)),
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig })
                 });
             } catch (e) {
                 lastErr = e?.name === 'TimeoutError' ? `O modelo ${model} demorou demais para responder` : (e?.message || lastErr);
@@ -1880,12 +1879,19 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
             const gData = await gRes.json().catch(() => ({}));
             if (!gRes.ok) {
                 lastErr = gData?.error?.message || `HTTP ${gRes.status}`;
+                // Modelo que nao aceita desligar o pensamento: tenta de novo sem a opcao
+                if (noThinking && gRes.status === 400 && /thinking/i.test(lastErr)) return callModel(model, false);
                 return null;
             }
-            const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (typeof text !== 'string' || !text.trim()) return null;
+            const text = gData?.candidates?.[0]?.content?.parts?.find(p => typeof p?.text === 'string' && !p.thought)?.text;
+            if (typeof text !== 'string' || !text.trim()) { lastErr = 'O Gemini respondeu sem texto'; return null; }
             const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            try { const r = JSON.parse(cleanText); aiWorkingModel = model; return r; } catch { lastErr = 'Resposta do Gemini fora do formato esperado'; return null; }
+            try {
+                const r = JSON.parse(cleanText);
+                if (aiWorkingModel !== model) console.log(`[AI] usando o modelo ${model}`);
+                aiWorkingModel = model;
+                return r;
+            } catch { lastErr = 'Resposta do Gemini fora do formato esperado'; return null; }
         };
 
         for (const model of preferred) {
