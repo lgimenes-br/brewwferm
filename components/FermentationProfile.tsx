@@ -116,15 +116,16 @@ const StepCountdown: React.FC<StepCountdownProps> = ({
         const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
         const seconds = Math.floor((diff % (60 * 1000)) / 1000);
 
-        if (days > 0) formatted = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-        else if (hours > 0) formatted = `${hours}h ${minutes}m ${seconds}s`;
+        // Duas unidades no maximo (como no app: "1d 20h"); segundos so na ultima hora
+        if (days > 0) formatted = `${days}d ${hours}h`;
+        else if (hours > 0) formatted = `${hours}h ${minutes}m`;
         else if (minutes > 0) formatted = `${minutes}m ${seconds}s`;
         else formatted = `${seconds}s`;
     }
 
     return (
-        <div className="text-[var(--muted)] text-xs font-mono tabular-nums">
-            {formatted}
+        <div className="text-[var(--muted)] text-xs font-mono tabular-nums whitespace-nowrap">
+            faltam {formatted}
         </div>
     );
 };
@@ -281,7 +282,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                     </h4>
                                 )}
 
-                                <div className="flex items-center gap-4 mt-1">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
                                     <div className="flex items-center gap-1.5" title="Temperatura Alvo">
                                         <Thermometer size={12} className="text-[var(--muted)]" />
                                         {isEditing ? (
@@ -311,8 +312,8 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                         )}
                                     </div>
                                     {(isEditing || (step.triggerGravity !== undefined && step.triggerGravity > 0)) && (
-                                        <div className="flex items-center gap-1.5" title="Gatilho de Densidade (Avança automaticamente ao atingir esta SG)">
-                                            <FlaskConical size={12} className="text-purple-600" />
+                                        <div className="flex items-center gap-1.5 whitespace-nowrap" title="Gatilho de densidade: avança sozinho ao chegar nesta SG">
+                                            <FlaskConical size={12} className="text-[var(--muted)]" />
                                             {isEditing ? (
                                                 <input
                                                     type="number"
@@ -324,9 +325,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                                                     className="bg-transparent text-xs font-mono text-purple-700 w-16 border-b border-black/15 outline-none focus:border-purple-500"
                                                 />
                                             ) : (
-                                                <span className="text-[11px] font-mono text-purple-700 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
-                                                    ≤ {Number(step.triggerGravity).toFixed(3)}
-                                                </span>
+                                                <span className="text-xs font-mono text-[#2b2f37]">≤ {Number(step.triggerGravity).toFixed(3)}</span>
                                             )}
                                         </div>
                                     )}
@@ -346,7 +345,7 @@ export const FermentationProfile: React.FC<FermentationProfileProps> = ({
                             )}
 
                             {!isEditing && isActive && (
-                                <div className="flex flex-col items-end gap-0.5">
+                                <div className="flex flex-col items-end gap-0.5 shrink-0">
                                     <div className={`${isPaused ? 'text-[var(--muted)]' : 'text-[var(--ink)]'} text-[12px] font-medium `}>
                                         {isPaused ? 'Pausado' : 'Ativo'}
                                     </div>

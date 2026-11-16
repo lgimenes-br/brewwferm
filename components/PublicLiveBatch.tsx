@@ -239,6 +239,7 @@ export const PublicLiveBatch: React.FC = () => {
                     sensor1Name={batch.sensor1_name || 'Fermentador'}
                     sensor2Name={batch.sensor2_name || 'Geladeira'}
                     sensorSgName={batch.sensor_sg_name || 'Densidade'}
+                    fg={safeFG > 0 ? safeFG : undefined}
                     live
                 />
             </div>

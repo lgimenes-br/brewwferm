@@ -58,10 +58,12 @@ export const BatchCharts: React.FC<{
     sensor4Name?: string;
     /** Linhas escondidas pelo usuario (Ajustes > No grafico): 's1'..'s4', 'sg' */
     hidden?: string[];
+    /** Densidade final alvo do lote (mostrada como o "alvo" da densidade) */
+    fg?: number;
     /** Lote em andamento: mostra o "Ao vivo" (as ultimas 10 leituras) */
     live?: boolean;
     className?: string;
-}> = ({ hidden = [], sensor3Name = 'Sensor 3', sensor4Name = 'Sensor 4', className = '', readings, events = [], sensor1Name = 'Fermentador', sensor2Name = 'Geladeira', sensorSgName = 'Densidade', live = false }) => {
+}> = ({ fg, hidden = [], sensor3Name = 'Sensor 3', sensor4Name = 'Sensor 4', className = '', readings, events = [], sensor1Name = 'Fermentador', sensor2Name = 'Geladeira', sensorSgName = 'Densidade', live = false }) => {
     const ranges = live ? [LIVE, ...TIME_RANGES] : TIME_RANGES;
     const [rangeIdx, setRangeIdx] = useState(0);
     const fillId = `beerFill-${useId().replace(/:/g, '')}`; // varios graficos na pagina: ids unicos
@@ -134,6 +136,9 @@ export const BatchCharts: React.FC<{
     const targetNow = last?.target ?? null;
     const targetOff: 'below' | 'above' | null = !yDomain || targetNow === null ? null : targetNow < yDomain[0] ? 'below' : targetNow > yDomain[1] ? 'above' : null;
     const lastGravity = [...data].reverse().find(p => p.gravity !== null)?.gravity ?? null;
+    const gVals = data.map(p => p.gravity).filter((g): g is number => g !== null);
+    const gMax = gVals.length ? Math.max(...gVals) : null;
+    const gMin = gVals.length ? Math.min(...gVals) : null;
     const marks = useMemo(() => getEventReferenceMarks(data.map(p => ({ timestamp: new Date(p.t).toISOString() })), events.filter(e => e.type !== EventType.SYSTEM_ACTION))
         .map(m => ({ ...m, x: new Date(m.markTime).getTime() })), [data, events]);
 
@@ -164,7 +169,7 @@ export const BatchCharts: React.FC<{
                     </div>
                 </div>
                 {Number.isFinite(max) && (
-                    <div className="text-right text-[14px] text-[var(--muted)] tabular leading-relaxed">
+                    <div className="ml-auto text-right text-[14px] text-[var(--muted)] tabular leading-relaxed">
                         <div>máx {max.toFixed(1)}°C</div>
                         <div>mín {min.toFixed(1)}°C</div>
                     </div>
@@ -217,9 +222,21 @@ export const BatchCharts: React.FC<{
             {/* Densidade: qualquer leitura aparece; fora da faixa de mosto vem avisado */}
             {hasGravity && showSg && (
                 <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="flex items-center gap-2 text-[15px] text-[var(--muted)]"><span aria-hidden className="w-[7px] h-[7px] rounded-full bg-[var(--accent)]" />{sensorSgName}</span>
-                        {lastGravity !== null && <span className="text-[15px] text-[var(--ink)] tabular">SG {lastGravity.toFixed(3)}</span>}
+                    {/* Mesmo padrao do cabecalho da temperatura: nome, valor grande, o alvo (FG) ao lado e max/min */}
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="flex flex-col gap-1">
+                            <span className="flex items-center gap-2 text-[14px] text-[var(--muted)]"><span aria-hidden className="w-[7px] h-[7px] rounded-full bg-[var(--accent)]" />{sensorSgName}</span>
+                            <div className="flex items-end gap-3">
+                                <span className="text-[48px] font-light leading-none tabular text-[var(--ink)]">{lastGravity !== null ? lastGravity.toFixed(3) : '--'}{lastGravity !== null && <span className="text-[18px] text-[var(--muted)] align-top ml-1">SG</span>}</span>
+                                {fg !== undefined && fg > 0 && <span className="pb-1.5 text-[15px] text-[var(--muted)] tabular">alvo FG {fg.toFixed(3)}</span>}
+                            </div>
+                        </div>
+                        {gMax !== null && gMin !== null && (
+                            <div className="ml-auto text-right text-[14px] text-[var(--muted)] tabular leading-relaxed">
+                                <div>máx {gMax.toFixed(3)}</div>
+                                <div>mín {gMin.toFixed(3)}</div>
+                            </div>
+                        )}
                     </div>
                     {lastGravity !== null && !isPlausibleGravity(lastGravity) && (
                         <p className="text-[13px] text-[var(--muted)]">Fora da faixa de mosto (0,980 a 1,200): o densímetro parece estar fora do líquido ou descalibrado.</p>

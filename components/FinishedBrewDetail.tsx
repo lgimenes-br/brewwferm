@@ -485,6 +485,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
                 sensor1Name={brew.sensor1_name || 'Fermentador'}
                 sensor2Name={brew.sensor2_name || 'Geladeira'}
                 sensorSgName={brew.sensor_sg_name || 'Densidade'}
+                fg={Number(brew.fg) > 0 ? Number(brew.fg) : undefined}
               />
             </>
           )}
