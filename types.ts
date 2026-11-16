@@ -92,6 +92,8 @@ export interface Fermenter {
   sensor3_name?: string;
   sensor4_name?: string;
   sensor_sg_name?: string;
+  /** Linhas escondidas no grafico pelo usuario ('s1'..'s4', 'sg'); vale no app e no site */
+  chart_hidden?: string[];
   chopp_name?: string;
   status: FermenterStatus;
   beerName: string;

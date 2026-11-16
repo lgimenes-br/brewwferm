@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Brain, Sparkles, Loader2, MessageSquare, Download, X, Maximize2, Activity, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Fermenter } from '../types';
-import { getBrewingInsights, AIAnalysis, PREMIUM_REQUIRED } from '../services/geminiService';
+import { getBrewingInsights, AIAnalysis, PREMIUM_REQUIRED, fetchLastAnalysis, getLastUsage, AIUsage } from '../services/geminiService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface GeminiAdvisorProps {
@@ -13,6 +13,17 @@ interface GeminiAdvisorProps {
 export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, className = "" }) => {
   const [insight, setInsight] = useState<AIAnalysis | string | null>(null);
   const [needsPremium, setNeedsPremium] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [usage, setUsage] = useState<AIUsage | undefined>();
+  const batchId = fermenter.batchId;
+  // A ultima analise do lote fica guardada no servidor: aparece ao abrir, sem gastar uma nova
+  useEffect(() => {
+    if (!batchId) return;
+    let alive = true;
+    fetchLastAnalysis(batchId).then(r => { if (!alive) return; if (r.analysis) setInsight(r.analysis); setUsage(r.usage); }).catch(() => {});
+    return () => { alive = false; };
+  }, [batchId]);
+  const limitReached = !!usage && usage.limit !== null && usage.used >= usage.limit;
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const modalContentRef = useRef<HTMLDivElement>(null);
@@ -28,16 +39,22 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
 
   const handleAskAI = async () => {
     setLoading(true);
+    setAiError(null);
     const result = await getBrewingInsights(fermenter);
+    const u = getLastUsage();
+    if (u) setUsage(u);
+    setLoading(false);
     // Conta sem Premium: avisa no proprio cartao, sem abrir o relatorio de erro
     if (result === PREMIUM_REQUIRED) {
       setNeedsPremium(true);
-      setLoading(false);
       return;
     }
-    // If we get a string back (error), keep it as string. If object, it's AIAnalysis.
+    // Erro ou limite: mensagem no cartao (a analise anterior continua visivel)
+    if (typeof result === 'string') {
+      setAiError(result);
+      return;
+    }
     setInsight(result);
-    setLoading(false);
     setIsModalOpen(true);
   };
 
@@ -163,26 +180,24 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
               <Sparkles className="text-[var(--ink)]" size={20} />
               <h3 className="text-lg font-medium text-[#2b2f37]">Breww.AI</h3>
             </div>
-            {!insight ? (
-              <button
-                type="button"
-                onClick={handleAskAI}
-                disabled={loading}
-                className="flex items-center gap-2 bg-[var(--bg)] hover:bg-black/10 text-[var(--ink)] px-4 py-2 rounded-lg transition-all disabled:opacity-50 text-sm font-medium border border-black/15"
-              >
-                {loading ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} />}
-                {loading ? "Analisando…" : "Analisar a fermentação"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-50 text-[var(--ink)] px-3 py-1.5 rounded-lg transition-all text-xs font-medium border border-[var(--ink)]/20"
-              >
-                <Maximize2 size={14} />
-                Ver Análise
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {insight && (
+                <button type="button" onClick={() => setIsModalOpen(true)} className="app-pill !h-9 hover:bg-[var(--cell-2)]">
+                  <Maximize2 size={14} aria-hidden /> Ver análise
+                </button>
+              )}
+              {!needsPremium && (
+                <button
+                  type="button"
+                  onClick={handleAskAI}
+                  disabled={loading || limitReached}
+                  className="app-pill !h-9 hover:bg-[var(--cell-2)] disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={14} /> : <MessageSquare size={14} aria-hidden />}
+                  {loading ? 'Analisando…' : insight ? 'Analisar de novo' : 'Analisar a fermentação'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 flex flex-col justify-center items-start text-left">
@@ -191,9 +206,11 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 <p className="text-[var(--muted)] text-sm line-clamp-3 italic">
                   "{isStructured(insight) ? insight.summary : String(insight).substring(0, 150) + '...'}"
                 </p>
-                <div className="mt-2 text-xs text-[var(--ink)] font-medium">
-                  Clique em "Ver Análise" para ler dashboard completo.
-                </div>
+                {isStructured(insight) && insight.createdAt && (
+                  <div className="mt-2 text-xs text-[var(--muted)] tabular">
+                    Análise de {new Date(insight.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
               </div>
             ) : (
               needsPremium ? (
@@ -202,6 +219,13 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
               </p>
               ) : <p className="text-[var(--muted)] text-sm max-w-md">
                 Utilize a inteligência artificial do Gemini para analisar as curvas de temperatura e gravidade, identificar paradas de fermentação e sugerir correções de perfil.
+              </p>
+            )}
+            {aiError && <p className="mt-3 text-sm text-[var(--danger)]" role="alert">{aiError}</p>}
+            {loading && <p className="mt-3 text-xs text-[var(--muted)]">A primeira análise pode levar até 1 minuto.</p>}
+            {!needsPremium && usage && usage.limit !== null && (
+              <p className="mt-3 text-xs text-[var(--muted)] tabular">
+                {limitReached ? `Você usou as ${usage.limit} análises das últimas 24 horas.` : `${usage.used} de ${usage.limit} análises usadas nas últimas 24 horas.`}
               </p>
             )}
 

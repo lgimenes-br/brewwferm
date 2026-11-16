@@ -173,6 +173,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             sensor2_name: d.sensor2_name,
             sensor3_name: d.sensor3_name || undefined,
             sensor4_name: d.sensor4_name || undefined,
+            chart_hidden: typeof d.chart_hidden === 'string' ? d.chart_hidden.split(',').map((k: string) => k.trim()).filter(Boolean) : [],
             sensor_sg_name: d.sensor_sg_name,
             mode: (() => {
                 if (prevDev?.mode) return prevDev.mode;

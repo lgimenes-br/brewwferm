@@ -622,6 +622,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                                     events={fermenter.events}
                                     sensor1Name={sv.names[0]}
                                     sensor2Name={sv.names[1]}
+                                    sensor3Name={sv.names[2]}
+                                    sensor4Name={sv.names[3]}
+                                    hidden={fermenter.chart_hidden}
                                     sensorSgName={fermenter.sensor_sg_name || 'Densidade'}
                                     live
                                     className="lg:flex-1"

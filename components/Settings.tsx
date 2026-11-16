@@ -5,7 +5,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, fetchFirmwareVersion, UserAlertConfig } from '../services/api';
+import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, fetchFirmwareVersion, UserAlertConfig, updateChartHidden } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { SensorTestModal } from './SensorTestModal';
 import { isFirmwareUpdateAvailable } from '../services/firmware';
@@ -226,6 +226,18 @@ export const Settings: React.FC = () => {
   const currentMac2: string = typeof rawPayload.mac2 === 'string' ? rawPayload.mac2 : '';
 
   const sv = activeDevice ? sensorView(activeDevice) : null;
+  // Linhas do grafico: salva na hora (otimista) e volta atras se o servidor recusar
+  const [chartHidden, setChartHidden] = useState<string[]>([]);
+  useEffect(() => { setChartHidden(activeDevice?.chart_hidden ?? []); }, [activeDevice?.id, activeDevice?.chart_hidden?.join(',')]);
+  const toggleChartLine = async (key: string, show: boolean) => {
+    if (!token || !activeDevice) return;
+    const prev = chartHidden;
+    const next = show ? prev.filter(k => k !== key) : [...new Set([...prev, key])];
+    if (['s1', 's2', 's3', 's4'].every(k => next.includes(k))) { toast.error('Deixe pelo menos um sensor de temperatura no gráfico.'); return; }
+    setChartHidden(next);
+    try { await updateChartHidden(token, activeDevice.id, next); }
+    catch (e: any) { setChartHidden(prev); toast.error(e?.message || 'Falha ao salvar o gráfico'); }
+  };
 
   const handleSaveMapping = async ({ macs, names, control, macCtrl, mac2, name1, name2 }: SensorMapping) => {
       if (!selectedDeviceId) return;
@@ -980,6 +992,26 @@ export const Settings: React.FC = () => {
                 );
             })}
         </div>
+
+        {/* O que aparece no grafico do lote (guardado no servidor: vale aqui e no app) */}
+        {activeDevice && sv && (
+          <div className="mt-6">
+            <p className="text-[15px] text-[var(--ink)]">No gráfico</p>
+            <p className="text-[13px] text-[var(--muted)] mb-3">Escolha o que aparece nos gráficos do lote, aqui e no app. Pelo menos um sensor de temperatura fica visível.</p>
+            <div className="rounded-[18px] border border-[var(--line)] divide-y divide-[var(--line)] overflow-hidden">
+              {[...sv.names.map((name, i) => ({ key: `s${i + 1}`, label: name })), { key: 'sg', label: activeDevice.sensor_sg_name || 'Densidade' }].map(line => {
+                const on = !chartHidden.includes(line.key);
+                return (
+                  <label key={line.key} className="flex items-center justify-between gap-4 px-4 min-h-[52px] cursor-pointer hover:bg-[var(--fill)]">
+                    <span className="text-[14px] text-[var(--ink)] truncate">{line.label}</span>
+                    <input type="checkbox" role="switch" className="sr-only peer" checked={on} onChange={e => toggleChartLine(line.key, e.target.checked)} aria-label={`Mostrar ${line.label} no gráfico`} />
+                    <span aria-hidden className="relative w-11 h-6 shrink-0 rounded-full bg-[rgba(255,255,255,0.12)] peer-checked:bg-[var(--accent)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)] transition-colors after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-[#898E99] peer-checked:after:bg-[#0B0C10] after:transition-transform peer-checked:after:translate-x-5" />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 6. Sistema */}

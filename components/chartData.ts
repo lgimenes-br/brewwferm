@@ -13,6 +13,13 @@ export const prepareTemperatureData = (data: any[] | null | undefined, maxPoints
           if (typeof parsed === 'string') {
               try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
           }
+          // Formato atual do servidor: { s3, s4, hum, ctl } (sensores 3 e 4 do firmware 2.11+)
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              (['s3', 's4'] as const).forEach(k => {
+                  const val = parseFloat(parsed[k]);
+                  if (!isNaN(val)) extras[`extra_${k}`] = val;
+              });
+          }
           if (Array.isArray(parsed)) {
               parsed.forEach((ex: any) => {
                   if (ex && ex.n && ex.t !== undefined) {

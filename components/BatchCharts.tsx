@@ -53,10 +53,15 @@ export const BatchCharts: React.FC<{
     sensor1Name?: string;
     sensor2Name?: string;
     sensorSgName?: string;
+    /** Nomes dos sensores 3 e 4 (linhas extra_s3 / extra_s4) */
+    sensor3Name?: string;
+    sensor4Name?: string;
+    /** Linhas escondidas pelo usuario (Ajustes > No grafico): 's1'..'s4', 'sg' */
+    hidden?: string[];
     /** Lote em andamento: mostra o "Ao vivo" (as ultimas 10 leituras) */
     live?: boolean;
     className?: string;
-}> = ({ className = '', readings, events = [], sensor1Name = 'Fermentador', sensor2Name = 'Geladeira', sensorSgName = 'Densidade', live = false }) => {
+}> = ({ hidden = [], sensor3Name = 'Sensor 3', sensor4Name = 'Sensor 4', className = '', readings, events = [], sensor1Name = 'Fermentador', sensor2Name = 'Geladeira', sensorSgName = 'Densidade', live = false }) => {
     const ranges = live ? [LIVE, ...TIME_RANGES] : TIME_RANGES;
     const [rangeIdx, setRangeIdx] = useState(0);
     const fillId = `beerFill-${useId().replace(/:/g, '')}`; // varios graficos na pagina: ids unicos
@@ -75,7 +80,7 @@ export const BatchCharts: React.FC<{
             const end = sorted[sorted.length - 1].t;
             slice = sorted.filter(d => d.t >= end - range.ms);
         }
-        const extraKeys = extraSensorKeys(slice);
+        const extraKeys = extraSensorKeys(slice).filter(k => !hidden.includes(k.replace('extra_', '')));
         const pts: Point[] = slice.map((d: any) => {
             const g = Number(d.gravity);
             const p: Point = {
@@ -105,21 +110,27 @@ export const BatchCharts: React.FC<{
             min: beers.length ? Math.min(...beers) : NaN,
             max: beers.length ? Math.max(...beers) : NaN,
         };
-    }, [all, range]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [all, range, hidden.join(',')]);
 
+    const extraName = (k: string) => k === 'extra_s3' ? sensor3Name : k === 'extra_s4' ? sensor4Name : k.replace('extra_', '');
     const last = data[data.length - 1];
+    const show1 = !hidden.includes('s1');
+    const show2 = !hidden.includes('s2');
+    const showSg = !hidden.includes('sg');
     const yDomain = useMemo((): [number, number] | null => {
         const vals: number[] = [];
         data.forEach(p => {
-            vals.push(p.beerS);
-            if (p.fridgeS !== null) vals.push(p.fridgeS);
+            if (show1) vals.push(p.beerS);
+            if (show2 && p.fridgeS !== null) vals.push(p.fridgeS);
             extras.forEach(k => { const v = p[k]; if (typeof v === 'number') vals.push(v); });
         });
+        if (!vals.length) data.forEach(p => vals.push(p.beerS));
         if (!vals.length) return null;
         const lo = Math.min(...vals), hi = Math.max(...vals);
         const pad = Math.max(0.2, (hi - lo) * 0.15);
         return [Math.floor((lo - pad) * 10) / 10, Math.ceil((hi + pad) * 10) / 10];
-    }, [data, extras]);
+    }, [data, extras, show1, show2]);
     const targetNow = last?.target ?? null;
     const targetOff: 'below' | 'above' | null = !yDomain || targetNow === null ? null : targetNow < yDomain[0] ? 'below' : targetNow > yDomain[1] ? 'above' : null;
     const lastGravity = [...data].reverse().find(p => p.gravity !== null)?.gravity ?? null;
@@ -163,7 +174,7 @@ export const BatchCharts: React.FC<{
             {data.length < 2 ? (
                 <p className="h-[260px] flex items-center justify-center text-center text-[15px] text-[var(--muted)]">Ainda não há leituras suficientes para o gráfico.</p>
             ) : (
-                <div className="relative w-full h-[260px] min-w-0">
+                <div className="relative w-full h-[260px] lg:h-auto lg:min-h-[260px] lg:flex-1 min-w-0" /* cresce quando o cartao estica para alinhar com o diario */>
                     {targetOff && targetNow !== null && (
                         <span className={`absolute left-1 ${targetOff === 'below' ? 'bottom-9' : 'top-2'} z-10 inline-flex items-center gap-1.5 px-3 min-h-8 rounded-full border border-[var(--line)] bg-[var(--cell)] text-[13px] text-[var(--muted)] tabular`}>
                             {targetOff === 'below' ? '↓' : '↑'} Alvo {targetNow.toFixed(1)}°C
@@ -182,13 +193,13 @@ export const BatchCharts: React.FC<{
                             <YAxis orientation="right" domain={yDomain ?? ['auto', 'auto']} allowDataOverflow
                                 tickFormatter={v => `${Number(v).toFixed(1)}°C`} stroke={C.axis} fontSize={11} tickLine={false} axisLine={false} width={56} />
                             <Tooltip {...tooltipBase} formatter={(v: any, name: any) => [`${Number(v).toFixed(1)}°C`, name]} />
-                            <Area type="monotone" dataKey="beerS" stroke="none" fill={`url(#${fillId})`} isAnimationActive={false} tooltipType="none" />
+                             {show1 && <Area type="monotone" dataKey="beerS" stroke="none" fill={`url(#${fillId})`} isAnimationActive={false} tooltipType="none" />}
                             {!targetOff && <Line type="monotone" dataKey="target" name="Alvo" stroke={C.target} strokeDasharray="4 4" strokeWidth={1} dot={false} activeDot={false} isAnimationActive={false} />}
                             {extras.map((k, i) => (
-                                <Line key={k} type="monotone" dataKey={k} name={k.replace('extra_', '')} stroke={EXTRA_COLORS[i % EXTRA_COLORS.length]} strokeWidth={1.2} dot={false} isAnimationActive={false} />
+                                <Line key={k} type="monotone" dataKey={k} name={extraName(k)} stroke={EXTRA_COLORS[i % EXTRA_COLORS.length]} strokeWidth={1.2} dot={false} isAnimationActive={false} />
                             ))}
-                            <Line type="monotone" dataKey="fridgeS" name={sensor2Name} stroke={C.fridge} strokeWidth={1.5} dot={false} opacity={0.8} isAnimationActive={false} connectNulls />
-                            <Line type="monotone" dataKey="beerS" name={sensor1Name} stroke={C.beer} strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: C.beer }} isAnimationActive={false} />
+                            {show2 && <Line type="monotone" dataKey="fridgeS" name={sensor2Name} stroke={C.fridge} strokeWidth={1.5} dot={false} opacity={0.8} isAnimationActive={false} connectNulls />}
+                            {show1 && <Line type="monotone" dataKey="beerS" name={sensor1Name} stroke={C.beer} strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: C.beer }} isAnimationActive={false} />}
                             {marks.map(m => <ReferenceLine key={m.id} x={m.x} stroke={C.axis} strokeDasharray="4 4" strokeWidth={1} label={{ value: m.type, position: 'top', fill: C.axis, fontSize: 10 }} />)}
                         </ComposedChart>
                     </ResponsiveContainer>
@@ -197,14 +208,14 @@ export const BatchCharts: React.FC<{
 
             {/* Legenda */}
             <div className="flex flex-wrap gap-2">
-                <LegendPill color={C.beer} label={sensor1Name} />
-                <LegendPill color={C.fridge} label={sensor2Name} />
-                {extras.map((k, i) => <LegendPill key={k} color={EXTRA_COLORS[i % EXTRA_COLORS.length]} label={k.replace('extra_', '')} />)}
+                {show1 && <LegendPill color={C.beer} label={sensor1Name} />}
+                {show2 && <LegendPill color={C.fridge} label={sensor2Name} />}
+                {extras.map((k, i) => <LegendPill key={k} color={EXTRA_COLORS[i % EXTRA_COLORS.length]} label={extraName(k)} />)}
                 <LegendPill color={C.target} label="Alvo" dashed />
             </div>
 
             {/* Densidade: qualquer leitura aparece; fora da faixa de mosto vem avisado */}
-            {hasGravity && (
+            {hasGravity && showSg && (
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between gap-3">
                         <span className="flex items-center gap-2 text-[15px] text-[var(--muted)]"><span aria-hidden className="w-[7px] h-[7px] rounded-full bg-[var(--accent)]" />{sensorSgName}</span>

@@ -20,3 +20,16 @@ describe('TemperatureChart: dados', () => {
         expect(extraSensorKeys([{ beerTemp: 18, extra_sensors: { hum: 61 } }])).toEqual([]);
     });
 });
+
+describe('sensores 3 e 4 no grafico', () => {
+    it('extra_sensors no formato do servidor ({ s3, s4, hum, ctl }) vira as linhas extra_s3 / extra_s4', () => {
+        const pts = prepareTemperatureData([
+            { beerTemp: 18, timestamp: '2026-11-15T10:00:00Z', extra_sensors: { s3: 21.5, s4: '19.0', hum: 61, ctl: 0 } },
+            { beerTemp: 18.1, timestamp: '2026-11-15T10:01:00Z', extra_sensors: '{"s3":21.6,"hum":60}' },
+        ] as any);
+        expect(pts[0].extra_s3).toBe(21.5);
+        expect(pts[0].extra_s4).toBe(19);
+        expect(pts[1].extra_s3).toBe(21.6);
+        expect(extraSensorKeys(pts).sort()).toEqual(['extra_s3', 'extra_s4']);
+    });
+});

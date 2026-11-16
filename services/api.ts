@@ -142,6 +142,19 @@ export const updateSensors = async (token: string, deviceId: string, sensor1Name
     return res.json();
 };
 
+/** Linhas escondidas no grafico do aparelho (o servidor guarda; vale no app e no site) */
+export const updateChartHidden = async (token: string, deviceId: string, chartHidden: string[]) => {
+    const res = await fetch(`${API_URL}/devices/${encodeURIComponent(deviceId)}/sensors`, {
+        method: 'PUT',
+        headers: getHeaders(token),
+        body: JSON.stringify({ chartHidden })
+    });
+    checkUnauthorized(res);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || 'Falha ao salvar o gráfico');
+    return data;
+};
+
 export const fetchBatches = async (token?: string | null) => {
   const res = await fetch(`${API_URL}/batches`, {
     headers: getHeaders(token)

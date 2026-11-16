@@ -118,6 +118,8 @@ const initDb = async () => {
         await pool.execute(`CREATE TABLE IF NOT EXISTS batch_events (id INT AUTO_INCREMENT PRIMARY KEY, batch_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, description TEXT, recorded_at DATETIME NOT NULL, FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL, style VARCHAR(100), est_og VARCHAR(10), est_fg VARCHAR(10), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, trigger_gravity FLOAT DEFAULT NULL, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
+        // Breww.AI: cada analise fica guardada (ultima por lote) e conta no limite diario do usuario
+        await pool.execute(`CREATE TABLE IF NOT EXISTS ai_analyses (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, batch_id INT NULL, model VARCHAR(80), result JSON NOT NULL, created_at DATETIME DEFAULT NOW(), INDEX idx_ai_user_time (user_id, created_at), INDEX idx_ai_batch (batch_id, created_at), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, endpoint TEXT NOT NULL, p256dh VARCHAR(255), auth VARCHAR(255), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS system_broadcasts (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255), message TEXT NOT NULL, type VARCHAR(50) DEFAULT 'info', is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT NOW())`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS audit_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action VARCHAR(100) NOT NULL, details TEXT, ip_address VARCHAR(45), created_at DATETIME DEFAULT NOW())`);
@@ -162,6 +164,8 @@ const initDb = async () => {
         // Sensores numerados (fw 2.11): ate 4; nome vazio = "Sensor N" nos apps
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor3_name VARCHAR(50) DEFAULT NULL`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor4_name VARCHAR(50) DEFAULT NULL`);
+        // Linhas escondidas no grafico (escolha do usuario): 's1','s2','s3','s4','sg' separados por virgula
+        await runMigration(`ALTER TABLE devices ADD COLUMN chart_hidden VARCHAR(40) DEFAULT NULL`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade'`);
         await runMigration(`ALTER TABLE devices ADD COLUMN chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp'`);
         await runMigration(`ALTER TABLE batches ADD COLUMN current_step_index INT DEFAULT 0`);
@@ -1198,8 +1202,14 @@ app.put('/api/devices/:id/chopp_name', authenticateToken, async (req, res) => {
 
 app.put('/api/devices/:id/sensors', authenticateToken, async (req, res) => {
     try {
-        const { sensor1Name, sensor2Name, sensorSgName, sensor3Name, sensor4Name } = req.body || {};
+        const { sensor1Name, sensor2Name, sensorSgName, sensor3Name, sensor4Name, chartHidden } = req.body || {};
         const clip = (v) => (typeof v === 'string' ? v.trim().slice(0, 50) : null);
+        // Linhas escondidas no grafico: so chaves conhecidas; pelo menos um sensor de temperatura fica visivel
+        if (Array.isArray(chartHidden)) {
+            const keys = [...new Set(chartHidden.filter(k => ['s1', 's2', 's3', 's4', 'sg'].includes(k)))];
+            if (['s1', 's2', 's3', 's4'].every(k => keys.includes(k))) return res.status(400).json({ error: 'Deixe pelo menos um sensor de temperatura no gráfico.' });
+            await pool.execute('UPDATE devices SET chart_hidden = ? WHERE serial_code = ? AND user_id = ?', [keys.join(',') || null, req.params.id, req.user.id]);
+        }
         await pool.execute('UPDATE devices SET sensor1_name = COALESCE(?, sensor1_name), sensor2_name = COALESCE(?, sensor2_name), sensor_sg_name = COALESCE(?, sensor_sg_name), sensor3_name = COALESCE(?, sensor3_name), sensor4_name = COALESCE(?, sensor4_name) WHERE serial_code = ? AND user_id = ?', 
             [clip(sensor1Name), clip(sensor2Name), clip(sensorSgName), clip(sensor3Name), clip(sensor4Name), req.params.id, req.user.id]);
         notifyUpdate(req.params.id);
@@ -1833,6 +1843,38 @@ app.get('/api/public/batch/:token', async (req, res) => {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
+// Limite do Breww.AI por usuario: N analises nas ultimas 24 h (janela movel, sem depender de fuso); admin nao tem limite
+const AI_DAILY_LIMIT = Number(process.env.AI_DAILY_LIMIT) || 10;
+const aiUsageToday = async (userId) => {
+    const [rows] = await pool.execute(
+        'SELECT COUNT(*) AS n FROM ai_analyses WHERE user_id = ? AND created_at > NOW() - INTERVAL 24 HOUR',
+        [userId]
+    );
+    return { used: Number(rows[0]?.n ?? 0), limit: AI_DAILY_LIMIT };
+};
+
+// Ultima analise do lote (guardada) e quanto do limite de hoje ja foi usado
+app.get('/api/ai/analysis/:batchId', authenticateToken, async (req, res) => {
+    try {
+        const batchId = Number.parseInt(req.params.batchId, 10);
+        if (!Number.isFinite(batchId)) return res.status(400).json({ error: 'Lote inválido' });
+        const [own] = await pool.execute('SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?', [batchId, req.user.id]);
+        if (!own.length) return res.status(403).json({ error: 'Não autorizado' });
+        const [rows] = await pool.execute('SELECT result, created_at FROM ai_analyses WHERE batch_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1', [batchId, req.user.id]);
+        const [u] = await pool.execute('SELECT role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const usage = await aiUsageToday(req.user.id);
+        const last = rows[0];
+        const result = last ? (typeof last.result === 'string' ? JSON.parse(last.result) : last.result) : null;
+        res.json({
+            analysis: result ? { ...result, createdAt: new Date(last.created_at).toISOString() } : null,
+            usage: { used: usage.used, limit: u[0]?.role === 'admin' ? null : AI_DAILY_LIMIT },
+        });
+    } catch (err) {
+        console.error('AI last analysis:', err.message);
+        res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+});
+
 // AI Brewing Advisor Endpoint (keeps Gemini API key server-side)
 /** Ultimo modelo Gemini que respondeu: as proximas analises vao direto nele */
 let aiWorkingModel = null;
@@ -1847,6 +1889,17 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
         const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
         if (!apiKey) {
             return res.status(503).json({ error: 'Chave de API do Gemini não configurada no servidor.' });
+        }
+        const isAdminUser = planUser.role === 'admin';
+        const usage = await aiUsageToday(req.user.id);
+        if (!isAdminUser && usage.used >= AI_DAILY_LIMIT) {
+            return res.status(429).json({ error: `Você usou as ${AI_DAILY_LIMIT} análises das últimas 24 horas. Tente de novo mais tarde.`, code: 'daily_limit', usage });
+        }
+        // Lote (opcional): so guarda a analise se o lote for de um aparelho do usuario
+        let batchId = Number.parseInt(req.body?.batchId, 10);
+        if (Number.isFinite(batchId)) {
+            const [own] = await pool.execute('SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?', [batchId, req.user.id]);
+            if (!own.length) batchId = NaN;
         }
         const { beerName, style, status, og, volume, targetTemp, beerTemp, fridgeTemp, gravity, readings } = req.body || {};
         const promptText = `
@@ -1925,7 +1978,10 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
         if (!parsedResult) {
             return res.status(502).json({ error: lastErr });
         }
-        res.json(parsedResult);
+        const createdAt = new Date();
+        await pool.execute('INSERT INTO ai_analyses (user_id, batch_id, model, result) VALUES (?, ?, ?, ?)',
+            [req.user.id, Number.isFinite(batchId) ? batchId : null, aiWorkingModel, JSON.stringify(parsedResult)]).catch(e => console.error('AI save:', e.message));
+        res.json({ ...parsedResult, createdAt: createdAt.toISOString(), usage: { used: usage.used + 1, limit: isAdminUser ? null : AI_DAILY_LIMIT } });
     } catch (err) {
         console.error('AI Analyze Error:', err.message);
         res.status(500).json({ error: 'Erro interno ao processar análise de IA' });

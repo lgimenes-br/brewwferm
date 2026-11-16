@@ -74,13 +74,13 @@ export const ForecastingEngine: React.FC<ForecastingEngineProps> = ({ fermenter 
         {/* Progress Bar Section */}
         <div className="flex-1 w-full">
           <div className="flex justify-between items-end mb-2 px-1">
-            <span className="text-[17px] text-[var(--ink)]">Atenuação aparente</span>
+            <span className="text-[17px] text-[var(--ink)]">Caminho até a FG</span>
             <span className="text-[26px] font-light tabular text-[var(--ink)] leading-none">{hasData ? <>{progress.toFixed(1)}<span className="text-[13px] text-[var(--muted)] ml-0.5 align-top">%</span></> : '--'}</span>
           </div>
           
           <div
             role="progressbar"
-            aria-label="Progresso de atenuação aparente"
+            aria-label="Quanto da queda da OG até a FG já aconteceu"
             aria-valuenow={Math.round(progress)}
             aria-valuemin={0}
             aria-valuemax={100}
