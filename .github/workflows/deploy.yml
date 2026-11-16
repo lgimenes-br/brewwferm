@@ -94,6 +94,9 @@ jobs:
           port: 22
           script: |
             cd /var/www/breww-backend/
+            # Site: apaga pacotes JS/CSS de deploys anteriores (os de antes de 06/11/2026 tinham a chave do Gemini).
+            # Os da versao atual foram gerados ha minutos; so some o que tem mais de 2 horas.
+            find /var/www/breww.live/html/assets -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -mmin +120 -delete 2>/dev/null || true
             chmod +x mosquitto/setup-vps-mosquitto.sh 2>/dev/null || true
             bash mosquitto/setup-vps-mosquitto.sh || true
             bash deploy/setup-nginx.sh || true
