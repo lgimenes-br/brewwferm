@@ -111,8 +111,11 @@ const NavConfig = () => {
         ? String(activeDevice?.currentDevice?.statOp || 'INATIVO').toUpperCase()
         : (activeDevice?.currentDevice ? 'OFFLINE' : 'INATIVO');
 
-    // Check if any device needs an update
-    const devicesNeedingUpdate = fermenters.filter(f => latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, f.currentDevice?.version));
+    // Aviso de firmware individual: so na tela do aparelho e so se ESTE aparelho precisa (na lista, cada
+    // cartao mostra o seu). Nunca avisa num aparelho que outro precisa atualizar.
+    const devicesNeedingUpdate = activeDevice && latestFirmware && isFirmwareUpdateAvailable(latestFirmware.version, activeDevice.currentDevice?.version)
+        ? [activeDevice]
+        : [];
     const hasUpdate = devicesNeedingUpdate.length > 0;
 
     const handleUpdateAll = () => {
@@ -303,7 +306,7 @@ const NavConfig = () => {
                         <span aria-hidden className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />
                         <p className="flex-1 text-[15px] text-[var(--ink)]">
                             Firmware {latestFirmware!.version} disponível
-                            <span className="text-[var(--muted)]"> para {devicesNeedingUpdate.length} aparelho{devicesNeedingUpdate.length > 1 ? 's' : ''}</span>
+                            <span className="text-[var(--muted)]"> para este aparelho</span>
                         </p>
                         <button type="button" onClick={handleUpdateAll} disabled={isUpdating} className="text-[15px] font-medium text-[var(--accent)] disabled:text-[var(--tertiary)] px-2 h-9 rounded-full hover:bg-[var(--fill)] transition-colors">
                             {isUpdating ? 'Instalando…' : 'Atualizar'}
@@ -324,7 +327,7 @@ const NavConfig = () => {
         <ConfirmDialog
             open={isOtaConfirmOpen}
             title="Atualizar Firmware"
-            description={`Deseja iniciar a atualização para a versão ${latestFirmware?.version || ''} em ${devicesNeedingUpdate.length} equipamento(s)? Eles serão reiniciados automaticamente.`}
+            description={`Atualizar ${devicesNeedingUpdate[0]?.name || 'este aparelho'} para a versão ${latestFirmware?.version || ''}? Ele reinicia sozinho no fim.`}
             confirmLabel="Atualizar Agora"
             variant="warning"
             onConfirm={confirmUpdateAll}

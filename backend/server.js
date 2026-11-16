@@ -1878,7 +1878,11 @@ app.get('/api/ai/analysis/:batchId', authenticateToken, async (req, res) => {
 // AI Brewing Advisor Endpoint (keeps Gemini API key server-side)
 /** Ultimo modelo Gemini que respondeu: as proximas analises vao direto nele */
 let aiWorkingModel = null;
+// Breww.AI desligado ate existir uma chave nova e restrita (a antiga vazou no JS publico ate 06/11/2026
+// e o projeto do Google foi suspenso). Para religar: AI_ENABLED=1 no .env do servidor.
+const AI_ENABLED = process.env.AI_ENABLED === '1';
 app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
+    if (!AI_ENABLED) return res.status(503).json({ error: 'O Breww.AI está temporariamente indisponível.', code: 'ai_disabled' });
     try {
         // So o plano Premium (e o admin): cada analise e uma chamada paga ao Gemini
         const [planRows] = await pool.execute('SELECT plan_type, role FROM users WHERE id = ? LIMIT 1', [req.user.id]);

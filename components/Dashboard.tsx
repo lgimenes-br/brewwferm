@@ -8,7 +8,8 @@ import { PageHeader, TempDisplay, SmallValue, Chip, formatAgo } from './app/AppU
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
-import { fetchDiscoveryDevices, AddDeviceResult } from '../services/api';
+import { fetchDiscoveryDevices, AddDeviceResult, fetchFirmwareVersion } from '../services/api';
+import { isFirmwareUpdateAvailable } from '../services/firmware';
 import { PairingWaitModal } from './PairingWaitModal';
 import { WifiSignal } from './WifiSignal';
 
@@ -23,6 +24,9 @@ export const Dashboard: React.FC = () => {
     const { fermenters, addDevice, updateDevice, deleteDevice, refetch } = useFermenters();
     const [pendingPairing, setPendingPairing] = useState<{ pairingId: string; serial: string; expiresIn: number } | null>(null);
     const { connectionStatus, isInitialSyncing, sendCommand } = useBrew();
+    // Versao mais nova do firmware: cada cartao avisa so do proprio aparelho
+    const [latestFw, setLatestFw] = useState<string | null>(null);
+    useEffect(() => { fetchFirmwareVersion().then(d => { if (d?.version) setLatestFw(d.version); }).catch(() => {}); }, []);
     
     // Keep track of which devices we've already asked for status in this component lifecycle
     const askedDevices = React.useRef<Set<string>>(new Set());
@@ -387,6 +391,7 @@ export const Dashboard: React.FC = () => {
                                 ))}
                                 {isFermenter && humidity !== undefined && <Chip icon={<Droplets size={14} />} title="Umidade">{Math.round(humidity)}%</Chip>}
                                 {weakWifi && <Chip dot="warn">Wi-Fi fraco</Chip>}
+                                {latestFw && isFirmwareUpdateAvailable(latestFw, f.currentDevice?.version) && <Chip dot="on" title="Abra o aparelho para atualizar">Firmware {latestFw}</Chip>}
                             </div>
                         </article>
                     );
