@@ -1834,6 +1834,8 @@ app.get('/api/public/batch/:token', async (req, res) => {
 });
 
 // AI Brewing Advisor Endpoint (keeps Gemini API key server-side)
+/** Ultimo modelo Gemini que respondeu: as proximas analises vao direto nele */
+let aiWorkingModel = null;
 app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
     try {
         const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -1850,21 +1852,31 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
 
         // Modelos: os nomes fixos envelhecem (o Google aposenta versoes; 1.5 e 2.0 ja sairam). Tenta o
         // configurado, o apelido "latest" e, se nenhum servir, pergunta a API quais "flash" existem.
-        const preferred = [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean);
+        const preferred = [...new Set([process.env.GEMINI_MODEL, aiWorkingModel, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean))];
         const tried = new Set();
+        const deadline = Date.now() + 50000; // abaixo do limite do proxy e do navegador
         let parsedResult = null;
         let lastErr = 'Falha ao consultar o Gemini';
 
         const callModel = async (model) => {
             tried.add(model);
-            const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+            const left = deadline - Date.now();
+            if (left < 5000) { lastErr = 'A análise demorou demais para responder. Tente de novo.'; return null; }
+            let gRes;
+            try {
+                gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+                signal: AbortSignal.timeout(Math.min(left, 30000)),
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: promptText }] }],
                     generationConfig: { responseMimeType: 'application/json' }
                 })
-            });
+                });
+            } catch (e) {
+                lastErr = e?.name === 'TimeoutError' ? `O modelo ${model} demorou demais para responder` : (e?.message || lastErr);
+                return null;
+            }
             const gData = await gRes.json().catch(() => ({}));
             if (!gRes.ok) {
                 lastErr = gData?.error?.message || `HTTP ${gRes.status}`;
@@ -1873,16 +1885,16 @@ Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score"
             const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (typeof text !== 'string' || !text.trim()) return null;
             const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            try { return JSON.parse(cleanText); } catch { lastErr = 'Resposta do Gemini fora do formato esperado'; return null; }
+            try { const r = JSON.parse(cleanText); aiWorkingModel = model; return r; } catch { lastErr = 'Resposta do Gemini fora do formato esperado'; return null; }
         };
 
         for (const model of preferred) {
             parsedResult = await callModel(model);
             if (parsedResult) break;
         }
-        if (!parsedResult) {
+        if (!parsedResult && deadline - Date.now() > 8000) {
             try {
-                const lRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(apiKey)}`);
+                const lRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(apiKey)}`, { signal: AbortSignal.timeout(5000) });
                 const lData = await lRes.json().catch(() => ({}));
                 const available = (Array.isArray(lData?.models) ? lData.models : [])
                     .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))

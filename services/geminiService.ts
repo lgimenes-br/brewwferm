@@ -23,7 +23,8 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
     : [];
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  // O servidor pode tentar mais de um modelo (ate ~55 s): o navegador espera um pouco mais que isso
+  const timeoutId = setTimeout(() => controller.abort(), 75000);
   try {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_URL}/ai/analyze`, {
@@ -74,6 +75,9 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
     };
   } catch (error: any) {
     console.error("Gemini API Error:", error);
+    if (error?.name === 'AbortError' || /abort/i.test(String(error?.message))) {
+      return 'A análise demorou demais para responder. Tente de novo em instantes.';
+    }
     return `Erro técnico: ${error.message || "Falha desconhecida"}`;
   } finally {
     clearTimeout(timeoutId);
