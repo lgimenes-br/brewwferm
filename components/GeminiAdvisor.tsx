@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Brain, Sparkles, Loader2, MessageSquare, Download, X, Maximize2, Activity, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Fermenter } from '../types';
-import { getBrewingInsights, AIAnalysis } from '../services/geminiService';
+import { getBrewingInsights, AIAnalysis, PREMIUM_REQUIRED } from '../services/geminiService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface GeminiAdvisorProps {
@@ -12,6 +12,7 @@ interface GeminiAdvisorProps {
 
 export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, className = "" }) => {
   const [insight, setInsight] = useState<AIAnalysis | string | null>(null);
+  const [needsPremium, setNeedsPremium] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const modalContentRef = useRef<HTMLDivElement>(null);
@@ -28,6 +29,12 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
   const handleAskAI = async () => {
     setLoading(true);
     const result = await getBrewingInsights(fermenter);
+    // Conta sem Premium: avisa no proprio cartao, sem abrir o relatorio de erro
+    if (result === PREMIUM_REQUIRED) {
+      setNeedsPremium(true);
+      setLoading(false);
+      return;
+    }
     // If we get a string back (error), keep it as string. If object, it's AIAnalysis.
     setInsight(result);
     setLoading(false);
@@ -189,7 +196,11 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 </div>
               </div>
             ) : (
-              <p className="text-[var(--muted)] text-sm max-w-md">
+              needsPremium ? (
+              <p className="text-[var(--ink)] text-sm max-w-md" role="status">
+                {PREMIUM_REQUIRED}
+              </p>
+              ) : <p className="text-[var(--muted)] text-sm max-w-md">
                 Utilize a inteligência artificial do Gemini para analisar as curvas de temperatura e gravidade, identificar paradas de fermentação e sugerir correções de perfil.
               </p>
             )}

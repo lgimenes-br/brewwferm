@@ -11,6 +11,9 @@ export interface AIAnalysis {
   ideal_curve: { hours: number; gravity: number }[];
 }
 
+/** Resposta do servidor para conta sem o plano Premium */
+export const PREMIUM_REQUIRED = 'O Breww.AI faz parte do plano Premium. Fale com a gente para ativar na sua conta.';
+
 export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalysis | string> => {
   const filteredReadings = fermenter.readings
     ? fermenter.readings.filter((_, i) => i % 4 === 0).slice(-15).map(r => ({
@@ -54,6 +57,9 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
     }
 
     const rawData = await response.json().catch(() => ({}));
+    if (response.status === 403 && rawData?.code === 'premium_required') {
+      return PREMIUM_REQUIRED;
+    }
     if (!response.ok) {
       throw new Error(rawData.error || `HTTP ${response.status}`);
     }

@@ -1838,6 +1838,12 @@ app.get('/api/public/batch/:token', async (req, res) => {
 let aiWorkingModel = null;
 app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
     try {
+        // So o plano Premium (e o admin): cada analise e uma chamada paga ao Gemini
+        const [planRows] = await pool.execute('SELECT plan_type, role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const planUser = planRows[0];
+        if (!planUser || (planUser.plan_type !== 'premium' && planUser.role !== 'admin')) {
+            return res.status(403).json({ error: 'O Breww.AI faz parte do plano Premium.', code: 'premium_required' });
+        }
         const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
         if (!apiKey) {
             return res.status(503).json({ error: 'Chave de API do Gemini não configurada no servidor.' });
