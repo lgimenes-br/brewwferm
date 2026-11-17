@@ -23,9 +23,10 @@ export const BOARD_CHIP_FAMILY = {
     'esp32-devkit': 'ESP32',
     's3-headless': 'ESP32-S3',
     'c3-headless': 'ESP32-C3',
-    'esp8266-lite': 'ESP8266'
+    'esp8266-lite': 'ESP8266',
+    'p4-7': 'ESP32-P4'
 };
-export const KNOWN_BOARDS = ['s3-35', 'esp32-devkit', 's3-headless', 'c3-headless', 'esp8266-lite'];
+export const KNOWN_BOARDS = ['s3-35', 'esp32-devkit', 's3-headless', 'c3-headless', 'esp8266-lite', 'p4-7'];
 
 /** Placa pedida (header/query) ou a padrao; null se nao for uma placa conhecida */
 export const resolveBoard = (value) => {
