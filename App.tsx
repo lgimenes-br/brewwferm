@@ -5,7 +5,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { Login } from './components/Login';
 import { AppLogin } from './components/AppLogin';
 import { Register } from './components/Register';
-import { LayoutGrid, History, Settings as SettingsIcon, LogOut, Snowflake, ArrowLeft, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
+import { LayoutGrid, History, Settings as SettingsIcon, SlidersHorizontal, LogOut, Snowflake, ArrowLeft, FlaskConical, Beer, ChevronDown, Check, Calculator, Menu, X, GitCompare } from 'lucide-react';
 import { DeviceMode, isDeviceOnline } from './types';
 import { fetchFirmwareVersion } from './services/api';
 import { isFirmwareUpdateAvailable } from './services/firmware';
@@ -68,7 +68,8 @@ const NavConfig = () => {
         else if (path.startsWith('/history/')) pageTitle = 'Detalhes do Lote — Breww';
         else if (path === '/calculators') pageTitle = 'Calculadoras — Breww';
         else if (path === '/compare') pageTitle = 'Comparar Lotes — Breww';
-        else if (path === '/settings') pageTitle = 'Configurações — Breww';
+        else if (path === '/settings') pageTitle = 'Ajustes — Breww';
+        else if (path === '/preferences') pageTitle = 'Preferências — Breww';
         else if (path.startsWith('/admin')) pageTitle = 'Painel Admin — Breww';
         else if (path.startsWith('/fermenter/')) pageTitle = 'Controle de Fermentação — Breww';
         else if (path.startsWith('/live/')) pageTitle = 'Acompanhamento Ao Vivo — Breww';
@@ -99,6 +100,9 @@ const NavConfig = () => {
             deviceId = match[1];
         }
     }
+    // Ajustes do aparelho (/settings?device=ID) tambem e "dentro do aparelho": topo com o aparelho e voltar
+    const onDeviceSettings = location.pathname === '/settings';
+    if (onDeviceSettings) deviceId = new URLSearchParams(location.search).get('device');
     const activeDevice = deviceId ? fermenters.find(f => (f.id || '').toUpperCase() === deviceId!.toUpperCase()) : null;
 
     const handleModeDropdownSelect = (mode: DeviceMode) => {
@@ -135,11 +139,13 @@ const NavConfig = () => {
     };
 
     const tabs = [
-        { to: '/', label: 'Aparelhos', icon: LayoutGrid, active: location.pathname === '/' || !!activeDevice },
+        { to: '/', label: 'Aparelhos', icon: LayoutGrid, active: location.pathname === '/' || (!!activeDevice && !onDeviceSettings) },
         { to: '/history', label: 'Histórico', icon: History, active: location.pathname.startsWith('/history') },
         { to: '/calculators', label: 'Calculadoras', icon: Calculator, active: location.pathname === '/calculators' },
         { to: '/compare', label: 'Comparar', icon: GitCompare, active: location.pathname === '/compare' },
-        { to: '/settings', label: 'Ajustes', icon: SettingsIcon, active: location.pathname === '/settings' },
+        // Ajustes so dentro de um aparelho (sao os ajustes dele); Preferencias (da conta) sempre
+        ...(activeDevice ? [{ to: `/settings?device=${encodeURIComponent(activeDevice.id)}`, label: 'Ajustes', icon: SettingsIcon, active: onDeviceSettings }] : []),
+        { to: '/preferences', label: 'Preferências', icon: SlidersHorizontal, active: location.pathname === '/preferences' },
     ];
     const showBack = !!activeDevice || /^\/history\/.+/.test(location.pathname);
     // Estado do aparelho aberto em linguagem de gente (o app usa as mesmas palavras)
@@ -397,7 +403,8 @@ const AppRoutes = () => {
                                             <Route path="/history/:id" element={<FinishedBrewDetailWrapper />} />
                                             <Route path="/calculators" element={<BrewingCalculators />} />
                                             <Route path="/compare" element={<CompareBatches />} />
-                                            <Route path="/settings" element={<Settings />} />
+                                            <Route path="/settings" element={<Settings mode="device" />} />
+                                            <Route path="/preferences" element={<Settings mode="preferences" />} />
                                             <Route path="/admin/*" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                                             <Route path="*" element={<Navigate to="/" replace />} />
                                         </Routes>

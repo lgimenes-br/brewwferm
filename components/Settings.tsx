@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Link2, Send } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
@@ -85,7 +85,13 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
   );
 };
 
-export const Settings: React.FC = () => {
+/**
+ * Duas paginas com o mesmo codigo:
+ *  - "device" (Ajustes, /settings?device=ID): so do aparelho aberto; sem lista de escolha.
+ *  - "preferences" (Preferencias, /preferences): o que vale para a conta inteira (notificacoes e integracoes).
+ */
+export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode = 'device' }) => {
+  const navigate = useNavigate();
   const { fermenters, updateFermenterLocal } = useFermenters();
   const { sendCommand, otaProgress, scanDetails, startOta } = useBrew();
   const { token } = useAuth();
@@ -96,25 +102,15 @@ export const Settings: React.FC = () => {
   const [showSensorTest, setShowSensorTest] = useState(false);
   const [showSensorScan, setShowSensorScan] = useState(false);
   
-  // Set default device or fallback if selected device was removed
+  // Ajustes: o aparelho vem do endereco (?device=). Sem ele (ou aparelho que nao e da conta), volta para a lista.
   useEffect(() => {
+    if (mode !== 'device') return;
     const paramDevice = searchParams.get('device');
-    if (paramDevice && fermenters.some(f => f.id.toUpperCase() === paramDevice.toUpperCase())) {
-        const matched = fermenters.find(f => f.id.toUpperCase() === paramDevice.toUpperCase());
-        if (matched && selectedDeviceId !== matched.id) {
-            setSelectedDeviceId(matched.id);
-        }
-        return;
-    }
-    if (fermenters.length > 0) {
-        const exists = fermenters.some(f => f.id === selectedDeviceId);
-        if (!selectedDeviceId || !exists) {
-            setSelectedDeviceId(fermenters[0].id);
-        }
-    } else if (selectedDeviceId) {
-        setSelectedDeviceId('');
-    }
-  }, [fermenters, selectedDeviceId, searchParams]);
+    if (!paramDevice) { navigate('/', { replace: true }); return; }
+    const matched = fermenters.find(f => f.id.toUpperCase() === paramDevice.toUpperCase());
+    if (matched) { if (selectedDeviceId !== matched.id) setSelectedDeviceId(matched.id); }
+    else if (fermenters.length > 0) navigate('/', { replace: true });
+  }, [mode, fermenters, selectedDeviceId, searchParams, navigate]);
 
   // Auto-trigger 1-Wire sensor scan when arriving with ?scan=1
   useEffect(() => {
@@ -591,39 +587,16 @@ export const Settings: React.FC = () => {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16 space-y-8">
       
-      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-           <h1 className="text-[40px] sm:text-[52px] leading-[1.04] font-light tracking-[-0.03em] text-[var(--ink)]">Ajustes</h1>
-           <p className="mt-2 text-[16px] text-[var(--muted)]">Alertas, integrações, sensores e controle do aparelho escolhido.</p>
-        </div>
-        
-        {/* Device Selector */}
-        <div className="relative min-w-[250px]">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Cpu size={16} className="text-[var(--muted)]" />
-            </div>
-            <select
-                aria-label="Selecionar controlador"
-                value={selectedDeviceId}
-                onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="w-full pl-11 pr-10 h-11 bg-[var(--fill)] border border-[var(--line)] hover:border-[var(--line-strong)] text-[var(--ink)] rounded-full focus:outline-none focus:border-[rgba(113,252,143,0.55)] transition-colors appearance-none cursor-pointer text-[15px]"
-            >
-                {fermenters.length === 0 ? (
-                    <option value="" disabled>Nenhum controlador</option>
-                ) : (
-                    fermenters.map(f => (
-                        <option key={f.id} value={f.id}>
-                            {f.name} ({f.id})
-                        </option>
-                    ))
-                )}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                <ChevronDown size={16} className="text-[var(--muted)]" />
-            </div>
-        </div>
+      <header className="mb-8">
+         <h1 className="text-[40px] sm:text-[52px] leading-[1.04] font-light tracking-[-0.03em] text-[var(--ink)]">{mode === 'preferences' ? 'Preferências' : 'Ajustes'}</h1>
+         <p className="mt-2 text-[16px] text-[var(--muted)]">
+           {mode === 'preferences'
+             ? 'Notificações e integrações da sua conta. Valem para todos os aparelhos.'
+             : <>Sensores, controle e firmware do <span className="text-[var(--ink)]">{activeDevice?.name || 'aparelho'}</span>.</>}
+         </p>
       </header>
 
+      {mode === 'preferences' && (<>
       {/* 0. Notificações */}
       <section className="bg-white border border-black/[0.07] rounded-[26px] p-8">
         <SectionHeader icon={Bell} title="Notificações no Celular" />
@@ -775,6 +748,9 @@ export const Settings: React.FC = () => {
         </div>
       </section>
 
+      </>)}
+
+      {mode === 'device' && (<>
       {/* 1. Configurações Gerais */}
       <section className="bg-white border border-black/[0.07] rounded-[26px] p-8">
         <SectionHeader icon={Sliders} title="Configurações Gerais" />
@@ -1102,6 +1078,8 @@ export const Settings: React.FC = () => {
         )}
 
       </section>
+
+      </>)}
 
       <SensorTestModal
         open={showSensorTest}
