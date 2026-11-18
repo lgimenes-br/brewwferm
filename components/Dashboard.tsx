@@ -377,8 +377,8 @@ export const Dashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Chips: estado, outro sensor, umidade, alertas */}
-                            <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-0.5" style={{ opacity: isOnline ? 1 : 0.5 }}>
+                            {/* Chips: estado, outro sensor, umidade, alertas (quebram de linha; sem rolagem) */}
+                            <div className="flex flex-wrap gap-2" style={{ opacity: isOnline ? 1 : 0.5 }}>
                                 {connecting ? (
                                     <Chip icon={<Loader2 size={14} className="animate-spin" />}>Conectando…</Chip>
                                 ) : isOnline ? (
