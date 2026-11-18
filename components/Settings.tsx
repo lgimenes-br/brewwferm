@@ -824,7 +824,7 @@ export const Settings: React.FC = () => {
         </div>
         {selectedDeviceId && (
           <p className="mt-4 text-xs text-[var(--muted)]">
-            Para o iSpindel enviar a este aparelho: servidor <b className="text-[var(--ink)]">breww-{selectedDeviceId.slice(-4).toLowerCase()}.local</b>, caminho <b className="text-[var(--ink)]">/ispindel</b>, porta 80 (firmware 2.12.1 ou mais novo; antes era breww.local).
+            Para o iSpindel enviar ao <b className="text-[var(--ink)]">{activeDevice?.name || 'aparelho selecionado'}</b>: servidor <b className="text-[var(--ink)]">breww-{selectedDeviceId.slice(-4).toLowerCase()}.local</b>, caminho <b className="text-[var(--ink)]">/ispindel</b>, porta 80 (firmware 2.12.1 ou mais novo; antes era breww.local).
           </p>
         )}
         <div className="mt-6 flex justify-end">
@@ -1087,7 +1087,8 @@ export const Settings: React.FC = () => {
                 </div>
                 <button 
                     onClick={() => {
-                        const finalUrl = latestFirmware.url || `${window.location.origin}/firmware/update.bin`;
+                        // Sempre o servidor (o aparelho so aceita https://breww.live/): pelo site local a origem seria localhost
+                        const finalUrl = latestFirmware.url || `${API_URL.replace(/\/api\/?$/, '')}/firmware/update.bin`;
                         if (confirm(`Deseja instalar a versão ${latestFirmware.version} agora? O ESP32 será reiniciado.`)) {
                             startOta(selectedDeviceId, { name: activeDevice?.name, targetVersion: latestFirmware.version });
                             sendCommand(selectedDeviceId, 'update_firmware', { url: finalUrl, md5: latestFirmware.md5 || '' });
