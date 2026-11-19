@@ -56,6 +56,19 @@ fi
 # Retencao: 14 dias de diarios, 56 dias de semanais
 find "${DEST}/diario" -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} + 2>/dev/null
 find "${DEST}/semanal" -mindepth 1 -maxdepth 1 -type d -mtime +56 -exec rm -rf {} + 2>/dev/null
+
+# Copia fora da VPS: Google Drive, criptografada (rclone crypt "breww-offsite" em /root/.config/rclone).
+# Sem o remoto configurado, pula. Retencao no Drive: 60 dias.
+if [ "${ok}" = "1" ] && command -v rclone >/dev/null 2>&1 && rclone listremotes 2>/dev/null | grep -qx 'breww-offsite:'; then
+  if rclone copy "${DEST}/diario/${DAY}" "breww-offsite:diario/${DAY}" --retries 3 --low-level-retries 10; then
+    echo "ok fora da VPS: diario/${DAY}"
+    rclone delete "breww-offsite:diario" --min-age 60d 2>/dev/null
+    rclone rmdirs "breww-offsite:diario" --leave-root 2>/dev/null
+  else
+    ok=0
+    echo "ERRO ao enviar para fora da VPS"
+  fi
+fi
 echo "=== $(date '+%F %T') fim (status ${ok})"
 [ "${ok}" = "1" ]
 SCRIPT
@@ -71,4 +84,6 @@ else
   log "Cron do backup ja configurado."
 fi
 mkdir -p /var/backups/breww && chmod 700 /var/backups/breww
+# rclone para a copia fora da VPS (o remoto e a senha ficam so no servidor, nunca no repositorio)
+command -v rclone >/dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rclone >/dev/null 2>&1 || log "Nao instalou o rclone."
 exit 0
