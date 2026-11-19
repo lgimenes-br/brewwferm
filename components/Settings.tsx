@@ -102,14 +102,18 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
   const [showSensorTest, setShowSensorTest] = useState(false);
   const [showSensorScan, setShowSensorScan] = useState(false);
   
-  // Ajustes: o aparelho vem do endereco (?device=). Sem ele (ou aparelho que nao e da conta), volta para a lista.
+  // Ajustes: o aparelho vem do endereco (?device=). Sem ele (ou aparelho que nao e da conta), volta para a lista
+  // uma unica vez (repetir o navigate a cada render virava um ciclo sem fim quando a pagina continuava montada).
+  const redirectedRef = React.useRef(false);
   useEffect(() => {
     if (mode !== 'device') return;
     const paramDevice = searchParams.get('device');
-    if (!paramDevice) { navigate('/', { replace: true }); return; }
-    const matched = fermenters.find(f => f.id.toUpperCase() === paramDevice.toUpperCase());
-    if (matched) { if (selectedDeviceId !== matched.id) setSelectedDeviceId(matched.id); }
-    else if (fermenters.length > 0) navigate('/', { replace: true });
+    const matched = paramDevice ? fermenters.find(f => f.id.toUpperCase() === paramDevice.toUpperCase()) : undefined;
+    if (matched) { if (selectedDeviceId !== matched.id) setSelectedDeviceId(matched.id); return; }
+    if ((!paramDevice || fermenters.length > 0) && !redirectedRef.current) {
+      redirectedRef.current = true;
+      navigate('/', { replace: true });
+    }
   }, [mode, fermenters, selectedDeviceId, searchParams, navigate]);
 
   // Auto-trigger 1-Wire sensor scan when arriving with ?scan=1

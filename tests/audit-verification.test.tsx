@@ -708,7 +708,11 @@ describe('3. Charts, Forecasting, Advisor, Profile, Wizard, History & Details Ed
         });
 
         await act(async () => {
-            renderUI(<Settings />);
+            renderUI(<Settings mode="preferences" />, ['/preferences']);
+        });
+        expect(container.textContent).not.toContain('NaN');
+        await act(async () => {
+            renderUI(<Settings mode="device" />, ['/settings?device=ESP32_01']);
         });
         expect(container.textContent).not.toContain('NaN');
 

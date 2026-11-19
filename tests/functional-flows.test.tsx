@@ -925,8 +925,9 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             return new Response(JSON.stringify([]), { status: 200 });
         });
 
-        // Parte A: Settings -> Testar TODAS as seções interativas (Gerais, SG, Calibração, PID, Auto-Tune, Relés, Scan 1-Wire via MQTT, Sistema e OTA)
-        renderWithProviders(<Settings />);
+        // Parte A: Preferencias (conta: alertas, Telegram, Brewfather) e depois Ajustes do aparelho (Gerais, SG,
+        // Calibracao, PID, Auto-Tune, Reles, Scan 1-Wire via MQTT, Sistema e OTA)
+        renderWithProviders(<Settings mode="preferences" />, ['/preferences']);
         await act(async () => {
             await new Promise(r => setTimeout(r, 60));
         });
@@ -956,6 +957,12 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
         expect(apiCalls.some(c => c.url.includes('/user/integrations') && c.method === 'PUT' && c.body?.brewfatherWebhookUrl === 'http://log.brewfather.net/stream?id=breww123')).toBe(true);
         expect(apiCalls.some(c => c.url.includes('/user/integrations/test-brewfather') && c.method === 'POST')).toBe(true);
+
+        // Ajustes do aparelho: o aparelho vem do endereco
+        renderWithProviders(<Settings mode="device" />, ['/settings?device=ESP32_CFG']);
+        await act(async () => {
+            await new Promise(r => setTimeout(r, 60));
+        });
 
         // 1. Configurações Gerais ("Salvar Gerais")
         clickElement(findButtonByText('Salvar Gerais'));
