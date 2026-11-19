@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-13T11:15:05+00:00",
+  "title": "Design System: Breww",
+  "extensions": {
+    "colorMeta": {
+      "verde-no-alvo": {
+        "role": "primary",
+        "displayName": "Verde No Alvo",
+        "canonical": "#71FC8F",
+        "tonalRamp": [
+          "#103C1A",
+          "#03871F",
+          "#04C32D",
+          "#0AFA3E",
+          "#46FB6D",
+          "#82FC9D",
+          "#C7F0D0",
+          "#EBFAEE"
+        ]
+      },
+      "verde-linha": {
+        "role": "primary",
+        "displayName": "Verde Linha",
+        "canonical": "#1FA84A",
+        "tonalRamp": [
+          "#0E2A15",
+          "#14491F",
+          "#1A6A2C",
+          "#1FA84A",
+          "#4CC26C",
+          "#82D597",
+          "#BDE8C8",
+          "#E9F7ED"
+        ]
+      },
+      "tinta": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#0B0D12",
+        "tonalRamp": [
+          "#21242C",
+          "#343E55",
+          "#4B597B",
+          "#6475A0",
+          "#8A97B7",
+          "#B0B9CF",
+          "#D6D9E0",
+          "#F0F1F4"
+        ]
+      },
+      "grafite-cartao": {
+        "role": "neutral",
+        "displayName": "Grafite Cartão",
+        "canonical": "#181C25",
+        "tonalRamp": [
+          "#21242B",
+          "#363F54",
+          "#4E5B79",
+          "#67789D",
+          "#8D99B5",
+          "#B2BACD",
+          "#D7DAE0",
+          "#F1F2F4"
+        ]
+      },
+      "papel-nevoa": {
+        "role": "neutral",
+        "displayName": "Papel Névoa",
+        "canonical": "#EEEFF1",
+        "tonalRamp": [
+          "#242628",
+          "#3E434C",
+          "#5A606D",
+          "#767E8E",
+          "#989EAA",
+          "#B9BDC5",
+          "#D9DBDD",
+          "#F2F2F3"
+        ]
+      },
+      "branco-superficie": {
+        "role": "neutral",
+        "displayName": "Branco Superfície",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#454545",
+          "#636363",
+          "#828282",
+          "#A1A1A1",
+          "#BFBFBF",
+          "#DBDBDB",
+          "#F2F2F2"
+        ]
+      },
+      "cinza-texto": {
+        "role": "neutral",
+        "displayName": "Cinza Texto",
+        "canonical": "#565A63",
+        "tonalRamp": [
+          "#252628",
+          "#40434A",
+          "#5C616A",
+          "#797F8B",
+          "#9A9EA7",
+          "#BBBEC4",
+          "#DADBDD",
+          "#F2F2F3"
+        ]
+      },
+      "cinza-texto-forte": {
+        "role": "neutral",
+        "displayName": "Cinza Texto Forte",
+        "canonical": "#2B2F37",
+        "tonalRamp": [
+          "#232529",
+          "#3C424D",
+          "#575F70",
+          "#737D91",
+          "#959DAC",
+          "#B7BDC7",
+          "#D9DADE",
+          "#F1F2F3"
+        ]
+      },
+      "cinza-sobre-escuro": {
+        "role": "neutral",
+        "displayName": "Cinza Sobre Escuro",
+        "canonical": "#898E99",
+        "tonalRamp": [
+          "#252628",
+          "#40434A",
+          "#5C616B",
+          "#797F8B",
+          "#9A9EA8",
+          "#BBBEC4",
+          "#DADBDD",
+          "#F2F2F3"
+        ]
+      },
+      "cinza-claro-sobre-escuro": {
+        "role": "neutral",
+        "displayName": "Cinza Claro Sobre Escuro",
+        "canonical": "#A3A7B0",
+        "tonalRamp": [
+          "#252628",
+          "#40434A",
+          "#5C616B",
+          "#797E8C",
+          "#999EA8",
+          "#BABDC4",
+          "#DADBDD",
+          "#F2F2F3"
+        ]
+      },
+      "verde-estado": {
+        "role": "tertiary",
+        "displayName": "Verde Estado",
+        "canonical": "#2FBF55",
+        "tonalRamp": [
+          "#183420",
+          "#1B6F31",
+          "#27A047",
+          "#36CE5E",
+          "#68DA86",
+          "#99E6AD",
+          "#CEE8D5",
+          "#EEF7F0"
+        ]
+      },
+      "vermelho-aviso": {
+        "role": "tertiary",
+        "displayName": "Vermelho Aviso",
+        "canonical": "#D63A4D",
+        "tonalRamp": [
+          "#35171B",
+          "#721823",
+          "#A52232",
+          "#D43044",
+          "#DE6372",
+          "#E995A0",
+          "#E9CDD1",
+          "#F7EDEE"
+        ]
+      },
+      "branco-gelo": {
+        "role": "neutral",
+        "displayName": "Branco Gelo",
+        "canonical": "#F7F7F8",
+        "tonalRamp": [
+          "#26272A",
+          "#45474C",
+          "#64676D",
+          "#83868D",
+          "#A3A6AC",
+          "#C3C5CA",
+          "#E1E2E5",
+          "#F7F7F8"
+        ]
+      },
+      "cinza-regua": {
+        "role": "neutral",
+        "displayName": "Cinza Régua",
+        "canonical": "#E4E6E9",
+        "tonalRamp": [
+          "#23262B",
+          "#40444C",
+          "#5E636C",
+          "#7C828C",
+          "#9AA0A9",
+          "#B9BEC5",
+          "#D6D9DD",
+          "#E4E6E9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display-xl": {
+        "displayName": "Display XL",
+        "purpose": "Título da home e do fecho, escala de cartaz (84px a partir de 1024px)."
+      },
+      "display-lg": {
+        "displayName": "Display LG",
+        "purpose": "Degrau intermediário do título da home (72px) e preço de destaque."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Título principal das demais páginas e número grande dos cartões de dados."
+      },
+      "headline-lg": {
+        "displayName": "Headline LG",
+        "purpose": "Título de seção no computador (60px)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Título de seção e frase de plano (48px)."
+      },
+      "display-sm": {
+        "displayName": "Display SM",
+        "purpose": "Título principal no celular (44px)."
+      },
+      "headline-sm": {
+        "displayName": "Headline SM",
+        "purpose": "Título de seção no celular e capítulos da curva (36px)."
+      },
+      "leitura": {
+        "displayName": "Leitura",
+        "purpose": "Temperatura viva do painel de instrumento a partir de 640px (96px, tabular)."
+      },
+      "leitura-sm": {
+        "displayName": "Leitura SM",
+        "purpose": "Temperatura viva do painel de instrumento no celular (56px, tabular)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Título de cartão, de passo e de plano."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto corrido."
+      },
+      "body-sm": {
+        "displayName": "Body SM",
+        "purpose": "Texto de apoio e de botão (15px)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Etiquetas, rótulos do gráfico, legendas e rótulos de campo."
+      },
+      "label-xs": {
+        "displayName": "Label XS",
+        "purpose": "Rótulos de dia no celular e notas de exemplo."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Trechos reais do firmware."
+      }
+    },
+    "shadows": [
+      {
+        "name": "instrumento-na-bancada",
+        "value": "0 30px 60px -35px rgba(11,13,18,0.7)",
+        "purpose": "Painel de leitura flutuando sobre a malha e a curva."
+      },
+      {
+        "name": "visor-pequeno",
+        "value": "0 24px 40px -30px rgba(11,13,18,0.55)",
+        "purpose": "Telinhas Grafite da linha do tempo da montagem."
+      },
+      {
+        "name": "notificacao",
+        "value": "0 18px 40px -28px rgba(11,13,18,0.5)",
+        "purpose": "Aviso de celular branco que ilustra o alerta."
+      }
+    ],
+    "motion": [
+      {
+        "name": "secao-fixa-da-curva",
+        "value": "sticky 100svh dentro de 460vh (celular) / 520vh (640px+); progresso p = rolagem / (altura - tela), via requestAnimationFrame",
+        "purpose": "A rolagem conduz o lote do Dia 1 ao Dia 10."
+      },
+      {
+        "name": "titulo-sobe-e-some",
+        "value": "0 a 9% de p: opacidade 1→0, translateY 0→-90px",
+        "purpose": "O título da home sai de cena em parallax; a leitura entra de 6% a 11% (translateY 40px→0)."
+      },
+      {
+        "name": "grafico-cresce",
+        "value": "top 60%→44% (1024px+), 60%→50% (640px+), 64%→62% (celular), junto com a saída do título",
+        "purpose": "O gráfico sobe e ganha altura quando o título sai."
+      },
+      {
+        "name": "curva-se-desenha",
+        "value": "recorte (clipPath) com largura até o dia atual; dia = 0,45 + (p-0,07)/0,88 × 9,55",
+        "purpose": "A linha real e o degradê se revelam por recorte; a ponta com anel e a leitura acompanham."
+      },
+      {
+        "name": "malha-desliza",
+        "value": "background-position -p × 480px",
+        "purpose": "O papel milimetrado anda mais devagar que a curva."
+      },
+      {
+        "name": "parallax-p",
+        "value": "variável CSS --p de 0 a 1 por seção (useScrollVar, fim em 15–40% da tela); camadas usam calc(var(--p))",
+        "purpose": "Trilhas que crescem (scaleX/scaleY), passos que acendem, marcas da matriz que aparecem, régua que se preenche e camadas que sobem em velocidades diferentes."
+      },
+      {
+        "name": "revelar-por-recorte",
+        "value": "clip-path: inset(-10px calc(100% - min(1, var(--p) × k) × L) -10px 0)",
+        "purpose": "Linhas em SVG esticado se revelam por recorte, nunca por stroke-dashoffset."
+      },
+      {
+        "name": "capitulo-entra",
+        "value": "0.6s cubic-bezier(0.2, 0.7, 0.2, 1), sobe 18px",
+        "purpose": "O capítulo entra quando a ponta da linha chega no ponto dele."
+      },
+      {
+        "name": "movimento-reduzido",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "Sem seção fixa: título, curva inteira estática e capítulos em lista; --p fica em 1; animações e transições zeradas."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal das páginas públicas.",
+      "html": "<button class=\"ds-btn-primary\">Criar conta grátis <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;font-family:'Inter',system-ui,sans-serif;font-size:15px;font-weight:500;background:#0B0D12;color:#fff;border:none;border-radius:9999px;padding:14px 24px;cursor:pointer;transition:background .15s}.ds-btn-primary svg{transition:transform .15s}.ds-btn-primary:hover{background:#000}.ds-btn-primary:hover svg{transform:translateX(2px)}.ds-btn-primary:focus-visible{outline:2px solid #0B0D12;outline-offset:2px}"
+    },
+    {
+      "name": "Botão de destaque",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "Avança nos fluxos de tarefa, como o assistente de instalação.",
+      "html": "<button class=\"ds-btn-accent\">Gravar o firmware</button>",
+      "css": ".ds-btn-accent{font-family:'Inter',system-ui,sans-serif;font-size:15px;font-weight:600;background:#71FC8F;color:#0B0D12;border:none;border-radius:9999px;padding:14px 24px;cursor:pointer;transition:filter .15s}.ds-btn-accent:hover{filter:brightness(.95)}.ds-btn-accent:focus-visible{outline:2px solid #0B0D12;outline-offset:2px}"
+    },
+    {
+      "name": "Botão fantasma",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação secundária.",
+      "html": "<button class=\"ds-btn-ghost\">Monte o seu controlador</button>",
+      "css": ".ds-btn-ghost{font-family:'Inter',system-ui,sans-serif;font-size:15px;font-weight:500;background:#fff;color:#0B0D12;border:1px solid rgba(0,0,0,.1);border-radius:9999px;padding:14px 24px;cursor:pointer;transition:background .15s}.ds-btn-ghost:hover{background:#F7F7F8}.ds-btn-ghost:focus-visible{outline:2px solid #0B0D12;outline-offset:2px}"
+    },
+    {
+      "name": "Campo de formulário",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo com rótulo pequeno acima.",
+      "html": "<label class=\"ds-field\"><span>E-mail</span><input type=\"email\" placeholder=\"seu@email.com\"></label>",
+      "css": ".ds-field{display:block;font-family:'Inter',system-ui,sans-serif;}.ds-field span{display:block;margin:0 0 8px 4px;font-size:11px;font-weight:700;color:#565A63}.ds-field input{width:280px;font-family:'Inter',system-ui,sans-serif;font-size:14px;background:#EEEFF1;color:#2B2F37;border:1px solid rgba(0,0,0,.07);border-radius:12px;padding:14px 16px}.ds-field input::placeholder{color:rgba(0,0,0,.3)}.ds-field input:focus{outline:none;border-color:rgba(0,0,0,.3);box-shadow:0 0 0 1px rgba(0,0,0,.2)}"
+    },
+    {
+      "name": "Etiqueta",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Etiqueta pequena com ponto de estado.",
+      "html": "<span class=\"ds-chip\"><i></i>Controle de fermentação</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:8px;font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:500;color:#565A63;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.1);border-radius:9999px;padding:4px 12px}.ds-chip i{width:6px;height:6px;border-radius:50%;background:#2FBF55}"
+    },
+    {
+      "name": "Cartão claro",
+      "kind": "card",
+      "refersTo": "card-light",
+      "description": "Cartão branco de conteúdo geral.",
+      "html": "<div class=\"ds-card-light\"><h3>Alertas no celular</h3><p>Aviso quando a temperatura sai do ponto.</p></div>",
+      "css": ".ds-card-light{width:280px;font-family:'Inter',system-ui,sans-serif;background:#fff;color:#0B0D12;border:1px solid rgba(0,0,0,.1);border-radius:24px;padding:32px}.ds-card-light h3{margin:0;font-size:20px;font-weight:600;letter-spacing:-.025em}.ds-card-light p{margin:8px 0 0;font-size:15px;line-height:1.6;color:#565A63}"
+    },
+    {
+      "name": "Marca-texto",
+      "kind": "custom",
+      "description": "Grifo verde atrás das palavras-chave do título principal, uma vez por página.",
+      "html": "<h1 class=\"ds-title\">Sua cerveja na temperatura certa, <span>do primeiro dia</span> ao chope.</h1>",
+      "css": ".ds-title{max-width:520px;margin:0;font-family:'Inter Tight','Inter',sans-serif;font-size:44px;font-weight:300;line-height:1.02;letter-spacing:-.035em;color:#0B0D12}.ds-title span{background:linear-gradient(transparent 40%,#71FC8F 40%,#71FC8F 92%,transparent 92%);-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .06em;border-radius:.1em}"
+    },
+    {
+      "name": "Leitura de instrumento",
+      "kind": "card",
+      "refersTo": "leitura-instrumento",
+      "description": "Painel Grafite que acompanha a ponta da curva: dia, temperatura, estado, alvo e densidade.",
+      "html": "<div class=\"ds-readout\"><p class=\"ds-readout-l\"><span class=\"ds-dot\"></span>Dia 3 · 14h · Pilsen da casa</p><p class=\"ds-readout-t\"><span>18,2</span><small>°C</small></p><div class=\"ds-readout-f\"><span class=\"ds-status\">no alvo</span><span>alvo 18 °C</span><span>densidade 1,031</span></div></div>",
+      "css": ".ds-readout{background:#181C25;color:#fff;border-radius:24px;padding:24px 28px;max-width:360px;box-shadow:0 30px 60px -35px rgba(11,13,18,.7);font-family:'Inter',system-ui,sans-serif}.ds-readout-l{display:flex;align-items:center;gap:8px;margin:0;font-size:14px;color:#A3A7B0;font-variant-numeric:tabular-nums}.ds-dot{width:6px;height:6px;border-radius:9999px;background:#71FC8F}.ds-readout-t{display:flex;align-items:flex-start;gap:4px;margin:8px 0 0;font-family:'Inter Tight','Inter',sans-serif;font-weight:300;line-height:1;letter-spacing:-.04em}.ds-readout-t span{font-size:96px;font-variant-numeric:tabular-nums}.ds-readout-t small{font-size:24px;color:#A3A7B0;margin-top:6px}.ds-readout-f{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1);font-size:14px;color:#A3A7B0;font-variant-numeric:tabular-nums}.ds-status{border-radius:9999px;padding:4px 12px;background:rgba(113,252,143,.15);color:#71FC8F}"
+    },
+    {
+      "name": "A curva",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Alvo em degraus tracejados em Tinta, linha real Verde Linha de 6px com degradê, ponta com anel, sobre papel milimetrado.",
+      "html": "<div class=\"ds-curve\"><svg viewBox=\"0 0 400 160\" preserveAspectRatio=\"none\"><defs><linearGradient id=\"dsf\" x1=\"0\" x2=\"0\" y1=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#71FC8F\" stop-opacity=\".42\"/><stop offset=\"1\" stop-color=\"#71FC8F\" stop-opacity=\"0\"/></linearGradient></defs><line x1=\"0\" x2=\"400\" y1=\"150\" y2=\"150\" stroke=\"rgba(11,13,18,.18)\"/><path d=\"M0 70 H200 L200 45 H280 L280 140 H400\" fill=\"none\" stroke=\"#0B0D12\" stroke-opacity=\".5\" stroke-width=\"2.5\" stroke-dasharray=\"9 9\"/><path d=\"M0 58 C40 66 80 70 120 70 S180 70 200 70 L200 150 L0 150 Z\" fill=\"url(#dsf)\"/><path d=\"M0 58 C40 66 80 70 120 70 S180 70 200 70\" fill=\"none\" stroke=\"#1FA84A\" stroke-width=\"6\" stroke-linecap=\"round\"/></svg><span class=\"ds-head\"></span><span class=\"ds-step\">Primária 18°</span></div>",
+      "css": ".ds-curve{position:relative;height:180px;padding:12px;background-color:#EEEFF1;background-image:linear-gradient(rgba(11,13,18,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(11,13,18,.05) 1px,transparent 1px);background-size:48px 48px;border-radius:16px}.ds-curve svg{width:100%;height:100%;overflow:visible}.ds-head{position:absolute;left:calc(12px + 50% - 12px);top:calc(12px + 70/160*(100% - 24px));width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:9999px;background:#1FA84A;border:3px solid #EEEFF1;box-shadow:0 0 0 9px rgba(113,252,143,.35);box-sizing:border-box}.ds-step{position:absolute;left:24px;top:28px;font:500 14px 'Inter',sans-serif;color:rgba(11,13,18,.7)}"
+    },
+    {
+      "name": "Linha do tempo da montagem",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Trilha Verde Linha que cresce com a rolagem; cada passo acende quando ela chega, com um visor Grafite.",
+      "html": "<ol class=\"ds-tl\"><li class=\"on\"><span class=\"ds-tl-n\"></span><h4>Ligue a placa no USB</h4><div class=\"ds-tl-s\">Aguardando placa…</div></li><li class=\"on\"><span class=\"ds-tl-n\"></span><h4>Grava o Breww</h4><div class=\"ds-tl-s\">Gravando <b>64%</b></div></li><li><span class=\"ds-tl-n\"></span><h4>Aparece no app</h4><div class=\"ds-tl-s\">20,1 °C</div></li></ol>",
+      "css": ".ds-tl{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;list-style:none;margin:0;padding:0;font-family:'Inter',sans-serif}.ds-tl:before{content:'';position:absolute;left:0;right:0;top:15px;height:1px;background:rgba(0,0,0,.1)}.ds-tl:after{content:'';position:absolute;left:0;width:55%;top:14px;height:3px;border-radius:9999px;background:#1FA84A}.ds-tl li{position:relative}.ds-tl-n{position:relative;z-index:1;display:block;width:32px;height:32px;border-radius:9999px;border:2px solid #1FA84A;background:#EEEFF1;box-sizing:border-box}.ds-tl li.on .ds-tl-n{background:#1FA84A}.ds-tl h4{margin:24px 0 0;font-size:18px;font-weight:600;letter-spacing:-.02em;color:#0B0D12}.ds-tl-s{margin-top:16px;border-radius:16px;background:#181C25;color:#A3A7B0;padding:14px 16px;font-size:15px;box-shadow:0 24px 40px -30px rgba(11,13,18,.55)}.ds-tl-s b{color:#71FC8F;font-weight:400;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Matriz de compilação",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Placas por versões publicadas; versões anteriores em verde a 15%, a atual em Verde No Alvo cheio.",
+      "html": "<div class=\"ds-mx\"><div class=\"r h\"><span>Placa</span><span>v2.9.5</span><span>v2.9.6</span></div><div class=\"r\"><span>ESP32-C3</span><i></i><i class=\"cur\"></i></div><div class=\"r\"><span>ESP32-S3</span><i></i><i class=\"cur\"></i></div></div>",
+      "css": ".ds-mx{background:#181C25;padding:20px;border-radius:24px;font-family:'Inter',sans-serif}.ds-mx .r{display:grid;grid-template-columns:1.6fr 1fr 1fr;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(14,17,23,.7);color:#fff;font-size:15px}.ds-mx .r.h{color:#A3A7B0;font-size:14px;border-radius:24px 24px 0 0;border-bottom-color:rgba(255,255,255,.1);font-variant-numeric:tabular-nums}.ds-mx .r:last-child{border-radius:0 0 24px 24px;border:0}.ds-mx i{justify-self:center;width:32px;height:32px;border-radius:8px;background:rgba(113,252,143,.15)}.ds-mx i.cur{background:#71FC8F}"
+    },
+    {
+      "name": "Régua de preços",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "1 a 3 fermentadores preenchidos em verde; 4 em diante tracejado, o que ainda não existe.",
+      "html": "<div class=\"ds-ruler\"><div class=\"a\"><span>1</span><span>2</span><span>3</span></div><div class=\"b\"><span>4</span><span>5</span><span>6 +</span></div></div>",
+      "css": ".ds-ruler{display:grid;grid-template-columns:1fr 1fr;font:500 14px 'Inter',sans-serif;font-variant-numeric:tabular-nums}.ds-ruler>div{display:grid;grid-template-columns:repeat(3,1fr);height:56px;box-sizing:border-box}.ds-ruler span{display:flex;align-items:center;justify-content:center}.ds-ruler .a{background:#71FC8F;color:#0B0D12;border:1px solid rgba(31,168,74,.4);border-radius:9999px 0 0 9999px}.ds-ruler .a span+span{border-left:1px solid rgba(11,13,18,.1)}.ds-ruler .b{border:1px dashed rgba(11,13,18,.3);border-radius:0 9999px 9999px 0;color:#565A63;font-weight:400}"
+    },
+    {
+      "name": "Gráfico de projeção",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Linha cheia até hoje, tracejada dali em diante, com marcos do que está em teste e do destino.",
+      "html": "<div class=\"ds-proj\"><svg viewBox=\"0 0 400 120\" preserveAspectRatio=\"none\"><line x1=\"0\" x2=\"400\" y1=\"110\" y2=\"110\" stroke=\"rgba(11,13,18,.18)\"/><path d=\"M0 95 C60 92 120 75 168 62\" fill=\"none\" stroke=\"#1FA84A\" stroke-width=\"4.5\" stroke-linecap=\"round\"/><path d=\"M168 62 C230 50 300 35 400 17\" fill=\"none\" stroke=\"#0B0D12\" stroke-opacity=\".5\" stroke-width=\"2\" stroke-dasharray=\"7 8\"/></svg><span class=\"ds-today\">hoje</span></div>",
+      "css": ".ds-proj{position:relative;height:140px;padding:12px;background-color:#EEEFF1;background-image:linear-gradient(rgba(11,13,18,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(11,13,18,.05) 1px,transparent 1px);background-size:48px 48px;}.ds-proj svg{width:100%;height:100%;overflow:visible}.ds-today{position:absolute;left:42%;top:58%;transform:translateX(-50%);border-radius:9999px;background:#0B0D12;color:#fff;padding:4px 12px;font:500 12px 'Inter',sans-serif}"
+    }
+  ],
+  "narrative": {
+    "northStar": "O instrumento calmo",
+    "overview": "O Breww se parece com um instrumento de medição sereno: poucos elementos na tela, números grandes e leves, e um único verde que acende quando está tudo no alvo. O fundo é um cinza claro de papel, o texto é tinta quase preta e os dados do aparelho aparecem em painéis escuros, como o visor de um equipamento pousado sobre a bancada. Isso vale para o site inteiro: home, instalador, cadastro, ajuda e páginas legais.\n\nNas páginas que contam a história do produto (hoje, a home), o instrumento ganha seu registro de cartaz, **\"A curva é a página\"**: o papel vira papel milimetrado, a linha de temperatura atravessa a página como fio condutor e a rolagem avança os dias de um lote de exemplo. É o mesmo instrumento visto de perto, não um segundo sistema: mesma paleta, mesma tipografia leve, mesmas pílulas. Hoje as telas de tarefa (cadastro, instalador) ficam no registro calmo, sem malha nem curva.\n\nO clima é confiante, calmo e acolhedor. Confiante na tipografia grande e fina e nas frases diretas; calmo no espaço em branco e na ausência de enfeite; acolhedor nos cantos bem arredondados e na linguagem de cervejeiro. O visual não deve parecer rústico de cervejaria (madeira, barril, âmbar, letras de pub) nem um painel escuro técnico cheio de séries e cores.",
+    "keyCharacteristics": [
+      "Fundo claro, tinta escura e um único verde de destaque.",
+      "Títulos grandes em peso leve, com espaçamento apertado; nas páginas de história, em escala de cartaz.",
+      "A curva de temperatura como fio condutor: alvo tracejado, linha real verde, ponta com anel.",
+      "Papel milimetrado como chão das seções da home.",
+      "Dados do aparelho sempre em painéis Grafite, com números tabulares.",
+      "Pílulas e cantos generosos em tudo o que se toca."
+    ],
+    "rules": [
+      {
+        "name": "Regra do Verde Raro",
+        "body": "O verde ocupa pouca área: um grifo, uma linha, um ponto, um botão, o preenchimento de uma régua. Nunca vira fundo de seção.",
+        "section": "colors"
+      },
+      {
+        "name": "Regra do Verde Sobre Escuro",
+        "body": "Como texto ou ícone, o Verde No Alvo só aparece sobre Tinta ou Grafite Cartão. Sobre fundo claro ele é fundo de marca-texto, de botão ou de régua, com texto em Tinta; o traço sobre claro é Verde Linha.",
+        "section": "colors"
+      },
+      {
+        "name": "Regra do Vermelho Reservado",
+        "body": "Vermelho aparece só em erro e aviso; nunca como decoração nem como série de gráfico. O susto de temperatura da curva é marcado em Grafite, não em vermelho.",
+        "section": "colors"
+      },
+      {
+        "name": "Regra do Peso Leve",
+        "body": "Título e leitura grandes são sempre leves (300). O peso forte (600) fica para títulos pequenos e botões.",
+        "section": "typography"
+      },
+      {
+        "name": "Regra dos Números Tabulares",
+        "body": "Temperaturas, densidades, versões, contagens e horas usam algarismos tabulares para não dançar quando o valor muda.",
+        "section": "typography"
+      },
+      {
+        "name": "Regra do Plano por Padrão",
+        "body": "Sombra só em instrumento ou notificação pousado sobre o papel milimetrado, sempre difusa e puxada para baixo. Nada de sombra para \"destacar\" cartão comum de conteúdo.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** usar o Verde No Alvo com parcimônia: grifo, linha, ponto, régua ou um botão por tela.",
+      "**Do** usar Verde Linha para o traço da curva sobre fundo claro e Verde No Alvo para a curva sobre fundo escuro.",
+      "**Do** usar tracejado para o que ainda não aconteceu (alvo à frente, projeção, plano futuro, próximo lote) e cheio para o que já existe.",
+      "**Do** manter títulos e leituras grandes em peso 300 com espaçamento negativo (−0,03em a −0,04em).",
+      "**Do** mostrar dados do aparelho em painéis Grafite, com números tabulares e o estado em pílula.",
+      "**Do** pousar as seções da home no papel milimetrado de 48px (Tinta a 5%), e as escuras na malha branca a 4,5%.",
+      "**Do** usar pílula em tudo o que é clicável e 24px nos cartões e painéis.",
+      "**Do** rotular dados sintéticos como exemplo.",
+      "**Do** respeitar a preferência de movimento reduzido: sem seção fixa, curva inteira estática, capítulos em lista e toda camada no estado final."
+    ],
+    "donts": [
+      "**Don't** usar visual rústico de cervejaria: madeira, barril, âmbar, letras de pub, lousa de giz.",
+      "**Don't** transformar páginas em painel escuro técnico com várias séries e cores: uma curva por vez, numa só cor.",
+      "**Don't** pôr sombra em cartão comum de conteúdo nem usar o verde como fundo de seção.",
+      "**Don't** escrever rótulos em caixa alta espaçada, pôr kicker ou sobretítulo acima dos títulos, ou usar títulos grandes em negrito.",
+      "**Don't** usar vermelho fora de erro e aviso, nem para o susto de temperatura da curva.",
+      "**Don't** revelar linhas animando o tracejado do SVG esticado; use recorte.",
+      "**Don't** pôr a malha milimetrada dentro de cartões ou painéis; ela é sempre o chão da seção."
+    ]
+  }
+}

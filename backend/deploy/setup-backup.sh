@@ -59,7 +59,7 @@ find "${DEST}/semanal" -mindepth 1 -maxdepth 1 -type d -mtime +56 -exec rm -rf {
 
 # Copia fora da VPS: Google Drive, criptografada (rclone crypt "breww-offsite" em /root/.config/rclone).
 # Sem o remoto configurado, pula. Retencao no Drive: 60 dias.
-if [ "${ok}" = "1" ] && command -v rclone >/dev/null 2>&1 && rclone listremotes 2>/dev/null | grep -qx 'breww-offsite:'; then
+if [ "${ok}" = "1" ] && command -v rclone >/dev/null 2>&1 && rclone listremotes 2>/dev/null | grep -x 'breww-offsite:' >/dev/null; then # sem -q: com pipefail, o -q fecha o cano cedo e o rclone falha
   if rclone copy "${DEST}/diario/${DAY}" "breww-offsite:diario/${DAY}" --retries 3 --low-level-retries 10; then
     echo "ok fora da VPS: diario/${DAY}"
     rclone delete "breww-offsite:diario" --min-age 60d 2>/dev/null

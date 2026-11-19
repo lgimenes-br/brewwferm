@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": "28px",
+        "createdAt": "2026-11-13T01:52:18.873Z",
+        "reason": "Claude: número '2,0 °C' dentro da réplica da tela do app (PhoneMock em Landing.tsx), que segue os tamanhos do app, não a escala do site"
+      }
+    ]
+  }
+}

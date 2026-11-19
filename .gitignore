@@ -29,3 +29,7 @@ temp_breww_app/
 
 # Firmwares publicados pelo CI (existem so no servidor)
 backend/firmware/
+
+# Cache local do Impeccable e permissoes locais do Claude
+.impeccable/hook.cache.json
+.claude/settings.local.json
