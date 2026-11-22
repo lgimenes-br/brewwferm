@@ -6,7 +6,7 @@ import { SiteHeader, SiteFooter } from './SiteChrome';
 // O controlador aparece so como a marca Breww por enquanto (decisao do dono, 12/11/2026).
 
 export const LEGAL_EMAIL = 'contato@breww.live';
-export const LEGAL_UPDATED = '13 de novembro de 2026';
+export const LEGAL_UPDATED = '22 de novembro de 2026';
 
 const Page: React.FC<{ title: string; intro: React.ReactNode; children: React.ReactNode }> = ({ title, intro, children }) => (
     <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
@@ -76,7 +76,7 @@ export const Privacy: React.FC = () => {
                     <li><b>Locaweb</b> (Brasil): hospedagem do servidor e do banco de dados.</li>
                     <li><b>Expo, Apple e Google</b>: envio de notificações e login com Google ou Apple.</li>
                     <li><b>Resend</b>: envio de e-mails, como a recuperação de senha.</li>
-                    <li><b>Google (Gemini)</b>: análise do lote com inteligência artificial, só quando você pede. Enviamos os dados do lote (estilo, densidades, temperaturas), sem nome ou e-mail.</li>
+                    <li><b>Groq</b>: texto da análise do lote (Breww.AI), só quando você pede. A análise é calculada no servidor do Breww; para o texto, enviamos ao Groq só os dados do lote (estilo, densidades, temperaturas e o resultado da análise), sem nome ou e-mail.</li>
                     <li><b>Sentry</b>: registro de erros técnicos.</li>
                     <li><b>Brewfather e Telegram</b>: só se você ativar a integração, e só os dados que ela envia.</li>
                 </ul>

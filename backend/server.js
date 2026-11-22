@@ -21,6 +21,8 @@ import { FREE_MAX_DEVICES } from './services/plans.js';
 import { buildCarryCommands } from './services/carrySettings.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
+import { analyzeFermentation } from './services/batchAnalysis.js';
+import { writeAnalysisText } from './services/aiWriter.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
@@ -1875,120 +1877,82 @@ app.get('/api/ai/analysis/:batchId', authenticateToken, async (req, res) => {
     }
 });
 
-// AI Brewing Advisor Endpoint (keeps Gemini API key server-side)
-/** Ultimo modelo Gemini que respondeu: as proximas analises vao direto nele */
-let aiWorkingModel = null;
-// Breww.AI desligado ate existir uma chave nova e restrita (a antiga vazou no JS publico ate 06/11/2026
-// e o projeto do Google foi suspenso). Para religar: AI_ENABLED=1 no .env do servidor.
-const AI_ENABLED = process.env.AI_ENABLED === '1';
+// Breww.AI: analise do lote por regras (services/batchAnalysis.js), sempre disponivel e instantanea, com o
+// texto reescrito por um modelo gratuito quando houver chave (services/aiWriter.js; hoje o Groq). Sem a
+// IA, a resposta e a das regras. O Gemini saiu em 22/11/2026 (a chave antiga vazou no JS publico ate
+// 06/11 e o projeto do Google foi suspenso).
+const numOrNull = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
-    if (!AI_ENABLED) return res.status(503).json({ error: 'O Breww.AI está temporariamente indisponível.', code: 'ai_disabled' });
     try {
-        // So o plano Premium (e o admin): cada analise e uma chamada paga ao Gemini
         const [planRows] = await pool.execute('SELECT plan_type, role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
         const planUser = planRows[0];
         if (!planUser || (planUser.plan_type !== 'premium' && planUser.role !== 'admin')) {
             return res.status(403).json({ error: 'O Breww.AI faz parte do plano Premium.', code: 'premium_required' });
-        }
-        const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            return res.status(503).json({ error: 'Chave de API do Gemini não configurada no servidor.' });
         }
         const isAdminUser = planUser.role === 'admin';
         const usage = await aiUsageToday(req.user.id);
         if (!isAdminUser && usage.used >= AI_DAILY_LIMIT) {
             return res.status(429).json({ error: `Você usou as ${AI_DAILY_LIMIT} análises das últimas 24 horas. Tente de novo mais tarde.`, code: 'daily_limit', usage });
         }
-        // Lote (opcional): so guarda a analise se o lote for de um aparelho do usuario
-        let batchId = Number.parseInt(req.body?.batchId, 10);
-        if (Number.isFinite(batchId)) {
-            const [own] = await pool.execute('SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?', [batchId, req.user.id]);
-            if (!own.length) batchId = NaN;
-        }
-        const { beerName, style, status, og, volume, targetTemp, beerTemp, fridgeTemp, gravity, readings } = req.body || {};
-        const promptText = `
-Aja como um Mestre Cervejeiro experiente e técnico. Analise os seguintes dados de fermentação para a cerveja "${beerName || 'Lote'}" (Estilo: ${style || 'Ale'}).
-Estado Atual: ${status || 'Fermentando'} | OG: ${og || 1.050} | Volume: ${volume || 20}L | Setpoint: ${targetTemp || 18}°C
-Sensores Atuais: Temp Mosto ${beerTemp || 0}°C, Temp Geladeira ${fridgeTemp || 0}°C, Gravidade Atual ${gravity || 0}
-Histórico recente: ${JSON.stringify(Array.isArray(readings) ? readings.slice(-15) : [])}
-Retorne APENAS um JSON válido com as chaves: "summary" (string), "health_score" (0-100), "estimated_completion_days" (number), "risk_level" ("low"|"medium"|"high"), "insights" (array de strings), "ideal_curve" (array de { "hours": number, "gravity": number }). Responda em Português do Brasil.`;
-
-        // Modelos: os nomes fixos envelhecem (o Google aposenta versoes; 1.5 e 2.0 ja sairam). Tenta o
-        // configurado, o apelido "latest" e, se nenhum servir, pergunta a API quais "flash" existem.
-        // 2.5 Flash sem "pensamento" responde em poucos segundos; com ele passava de 30 s
-        const preferred = [...new Set([process.env.GEMINI_MODEL, aiWorkingModel, 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'].filter(Boolean))];
-        const tried = new Set();
-        const deadline = Date.now() + 50000; // abaixo do limite do proxy e do navegador
-        let parsedResult = null;
-        let lastErr = 'Falha ao consultar o Gemini';
-
-        const callModel = async (model, noThinking = true) => {
-            tried.add(model);
-            const left = deadline - Date.now();
-            if (left < 5000) { lastErr = 'A análise demorou demais para responder. Tente de novo.'; return null; }
-            const generationConfig = { responseMimeType: 'application/json', ...(noThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}) };
-            let gRes;
-            try {
-                gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-                    signal: AbortSignal.timeout(Math.min(left, 25000)),
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig })
-                });
-            } catch (e) {
-                lastErr = e?.name === 'TimeoutError' ? `O modelo ${model} demorou demais para responder` : (e?.message || lastErr);
-                return null;
-            }
-            const gData = await gRes.json().catch(() => ({}));
-            if (!gRes.ok) {
-                lastErr = gData?.error?.message || `HTTP ${gRes.status}`;
-                // Modelo que nao aceita desligar o pensamento: tenta de novo sem a opcao
-                if (noThinking && gRes.status === 400 && /thinking/i.test(lastErr)) return callModel(model, false);
-                return null;
-            }
-            const text = gData?.candidates?.[0]?.content?.parts?.find(p => typeof p?.text === 'string' && !p.thought)?.text;
-            if (typeof text !== 'string' || !text.trim()) { lastErr = 'O Gemini respondeu sem texto'; return null; }
-            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            try {
-                const r = JSON.parse(cleanText);
-                if (aiWorkingModel !== model) console.log(`[AI] usando o modelo ${model}`);
-                aiWorkingModel = model;
-                return r;
-            } catch { lastErr = 'Resposta do Gemini fora do formato esperado'; return null; }
+        const batchId = Number.parseInt(req.body?.batchId, 10);
+        if (!Number.isFinite(batchId)) return res.status(400).json({ error: 'Inicie um lote para analisar.' });
+        const [rows] = await pool.execute(
+            `SELECT b.id, b.name, b.style, b.og, b.fg, b.is_active, b.current_step_index, b.is_paused, b.profile, b.volume,
+                    UNIX_TIMESTAMP(b.step_started_at) AS step_started_s, UNIX_TIMESTAMP() AS now_s
+             FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`,
+            [batchId, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Não autorizado' });
+        const b = rows[0];
+        let profile = [];
+        try { profile = typeof b.profile === 'string' ? JSON.parse(b.profile) : (b.profile || []); } catch { profile = []; }
+        // Serie por hora (ate 30 dias) e a ultima leitura; tempos calculados no proprio banco (sem fuso)
+        const [hourlyRows] = await pool.execute(
+            `SELECT FLOOR(UNIX_TIMESTAMP(recorded_at) / 3600) AS h,
+                    AVG(NULLIF(temp_ferm, 0)) AS temp, AVG(target_temp) AS target,
+                    AVG(CASE WHEN gravity BETWEEN 0.99 AND 1.15 THEN gravity END) AS sg,
+                    AVG(status_op = 'Resfriando') AS cooling, AVG(status_op = 'Aquecendo') AS heating
+             FROM telemetry WHERE batch_id = ? AND recorded_at > NOW() - INTERVAL 30 DAY
+             GROUP BY h ORDER BY h`,
+            [batchId]);
+        const [lastRows] = await pool.execute(
+            'SELECT TIMESTAMPDIFF(SECOND, recorded_at, NOW()) AS age_s, temp_ferm, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1',
+            [batchId]);
+        const nowMs = Number(b.now_s) * 1000;
+        const hourly = hourlyRows.map((r) => ({
+            t: Number(r.h) * 3600 * 1000,
+            temp: numOrNull(r.temp), target: numOrNull(r.target), sg: numOrNull(r.sg),
+            cooling: numOrNull(r.cooling) || 0, heating: numOrNull(r.heating) || 0,
+        }));
+        const l = lastRows[0];
+        const last = l ? {
+            at: nowMs - Math.max(0, Number(l.age_s) || 0) * 1000,
+            temp: numOrNull(l.temp_ferm), target: numOrNull(l.target_temp), sg: numOrNull(l.gravity), status: l.status_op,
+        } : null;
+        const analysis = analyzeFermentation({
+            batch: {
+                name: b.name, style: b.style, og: b.og, fg: b.fg, isActive: !!b.is_active,
+                stepStartedAt: b.step_started_s ? Number(b.step_started_s) * 1000 : null,
+                currentStep: b.current_step_index, isPaused: !!b.is_paused, profile,
+            },
+            hourly, last, now: nowMs,
+        });
+        const text = await writeAnalysisText({ beer: { name: b.name, style: b.style, og: b.og, fg: b.fg, volume: b.volume }, analysis }).catch(() => null);
+        const result = {
+            summary: text?.summary || analysis.summary,
+            health_score: analysis.health_score,
+            estimated_completion_days: analysis.estimated_completion_days,
+            risk_level: analysis.risk_level,
+            insights: [...analysis.insights, ...(text?.tips || [])],
+            ideal_curve: analysis.ideal_curve,
+            source: text ? 'regras+ia' : 'regras',
         };
-
-        for (const model of preferred) {
-            parsedResult = await callModel(model);
-            if (parsedResult) break;
-        }
-        if (!parsedResult && deadline - Date.now() > 8000) {
-            try {
-                const lRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(apiKey)}`, { signal: AbortSignal.timeout(5000) });
-                const lData = await lRes.json().catch(() => ({}));
-                const available = (Array.isArray(lData?.models) ? lData.models : [])
-                    .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-                    .map(m => String(m.name || '').replace(/^models\//, ''))
-                    .filter(n => /flash/.test(n) && !/(image|tts|audio|live|thinking|exp)/.test(n) && !tried.has(n))
-                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true })); // versao mais nova primeiro
-                for (const model of available.slice(0, 3)) {
-                    parsedResult = await callModel(model);
-                    if (parsedResult) { console.log(`[AI] usando o modelo ${model} (defina GEMINI_MODEL para fixar)`); break; }
-                }
-            } catch (e) {
-                lastErr = e.message || lastErr;
-            }
-        }
-
-        if (!parsedResult) {
-            return res.status(502).json({ error: lastErr });
-        }
         const createdAt = new Date();
         await pool.execute('INSERT INTO ai_analyses (user_id, batch_id, model, result) VALUES (?, ?, ?, ?)',
-            [req.user.id, Number.isFinite(batchId) ? batchId : null, aiWorkingModel, JSON.stringify(parsedResult)]).catch(e => console.error('AI save:', e.message));
-        res.json({ ...parsedResult, createdAt: createdAt.toISOString(), usage: { used: usage.used + 1, limit: isAdminUser ? null : AI_DAILY_LIMIT } });
+            [req.user.id, batchId, text ? `regras+${text.model}` : 'regras', JSON.stringify(result)]).catch(e => console.error('AI save:', e.message));
+        res.json({ ...result, createdAt: createdAt.toISOString(), usage: { used: usage.used + 1, limit: isAdminUser ? null : AI_DAILY_LIMIT } });
     } catch (err) {
         console.error('AI Analyze Error:', err.message);
-        res.status(500).json({ error: 'Erro interno ao processar análise de IA' });
+        res.status(500).json({ error: 'Erro interno ao processar a análise' });
     }
 });
 
