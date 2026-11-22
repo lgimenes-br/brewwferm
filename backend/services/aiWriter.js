@@ -16,6 +16,23 @@ Regras: use só os dados recebidos; não invente números, datas, ingredientes n
 frases curtas e diretas, sem jargão desnecessário, sem emojis.
 Responda APENAS um JSON: {"summary": "até 3 frases", "tips": ["até 3 dicas práticas, cada uma com até 25 palavras"]}.`;
 
+// Nomes explicitos com unidade: o modelo confundia "desvio medio" com temperatura
+const medidasLegiveis = (m = {}) => {
+    const out = {};
+    const put = (k, v) => { if (v !== undefined && v !== null) out[k] = v; };
+    put('temperatura_atual_da_cerveja_C', m.currentTemp);
+    put('temperatura_alvo_C', m.currentTarget);
+    put('distancia_media_do_alvo_nas_ultimas_24h_C', m.avgDeviation24h);
+    put('percentual_do_tempo_no_alvo_nas_ultimas_24h', m.withinTarget24h);
+    put('variacao_da_temperatura_C_por_hora', m.tempTrendPerHour);
+    put('densidade_atual', m.gravity);
+    put('variacao_da_densidade_por_dia', m.gravityPerDay);
+    put('atenuacao_aparente_percentual', m.attenuation);
+    put('minutos_desde_a_ultima_leitura', m.lastReadingMinutes);
+    if (m.step) put('etapa_atual', `${m.step.name} (${m.step.index} de ${m.step.total}, alvo ${m.step.target} °C)`);
+    return out;
+};
+
 const clean = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /**
@@ -33,7 +50,7 @@ export const writeAnalysisText = async ({ beer, analysis }, { fetchImpl = fetch 
             risco: analysis.risk_level,
             dias_para_terminar_o_perfil: analysis.estimated_completion_days,
             observacoes: analysis.insights,
-            medidas: analysis.metrics,
+            medidas: medidasLegiveis(analysis.metrics),
         },
     };
     const deadline = Date.now() + TIMEOUT_MS;

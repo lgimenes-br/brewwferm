@@ -102,3 +102,11 @@ test('texto da IA: sem chave nao chama nada; com resposta valida, usa o texto; c
     if (saved.g === undefined) delete process.env.GROQ_API_KEY; else process.env.GROQ_API_KEY = saved.g;
     if (saved.a !== undefined) process.env.AI_API_KEY = saved.a;
 });
+
+test('longe do alvo, caindo so 0,1 °C/h com o resfriamento ligado ainda conta como refrigeracao sem efeito', () => {
+    const hourly = series(8, (i) => ({ temp: 30.3 - i * 0.1, target: 1, cooling: 1 }));
+    const last = { at: NOW - 60 * 1000, temp: hourly[7].temp, target: 1 };
+    const r = analyzeFermentation({ batch: batch({ currentStep: 2, stepStartedAt: NOW - 2 * 24 * HOUR }), hourly, last, now: NOW });
+    assert.ok(r.insights.some((t) => /geladeira está ligada/.test(t)), r.insights.join(' | '));
+    assert.equal(r.metrics.currentTemp, 29.6);
+});

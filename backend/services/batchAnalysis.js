@@ -70,6 +70,7 @@ export const analyzeFermentation = ({ batch, hourly = [], last = null, now = Dat
             : 'Ainda não há leituras deste lote.');
     }
     const sensorMissing = last && (!Number.isFinite(last.temp) || last.temp === 0);
+    if (!sensorMissing && last) { metrics.currentTemp = round1(last.temp); if (Number.isFinite(last.target)) metrics.currentTarget = round1(last.target); }
     if (sensorMissing) {
         forceHigh = true;
         score -= 30;
@@ -112,11 +113,13 @@ export const analyzeFermentation = ({ batch, hourly = [], last = null, now = Dat
         const heating = six.reduce((a, h) => a + (h.heating || 0), 0) / six.length;
         const slope = slopePerDay(six.map((h) => ({ t: h.t, v: h.temp })), 3 / 24, 4); // °C por dia (minimo 3 h)
         metrics.tempTrendPerHour = slope === null ? null : Math.round(slope / 24 * 100) / 100;
-        if (dev > 1.5 && cooling > 0.7 && slope !== null && slope / 24 >= -0.05) {
+        // Queda/subida minima esperada com o equipamento funcionando: longe do alvo, varios decimos por hora
+        const minRate = Math.abs(dev) > 5 ? 0.3 : 0.05; // °C por hora
+        if (dev > 1.5 && cooling > 0.7 && slope !== null && slope / 24 > -minRate) {
             score -= 20;
             warn = true;
             insights.push(`Resfriando há ${six.length} h sem a temperatura cair (cerveja a ${fmtTemp(last?.temp ?? six[six.length - 1].temp)}, alvo ${fmtTemp(six[six.length - 1].target)}): confira se a geladeira está ligada na tomada do relé, com a porta fechada e o compressor funcionando.`);
-        } else if (dev < -1.5 && heating > 0.7 && slope !== null && slope / 24 <= 0.05) {
+        } else if (dev < -1.5 && heating > 0.7 && slope !== null && slope / 24 < minRate) {
             score -= 20;
             warn = true;
             insights.push(`Aquecendo há ${six.length} h sem a temperatura subir: confira se o aquecedor está ligado na tomada do relé e encostado no fermentador.`);
