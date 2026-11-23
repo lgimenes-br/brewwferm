@@ -89,6 +89,8 @@ export interface Fermenter {
   /** O servidor viu sensor de umidade / iSpindel neste aparelho nos ultimos 14 dias */
   hasHumidity?: boolean;
   hasIspindel?: boolean;
+  /** O servidor viu sensor de pressao (XDB401) nos ultimos 14 dias */
+  hasPressure?: boolean;
   /** Sensores de temperatura que existem [1, 2, 3, 4] (vistos pelo servidor nos ultimos 14 dias) */
   tempSeen?: boolean[];
   mode: DeviceMode; // Novo campo: Modo de Operação
@@ -283,13 +285,20 @@ export const sensorView = (f: Fermenter): SensorView => {
  * Tem = o servidor viu o sensor nos ultimos 14 dias, ou ha leitura agora; tem e sem leitura = "--".
  * Densidade tambem conta leitura no grafico do lote (ex.: medida a mao).
  */
-export const sensorPresence = (f: Fermenter): { humidity: boolean; gravity: boolean } => {
+/** Pressao atual (bar) do sensor XDB401, ou undefined */
+export const pressureBar = (f: Fermenter): number | undefined => {
+  const v = parseFloat(String((f.currentDevice?.extSens as any)?.pr ?? ''));
+  return Number.isFinite(v) ? v : undefined;
+};
+
+export const sensorPresence = (f: Fermenter): { humidity: boolean; gravity: boolean; pressure: boolean } => {
   const hum = parseFloat(String(f.currentDevice?.extSens?.hum ?? ''));
   const liveGravity = normalizeGravity(f.currentDevice?.gravity, 0);
   const chartGravity = (f.readings || []).some(r => normalizeGravity(r.gravity, 0) > 0.98);
   return {
     humidity: !!f.hasHumidity || Number.isFinite(hum),
     gravity: !!f.hasIspindel || liveGravity > 0.98 || chartGravity,
+    pressure: !!f.hasPressure || pressureBar(f) !== undefined,
   };
 };
 

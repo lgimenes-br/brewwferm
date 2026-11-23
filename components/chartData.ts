@@ -8,6 +8,7 @@ export const prepareTemperatureData = (data: any[] | null | undefined, maxPoints
     const mapped = data.map(d => {
       // Map extra sensors
       let extras: Record<string, number> = {};
+      let pressure: number | null = null; // sensor de pressao (bar), grafico proprio
       if ((d as any).extra_sensors) {
           let parsed = (d as any).extra_sensors;
           if (typeof parsed === 'string') {
@@ -19,6 +20,8 @@ export const prepareTemperatureData = (data: any[] | null | undefined, maxPoints
                   const val = parseFloat(parsed[k]);
                   if (!isNaN(val)) extras[`extra_${k}`] = val;
               });
+              const pr = parseFloat(parsed.pr);
+              if (Number.isFinite(pr)) pressure = pr;
           }
           if (Array.isArray(parsed)) {
               parsed.forEach((ex: any) => {
@@ -45,10 +48,11 @@ export const prepareTemperatureData = (data: any[] | null | undefined, maxPoints
         sensor1Temp: parsed1,
         targetTemp: !isNaN(parsedTarget) ? parsedTarget : null,
         sensor2Temp: !isNaN(parsed2) ? parsed2 : null,
+        pressure,
         ...extras
       };
     // Leitura com algum sensor vale (o Sensor 1 nao e obrigatorio: na geladeira pode controlar o 2)
-    }).filter(d => !isNaN(d.sensor1Temp) || d.sensor2Temp !== null || Object.keys(d).some(k => k.startsWith('extra_')));
+    }).filter(d => !isNaN(d.sensor1Temp) || d.sensor2Temp !== null || d.pressure !== null || Object.keys(d).some(k => k.startsWith('extra_')));
 
       return mapped.slice(-maxPoints);
 };

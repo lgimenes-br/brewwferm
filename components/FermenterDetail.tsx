@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isPlausibleGravity, isDeviceOnline, sensorView, otherSensors, sensorPresence } from '../types';
-import { Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu } from 'lucide-react';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isPlausibleGravity, isDeviceOnline, sensorView, otherSensors, sensorPresence, pressureBar } from '../types';
+import { Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu, Gauge } from 'lucide-react';
 import { TempDisplay, SmallValue, StatTile } from './app/AppUI';
 import { generateBatchShareToken } from '../services/api';
 import { BatchCharts } from './BatchCharts';
@@ -538,6 +538,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {/* Os outros sensores: so para ver (quem controla e a temperatura grande) */}
                         {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp !== undefined ? o.temp.toFixed(1) : '--'} unit="°C" icon={<Thermometer size={14} />} />)}
+                        {has.pressure && <StatTile label="Pressão" value={pressureBar(fermenter) !== undefined ? pressureBar(fermenter)!.toFixed(2) : '--'} unit="bar" icon={<Gauge size={14} />} />}
                         {has.humidity && <StatTile label="Umidade" value={Number.isFinite(humidityNum) ? humidityNum.toFixed(0) : '--'} unit="%" icon={<Droplets size={14} />} />}
                         <StatTile label="Wi-Fi" value={fermenter.currentDevice?.rssi ? String(fermenter.currentDevice.rssi) : '--'} unit="dBm" icon={<Wifi size={14} />} />
                         <StatTile label="Firmware" value={fermenter.currentDevice?.version || '--'} icon={<Cpu size={14} />} />
@@ -598,6 +599,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <SmallValue value={safeTargetTemp.toFixed(1)} unit="°C" size={26} />
                             <span className="text-[12px] text-[var(--tertiary)]">{step ? `definido pelo perfil · ${step.name}` : 'definido pelo perfil'}</span>
                         </div>
+                        {has.pressure && <StatTile label="Pressão" value={pressureBar(fermenter) !== undefined ? pressureBar(fermenter)!.toFixed(2) : '--'} unit="bar" caption="sensor de pressão" icon={<Gauge size={14} />} />}
                         {has.gravity && <StatTile label={fermenter.sensor_sg_name || 'Densidade'} value={formatGravity(safeCurrentGravity)} caption={formatGravity(safeCurrentGravity) === '--' ? 'sem leitura do densímetro' : gravityOk ? 'densidade atual' : 'fora da faixa de mosto'} icon={<Droplets size={14} />} />}
                         <StatTile label="Fim da etapa" value={getStepTimeRemaining()} caption={step ? step.name : undefined} icon={<Clock size={14} />} />
                     </div>

@@ -20,7 +20,7 @@ const TIME_RANGES: Range[] = [
 const C = { s1: '#71FC8F', s2: '#6B6F78', target: 'rgba(236,236,241,0.45)', grid: 'rgba(255,255,255,0.06)', axis: '#6B6F78' };
 const EXTRA_COLORS = ['#A3A7B0', '#C9CCD3', '#4A4F59', '#898E99'];
 
-interface Point { t: number; s1: number | null; s2: number | null; target: number | null; gravity: number | null; s1S: number | null; s2S: number | null; [extra: string]: number | null }
+interface Point { t: number; s1: number | null; s2: number | null; target: number | null; gravity: number | null; pressure: number | null; s1S: number | null; s2S: number | null; [extra: string]: number | null }
 
 /** Media movel centrada (janela impar); null fica null */
 const smooth = (vals: (number | null)[], win: number): (number | null)[] => {
@@ -71,7 +71,7 @@ export const BatchCharts: React.FC<{
 
     const all = useMemo(() => prepareTemperatureData(readings, Infinity), [readings]);
 
-    const { data, span, extras, hasGravity, min, max } = useMemo(() => {
+    const { data, span, extras, hasGravity, hasPressure, min, max } = useMemo(() => {
         const sorted = all
             .map(d => ({ ...d, t: new Date(d.timestamp).getTime() }))
             .filter(d => Number.isFinite(d.t))
@@ -92,6 +92,7 @@ export const BatchCharts: React.FC<{
                 target: Number.isFinite(d.targetTemp) ? d.targetTemp : null,
                 // Densidade: qualquer leitura positiva aparece (como no app); 0 = sem leitura
                 gravity: Number.isFinite(g) && g > 0 ? (g > 500 ? g / 1000 : g) : null,
+                pressure: Number.isFinite(d.pressure) ? d.pressure : null,
                 s1S: Number.isFinite(d.sensor1Temp) ? d.sensor1Temp : null,
                 s2S: null,
             };
@@ -109,6 +110,7 @@ export const BatchCharts: React.FC<{
             span: pts.length > 1 ? pts[pts.length - 1].t - pts[0].t : 0,
             extras: extraKeys,
             hasGravity: pts.some(p => p.gravity !== null),
+            hasPressure: pts.some(p => p.pressure !== null),
             min: s1Vals.length ? Math.min(...s1Vals) : NaN,
             max: s1Vals.length ? Math.max(...s1Vals) : NaN,
         };
@@ -136,6 +138,9 @@ export const BatchCharts: React.FC<{
     const targetNow = last?.target ?? null;
     const targetOff: 'below' | 'above' | null = !yDomain || targetNow === null ? null : targetNow < yDomain[0] ? 'below' : targetNow > yDomain[1] ? 'above' : null;
     const lastGravity = [...data].reverse().find(p => p.gravity !== null)?.gravity ?? null;
+    const lastPressure = [...data].reverse().find(p => p.pressure !== null)?.pressure ?? null;
+    const prVals = data.map(p => p.pressure).filter((v): v is number => v !== null);
+    const showPr = !hidden.includes('pr');
     const gVals = data.map(p => p.gravity).filter((g): g is number => g !== null);
     const gMax = gVals.length ? Math.max(...gVals) : null;
     const gMin = gVals.length ? Math.min(...gVals) : null;
@@ -249,6 +254,35 @@ export const BatchCharts: React.FC<{
                                 <YAxis orientation="right" domain={['auto', 'auto']} tickFormatter={v => Number(v).toFixed(3)} stroke={C.axis} fontSize={11} tickLine={false} axisLine={false} width={56} />
                                 <Tooltip {...tooltipBase} formatter={(v: any) => [Number(v).toFixed(3), sensorSgName]} />
                                 <Line type="monotone" dataKey="gravity" name={sensorSgName} stroke={C.s1} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+
+            {/* Pressao (sensor XDB401): fermentacao sob pressao */}
+            {hasPressure && showPr && (
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="flex flex-col gap-1">
+                            <span className="flex items-center gap-2 text-[14px] text-[var(--muted)]"><span aria-hidden className="w-[7px] h-[7px] rounded-full bg-[var(--accent)]" />Pressão</span>
+                            <span className="text-[48px] font-light leading-none tabular text-[var(--ink)]">{lastPressure !== null ? lastPressure.toFixed(2) : '--'}{lastPressure !== null && <span className="text-[18px] text-[var(--muted)] align-top ml-1">bar</span>}</span>
+                        </div>
+                        {prVals.length > 0 && (
+                            <div className="ml-auto text-right text-[14px] text-[var(--muted)] tabular leading-relaxed">
+                                <div>máx {Math.max(...prVals).toFixed(2)}</div>
+                                <div>mín {Math.min(...prVals).toFixed(2)}</div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="w-full h-[160px] min-w-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -8 }}>
+                                <CartesianGrid stroke={C.grid} vertical={false} />
+                                {xAxis}
+                                <YAxis orientation="right" domain={[0, 'auto']} tickFormatter={v => Number(v).toFixed(1)} stroke={C.axis} fontSize={11} tickLine={false} axisLine={false} width={48} />
+                                <Tooltip {...tooltipBase} formatter={(v: any) => [`${Number(v).toFixed(2)} bar`, 'Pressão']} />
+                                <Line type="monotone" dataKey="pressure" name="Pressão" stroke={C.s1} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

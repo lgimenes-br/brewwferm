@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { humidityInPayload, ispindelEpochInPayload, tempSlotsInPayload } from '../services/deviceRegistry.js';
+import { humidityInPayload, pressureInPayload, ispindelEpochInPayload, tempSlotsInPayload } from '../services/deviceRegistry.js';
+
+test('pressao: leitura valida ou modulo xdb401 detectado', () => {
+    assert.equal(pressureInPayload({ ext_s: { pr: 1.234 } }), true);
+    assert.equal(pressureInPayload({ ext_s: { pr: null }, mods: ['tela35', 'xdb401'] }), true);
+    assert.equal(pressureInPayload({ ext_s: { hum: 60, pr: null }, mods: ['tela35'] }), false);
+});
 
 test('umidade: leitura valida ou modulo detectado', () => {
     assert.equal(humidityInPayload({ ext_s: { hum: 61.2 } }), true);

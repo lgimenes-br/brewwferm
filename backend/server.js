@@ -15,7 +15,7 @@ import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
 
 const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
-import { deviceRegistry, humidityInPayload, ispindelEpochInPayload, tempSlotsInPayload, SENSOR_PRESENT_DAYS } from './services/deviceRegistry.js';
+import { deviceRegistry, humidityInPayload, pressureInPayload, ispindelEpochInPayload, tempSlotsInPayload, SENSOR_PRESENT_DAYS } from './services/deviceRegistry.js';
 import { runTelemetryRetention } from './services/telemetryRetention.js';
 import { FREE_MAX_DEVICES } from './services/plans.js';
 import { buildCarryCommands } from './services/carrySettings.js';
@@ -152,6 +152,7 @@ const initDb = async () => {
         // Ultima vez que o sensor de umidade / iSpindel mandou dado: o site so mostra o que existe
         await runMigration('ALTER TABLE devices ADD COLUMN hum_seen_at DATETIME DEFAULT NULL');
         await runMigration('ALTER TABLE devices ADD COLUMN isp_seen_at DATETIME DEFAULT NULL');
+        await runMigration('ALTER TABLE devices ADD COLUMN pr_seen_at DATETIME DEFAULT NULL'); // sensor de pressao (XDB401)
         // Sensores de temperatura 1-4 (o site sempre mostra o que controla; os outros, se existem)
         for (const col of ['s1_seen_at', 's2_seen_at', 's3_seen_at', 's4_seen_at']) await runMigration(`ALTER TABLE devices ADD COLUMN ${col} DATETIME DEFAULT NULL`);
         // Lixeira de contas (admin): conta "excluida" fica 30 dias sem login, podendo ser restaurada
@@ -565,7 +566,7 @@ mqttClient.on('message', async (topic, message, packet) => {
             delete discoveredUnknowns[serialCode];
             await deviceRegistry.touch(pool, serialCode, deviceId, payload.fw || payload.ver, {
                 board: payload.board, mods: payload.mods,
-                humidity: humidityInPayload(payload), ispindelEpoch: ispindelEpochInPayload(payload),
+                humidity: humidityInPayload(payload), pressure: pressureInPayload(payload), ispindelEpoch: ispindelEpochInPayload(payload),
                 tempSlots: tempSlotsInPayload(payload),
             });
             if (pendingCarry.has(serialCode)) applyCarriedSettings(serialCode, deviceId, payload).catch(e => console.error('Carry:', e.message));
@@ -669,6 +670,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                     if (t4 !== null) extra.s4 = Number(t4);
                 }
                 if (Number.isInteger(payload.ctl) && payload.ctl >= 0 && payload.ctl < 4) extra.ctl = payload.ctl;
+                for (const k of Object.keys(extra)) if (extra[k] === null || extra[k] === undefined) delete extra[k]; // sem sensor: nao grava a chave
                 let extraSensorsJSON = Object.keys(extra).length ? JSON.stringify(extra) : null;
                 let queryArgs = [deviceId, currentBatchId, payloadSensorTemp(payload, 0), payloadSensorTemp(payload, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
                 
@@ -1172,6 +1174,7 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 30 SECOND) as is_online,
                    (d.hum_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_humidity,
                    (d.isp_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_ispindel,
+                   (d.pr_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_pressure,
                    (d.s1_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s1,
                    (d.s2_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s2,
                    (d.s3_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s3,

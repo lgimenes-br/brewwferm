@@ -24,6 +24,13 @@ export const humidityInPayload = (payload) => {
   return Array.isArray(payload?.mods) && payload.mods.some((m) => HUMIDITY_MODULES.includes(String(m).toLowerCase()));
 };
 
+/** Pacote mostra sensor de pressao (XDB401)? (modulo detectado pela placa ou leitura valida em ext_s.pr) */
+export const pressureInPayload = (payload) => {
+  const pr = payload?.ext_s?.pr;
+  if (pr !== null && pr !== undefined && pr !== '' && Number.isFinite(Number(pr))) return true;
+  return Array.isArray(payload?.mods) && payload.mods.some((m) => String(m).toLowerCase() === 'xdb401');
+};
+
 /**
  * Sensores de temperatura 1-4 com leitura neste pacote ([s1, s2, s3, s4]), pela lista "t" (null = sem
  * leitura). O site sempre mostra o sensor que controla (a temperatura grande); os outros so se existem.
@@ -67,7 +74,7 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
   async function touch(pool, serial, deviceId, fw, info = {}) {
     const key = norm(serial);
     const t = now();
-    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, ispEpc: 0, slotAt: [0, 0, 0, 0] };
+    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, prAt: 0, ispEpc: 0, slotAt: [0, 0, 0, 0] };
     s.ms = t;
     const writes = [];
     if (t - s.flushedAt >= LAST_SEEN_FLUSH_MS) {
@@ -92,6 +99,10 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
     if (info.humidity && t - (s.humAt || 0) >= SENSOR_SEEN_FLUSH_MS) {
       s.humAt = t;
       writes.push(pool.execute('UPDATE devices SET hum_seen_at = NOW() WHERE id = ?', [deviceId]).catch(() => { s.humAt = 0; }));
+    }
+    if (info.pressure && t - (s.prAt || 0) >= SENSOR_SEEN_FLUSH_MS) {
+      s.prAt = t;
+      writes.push(pool.execute('UPDATE devices SET pr_seen_at = NOW() WHERE id = ?', [deviceId]).catch(() => { s.prAt = 0; }));
     }
     if (Array.isArray(info.tempSlots)) {
       info.tempSlots.forEach((has, i) => {

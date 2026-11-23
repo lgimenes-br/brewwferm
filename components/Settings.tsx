@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Link2, Send } from 'lucide-react';
+import { Save, Power, Activity, Thermometer, RotateCcw, Download, Trash2, Cpu, Zap, Sliders, ChevronDown, Bell, Search, Link2, Send, Gauge } from 'lucide-react';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 import { SensorTestModal } from './SensorTestModal';
 import { isFirmwareUpdateAvailable } from '../services/firmware';
 import { SensorScanModal, SensorMapping } from './SensorScanModal';
-import { sensorView } from '../types';
+import { sensorView, sensorPresence, pressureBar } from '../types';
 
 interface PIDParams {
   kp: number;
@@ -927,6 +927,42 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
           </button>
         </div>
       </section>
+
+      {/* Sensor de pressao (XDB401, plug and play): so aparece em quem tem */}
+      {activeDevice && sensorPresence(activeDevice).pressure && (
+        <section className="bg-white border border-black/[0.07] rounded-[26px] p-8">
+          <SectionHeader icon={Gauge} title="Sensor de Pressão" />
+          <p className="text-[var(--muted)] text-xs mb-6 -mt-4">
+            Leitura atual: <b className="text-[var(--ink)]">{pressureBar(activeDevice) !== undefined ? `${pressureBar(activeDevice)!.toFixed(2)} bar` : 'sem leitura'}</b>.
+            A faixa está gravada no sensor (ex.: 0-0.2MPa = 2 bar). Zere com o fermentador aberto, sem pressão.
+          </p>
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="block space-y-2">
+              <span className="text-[12px] font-medium text-[var(--muted)] block">Faixa do sensor</span>
+              <select
+                id="pressure-range"
+                defaultValue=""
+                onChange={(e) => { const fs = Number(e.target.value); if (fs > 0 && selectedDeviceId) { sendCommand(selectedDeviceId, 'set_pressure', { fs }); toast.success(`Faixa de ${fs} bar enviada ao aparelho.`); } }}
+                className="bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-sm text-[#2b2f37]"
+              >
+                <option value="" disabled>Escolher…</option>
+                <option value={1}>0-0.1 MPa (1 bar)</option>
+                <option value={2}>0-0.2 MPa (2 bar)</option>
+                <option value={5}>0-0.5 MPa (5 bar)</option>
+                <option value={10}>0-1 MPa (10 bar)</option>
+                <option value={20}>0-2 MPa (20 bar)</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => { if (selectedDeviceId) { sendCommand(selectedDeviceId, 'set_pressure', { zero: true }); toast.success('Pedido de zerar enviado. Confira a leitura em alguns segundos.'); } }}
+              className="px-5 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-medium transition-colors"
+            >
+              Zerar agora
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* 3. Calibração (Offset) */}
       <section className="bg-white border border-black/[0.07] rounded-[26px] p-8">

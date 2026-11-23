@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline, sensorView, otherSensors, sensorPresence } from '../types';
-import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode, Pencil, Droplets } from 'lucide-react';
+import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline, sensorView, otherSensors, sensorPresence, pressureBar } from '../types';
+import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode, Pencil, Droplets, Gauge } from 'lucide-react';
 import { PageHeader, TempDisplay, SmallValue, Chip, formatAgo } from './app/AppUI';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -396,6 +396,7 @@ export const Dashboard: React.FC = () => {
                                     <Chip key={o.slot} icon={<Thermometer size={14} />} title={o.name}>{shown(o.temp) !== undefined ? `${o.temp!.toFixed(1)}°C` : '--'}</Chip>
                                 ))}
                                 {isFermenter && humidity !== undefined && <Chip icon={<Droplets size={14} />} title="Umidade">{Math.round(humidity)}%</Chip>}
+                                {has.pressure && <Chip icon={<Gauge size={14} />} title="Pressão">{shown(pressureBar(f)) !== undefined ? `${pressureBar(f)!.toFixed(2)} bar` : '-- bar'}</Chip>}
                                 {weakWifi && <Chip dot="warn">Wi-Fi fraco</Chip>}
                                 {latestFw && isFirmwareUpdateAvailable(latestFw, f.currentDevice?.version) && <Chip dot="on" title="Abra o aparelho para atualizar">Firmware {latestFw}</Chip>}
                             </div>
