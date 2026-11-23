@@ -71,8 +71,8 @@ export const BOARDS: Board[] = [
         id: 's3-35', name: 'Breww com tela 3,5"', hint: 'A placa oficial com tela touch. À venda em breve.',
         wires: [
             { pin: 'JST 4P · 3 ou 4', to: 'Sensor DS18B20 · dados', free: true },
-            { pin: 'JST 8P · pino 1', to: 'Relé de aquecer' },
-            { pin: 'JST 8P · pino 2', to: 'Relé de resfriar' },
+            { pin: 'JST 8P · pino 8', to: 'Relé de aquecer' },
+            { pin: 'JST 8P · pino 7', to: 'Relé de resfriar' },
             { pin: 'JST 4P · o outro', to: 'DHT22 · dados', note: 'opcional', free: true },
         ],
         relayDefault: 'Relés da placa oficial (nível alto)',
