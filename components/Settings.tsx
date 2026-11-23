@@ -5,7 +5,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, fetchTelegramStatus, createTelegramLink, testTelegram, disconnectTelegram, TelegramStatus, fetchFirmwareVersion, UserAlertConfig, updateChartHidden } from '../services/api';
+import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, fetchTelegramStatus, createTelegramLink, testTelegram, disconnectTelegram, TelegramStatus, DEFAULT_ALERT_CONFIG, fetchFirmwareVersion, UserAlertConfig, updateChartHidden } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { SensorTestModal } from './SensorTestModal';
 import { isFirmwareUpdateAvailable } from '../services/firmware';
@@ -40,6 +40,30 @@ const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
   </div>
 );
 
+// Regras de alerta: um grupo (Temperatura, Fermentacao, Equipamento) com uma linha por aviso
+const AlertGroup = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4">
+    <h3 className="text-[13px] font-semibold text-[#2b2f37] mb-1">{title}</h3>
+    <div className="divide-y divide-black/[0.07]">{children}</div>
+  </div>
+);
+
+const AlertToggle = ({ label, hint, checked, onChange, children }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void; children?: React.ReactNode }) => {
+  const id = React.useId();
+  return (
+    <div className="py-3 space-y-3">
+      <label htmlFor={id} className="flex items-start justify-between gap-4 cursor-pointer">
+        <span className="min-w-0">
+          <span className="block text-xs font-medium text-[#2b2f37]">{label}</span>
+          {hint && <span className="block mt-0.5 text-[12px] leading-snug text-[var(--muted)]">{hint}</span>}
+        </span>
+        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-amber-500 w-4 h-4 mt-0.5 shrink-0" />
+      </label>
+      {checked && children}
+    </div>
+  );
+};
+
 const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => {
   const inputId = React.useId();
   const [rawText, setRawText] = useState<string>(
@@ -49,7 +73,8 @@ const InputField = ({ label, value, onChange, type = "text", placeholder = "" }:
   useEffect(() => {
     if (type === 'number') {
       const parsedRaw = parseFloat(rawText);
-      const numVal = Number(value);
+      // Vazio (null/'') e "sem valor", nao 0: o campo de SG alvo mostrava 0
+      const numVal = value === '' || value === null || value === undefined ? NaN : Number(value);
       if (isNaN(numVal)) {
         if (rawText !== '' && rawText !== '-' && rawText !== '.') setRawText('');
       } else if (parsedRaw !== numVal) {
@@ -213,14 +238,7 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
   const [telegramWaiting, setTelegramWaiting] = useState(false);
-  const [alertConfig, setAlertConfig] = useState<UserAlertConfig>({
-    lowBatteryEnabled: true,
-    lowBatteryThreshold: 3.5,
-    tempDeviationEnabled: true,
-    tempDeviationMargin: 1.5,
-    sgTargetEnabled: true,
-    sgTargetValue: null
-  });
+  const [alertConfig, setAlertConfig] = useState<UserAlertConfig>(DEFAULT_ALERT_CONFIG);
   const rawPayload: any = (activeDevice?.currentDevice as any)?.rawPayload || {};
   const currentMacCtrl: string = typeof rawPayload.macCtrl === 'string' ? rawPayload.macCtrl : '';
   const currentMac2: string = typeof rawPayload.mac2 === 'string' ? rawPayload.mac2 : '';
@@ -304,7 +322,9 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
 
   const handleSaveAlertConfig = async () => {
       try {
-          await updateIntegrations({ alertConfig }, token);
+          let timeZone = alertConfig.timeZone;
+          try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone; } catch { /* mantem */ }
+          await updateIntegrations({ alertConfig: { ...alertConfig, timeZone } }, token);
           toast.success('Regras de alerta salvas!');
       } catch (err: any) {
           toast.error(err?.message || 'Erro ao salvar regras de alerta.');
@@ -665,63 +685,87 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
 
         {/* Regras Customizáveis de Alerta (Bateria, Desvio Térmico, SG Alvo e Telegram) */}
         <div className="mt-8 pt-6 border-t border-black/[0.07] space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-medium text-[#2b2f37]">Bateria Fraca (iSpindel)</span>
-                <input
-                  type="checkbox"
-                  checked={alertConfig.lowBatteryEnabled}
-                  onChange={(e) => setAlertConfig(prev => ({ ...prev, lowBatteryEnabled: e.target.checked }))}
-                  className="accent-amber-500 w-4 h-4"
+          <p className="text-xs text-[var(--muted)]">Escolha o que receber. Vale para o celular, o navegador e o Telegram.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <AlertGroup title="Temperatura">
+              <AlertToggle label="Fora do alvo" hint="Depois de 15 min fora da margem. Urgente." checked={alertConfig.tempDeviationEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, tempDeviationEnabled: v }))}>
+                <InputField
+                  label="Margem (±°C)"
+                  type="number"
+                  value={alertConfig.tempDeviationMargin}
+                  onChange={(v: number) => setAlertConfig(prev => ({ ...prev, tempDeviationMargin: isNaN(v) ? 1.5 : v }))}
+                  placeholder="1.5"
                 />
-              </label>
-              <InputField
-                label="Tensão Mínima de Alerta (V)"
-                type="number"
-                value={alertConfig.lowBatteryThreshold}
-                onChange={(v: number) => setAlertConfig(prev => ({ ...prev, lowBatteryThreshold: isNaN(v) ? 3.5 : v }))}
-                placeholder="3.5"
-              />
-            </div>
+              </AlertToggle>
+              <AlertToggle label="Voltou ao alvo" hint="Depois de um aviso de fora do alvo." checked={alertConfig.tempBackEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, tempBackEnabled: v }))} />
+            </AlertGroup>
 
-            <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-medium text-[#2b2f37]">Desvio de Temperatura</span>
-                <input
-                  type="checkbox"
-                  checked={alertConfig.tempDeviationEnabled}
-                  onChange={(e) => setAlertConfig(prev => ({ ...prev, tempDeviationEnabled: e.target.checked }))}
-                  className="accent-amber-500 w-4 h-4"
+            <AlertGroup title="Fermentação">
+              <AlertToggle label="Mudança de etapa" hint="Avanço do perfil, por tempo ou densidade." checked={alertConfig.stepChangeEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, stepChangeEnabled: v }))} />
+              <AlertToggle label="Perfil concluído" hint="A última etapa terminou." checked={alertConfig.profileDoneEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, profileDoneEnabled: v }))} />
+              <AlertToggle label="Densidade alvo atingida" checked={alertConfig.sgTargetEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, sgTargetEnabled: v }))}>
+                <InputField
+                  label="Avisar quando SG ≤"
+                  type="number"
+                  value={alertConfig.sgTargetValue ?? ''}
+                  onChange={(v: number) => setAlertConfig(prev => ({ ...prev, sgTargetValue: isNaN(v) ? null : (v > 500 ? v / 1000 : v) }))}
+                  placeholder="Ex: 1.014"
                 />
-              </label>
-              <InputField
-                label="Margem Máxima Alvo (±°C)"
-                type="number"
-                value={alertConfig.tempDeviationMargin}
-                onChange={(v: number) => setAlertConfig(prev => ({ ...prev, tempDeviationMargin: isNaN(v) ? 1.5 : v }))}
-                placeholder="1.5"
-              />
-            </div>
+              </AlertToggle>
+              <AlertToggle label="Fermentação estabilizou" hint="Densidade parada há 2 dias: hora do cold crash ou envase." checked={alertConfig.stableEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, stableEnabled: v }))} />
+              <AlertToggle label="Previsão de fim" hint="Quando faltar cerca de 1 dia para a densidade final." checked={alertConfig.forecastEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, forecastEnabled: v }))} />
+            </AlertGroup>
 
-            <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-medium text-[#2b2f37]">Alerta de SG Alvo</span>
-                <input
-                  type="checkbox"
-                  checked={alertConfig.sgTargetEnabled}
-                  onChange={(e) => setAlertConfig(prev => ({ ...prev, sgTargetEnabled: e.target.checked }))}
-                  className="accent-amber-500 w-4 h-4"
+            <AlertGroup title="Equipamento">
+              <AlertToggle label="Aparelho offline" hint="Sem comunicação com o servidor. Urgente." checked={alertConfig.offlineEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, offlineEnabled: v }))}>
+                <label className="block space-y-2">
+                  <span className="text-[12px] font-medium text-[var(--muted)] block">Avisar depois de</span>
+                  <select
+                    value={alertConfig.offlineDelayMin}
+                    onChange={(e) => setAlertConfig(prev => ({ ...prev, offlineDelayMin: Number(e.target.value) }))}
+                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-sm text-[#2b2f37]"
+                  >
+                    <option value={10}>10 minutos</option>
+                    <option value={30}>30 minutos</option>
+                    <option value={60}>1 hora</option>
+                  </select>
+                </label>
+              </AlertToggle>
+              <AlertToggle label="Aparelho voltou" hint="Depois de um aviso de offline." checked={alertConfig.onlineEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, onlineEnabled: v }))} />
+              <AlertToggle label="Sensor desconectado" hint="Sem leitura do sensor, o controle desliga. Urgente." checked={alertConfig.sensorLostEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, sensorLostEnabled: v }))} />
+              <AlertToggle label="Compressor ligando demais" hint="Mais de 15 vezes em 6 horas." checked={alertConfig.compressorEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, compressorEnabled: v }))} />
+              <AlertToggle label="Bateria fraca do densímetro" checked={alertConfig.lowBatteryEnabled} onChange={(v) => setAlertConfig(prev => ({ ...prev, lowBatteryEnabled: v }))}>
+                <InputField
+                  label="Tensão mínima (V)"
+                  type="number"
+                  value={alertConfig.lowBatteryThreshold}
+                  onChange={(v: number) => setAlertConfig(prev => ({ ...prev, lowBatteryThreshold: isNaN(v) ? 3.5 : v }))}
+                  placeholder="3.5"
                 />
-              </label>
-              <InputField
-                label="Avisar quando SG <="
-                type="number"
-                value={alertConfig.sgTargetValue ?? ''}
-                onChange={(v: number) => setAlertConfig(prev => ({ ...prev, sgTargetValue: isNaN(v) ? null : (v > 500 ? v / 1000 : v) }))}
-                placeholder="Ex: 1.014 (Opcional)"
-              />
-            </div>
+              </AlertToggle>
+            </AlertGroup>
+          </div>
+
+          <div className="bg-[var(--bg)] border border-black/[0.07] rounded-2xl p-4 space-y-3">
+            <AlertToggle
+              label="Horário de silêncio"
+              hint="Os avisos comuns ficam guardados e chegam num resumo no fim do horário. Os urgentes (fora do alvo, offline, sensor) chegam sempre."
+              checked={alertConfig.quietEnabled}
+              onChange={(v) => setAlertConfig(prev => ({ ...prev, quietEnabled: v }))}
+            >
+              <div className="grid grid-cols-2 gap-3 max-w-sm">
+                <label className="block space-y-2">
+                  <span className="text-[12px] font-medium text-[var(--muted)] block">Das</span>
+                  <input type="time" value={alertConfig.quietStart} onChange={(e) => setAlertConfig(prev => ({ ...prev, quietStart: e.target.value }))}
+                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-sm text-[#2b2f37]" />
+                </label>
+                <label className="block space-y-2">
+                  <span className="text-[12px] font-medium text-[var(--muted)] block">Até</span>
+                  <input type="time" value={alertConfig.quietEnd} onChange={(e) => setAlertConfig(prev => ({ ...prev, quietEnd: e.target.value }))}
+                    className="w-full bg-[var(--bg)] border border-black/15 rounded-xl px-4 py-3 text-sm text-[#2b2f37]" />
+                </label>
+              </div>
+            </AlertToggle>
           </div>
 
           <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">

@@ -25,6 +25,7 @@ import { analyzeFermentation, parseGravity } from './services/batchAnalysis.js';
 import { matchStyle } from './services/brewStyles.js';
 import { writeAnalysisText } from './services/aiWriter.js';
 import { ensureTelegramSchema, registerTelegramRoutes, setupTelegramWebhook } from './services/telegram.js';
+import { DEFAULT_ALERT_CONFIG, normalizeAlertConfig, createNotifier, ensureAlertSchema, claimAlert, startAlertJobs } from './services/alerts.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
@@ -190,6 +191,7 @@ const initDb = async () => {
         // Localizacao por IP (servico externo) removida em 12/11/2026: apaga as cidades guardadas antes
         await runMigration('UPDATE users SET lat = NULL, lon = NULL WHERE lat IS NOT NULL OR lon IS NOT NULL');
         await ensureTelegramSchema(pool, runMigration);
+        await ensureAlertSchema(pool);
         console.log('✅ [DB] Schema base e migrações verificados.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
@@ -222,14 +224,6 @@ const lastLogTimes = {};
 const lastSeenTimes = {};
 const lastBrewfatherPushTimes = {};
 const userAlertConfigs = {};
-const DEFAULT_ALERT_CONFIG = {
-    lowBatteryEnabled: true,
-    lowBatteryThreshold: 3.5,
-    tempDeviationEnabled: true,
-    tempDeviationMargin: 1.5,
-    sgTargetEnabled: true,
-    sgTargetValue: null
-};
 const getUserAlertConfig = async (userId) => {
     const cached = userAlertConfigs[userId];
     if (cached && Date.now() - cached.ts < 5 * 60 * 1000) return cached.cfg;
@@ -237,13 +231,17 @@ const getUserAlertConfig = async (userId) => {
         const [rows] = await pool.execute('SELECT alert_config FROM users WHERE id = ?', [userId]);
         const raw = rows?.[0]?.alert_config;
         const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
-        const cfg = { ...DEFAULT_ALERT_CONFIG, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+        const cfg = normalizeAlertConfig({}, parsed);
         userAlertConfigs[userId] = { cfg, ts: Date.now() };
         return cfg;
     } catch (e) {
         return { ...DEFAULT_ALERT_CONFIG };
     }
 };
+// Todo aviso de lote/aparelho passa por aqui: respeita o que a pessoa escolheu receber e o horario de silencio
+const notifier = createNotifier({ getConfig: getUserAlertConfig, send: (uid, title, body) => sendPushToUser(pool, uid, title, body) });
+const notify = (userId, type, title, body) => notifier.notify(userId, type, title, body).catch((e) => console.warn('[Alertas]', e?.message || e));
+setInterval(() => notifier.flush().catch(() => {}), 60000);
 const discoveredUnknowns = {}; // Cache for unknown devices detected via MQTT 
 const sanitizeNum = (val, precision) => {
     const num = parseFloat(val);
@@ -335,7 +333,7 @@ const advanceBatchStep = async ({ batchId, serialCode, userId, profile, newIndex
         [batchId, 'SYSTEM_ACTION', desc]
     );
     if (userId) {
-        sendPushToUser(pool, userId, gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
+        notify(userId, 'step_change', gravityTriggered ? 'Avanço por Densidade Atingida 🎯' : 'Avanço Automático de Etapa', desc);
     }
     notifyUpdate(serialCode);
 };
@@ -415,8 +413,10 @@ const smartScheduler = startSmartScheduler({
     advanceBatchStep,
     normalizeGravityVal,
     alertState,
-    sendPushToUser
+    // So a previsao de fim usa: passa pelas escolhas da pessoa (tipo "forecast")
+    sendPushToUser: (_pool, userId, title, body) => notify(userId, 'forecast', title, body)
 });
+startAlertJobs({ pool, notify });
 
 mqttClient.on('connect', () => {
     mqttClient.subscribe('brewbrother/+/status');
@@ -704,14 +704,14 @@ mqttClient.on('message', async (topic, message, packet) => {
                             alertState[serialCode].tempAlertStartTime = now;
                         } else if (now - alertState[serialCode].tempAlertStartTime > 15 * 60 * 1000) { // 15 min
                             if (!alertState[serialCode].tempAlertSent) {
-                                sendPushToUser(pool, userId, 'Alerta de Temperatura', `Cerveja fora da temperatura alvo: ${tempFerm}ºC (Alvo: ${targetTemp}ºC ±${tempMargin}ºC)`);
+                                notify(userId, 'temp_out', 'Alerta de Temperatura', `Cerveja fora da temperatura alvo: ${tempFerm}ºC (Alvo: ${targetTemp}ºC ±${tempMargin}ºC)`);
                                 alertState[serialCode].tempAlertSent = true;
                             }
                         }
                     } else {
                         alertState[serialCode].tempAlertStartTime = null;
                         if (alertState[serialCode].tempAlertSent) {
-                            sendPushToUser(pool, userId, 'Temperatura Normalizada', `A temperatura voltou ao alvo: ${tempFerm}ºC`);
+                            notify(userId, 'temp_back', 'Temperatura Normalizada', `A temperatura voltou ao alvo: ${tempFerm}ºC`);
                             alertState[serialCode].tempAlertSent = false;
                         }
                     }
@@ -723,9 +723,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                 if (userCfg.lowBatteryEnabled !== false && !isNaN(batVal) && batVal > 2.0) {
                     if (batVal < batThreshold) {
                         if (!alertState[serialCode].lowBatAlertTime || (now - alertState[serialCode].lowBatAlertTime > 12 * 60 * 60 * 1000)) {
-                            sendPushToUser(
-                                pool,
+                            notify(
                                 userId,
+                                'battery',
                                 'Alerta de Bateria Fraca 🪫',
                                 `A bateria do densímetro (${serialCode}) caiu para ${batVal.toFixed(2)}V (Limite: ${batThreshold.toFixed(2)}V).`
                             );
@@ -743,9 +743,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                 const targetSgVal = !isNaN(rawTargetSg) && rawTargetSg > 0 ? (rawTargetSg > 500 ? rawTargetSg / 1000 : rawTargetSg) : 0;
                 if (userCfg.sgTargetEnabled !== false && liveSgVal > 0.980 && targetSgVal > 0.980 && liveSgVal <= targetSgVal) {
                     if (alertState[serialCode].sgTargetAlertValue !== targetSgVal) {
-                        sendPushToUser(
-                            pool,
+                        notify(
                             userId,
+                            'sg_target',
                             'Densidade Alvo Atingida 🎯',
                             `O mosto no controlador ${serialCode} atingiu SG ${liveSgVal.toFixed(3)} (Alvo configurado: ${targetSgVal.toFixed(3)}).`
                         );
@@ -760,7 +760,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                         (alertState[serialCode].lastStepAdvanceTs && (now - alertState[serialCode].lastStepAdvanceTs < 120000)) ||
                         (payload.currStep !== undefined && alertState[serialCode].lastStepIndex !== undefined && Number(payload.currStep) === Number(alertState[serialCode].lastStepIndex));
                     if (alertState[serialCode].lastStep && alertState[serialCode].lastStep !== payload.profStat && !alreadyHandledAdvance) {
-                        sendPushToUser(pool, userId, 'Mudança de Passo', `O fermentador iniciou o passo: ${payload.profStat}`);
+                        notify(userId, 'step_change', 'Mudança de Passo', `O fermentador iniciou o passo: ${payload.profStat}`);
                         
                         // Sincroniza a mudança de passo com o Diário de Bordo (batch_events) apenas se não sincronizou acima
                         if (currentBatchId) {
@@ -783,9 +783,43 @@ mqttClient.on('message', async (topic, message, packet) => {
                     }
                 }
                 
+                // Perfil terminou: ultima etapa com o tempo cumprido (a placa segura a temperatura dela depois)
+                const steps = Array.isArray(payload.steps) ? payload.steps : null;
+                if (currentBatchId && steps && steps.length && payload.isPaused !== true && payload.isPaused !== 'true') {
+                    const lastIdx = steps.length - 1;
+                    const lastHours = parseFloat(steps[lastIdx]?.d);
+                    const stepHours = parseFloat(payload.stepTime);
+                    if (Number(payload.currStep) === lastIdx && lastHours > 0 && stepHours >= lastHours) {
+                        const batchIdForDone = currentBatchId;
+                        claimAlert(pool, batchIdForDone, 'profile_done').then((first) => {
+                            if (!first) return;
+                            const lastName = steps[lastIdx]?.n || `Etapa ${lastIdx + 1}`;
+                            notify(userId, 'profile_done', 'Perfil concluído ✅', `Todas as etapas terminaram. O controlador segue segurando ${sanitizeNum(steps[lastIdx]?.t, 1) ?? '-'} °C da etapa "${lastName}" até você encerrar o lote.`);
+                        }).catch(() => {});
+                    }
+                }
+
+                // Sensor de controle sem leitura (fw 2.11+: sensOk = 0): reles desligados, cerveja sem controle.
+                // Avisa depois de 2 min seguidos, para nao disparar com uma leitura falha.
+                if (payload.sensOk !== undefined) {
+                    if (Number(payload.sensOk) === 0) {
+                        if (!alertState[serialCode].sensorLostSince) alertState[serialCode].sensorLostSince = now;
+                        else if (!alertState[serialCode].sensorLostSent && now - alertState[serialCode].sensorLostSince > 2 * 60 * 1000) {
+                            notify(userId, 'sensor_lost', 'Sensor desconectado ⚠️', 'O controlador está sem leitura do sensor de temperatura e desligou o aquecimento e o resfriamento. Confira o cabo e o conector do sensor.');
+                            alertState[serialCode].sensorLostSent = true;
+                        }
+                    } else {
+                        if (alertState[serialCode].sensorLostSent) {
+                            notify(userId, 'sensor_back', 'Sensor voltou', 'O sensor de temperatura voltou a ler e o controle foi retomado.');
+                        }
+                        alertState[serialCode].sensorLostSince = null;
+                        alertState[serialCode].sensorLostSent = false;
+                    }
+                }
+
                 // Recuperação de Offline
                 if (alertState[serialCode].offlineAlertSent) {
-                    sendPushToUser(pool, userId, 'Equipamento Online', 'O fermentador voltou a se comunicar com o servidor.');
+                    notify(userId, 'online', 'Equipamento Online', 'O fermentador voltou a se comunicar com o servidor.');
                     alertState[serialCode].offlineAlertSent = false;
                 }
             }
@@ -894,19 +928,21 @@ app.post('/api/login', authRateLimiter, async (req, res) => {
 });
 
 // Monitor de Dispositivos Offline (baseado no último contato MQTT real, independente do intervalo de gravação no banco)
-setInterval(() => {
+// O tempo ate avisar e escolha da pessoa (10, 30 ou 60 min)
+setInterval(async () => {
     const now = Date.now();
     for (const serialCode in lastSeenTimes) {
-        if (now - lastSeenTimes[serialCode] > 10 * 60 * 1000) { // 10 minutos sem nenhum contato MQTT
-            const userId = activeBatchesUserId[serialCode];
-            if (userId) {
-                if (!alertState[serialCode]) alertState[serialCode] = {};
-                if (!alertState[serialCode].offlineAlertSent) {
-                    sendPushToUser(pool, userId, 'Equipamento Offline', `Perdemos comunicação com o fermentador há mais de 10 minutos!`);
-                    alertState[serialCode].offlineAlertSent = true;
-                }
-            }
-        }
+        const silentMs = now - lastSeenTimes[serialCode];
+        if (silentMs <= 10 * 60 * 1000) continue;
+        const userId = activeBatchesUserId[serialCode];
+        if (!userId) continue;
+        if (!alertState[serialCode]) alertState[serialCode] = {};
+        if (alertState[serialCode].offlineAlertSent) continue;
+        const cfg = await getUserAlertConfig(userId);
+        const delayMin = cfg.offlineDelayMin || 10;
+        if (silentMs <= delayMin * 60 * 1000) continue;
+        alertState[serialCode].offlineAlertSent = true; // tambem habilita o "voltou" (se a pessoa quiser)
+        notify(userId, 'offline', 'Equipamento Offline', `Perdemos comunicação com o fermentador há mais de ${delayMin} minutos!`);
     }
 }, 60000);
 
@@ -1515,7 +1551,7 @@ app.get('/api/user/integrations', authenticateToken, async (req, res) => {
         const parsedCfg = rawCfg ? (typeof rawCfg === 'string' ? JSON.parse(rawCfg) : rawCfg) : {};
         res.json({
             brewfatherWebhookUrl: rows?.[0]?.brewfather_webhook_url || '',
-            alertConfig: { ...DEFAULT_ALERT_CONFIG, ...(parsedCfg && typeof parsedCfg === 'object' ? parsedCfg : {}) }
+            alertConfig: normalizeAlertConfig({}, parsedCfg)
         });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
@@ -1539,17 +1575,12 @@ app.put('/api/user/integrations', authenticateToken, async (req, res) => {
 
         let normalizedAlertCfg = undefined;
         if (hasAlertCfg && req.body.alertConfig && typeof req.body.alertConfig === 'object') {
-            const c = req.body.alertConfig;
-            const rawSg = parseFloat(c.sgTargetValue);
-            const normSg = !isNaN(rawSg) && rawSg > 0 ? (rawSg > 500 ? rawSg / 1000 : rawSg) : null;
-            normalizedAlertCfg = {
-                lowBatteryEnabled: c.lowBatteryEnabled !== false,
-                lowBatteryThreshold: Math.max(2.8, Math.min(4.2, parseFloat(c.lowBatteryThreshold) || 3.5)),
-                tempDeviationEnabled: c.tempDeviationEnabled !== false,
-                tempDeviationMargin: Math.max(0.2, Math.min(10, parseFloat(c.tempDeviationMargin) || 1.5)),
-                sgTargetEnabled: c.sgTargetEnabled !== false,
-                sgTargetValue: normSg
-            };
+            // Junta com o que estava gravado: o app antigo manda so os 3 alertas e nao apaga os outros
+            const [curRows] = await pool.execute('SELECT alert_config FROM users WHERE id = ?', [req.user.id]);
+            const curRaw = curRows?.[0]?.alert_config;
+            let current = {};
+            try { current = curRaw ? (typeof curRaw === 'string' ? JSON.parse(curRaw) : curRaw) : {}; } catch { current = {}; }
+            normalizedAlertCfg = normalizeAlertConfig(req.body.alertConfig, current);
             updates.push('alert_config = ?');
             params.push(JSON.stringify(normalizedAlertCfg));
             userAlertConfigs[req.user.id] = { cfg: normalizedAlertCfg, ts: Date.now() };

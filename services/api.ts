@@ -288,9 +288,46 @@ export interface UserAlertConfig {
   lowBatteryThreshold: number;
   tempDeviationEnabled: boolean;
   tempDeviationMargin: number;
+  tempBackEnabled: boolean;
+  stepChangeEnabled: boolean;
   sgTargetEnabled: boolean;
   sgTargetValue: number | null;
+  forecastEnabled: boolean;
+  stableEnabled: boolean;
+  profileDoneEnabled: boolean;
+  offlineEnabled: boolean;
+  offlineDelayMin: number;
+  onlineEnabled: boolean;
+  sensorLostEnabled: boolean;
+  compressorEnabled: boolean;
+  quietEnabled: boolean;
+  quietStart: string;
+  quietEnd: string;
+  timeZone: string;
 }
+
+export const DEFAULT_ALERT_CONFIG: UserAlertConfig = {
+  lowBatteryEnabled: true,
+  lowBatteryThreshold: 3.5,
+  tempDeviationEnabled: true,
+  tempDeviationMargin: 1.5,
+  tempBackEnabled: true,
+  stepChangeEnabled: true,
+  sgTargetEnabled: true,
+  sgTargetValue: null,
+  forecastEnabled: true,
+  stableEnabled: true,
+  profileDoneEnabled: true,
+  offlineEnabled: true,
+  offlineDelayMin: 10,
+  onlineEnabled: true,
+  sensorLostEnabled: true,
+  compressorEnabled: true,
+  quietEnabled: false,
+  quietStart: '23:00',
+  quietEnd: '07:00',
+  timeZone: 'America/Sao_Paulo',
+};
 
 // --- External Integrations & Custom Alerts (Brewfather + Telegram + Alert Rules) ---
 export const fetchIntegrations = async (token?: string | null) => {

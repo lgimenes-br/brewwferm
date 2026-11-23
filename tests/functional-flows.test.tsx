@@ -939,12 +939,22 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         // Telegram pelo bot do Breww: conta ja conectada mostra Testar e Desconectar (sem token nem Chat ID)
         expect(container.querySelector('input[placeholder*="123456:ABC"]')).toBeNull();
         expect(container.textContent).toContain('Conectado: os mesmos avisos chegam no seu Telegram.');
+        // Regras novas: desliga "Fermentação estabilizou" e liga o horário de silêncio
+        const toggleByLabel = (text: string) => {
+            const lbl = Array.from(container.querySelectorAll('label')).find(l => l.textContent?.includes(text));
+            const input = lbl ? container.querySelector(`#${CSS.escape(lbl.getAttribute('for') || '')}`) as HTMLInputElement : null;
+            expect(input).toBeTruthy();
+            input!.click();
+        };
+        await act(async () => { toggleByLabel('Fermentação estabilizou'); toggleByLabel('Horário de silêncio'); });
+        expect(container.querySelector('input[type="time"]')).toBeTruthy();
         await act(async () => {
             findButtonByText('Salvar Alertas')!.click();
             findButtonByText('Testar')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
-        expect(apiCalls.some(c => c.url.includes('/user/integrations') && c.method === 'PUT' && c.body?.alertConfig && !('telegramBotToken' in c.body.alertConfig))).toBe(true);
+        expect(apiCalls.some(c => c.url.includes('/user/integrations') && c.method === 'PUT' && c.body?.alertConfig && !('telegramBotToken' in c.body.alertConfig)
+            && c.body.alertConfig.stableEnabled === false && c.body.alertConfig.quietEnabled === true && typeof c.body.alertConfig.timeZone === 'string')).toBe(true);
         expect(apiCalls.some(c => c.url.includes('/user/telegram/test') && c.method === 'POST')).toBe(true);
 
         const bfInput = container.querySelector('input[placeholder*="http://log.brewfather.net/stream"]') as HTMLInputElement;
