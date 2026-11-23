@@ -138,6 +138,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             id: 1,
             serial_code: 'ESP32_01',
             device_name: 'Fermentador Inox 01',
+            has_humidity: 1, // tem sensor de umidade: o cartao mostra (sem sensor, nao aparece)
             active_batch_id: null,
             active_batch_name: null,
             active_batch_style: null,

@@ -11,6 +11,30 @@ export const LAST_SEEN_FLUSH_MS = 60 * 1000;
 
 const norm = (serial) => String(serial ?? '').trim().toUpperCase();
 
+// Sensores opcionais: o site so mostra umidade e densidade de quem TEM o sensor. "Tem" = mandou dado
+// (ou a placa detectou o modulo) nos ultimos SENSOR_PRESENT_DAYS; sem dado agora, mostra "--".
+export const SENSOR_PRESENT_DAYS = 14;
+export const SENSOR_SEEN_FLUSH_MS = 10 * 60 * 1000;
+const HUMIDITY_MODULES = ['sht3x', 'aht20', 'bme280', 'dht22'];
+
+/** Pacote mostra sensor de umidade? (leitura valida ou modulo detectado pela placa) */
+export const humidityInPayload = (payload) => {
+  const hum = payload?.ext_s?.hum;
+  if (hum !== null && hum !== undefined && hum !== '' && Number.isFinite(Number(hum))) return true;
+  return Array.isArray(payload?.mods) && payload.mods.some((m) => HUMIDITY_MODULES.includes(String(m).toLowerCase()));
+};
+
+/** Epoch (s) da ultima leitura do iSpindel no pacote, ou 0. Firmware antigo (sem is_epc): densidade > 0 = agora. */
+export const ispindelEpochInPayload = (payload, nowMs = Date.now()) => {
+  if (!payload) return 0;
+  if (Object.prototype.hasOwnProperty.call(payload, 'is_epc')) {
+    const epc = Number(payload.is_epc);
+    return Number.isFinite(epc) && epc >= 1600000000 && epc * 1000 <= nowMs + 5 * 60 * 1000 ? Math.floor(epc) : 0;
+  }
+  const sg = Number(payload.is_sg);
+  return Number.isFinite(sg) && sg > 0.98 ? Math.floor(nowMs / 1000) : 0;
+};
+
 export function createDeviceRegistry({ now = Date.now } = {}) {
   const ids = new Map();       // serial -> { id, at }
   const seen = new Map();      // serial -> { ms, flushedAt, fw }
@@ -39,7 +63,7 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
   async function touch(pool, serial, deviceId, fw, info = {}) {
     const key = norm(serial);
     const t = now();
-    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined };
+    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, ispEpc: 0 };
     s.ms = t;
     const writes = [];
     if (t - s.flushedAt >= LAST_SEEN_FLUSH_MS) {
@@ -59,6 +83,16 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
     if (mods && mods !== s.mods) {
       s.mods = mods;
       writes.push(pool.execute('UPDATE devices SET hw_modules = ? WHERE id = ?', [mods, deviceId]).catch(() => { s.mods = undefined; }));
+    }
+    // Sensores opcionais vistos (umidade no maximo a cada 10 min; iSpindel quando chega leitura nova)
+    if (info.humidity && t - (s.humAt || 0) >= SENSOR_SEEN_FLUSH_MS) {
+      s.humAt = t;
+      writes.push(pool.execute('UPDATE devices SET hum_seen_at = NOW() WHERE id = ?', [deviceId]).catch(() => { s.humAt = 0; }));
+    }
+    const epc = Number(info.ispindelEpoch) || 0;
+    if (epc > (s.ispEpc || 0)) {
+      s.ispEpc = epc;
+      writes.push(pool.execute('UPDATE devices SET isp_seen_at = GREATEST(COALESCE(isp_seen_at, FROM_UNIXTIME(0)), FROM_UNIXTIME(?)) WHERE id = ?', [epc, deviceId]).catch(() => { s.ispEpc = 0; }));
     }
     seen.set(key, s);
     await Promise.all(writes);

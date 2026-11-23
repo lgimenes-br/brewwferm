@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline, sensorView, otherSensors } from '../types';
+import { Fermenter, FermenterStatus, DeviceMode, ScannedDevice, normalizeGravity, formatGravity, isDeviceOnline as checkDeviceOnline, sensorView, otherSensors, sensorPresence } from '../types';
 import { Wifi, WifiOff, ArrowRight, Thermometer, Settings, X, Save, Network, Plus, Search, Loader2, Smartphone, Trash2, AlertTriangle, CheckCircle2, QrCode, Pencil, Droplets } from 'lucide-react';
 import { PageHeader, TempDisplay, SmallValue, Chip, formatAgo } from './app/AppUI';
 
@@ -309,6 +309,7 @@ export const Dashboard: React.FC = () => {
                     const lastChartGravity = f.readings && f.readings.length > 0 ? f.readings[f.readings.length - 1].gravity : 0;
                     const gravity = normalizeGravity(f.currentDevice?.gravity > 0 ? f.currentDevice.gravity : lastChartGravity, 0);
                     const humidity = num(f.currentDevice?.extSens?.hum);
+                    const has = sensorPresence(f); // umidade e densidade so de quem tem o sensor
                     const rssi = f.currentDevice?.rssi || 0;
 
                     const isCorrupted = isOnline && isInitialSyncing && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
@@ -359,17 +360,17 @@ export const Dashboard: React.FC = () => {
                             <div className="flex items-end justify-between gap-4" style={{ opacity: isOnline ? 1 : 0.5 }}>
                                 <TempDisplay value={shown(mainTemp)} size={64} />
                                 <div className="flex gap-5 pb-2">
-                                    {isFermenter ? (
+                                    {isFermenter ? (has.gravity && (
                                         <div className="flex flex-col items-end gap-0.5">
                                             <span className="text-[12px] text-[var(--muted)]">Densidade</span>
                                             <SmallValue value={formatGravity(gravity)} />
                                         </div>
-                                    ) : (
+                                    )) : (has.humidity && (
                                         <div className="flex flex-col items-end gap-0.5">
                                             <span className="text-[12px] text-[var(--muted)]">Umidade</span>
                                             <SmallValue value={humidity !== undefined ? String(Math.round(humidity)) : '--'} unit="%" />
                                         </div>
-                                    )}
+                                    ))}
                                     <div className="flex flex-col items-end gap-0.5">
                                         <span className="text-[12px] text-[var(--muted)]">Alvo</span>
                                         <SmallValue value={target !== undefined ? target.toFixed(1) : '--'} unit="°C" />

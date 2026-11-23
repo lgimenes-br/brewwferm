@@ -86,6 +86,9 @@ export interface Fermenter {
   ipAddress?: string; // IP ou Serial do dispositivo
   /** Ultimo contato registrado no servidor (ISO), para "visto ha X" com o aparelho offline */
   lastSeen?: string;
+  /** O servidor viu sensor de umidade / iSpindel neste aparelho nos ultimos 14 dias */
+  hasHumidity?: boolean;
+  hasIspindel?: boolean;
   mode: DeviceMode; // Novo campo: Modo de Operação
   sensor1_name?: string;
   sensor2_name?: string;
@@ -274,6 +277,21 @@ export const sensorView = (f: Fermenter): SensorView => {
 };
 
 /** Os outros sensores com leitura (nao controlam) */
+/**
+ * Sensores opcionais que este aparelho TEM. Nao tem = nao aparece (antes ficava "--" para sempre).
+ * Tem = o servidor viu o sensor nos ultimos 14 dias, ou ha leitura agora; tem e sem leitura = "--".
+ * Densidade tambem conta leitura no grafico do lote (ex.: medida a mao).
+ */
+export const sensorPresence = (f: Fermenter): { humidity: boolean; gravity: boolean } => {
+  const hum = parseFloat(String(f.currentDevice?.extSens?.hum ?? ''));
+  const liveGravity = normalizeGravity(f.currentDevice?.gravity, 0);
+  const chartGravity = (f.readings || []).some(r => normalizeGravity(r.gravity, 0) > 0.98);
+  return {
+    humidity: !!f.hasHumidity || Number.isFinite(hum),
+    gravity: !!f.hasIspindel || liveGravity > 0.98 || chartGravity,
+  };
+};
+
 export const otherSensors = (v: SensorView) =>
     v.temps.map((temp, slot) => ({ slot, name: v.names[slot], temp }))
         .filter((s): s is { slot: number; name: string; temp: number } => s.slot !== v.control && s.temp !== undefined);

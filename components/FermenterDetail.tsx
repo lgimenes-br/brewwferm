@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isPlausibleGravity, isDeviceOnline, sensorView, otherSensors } from '../types';
+import { Fermenter, FermenterStatus, FermentationStep, DeviceMode, FermentationEvent, KegeratorConfig, EventType, normalizeGravity, formatGravity, isPlausibleGravity, isDeviceOnline, sensorView, otherSensors, sensorPresence } from '../types';
 import { Clock, Percent, FlaskConical, Battery, Target, ArrowDown, Monitor, Save, Plus, Minus, Edit2, Share2, Check, Thermometer, Droplets, Wifi, Cpu } from 'lucide-react';
 import { TempDisplay, SmallValue, StatTile } from './app/AppUI';
 import { generateBatchShareToken } from '../services/api';
@@ -117,6 +117,9 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         ? fermenter.readings[fermenter.readings.length - 1].gravity 
         : 0;
     const safeHumidity = fermenter.currentDevice?.extSens?.hum;
+    // Umidade, densidade e bateria do densimetro so aparecem se o aparelho tem o sensor
+    const presence = sensorPresence(fermenter);
+    const has = { ...presence, ispindel: !!fermenter.hasIspindel || (fermenter.currentDevice?.battery ?? 0) > 0 };
     const rawCurrentGravity = fermenter.currentDevice?.gravity > 0 
         ? fermenter.currentDevice.gravity
         : lastChartGravity;
@@ -535,7 +538,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {/* Os outros sensores: so para ver (quem controla e a temperatura grande) */}
                         {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
-                        <StatTile label="Umidade" value={Number.isFinite(humidityNum) ? humidityNum.toFixed(0) : '--'} unit="%" icon={<Droplets size={14} />} />
+                        {has.humidity && <StatTile label="Umidade" value={Number.isFinite(humidityNum) ? humidityNum.toFixed(0) : '--'} unit="%" icon={<Droplets size={14} />} />}
                         <StatTile label="Wi-Fi" value={fermenter.currentDevice?.rssi ? String(fermenter.currentDevice.rssi) : '--'} unit="dBm" icon={<Wifi size={14} />} />
                         <StatTile label="Firmware" value={fermenter.currentDevice?.version || '--'} icon={<Cpu size={14} />} />
                     </div>
@@ -595,24 +598,25 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <SmallValue value={safeTargetTemp.toFixed(1)} unit="°C" size={26} />
                             <span className="text-[12px] text-[var(--tertiary)]">{step ? `definido pelo perfil · ${step.name}` : 'definido pelo perfil'}</span>
                         </div>
-                        <StatTile label={fermenter.sensor_sg_name || 'Densidade'} value={formatGravity(safeCurrentGravity)} caption={formatGravity(safeCurrentGravity) === '--' ? 'sem leitura do densímetro' : gravityOk ? 'densidade atual' : 'fora da faixa de mosto'} icon={<Droplets size={14} />} />
+                        {has.gravity && <StatTile label={fermenter.sensor_sg_name || 'Densidade'} value={formatGravity(safeCurrentGravity)} caption={formatGravity(safeCurrentGravity) === '--' ? 'sem leitura do densímetro' : gravityOk ? 'densidade atual' : 'fora da faixa de mosto'} icon={<Droplets size={14} />} />}
                         <StatTile label="Fim da etapa" value={getStepTimeRemaining()} caption={step ? step.name : undefined} icon={<Clock size={14} />} />
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mt-3 sm:mt-4">
                         <StatTile label="OG" value={safeOG > 0 ? safeOG.toFixed(3) : '--'} caption="densidade inicial" icon={<ArrowDown size={14} />} />
                         <StatTile label="FG" value={safeFG ? safeFG.toFixed(3) : '--'} caption="densidade final (alvo)" icon={<Target size={14} />} />
-                        <StatTile label="Atenuação" value={currentAttenuation} unit={currentAttenuation === '--' ? undefined : '%'} icon={<Percent size={14} />} />
-                        <StatTile label="Álcool estimado" value={abv} unit={abv === '--' ? undefined : '%'} icon={<FlaskConical size={14} />} />
+                        {/* Atenuacao e alcool vem da densidade: sem densimetro, nao aparecem */}
+                        {has.gravity && <StatTile label="Atenuação" value={currentAttenuation} unit={currentAttenuation === '--' ? undefined : '%'} icon={<Percent size={14} />} />}
+                        {has.gravity && <StatTile label="Álcool estimado" value={abv} unit={abv === '--' ? undefined : '%'} icon={<FlaskConical size={14} />} />}
                         {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
-                        <StatTile
+                        {has.ispindel && <StatTile
                             label="Bateria do densímetro"
                             value={safeBattery > 0 ? safeBattery.toFixed(2) : '--'}
                             unit="V"
                             caption={safeBattery <= 0 ? 'sem leitura' : safeBattery > 3.9 ? 'carregada' : safeBattery > 3.5 ? 'média' : 'baixa, recarregue'}
                             warn={safeBattery > 0 && safeBattery <= 3.5}
                             icon={<Battery size={14} />}
-                        />
+                        />}
                     </div>
 
                     {/* Graficos a esquerda; perfil, diario e analise a direita */}

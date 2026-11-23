@@ -169,6 +169,8 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             name: d.device_name,
             ipAddress: d.ip || d.serial_code || '',
             lastSeen: d.last_seen || undefined,
+            hasHumidity: Boolean(Number(d.has_humidity)),
+            hasIspindel: Boolean(Number(d.has_ispindel)),
             sensor1_name: d.sensor1_name,
             sensor2_name: d.sensor2_name,
             sensor3_name: d.sensor3_name || undefined,
