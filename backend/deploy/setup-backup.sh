@@ -2,7 +2,7 @@
 # ============================================================================
 # Backup diario do banco (rodado pelo deploy; idempotente)
 #  - instala /usr/local/bin/breww-db-backup e o cron /etc/cron.d/breww-db-backup (03:30)
-#  - copias em /var/backups/breww: diarias por 14 dias + semanais (domingo) por 8 semanas
+#  - copias em /var/backups/breww: diarias por 14 dias + semanais (domingo) por 8 semanas; banco e configuracoes do servidor
 #  - restaurar: ver backend/deploy/RESTAURAR-BACKUP.md
 # ============================================================================
 set -uo pipefail
@@ -48,6 +48,22 @@ for DB in "${DB_NAME}" "${ING_DB}"; do
     echo "ERRO ao copiar ${DB}"
   fi
 done
+
+# Configuracoes do servidor: sem elas, remontar a VPS do zero levaria horas. Vao junto com o banco
+# (e para o Drive, criptografadas). So entra o que existe; falhar aqui nao impede o backup do banco.
+CONF_PATHS=(etc/nginx etc/mosquitto etc/ssh/sshd_config etc/fail2ban/jail.d etc/cron.d etc/letsencrypt
+            etc/systemd/journald.conf.d etc/apt/apt.conf.d/20auto-upgrades usr/local/bin/breww-db-backup
+            var/www/breww-backend/.env var/www/breww-backend/ecosystem.config.cjs root/.pm2/dump.pm2)
+CONF_LIST=()
+for p in "${CONF_PATHS[@]}"; do [ -e "/${p}" ] && CONF_LIST+=("${p}"); done
+CONF="${DEST}/diario/${DAY}/configuracoes.tar.gz"
+if tar czf "${CONF}.tmp" -C / "${CONF_LIST[@]}" 2>/dev/null && gzip -t "${CONF}.tmp"; then
+  mv "${CONF}.tmp" "${CONF}"
+  echo "ok configuracoes: $(du -h "${CONF}" | cut -f1) (${#CONF_LIST[@]} itens)"
+else
+  rm -f "${CONF}.tmp"
+  echo "ERRO ao copiar as configuracoes (o banco segue)"
+fi
 
 # Domingo: copia semanal
 if [ "$(date +%u)" = "7" ] && [ "${ok}" = "1" ]; then

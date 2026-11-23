@@ -46,6 +46,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.disable('x-powered-by'); // nao anuncia o Express
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET; // <--- Lê do .env
@@ -2063,7 +2064,9 @@ const spaIndex = path.join(__dirname, 'dist', 'index.html');
 app.get(/(.*)/, (req, res) => (fs.existsSync(spaIndex) ? res.sendFile(spaIndex) : res.status(404).json({ error: 'Não encontrado' })));
 
 if (sentryEnabled) Sentry.setupExpressErrorHandler(app);
-const serverInstance = app.listen(PORT, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
+// So na rede interna: o nginx repassa /api e /firmware (o firewall ja bloqueia a 3000 de fora; isto e a segunda camada)
+const LISTEN_HOST = process.env.LISTEN_HOST || '127.0.0.1';
+const serverInstance = app.listen(PORT, LISTEN_HOST, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
 
 // Graceful shutdown for PM2 / Docker / OS signals
 const gracefulShutdown = (signal) => {
