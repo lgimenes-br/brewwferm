@@ -11,8 +11,8 @@ import { FermentationTimeline } from './FermentationTimeline';
 import { ForecastingEngine } from './ForecastingEngine';
 import { GeminiAdvisor } from './GeminiAdvisor';
 
-/** Breww.AI fora do ar ate existir uma chave nova (a antiga vazou e o projeto do Google foi suspenso) */
-const BREWW_AI_ENABLED = false;
+/** Breww.AI: analise por regras no servidor, com texto da IA (Groq) quando disponivel */
+const BREWW_AI_ENABLED = true;
 import { FermentationProfile } from './FermentationProfile';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
@@ -661,7 +661,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                             <FermentationTimeline events={fermenter.events || []} startDate={fermenter.startDate} onAddEvent={handleAddEvent} onRemoveEvent={handleRemoveEvent} />
                         </div>
                     </div>
-                    {/* Breww.AI numa faixa propria, da largura toda (desligado por enquanto: ver AI_ENABLED no servidor) */}
+                    {/* Breww.AI numa faixa propria, da largura toda */}
                     {BREWW_AI_ENABLED && (
                         <div className="mt-4 lg:mt-5">
                             <GeminiAdvisor fermenter={fermenter} />
