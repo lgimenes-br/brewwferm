@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { sendAppPushToUser } from './services/appPush.js';
+import { sendTelegramToUser } from './services/telegram.js';
 
 // Chaves VAPID so pelo ambiente (.env escrito pelo deploy a partir dos segredos do GitHub)
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
@@ -56,28 +57,10 @@ export const sendPushToUser = async (pool, userId, title, body, url = '/') => {
     console.error('Erro no push do app:', err?.message || err);
   }
 
-  // 3. Disparo opcional via Telegram Bot Webhook (se configurado nas Regras de Alerta do usuário)
+  // 3. Telegram pelo bot do Breww, se a pessoa conectou (services/telegram.js)
   try {
-    const [uRows] = await pool.execute('SELECT alert_config FROM users WHERE id = ?', [userId]);
-    const rawCfg = uRows?.[0]?.alert_config;
-    if (rawCfg) {
-      const cfg = typeof rawCfg === 'string' ? JSON.parse(rawCfg) : rawCfg;
-      const botToken = String(cfg?.telegramBotToken || '').trim();
-      const chatId = String(cfg?.telegramChatId || '').trim();
-      if (botToken && chatId) {
-        const escapeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        await fetch(`https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: `🍺 <b>${escapeHtml(title)}</b>\n${escapeHtml(body)}`,
-            parse_mode: 'HTML'
-          })
-        }).catch(err => console.error('Telegram alert error:', err.message));
-      }
-    }
+    await sendTelegramToUser(pool, userId, title, body);
   } catch (err) {
-    // Ignore if alert_config column not ready or invalid JSON
+    console.error('Erro no Telegram:', err?.message || err);
   }
 };

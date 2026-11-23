@@ -24,6 +24,7 @@ import { registerVoiceRoutes } from './routes/voiceRoutes.js';
 import { analyzeFermentation, parseGravity } from './services/batchAnalysis.js';
 import { matchStyle } from './services/brewStyles.js';
 import { writeAnalysisText } from './services/aiWriter.js';
+import { ensureTelegramSchema, registerTelegramRoutes, setupTelegramWebhook } from './services/telegram.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
@@ -188,6 +189,7 @@ const initDb = async () => {
 
         // Localizacao por IP (servico externo) removida em 12/11/2026: apaga as cidades guardadas antes
         await runMigration('UPDATE users SET lat = NULL, lon = NULL WHERE lat IS NOT NULL OR lon IS NOT NULL');
+        await ensureTelegramSchema(pool, runMigration);
         console.log('✅ [DB] Schema base e migrações verificados.');
     } catch (e) { console.error('❌ Erro DB Init:', e); }
 };
@@ -226,9 +228,7 @@ const DEFAULT_ALERT_CONFIG = {
     tempDeviationEnabled: true,
     tempDeviationMargin: 1.5,
     sgTargetEnabled: true,
-    sgTargetValue: null,
-    telegramBotToken: '',
-    telegramChatId: ''
+    sgTargetValue: null
 };
 const getUserAlertConfig = async (userId) => {
     const cached = userAlertConfigs[userId];
@@ -1184,6 +1184,7 @@ registerIdentityRoutes(app, {
 });
 // Push do app nativo (tokens da Expo); os alertas usam sendPushToUser como antes
 registerAppPushRoutes(app, { pool, authenticateToken });
+registerTelegramRoutes(app, { pool, authenticateToken });
 
 app.put('/api/devices/:serial', authenticateToken, async (req, res) => {
     try {
@@ -1547,9 +1548,7 @@ app.put('/api/user/integrations', authenticateToken, async (req, res) => {
                 tempDeviationEnabled: c.tempDeviationEnabled !== false,
                 tempDeviationMargin: Math.max(0.2, Math.min(10, parseFloat(c.tempDeviationMargin) || 1.5)),
                 sgTargetEnabled: c.sgTargetEnabled !== false,
-                sgTargetValue: normSg,
-                telegramBotToken: String(c.telegramBotToken || '').trim(),
-                telegramChatId: String(c.telegramChatId || '').trim()
+                sgTargetValue: normSg
             };
             updates.push('alert_config = ?');
             params.push(JSON.stringify(normalizedAlertCfg));
@@ -1566,29 +1565,6 @@ app.put('/api/user/integrations', authenticateToken, async (req, res) => {
             ...(hasUrl ? { brewfatherWebhookUrl: rawUrl } : {}),
             ...(normalizedAlertCfg ? { alertConfig: normalizedAlertCfg } : {})
         });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
-});
-
-app.post('/api/user/integrations/test-telegram', authenticateToken, async (req, res) => {
-    try {
-        const botToken = String(req.body?.telegramBotToken || '').trim();
-        const chatId = String(req.body?.telegramChatId || '').trim();
-        if (!botToken || !chatId) {
-            return res.status(400).json({ error: 'Informe o Bot Token e o Chat ID do Telegram' });
-        }
-        const tgRes = await fetch(`https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: '🍺 <b>Breww Dashboard</b>\nNotificações via Telegram conectadas com sucesso!',
-                parse_mode: 'HTML'
-            })
-        });
-        if (!tgRes.ok) {
-            return res.status(400).json({ success: false, status: tgRes.status, error: 'Falha ao enviar para o Telegram. Verifique o Bot Token e o Chat ID.' });
-        }
-        res.json({ success: true, status: tgRes.status });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno no servidor' }); }
 });
 
@@ -2108,7 +2084,10 @@ app.get(/(.*)/, (req, res) => (fs.existsSync(spaIndex) ? res.sendFile(spaIndex) 
 if (sentryEnabled) Sentry.setupExpressErrorHandler(app);
 // So na rede interna: o nginx repassa /api e /firmware (o firewall ja bloqueia a 3000 de fora; isto e a segunda camada)
 const LISTEN_HOST = process.env.LISTEN_HOST || '127.0.0.1';
-const serverInstance = app.listen(PORT, LISTEN_HOST, () => { console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`); });
+const serverInstance = app.listen(PORT, LISTEN_HOST, () => {
+    console.log(`🚀 Servidor BATCH MANAGER + RECIPES + REACTIVE rodando na porta ${PORT}`);
+    setupTelegramWebhook(process.env.PUBLIC_APP_URL || 'https://breww.live');
+});
 
 // Graceful shutdown for PM2 / Docker / OS signals
 const gracefulShutdown = (signal) => {

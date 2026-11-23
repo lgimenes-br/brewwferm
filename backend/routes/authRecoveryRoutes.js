@@ -44,29 +44,13 @@ export const registerAuthRecoveryRoutes = (app, pool, authRateLimiter, sendPushT
                 const msgTitle = 'Recuperação de Senha Breww 🔐';
                 const msgBody = `Seu código de recuperação Breww é: ${recoveryCode} (válido por 15 minutos).`;
 
-                // Canal 1: WebPush nos dispositivos já inscritos do usuário
+                // Canal 1: push (navegador e app) e Telegram, se conectado
                 try {
                     await sendPushToUser(pool, user.id, msgTitle, msgBody);
                 } catch (e) {}
 
-                // Canal 2: Bot do Telegram (se configurado nas preferências de alerta do usuário)
+                // (O Telegram, se conectado, ja recebe pelo envio acima)
                 const safeUserName = escapeHtml(user.name || 'Cervejeiro');
-                try {
-                    const cfg = typeof user.alert_config === 'string'
-                        ? JSON.parse(user.alert_config)
-                        : (user.alert_config || {});
-                    if (cfg && cfg.telegramBotToken && cfg.telegramChatId) {
-                        await fetch(`https://api.telegram.org/bot${encodeURIComponent(cfg.telegramBotToken)}/sendMessage`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                chat_id: String(cfg.telegramChatId),
-                                text: `🍺 <b>Breww — Recuperação de Senha</b>\n\nOlá, ${safeUserName}!\nSeu código de verificação é: <b>${escapeHtml(recoveryCode)}</b>\n\nEle expira em 15 minutos.`,
-                                parse_mode: 'HTML'
-                            })
-                        });
-                    }
-                } catch (e) {}
 
                 // Canal 3: E-mail via API HTTP Resend (se RESEND_API_KEY estiver configurada no .env)
                 const resendKey = process.env.RESEND_API_KEY;

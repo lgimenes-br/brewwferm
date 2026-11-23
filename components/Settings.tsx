@@ -5,7 +5,7 @@ import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, testTelegramWebhook, fetchFirmwareVersion, UserAlertConfig, updateChartHidden } from '../services/api';
+import { updateSensors, fetchIntegrations, updateIntegrations, testBrewfatherWebhook, fetchTelegramStatus, createTelegramLink, testTelegram, disconnectTelegram, TelegramStatus, fetchFirmwareVersion, UserAlertConfig, updateChartHidden } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { SensorTestModal } from './SensorTestModal';
 import { isFirmwareUpdateAvailable } from '../services/firmware';
@@ -211,15 +211,15 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
   const [brewfatherUrl, setBrewfatherUrl] = useState('');
   const [isTestingBrewfather, setIsTestingBrewfather] = useState(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
+  const [telegramWaiting, setTelegramWaiting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<UserAlertConfig>({
     lowBatteryEnabled: true,
     lowBatteryThreshold: 3.5,
     tempDeviationEnabled: true,
     tempDeviationMargin: 1.5,
     sgTargetEnabled: true,
-    sgTargetValue: null,
-    telegramBotToken: '',
-    telegramChatId: ''
+    sgTargetValue: null
   });
   const rawPayload: any = (activeDevice?.currentDevice as any)?.rawPayload || {};
   const currentMacCtrl: string = typeof rawPayload.macCtrl === 'string' ? rawPayload.macCtrl : '';
@@ -305,24 +305,65 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
   const handleSaveAlertConfig = async () => {
       try {
           await updateIntegrations({ alertConfig }, token);
-          toast.success('Regras de alerta e Telegram salvas!');
+          toast.success('Regras de alerta salvas!');
       } catch (err: any) {
           toast.error(err?.message || 'Erro ao salvar regras de alerta.');
       }
   };
 
-  const handleTestTelegram = async () => {
-      if (!alertConfig.telegramBotToken.trim() || !alertConfig.telegramChatId.trim()) {
-          return toast.error('Informe o Bot Token e o Chat ID do Telegram primeiro.');
+  useEffect(() => {
+      if (!token) return;
+      fetchTelegramStatus(token).then(setTelegram).catch(() => {});
+  }, [token]);
+
+  // Enquanto a pessoa esta no Telegram, confere a cada 3 s se ja conectou (ate 5 min)
+  useEffect(() => {
+      if (!telegramWaiting || !token) return;
+      const started = Date.now();
+      const id = setInterval(async () => {
+          try {
+              const st = await fetchTelegramStatus(token);
+              setTelegram(st);
+              if (st.connected) { setTelegramWaiting(false); toast.success('Telegram conectado!'); }
+          } catch { /* tenta de novo */ }
+          if (Date.now() - started > 5 * 60 * 1000) setTelegramWaiting(false);
+      }, 3000);
+      return () => clearInterval(id);
+  }, [telegramWaiting, token]);
+
+  const handleConnectTelegram = async () => {
+      // Abre a aba antes do await: o navegador bloqueia janelas abertas depois de uma espera
+      const win = window.open('', '_blank');
+      try {
+          const { url } = await createTelegramLink(token);
+          if (win) win.location.href = url; else window.location.href = url;
+          setTelegramWaiting(true);
+      } catch (err: any) {
+          win?.close();
+          toast.error(err?.message || 'Não consegui gerar o link do Telegram.');
       }
+  };
+
+  const handleTestTelegram = async () => {
       setIsTestingTelegram(true);
       try {
-          await testTelegramWebhook(alertConfig.telegramBotToken.trim(), alertConfig.telegramChatId.trim(), token);
-          toast.success('Alerta de teste enviado para o Telegram!');
+          await testTelegram(token);
+          toast.success('Mensagem de teste enviada para o Telegram!');
       } catch (err: any) {
           toast.error(err?.message || 'Falha ao enviar para o Telegram.');
+          fetchTelegramStatus(token).then(setTelegram).catch(() => {});
       } finally {
           setIsTestingTelegram(false);
+      }
+  };
+
+  const handleDisconnectTelegram = async () => {
+      try {
+          await disconnectTelegram(token);
+          setTelegram(prev => prev ? { ...prev, connected: false } : prev);
+          toast.success('Telegram desconectado.');
+      } catch (err: any) {
+          toast.error(err?.message || 'Erro ao desconectar.');
       }
   };
 
@@ -683,28 +724,50 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <InputField
-              label="Telegram Bot Token (Opcional)"
-              value={alertConfig.telegramBotToken}
-              onChange={(v: string) => setAlertConfig(prev => ({ ...prev, telegramBotToken: v }))}
-              placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-            />
-            <InputField
-              label="Telegram Chat ID (Opcional)"
-              value={alertConfig.telegramChatId}
-              onChange={(v: string) => setAlertConfig(prev => ({ ...prev, telegramChatId: v }))}
-              placeholder="Ex: 987654321"
-            />
-            <div className="flex items-center gap-2 justify-end">
-              <button
-                type="button"
-                onClick={handleTestTelegram}
-                disabled={isTestingTelegram}
-                className="px-4 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
-              >
-                <Send size={14} /> Testar Telegram
-              </button>
+          <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <Send size={18} className="shrink-0 text-[#2b2f37]" />
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-[#2b2f37]">Telegram</div>
+                <div className="text-xs text-[var(--muted,#6b7280)]">
+                  {telegram?.connected
+                    ? 'Conectado: os mesmos avisos chegam no seu Telegram.'
+                    : telegramWaiting
+                      ? 'No Telegram, toque em Iniciar. Esta tela atualiza sozinha.'
+                      : 'Receba os avisos também no Telegram, sem configurar nada.'}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              {telegram?.connected ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleTestTelegram}
+                    disabled={isTestingTelegram}
+                    className="px-4 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+                  >
+                    <Send size={14} /> Testar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectTelegram}
+                    className="px-4 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-medium transition-colors whitespace-nowrap"
+                  >
+                    Desconectar
+                  </button>
+                </>
+              ) : telegram && !telegram.available ? (
+                <span className="text-xs text-[var(--muted,#6b7280)]">Telegram indisponível no momento</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConnectTelegram}
+                  className="px-4 py-3 bg-[var(--bg)] hover:bg-black/10 text-[#2b2f37] border border-black/15 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
+                >
+                  <Send size={14} /> {telegramWaiting ? 'Abrir de novo' : 'Conectar Telegram'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSaveAlertConfig}

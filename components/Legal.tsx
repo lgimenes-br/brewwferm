@@ -6,7 +6,7 @@ import { SiteHeader, SiteFooter } from './SiteChrome';
 // O controlador aparece so como a marca Breww por enquanto (decisao do dono, 12/11/2026).
 
 export const LEGAL_EMAIL = 'contato@breww.live';
-export const LEGAL_UPDATED = '22 de novembro de 2026';
+export const LEGAL_UPDATED = '23 de novembro de 2026';
 
 const Page: React.FC<{ title: string; intro: React.ReactNode; children: React.ReactNode }> = ({ title, intro, children }) => (
     <div className="brew-landing min-h-screen bg-[var(--bg)] text-[var(--ink)] [font-family:var(--font-body)] antialiased">
@@ -45,7 +45,7 @@ export const Privacy: React.FC = () => {
                     <li><b>Notificações:</b> o token de notificação do celular ou do navegador.</li>
                     <li><b>Lista de espera:</b> se você pede aviso do controlador pronto ou do plano Pro na página inicial, guardamos só o e-mail e o que você pediu, sem precisar de conta.</li>
                     <li><b>Instalação pelo site:</b> quando você usa o assistente de instalação com a sua conta, registramos as etapas (placa e chip detectados, versão do firmware, número de série, falhas e conclusão) e, para diagnóstico, o registro técnico da instalação (mensagens do assistente e da placa), sem o nome nem a senha do seu Wi-Fi.</li>
-                    <li><b>Integrações que você ativa:</b> o endereço de envio do Brewfather e os dados do bot do Telegram.</li>
+                    <li><b>Integrações que você ativa:</b> o endereço de envio do Brewfather e o número do seu chat no Telegram, se você conectar o bot do Breww.</li>
                     <li><b>Segurança e diagnóstico:</b> endereço IP e horário de logins e de ações administrativas, e registros técnicos dos aparelhos (reinícios, falhas de conexão, lentidão).</li>
                     <li><b>Erros técnicos:</b> quando o site, o app ou o servidor falham, registramos a mensagem do erro, a tela, o tipo de aparelho e a versão, sem o conteúdo dos seus lotes.</li>
                 </ul>
@@ -78,7 +78,7 @@ export const Privacy: React.FC = () => {
                     <li><b>Resend</b>: envio de e-mails, como a recuperação de senha.</li>
                     <li><b>Groq</b>: texto da análise do lote (Breww.AI), só quando você pede. A análise é calculada no servidor do Breww; para o texto, enviamos ao Groq só os dados do lote (estilo, densidades, temperaturas e o resultado da análise), sem nome ou e-mail.</li>
                     <li><b>Sentry</b>: registro de erros técnicos.</li>
-                    <li><b>Brewfather e Telegram</b>: só se você ativar a integração, e só os dados que ela envia.</li>
+                    <li><b>Brewfather e Telegram</b>: só se você ativar a integração. No Telegram, o texto dos avisos (como temperatura e etapa do lote) é enviado pelo bot do Breww ao seu chat.</li>
                 </ul>
                 <p>Alguns desses fornecedores ficam fora do Brasil. Nesses casos a transferência segue o art. 33 da LGPD, com fornecedores que adotam garantias de proteção compatíveis. Também podemos compartilhar dados por ordem judicial ou exigência legal.</p>
             </section>

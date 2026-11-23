@@ -916,8 +916,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             if (url.includes('/user/integrations/test-brewfather') && method === 'POST') {
                 return new Response(JSON.stringify({ success: true, status: 200 }), { status: 200 });
             }
-            if (url.includes('/user/integrations/test-telegram') && method === 'POST') {
-                return new Response(JSON.stringify({ success: true, status: 200 }), { status: 200 });
+            if (url.includes('/user/telegram/test') && method === 'POST') {
+                return new Response(JSON.stringify({ success: true }), { status: 200 });
+            }
+            if (url.includes('/user/telegram')) {
+                return new Response(JSON.stringify({ available: true, connected: true, bot: 'BrewwBot' }), { status: 200 });
             }
             if (url.includes('/user/integrations')) {
                 return new Response(JSON.stringify({ brewfatherWebhookUrl: '' }), { status: 200 });
@@ -933,19 +936,16 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         });
 
         // 0. Integrações Externas (Brewfather Custom Stream) e Regras de Alerta / Telegram
-        const tgTokenInput = container.querySelector('input[placeholder*="123456:ABC"]') as HTMLInputElement;
-        const tgChatInput = container.querySelector('input[placeholder*="987654321"]') as HTMLInputElement;
-        expect(tgTokenInput).toBeTruthy();
-        expect(tgChatInput).toBeTruthy();
-        setInputValue(tgTokenInput, '999888:BOT_TOKEN');
-        setInputValue(tgChatInput, '11223344');
+        // Telegram pelo bot do Breww: conta ja conectada mostra Testar e Desconectar (sem token nem Chat ID)
+        expect(container.querySelector('input[placeholder*="123456:ABC"]')).toBeNull();
+        expect(container.textContent).toContain('Conectado: os mesmos avisos chegam no seu Telegram.');
         await act(async () => {
             findButtonByText('Salvar Alertas')!.click();
-            findButtonByText('Testar Telegram')!.click();
+            findButtonByText('Testar')!.click();
             await new Promise(r => setTimeout(r, 30));
         });
-        expect(apiCalls.some(c => c.url.includes('/user/integrations') && c.method === 'PUT' && c.body?.alertConfig?.telegramBotToken === '999888:BOT_TOKEN')).toBe(true);
-        expect(apiCalls.some(c => c.url.includes('/user/integrations/test-telegram') && c.method === 'POST')).toBe(true);
+        expect(apiCalls.some(c => c.url.includes('/user/integrations') && c.method === 'PUT' && c.body?.alertConfig && !('telegramBotToken' in c.body.alertConfig))).toBe(true);
+        expect(apiCalls.some(c => c.url.includes('/user/telegram/test') && c.method === 'POST')).toBe(true);
 
         const bfInput = container.querySelector('input[placeholder*="http://log.brewfather.net/stream"]') as HTMLInputElement;
         expect(bfInput).toBeTruthy();

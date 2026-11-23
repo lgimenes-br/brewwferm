@@ -290,8 +290,6 @@ export interface UserAlertConfig {
   tempDeviationMargin: number;
   sgTargetEnabled: boolean;
   sgTargetValue: number | null;
-  telegramBotToken: string;
-  telegramChatId: string;
 }
 
 // --- External Integrations & Custom Alerts (Brewfather + Telegram + Alert Rules) ---
@@ -328,17 +326,19 @@ export const testBrewfatherWebhook = async (brewfatherWebhookUrl: string, device
   return body;
 };
 
-export const testTelegramWebhook = async (telegramBotToken: string, telegramChatId: string, token?: string | null) => {
-  const res = await fetch(`${API_URL}/user/integrations/test-telegram`, {
-    method: 'POST',
-    headers: getHeaders(token),
-    body: JSON.stringify({ telegramBotToken, telegramChatId })
-  });
+// Telegram pelo bot do Breww: "Conectar" abre o bot com um codigo de uso unico
+export interface TelegramStatus { available: boolean; connected: boolean; bot: string | null }
+const telegramCall = async (path: string, method: string, token?: string | null) => {
+  const res = await fetch(`${API_URL}/user/telegram${path}`, { method, headers: getHeaders(token) });
   checkUnauthorized(res);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok || body.success === false) throw new Error(body.error || 'Falha ao testar envio para o Telegram');
+  if (!res.ok) throw new Error(body.error || 'Falha no Telegram');
   return body;
 };
+export const fetchTelegramStatus = (token?: string | null): Promise<TelegramStatus> => telegramCall('', 'GET', token);
+export const createTelegramLink = (token?: string | null): Promise<{ url: string }> => telegramCall('/link', 'POST', token);
+export const testTelegram = (token?: string | null) => telegramCall('/test', 'POST', token);
+export const disconnectTelegram = (token?: string | null) => telegramCall('', 'DELETE', token);
 
 export const stopBatch = async (serialCode: string) => {
   const res = await fetch(`${API_URL}/batch/stop`, {
