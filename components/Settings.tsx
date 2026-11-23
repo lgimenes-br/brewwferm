@@ -52,12 +52,15 @@ const AlertToggle = ({ label, hint, checked, onChange, children }: { label: stri
   const id = React.useId();
   return (
     <div className="py-3 space-y-3">
-      <label htmlFor={id} className="flex items-start justify-between gap-4 cursor-pointer">
+      <label htmlFor={id} className="flex items-center justify-between gap-4 cursor-pointer">
         <span className="min-w-0">
           <span className="block text-xs font-medium text-[#2b2f37]">{label}</span>
           {hint && <span className="block mt-0.5 text-[12px] leading-snug text-[var(--muted)]">{hint}</span>}
         </span>
-        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-amber-500 w-4 h-4 mt-0.5 shrink-0" />
+        <span className="relative shrink-0">
+          <input id={id} type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only peer" />
+          <span aria-hidden className="block relative w-11 h-6 rounded-full bg-[rgba(255,255,255,0.12)] peer-checked:bg-[var(--accent)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)] transition-colors after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-[#898E99] peer-checked:after:bg-[#0B0C10] after:transition-transform peer-checked:after:translate-x-5" />
+        </span>
       </label>
       {checked && children}
     </div>
