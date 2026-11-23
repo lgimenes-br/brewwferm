@@ -21,7 +21,8 @@ import { FREE_MAX_DEVICES } from './services/plans.js';
 import { buildCarryCommands } from './services/carrySettings.js';
 import { isSafeExternalWebhookUrl, authRateLimiter, securityHeadersMiddleware } from './utils/securityHelpers.js';
 import { registerVoiceRoutes } from './routes/voiceRoutes.js';
-import { analyzeFermentation } from './services/batchAnalysis.js';
+import { analyzeFermentation, parseGravity } from './services/batchAnalysis.js';
+import { matchStyle } from './services/brewStyles.js';
 import { writeAnalysisText } from './services/aiWriter.js';
 import { registerIngredientRoutes } from './routes/ingredientRoutes.js';
 import { registerAuthRecoveryRoutes } from './routes/authRecoveryRoutes.js';
@@ -1899,7 +1900,7 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
         if (!Number.isFinite(batchId)) return res.status(400).json({ error: 'Inicie um lote para analisar.' });
         const [rows] = await pool.execute(
             `SELECT b.id, b.name, b.style, b.og, b.fg, b.is_active, b.current_step_index, b.is_paused, b.profile, b.volume,
-                    UNIX_TIMESTAMP(b.step_started_at) AS step_started_s, UNIX_TIMESTAMP() AS now_s
+                    UNIX_TIMESTAMP(b.started_at) AS started_s, UNIX_TIMESTAMP(b.step_started_at) AS step_started_s, UNIX_TIMESTAMP() AS now_s
              FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`,
             [batchId, req.user.id]);
         if (!rows.length) return res.status(403).json({ error: 'Não autorizado' });
@@ -1918,6 +1919,32 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
         const [lastRows] = await pool.execute(
             'SELECT TIMESTAMPDIFF(SECOND, recorded_at, NOW()) AS age_s, temp_ferm, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1',
             [batchId]);
+        // Quantas vezes cada rele ligou nas ultimas 24 h (ciclos do compressor)
+        const [[relay]] = await pool.execute(
+            `SELECT SUM(status_op = 'Resfriando' AND (prev IS NULL OR prev <> 'Resfriando')) AS cool,
+                    SUM(status_op = 'Aquecendo' AND (prev IS NULL OR prev <> 'Aquecendo')) AS heat
+             FROM (SELECT status_op, LAG(status_op) OVER (ORDER BY id) AS prev FROM telemetry
+                   WHERE batch_id = ? AND recorded_at > NOW() - INTERVAL 24 HOUR) x`,
+            [batchId]);
+        // Diario do lote (sem os registros automaticos do sistema)
+        const [eventRows] = await pool.execute(
+            "SELECT event_type, description, UNIX_TIMESTAMP(recorded_at) AS at_s FROM batch_events WHERE batch_id = ? AND event_type NOT IN ('Sistema', 'SYSTEM_ACTION') ORDER BY recorded_at",
+            [batchId]);
+        // Lotes anteriores finalizados da mesma pessoa (a familia de estilo e filtrada na analise)
+        const [pastRows] = await pool.execute(
+            `SELECT b.style, b.name, b.og, TIMESTAMPDIFF(MINUTE, b.started_at, b.ended_at) / 1440 AS days,
+                    (SELECT t.gravity FROM telemetry t WHERE t.batch_id = b.id AND t.gravity BETWEEN 0.99 AND 1.15 ORDER BY t.id DESC LIMIT 1) AS sg_final
+             FROM batches b JOIN devices d ON b.device_id = d.id
+             WHERE d.user_id = ? AND b.id <> ? AND b.ended_at IS NOT NULL AND b.started_at IS NOT NULL
+             ORDER BY b.ended_at DESC LIMIT 20`,
+            [req.user.id, batchId]);
+        const family = matchStyle(b.style, b.name);
+        const history = family ? pastRows
+            .filter((r) => matchStyle(r.style, r.name)?.key === family.key)
+            .map((r) => {
+                const og = parseGravity(r.og), fgEnd = numOrNull(r.sg_final);
+                return { days: Number(r.days), attenuation: og && fgEnd && og > 1 ? Math.round(((og - fgEnd) / (og - 1)) * 100) : null };
+            }) : [];
         const nowMs = Number(b.now_s) * 1000;
         const hourly = hourlyRows.map((r) => ({
             t: Number(r.h) * 3600 * 1000,
@@ -1932,12 +1959,21 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
         const analysis = analyzeFermentation({
             batch: {
                 name: b.name, style: b.style, og: b.og, fg: b.fg, isActive: !!b.is_active,
+                startedAt: b.started_s ? Number(b.started_s) * 1000 : null,
                 stepStartedAt: b.step_started_s ? Number(b.step_started_s) * 1000 : null,
                 currentStep: b.current_step_index, isPaused: !!b.is_paused, profile,
             },
             hourly, last, now: nowMs,
+            equipment: { coolStarts24h: numOrNull(relay?.cool) ?? 0, heatStarts24h: numOrNull(relay?.heat) ?? 0 },
+            events: eventRows.map((e) => ({ type: e.event_type, description: e.description, at: e.at_s ? Number(e.at_s) * 1000 : null })),
+            history,
         });
         const text = await writeAnalysisText({ beer: { name: b.name, style: b.style, og: b.og, fg: b.fg, volume: b.volume }, analysis }).catch(() => null);
+        // Proximos passos: os das regras; a IA so reescreve e explica (usados so se vierem na mesma quantidade)
+        const aiSteps = text?.next_steps || [];
+        const nextSteps = aiSteps.length === analysis.next_steps.length
+            ? analysis.next_steps.map((st, i) => ({ text: aiSteps[i].text || st.text, why: aiSteps[i].why || '', when: st.when }))
+            : analysis.next_steps;
         const result = {
             summary: text?.summary || analysis.summary,
             health_score: analysis.health_score,
@@ -1945,6 +1981,12 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
             risk_level: analysis.risk_level,
             insights: [...analysis.insights, ...(text?.tips || [])],
             ideal_curve: analysis.ideal_curve,
+            phase: analysis.phase,
+            style: analysis.style,
+            predicted_fg: analysis.predicted_fg,
+            predicted_fg_days: analysis.predicted_fg_days,
+            sections: analysis.sections.map((sec) => ({ ...sec, note: text?.sections?.[sec.key] || null })),
+            next_steps: nextSteps,
             source: text ? 'regras+ia' : 'regras',
         };
         const createdAt = new Date();

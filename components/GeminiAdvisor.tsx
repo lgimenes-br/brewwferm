@@ -251,7 +251,11 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 </div>
                 <div>
                   <h2 id="breww-ai-modal-title" className="text-xl font-medium text-[var(--ink)]">Análise Breww.AI</h2>
-                  <p className="text-[var(--muted)] text-sm">Gerado via Gemini AI • {new Date().toLocaleDateString('pt-BR')}</p>
+                  <p className="text-[var(--muted)] text-sm">
+                    {isStructured(insight) && insight.source === 'regras+ia' ? 'Análise do Breww, com texto por IA' : 'Análise do Breww'}
+                    {' • '}
+                    {new Date(isStructured(insight) && insight.createdAt ? insight.createdAt : Date.now()).toLocaleDateString('pt-BR')}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -316,13 +320,32 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                           </div>
                         </div>
                       </div>
+                      {(insight.phase || insight.predicted_fg) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {insight.phase && (
+                            <div className="bg-white p-4 rounded-xl border border-black/[0.07]">
+                              <div className="text-[var(--muted)] text-xs mb-1">FASE</div>
+                              <div className="text-base font-medium text-[var(--ink)] leading-snug">{insight.phase.label}</div>
+                            </div>
+                          )}
+                          {insight.predicted_fg ? (
+                            <div className="bg-white p-4 rounded-xl border border-black/[0.07]">
+                              <div className="text-[var(--muted)] text-xs mb-1">DENSIDADE FINAL PREVISTA</div>
+                              <div className="text-xl font-medium text-[var(--ink)]">{insight.predicted_fg.toFixed(3)}</div>
+                              {insight.predicted_fg_days ? (
+                                <div className="text-xs text-[var(--muted)] mt-0.5">em ~{insight.predicted_fg_days.toLocaleString('pt-BR')} {insight.predicted_fg_days === 1 ? 'dia' : 'dias'}</div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
 
                     {/* Middle Column: Chart */}
                     <div className="md:col-span-2 bg-white p-6 rounded-xl border border-black/[0.07]">
                       <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex justify-between">
-                        <span>Gravidade: Real vs. Ideal</span>
-                        <span className="text-xs normal-case text-[var(--ink)]">Linha Roxa: Ideal IA</span>
+                        <span>Densidade: real x esperada</span>
+                        <span className="text-xs normal-case text-[var(--ink)]">Tracejada: curva esperada</span>
                       </h3>
                       <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -335,37 +358,81 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                               itemStyle={{ color: '#fff' }}
                             />
                             <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Line type="monotone" dataKey="real" name="Gravidade Real" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                            <Line type="monotone" dataKey="ideal" name="Curva Ideal (IA)" stroke="#818cf8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                            <Line type="monotone" dataKey="real" name="Densidade real" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                            <Line type="monotone" dataKey="ideal" name="Curva esperada" stroke="#818cf8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
 
-                    {/* Bottom Row: Insights & Summary */}
-                    <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Bottom Row: resumo, proximos passos e secoes */}
+                    <div className="md:col-span-3 space-y-8">
                       <div className="bg-white p-6 rounded-xl border border-black/[0.07]">
-                        <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex items-center gap-2">
-                          <CheckCircle size={16} className="text-[var(--ink)]" /> Recomendações da IA
+                        <h3 className="text-[var(--muted)] text-sm mb-3 font-medium flex items-center gap-2">
+                          <Activity size={16} className="text-[var(--ink)]" /> Resumo
                         </h3>
-                        <ul className="space-y-3">
-                          {(Array.isArray(insight.insights) ? insight.insights : []).map((item, idx) => (
-                            <li key={idx} className="text-[#2b2f37] text-sm leading-relaxed flex items-start gap-2">
-                              <span className="text-[var(--ink)] mt-1">•</span>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
+                        <p className="text-[#2b2f37] text-base leading-relaxed">{insight.summary}</p>
+                        {insight.style && (
+                          <p className="text-[var(--muted)] text-xs mt-3">
+                            Estilo reconhecido: {insight.style.label} (fermenta em {insight.style.temp[0]}–{insight.style.temp[1]} °C, atenuação típica de {insight.style.attenuation[0]}–{insight.style.attenuation[1]}%)
+                          </p>
+                        )}
                       </div>
 
-                      <div className="bg-white p-6 rounded-xl border border-black/[0.07]">
-                        <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex items-center gap-2">
-                          <Activity size={16} className="text-[var(--ink)]" /> Resumo Breww.AI
-                        </h3>
-                        <p className="text-[#2b2f37] text-sm leading-relaxed italic">
-                          "{insight.summary}"
-                        </p>
-                      </div>
+                      {insight.next_steps && insight.next_steps.length > 0 && (
+                        <div className="bg-white p-6 rounded-xl border border-black/[0.07]">
+                          <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex items-center gap-2">
+                            <CheckCircle size={16} className="text-[var(--ink)]" /> Próximos passos
+                          </h3>
+                          <ol className="space-y-4">
+                            {insight.next_steps.map((st, idx) => (
+                              <li key={idx} className="flex items-start gap-3">
+                                <span className="shrink-0 w-6 h-6 rounded-full bg-[var(--accent)]/30 text-[var(--ink)] text-xs font-medium flex items-center justify-center mt-0.5">{idx + 1}</span>
+                                <div>
+                                  <p className="text-[#2b2f37] text-sm leading-relaxed">
+                                    {st.text}
+                                    {st.when ? <span className="ml-2 text-xs text-[var(--muted)] whitespace-nowrap">({st.when})</span> : null}
+                                  </p>
+                                  {st.why ? <p className="text-[var(--muted)] text-xs leading-relaxed mt-1">{st.why}</p> : null}
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {insight.sections && insight.sections.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          {insight.sections.map((sec) => (
+                            <div key={sec.key} className="bg-white p-6 rounded-xl border border-black/[0.07]">
+                              <h3 className="text-[var(--ink)] text-sm mb-3 font-medium">{sec.title}</h3>
+                              {sec.note ? <p className="text-[#2b2f37] text-sm leading-relaxed mb-3">{sec.note}</p> : null}
+                              <ul className="space-y-2">
+                                {sec.items.map((item, idx) => (
+                                  <li key={idx} className="text-[var(--muted)] text-xs leading-relaxed flex items-start gap-2">
+                                    <span className="mt-0.5">•</span>
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-white p-6 rounded-xl border border-black/[0.07]">
+                          <h3 className="text-[var(--muted)] text-sm mb-4 font-medium flex items-center gap-2">
+                            <CheckCircle size={16} className="text-[var(--ink)]" /> Observações
+                          </h3>
+                          <ul className="space-y-3">
+                            {(Array.isArray(insight.insights) ? insight.insights : []).map((item, idx) => (
+                              <li key={idx} className="text-[#2b2f37] text-sm leading-relaxed flex items-start gap-2">
+                                <span className="text-[var(--ink)] mt-1">•</span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -379,7 +446,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ fermenter, classNa
                 )}
 
                 <div className="mt-8 pt-8 border-t border-black/[0.07] text-center text-[var(--muted)] text-sm italic">
-                  Relatório Visual gerado em {new Date().toLocaleTimeString('pt-BR')}
+                  Relatório gerado em {new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
             </div>

@@ -11,6 +11,14 @@ export interface AIAnalysis {
   risk_level: 'low' | 'medium' | 'high';
   insights: string[];
   ideal_curve: { hours: number; gravity: number }[];
+  /** Desde 22/11/2026: analise por secoes (regras + explicacao da IA) */
+  phase?: { key: string; label: string };
+  style?: { key: string; label: string; temp: [number, number]; attenuation: [number, number] } | null;
+  predicted_fg?: number | null;
+  predicted_fg_days?: number | null;
+  sections?: { key: string; title: string; items: string[]; note?: string | null }[];
+  next_steps?: { text: string; why?: string; when?: string }[];
+  source?: 'regras' | 'regras+ia';
 }
 
 /** Resposta do servidor para conta sem o plano Premium */
@@ -106,7 +114,20 @@ const toAnalysis = (data: any): AIAnalysis => {
       estimated_completion_days: Number.isFinite(Number(data?.estimated_completion_days)) ? Math.max(0, Number(data.estimated_completion_days)) : 0,
       risk_level: (data?.risk_level === 'low' || data?.risk_level === 'medium' || data?.risk_level === 'high') ? data.risk_level : 'low',
       insights: Array.isArray(data?.insights) ? data.insights.map((item: any) => String(item)) : [],
-      ideal_curve: Array.isArray(data?.ideal_curve) ? data.ideal_curve : []
+      ideal_curve: Array.isArray(data?.ideal_curve) ? data.ideal_curve : [],
+      phase: data?.phase && typeof data.phase.label === 'string' ? { key: String(data.phase.key), label: data.phase.label } : undefined,
+      style: data?.style && typeof data.style.label === 'string' ? data.style : null,
+      predicted_fg: Number.isFinite(Number(data?.predicted_fg)) && data?.predicted_fg !== null ? Number(data.predicted_fg) : null,
+      predicted_fg_days: Number.isFinite(Number(data?.predicted_fg_days)) && data?.predicted_fg_days !== null ? Number(data.predicted_fg_days) : null,
+      sections: Array.isArray(data?.sections)
+        ? data.sections
+            .filter((sec: any) => sec && typeof sec.title === 'string')
+            .map((sec: any) => ({ key: String(sec.key), title: sec.title, items: Array.isArray(sec.items) ? sec.items.map(String) : [], note: typeof sec.note === 'string' ? sec.note : null }))
+        : undefined,
+      next_steps: Array.isArray(data?.next_steps)
+        ? data.next_steps.filter((st: any) => st && typeof st.text === 'string').map((st: any) => ({ text: st.text, why: typeof st.why === 'string' ? st.why : '', when: typeof st.when === 'string' ? st.when : '' }))
+        : undefined,
+      source: data?.source === 'regras+ia' ? 'regras+ia' : data?.source === 'regras' ? 'regras' : undefined,
     };
 };
 

@@ -1,7 +1,8 @@
 // Executar: cd backend && npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeFermentation, parseGravity } from '../services/batchAnalysis.js';
+import { analyzeFermentation, parseGravity, predictFinalGravity } from '../services/batchAnalysis.js';
+import { matchStyle } from '../services/brewStyles.js';
 import { writeAnalysisText } from '../services/aiWriter.js';
 
 const HOUR = 3600 * 1000;
@@ -19,7 +20,7 @@ const series = (n, fn) => Array.from({ length: n }, (_, i) => {
 });
 
 const batch = (extra = {}) => ({
-    name: 'Teste', style: 'Pilsner', og: '1.050', fg: '1.010', isActive: true,
+    name: 'Teste', style: 'IPA', og: '1.050', fg: '1.010', isActive: true,
     stepStartedAt: NOW - 3 * 24 * HOUR, currentStep: 0, isPaused: false, profile: PROFILE, ...extra,
 });
 
@@ -109,4 +110,63 @@ test('longe do alvo, caindo so 0,1 °C/h com o resfriamento ligado ainda conta c
     const r = analyzeFermentation({ batch: batch({ currentStep: 2, stepStartedAt: NOW - 2 * 24 * HOUR }), hourly, last, now: NOW });
     assert.ok(r.insights.some((t) => /geladeira está ligada/.test(t)), r.insights.join(' | '));
     assert.equal(r.metrics.currentTemp, 29.6);
+});
+
+test('estilo: reconhece pelo nome e avisa lager quente demais', () => {
+    assert.equal(matchStyle('PILSNER').key, 'lager');
+    assert.equal(matchStyle('Ale (IPA, Pale...)').key, 'hoppy');
+    assert.equal(matchStyle('Hefeweizen').key, 'wheat');
+    assert.equal(matchStyle('Minha receita'), null);
+    const hourly = series(24, () => ({ temp: 19.5, target: 19.5 }));
+    const r = analyzeFermentation({ batch: batch({ style: 'Pilsner' }), hourly, last: { at: NOW - 60000, temp: 19.5, target: 19.5 }, now: NOW });
+    assert.ok(r.insights.some((t) => /acima da faixa típica de Lager/.test(t)), r.insights.join(' | '));
+    assert.equal(r.risk_level, 'medium');
+    assert.equal(r.style.key, 'lager');
+});
+
+test('previsao da densidade final pela curva (exponencial)', () => {
+    const fg = 1.012, pts = [];
+    for (let h = 0; h < 72; h++) pts.push({ t: NOW - (71 - h) * HOUR, v: fg + 0.038 * Math.exp(-0.8 * h / 24) });
+    const p = predictFinalGravity(pts, NOW);
+    assert.ok(p, 'previsao');
+    assert.ok(Math.abs(p.fg - fg) <= 0.001, `fg ${p.fg}`);
+    assert.ok(p.daysToFg > 0 && p.daysToFg < 6, `dias ${p.daysToFg}`);
+    assert.equal(predictFinalGravity(pts.slice(0, 10), NOW), null); // poucos pontos
+});
+
+test('fase: inicio, ativa e desacelerando pela velocidade da densidade', () => {
+    const run = (rate, startedHoursAgo) => analyzeFermentation({
+        batch: batch({ startedAt: NOW - startedHoursAgo * HOUR }),
+        hourly: series(48, (i) => ({ temp: 19.5, target: 19.5, sg: 1.045 - i * rate / 24 })),
+        last: { at: NOW - 60000, temp: 19.5, target: 19.5 }, now: NOW,
+    }).phase.key;
+    assert.equal(run(0.008, 100), 'ativa');          // 8 pontos/dia
+    assert.equal(run(0.001, 100), 'desacelerando');  // 1 ponto/dia
+    assert.equal(run(0.0005, 20), 'inicio');         // menos de 36 h e quase parada
+});
+
+test('ciclos curtos do compressor geram aviso', () => {
+    const r = analyzeFermentation({ batch: batch(), hourly: series(24, () => ({ temp: 19.5, target: 19.5 })), last: { at: NOW - 60000, temp: 19.5, target: 19.5 }, equipment: { coolStarts24h: 80 }, now: NOW });
+    assert.ok(r.sections.find((s) => s.key === 'equipamento').items.some((t) => /ligou 80 vezes/.test(t)));
+    assert.equal(r.risk_level, 'medium');
+});
+
+test('proximos passos: diacetil na lager, dry hop na IPA, cold crash quando estabiliza', () => {
+    const falling = (i) => ({ temp: 12, target: 12, sg: 1.020 - i * 0.003 / 24 });
+    const lager = analyzeFermentation({ batch: batch({ style: 'Pilsner', profile: [{ name: 'Fermentação', temperature: 12, duration: 10 }, { name: 'Lagering', temperature: 1, duration: 20 }] }),
+        hourly: series(48, falling), last: { at: NOW - 60000, temp: 12, target: 12 }, now: NOW });
+    assert.ok(lager.next_steps.some((s) => /descanso de diacetil/.test(s.text)), JSON.stringify(lager.next_steps));
+
+    const ipa = analyzeFermentation({ batch: batch(), hourly: series(48, (i) => ({ temp: 19.5, target: 19.5, sg: 1.022 - i * 0.004 / 24 })), last: { at: NOW - 60000, temp: 19.5, target: 19.5 }, now: NOW });
+    assert.ok(ipa.next_steps.some((s) => /dry hop/.test(s.text)), JSON.stringify(ipa.next_steps));
+
+    const done = analyzeFermentation({ batch: batch(), hourly: series(48, () => ({ temp: 19.5, target: 19.5, sg: 1.011 })), last: { at: NOW - 60000, temp: 19.5, target: 19.5, sg: 1.011 }, now: NOW });
+    assert.equal(done.phase.key, 'terminada');
+    assert.ok(done.next_steps.some((s) => /Descanso de diacetil|clarificar/.test(s.text)), JSON.stringify(done.next_steps));
+});
+
+test('historico de lotes do mesmo estilo entra na fermentacao; lotes curtos (teste) ficam de fora', () => {
+    const r = analyzeFermentation({ batch: batch(), hourly: series(24, () => ({ temp: 19.5, target: 19.5 })), last: { at: NOW - 60000, temp: 19.5, target: 19.5 },
+        history: [{ days: 12, attenuation: 78 }, { days: 14, attenuation: 80 }, { days: 0.1, attenuation: 10 }], now: NOW });
+    assert.ok(r.insights.some((t) => /Seus 2 lotes anteriores de IPA \/ pale ale levaram em média 13 dias e atenuaram 79%/.test(t)), r.insights.join(' | '));
 });
