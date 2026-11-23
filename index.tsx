@@ -25,6 +25,20 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 
+// Pagina aberta antes de um deploy pede um pedaco (chunk) que nao existe mais: em vez de quebrar a tela
+// ("'text/html' is not a valid JavaScript MIME type", Sentry 18/11/2026), recarrega uma vez na versao nova.
+// A marca na sessao evita recarregar em loop se o problema for outro.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    const KEY = 'breww-chunk-reload';
+    const last = Number(sessionStorage.getItem(KEY) || 0);
+    if (Date.now() - last < 60000) return; // ja recarregou ha menos de 1 min: deixa o erro aparecer
+    sessionStorage.setItem(KEY, String(Date.now()));
+    event.preventDefault();
+    window.location.reload();
+  } catch { /* sem sessionStorage: segue o erro normal */ }
+});
+
 // /app-login roda dentro da janela de login do app: ali o PWA nao pode se atualizar e recarregar
 // a pagina no meio do retorno do Google (cortava o login com "Load failed").
 if ('serviceWorker' in navigator && !window.location.pathname.startsWith('/app-login')) {

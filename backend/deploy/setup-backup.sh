@@ -86,6 +86,15 @@ if [ "${ok}" = "1" ] && command -v rclone >/dev/null 2>&1 && rclone listremotes 
   fi
 fi
 echo "=== $(date '+%F %T') fim (status ${ok})"
+
+# Aviso por e-mail (healthchecks.io): sucesso = ping; falha = ping em /fail; sem ping ate o fim do prazo
+# (o cron nem rodou, VPS fora do ar) = o servico tambem avisa. A URL fica so na VPS (/root, chmod 600).
+HC_FILE=/root/.breww-healthcheck-url
+if [ -s "${HC_FILE}" ]; then
+  HC_URL=$(head -1 "${HC_FILE}")
+  [ "${ok}" = "1" ] || HC_URL="${HC_URL}/fail"
+  curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "$(tail -8 "${LOG}")" "${HC_URL}" && echo "aviso enviado (healthchecks)" || echo "aviso NAO enviado (healthchecks)"
+fi
 [ "${ok}" = "1" ]
 SCRIPT
 chmod 700 "${BIN}"
