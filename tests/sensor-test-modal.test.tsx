@@ -67,11 +67,11 @@ describe('SensorTestModal', () => {
         );
         act(() => render(undefined));
         act(() => { vi.advanceTimersByTime(10); });
-        act(() => render({ lastPacketMs: Date.now(), rawPayload: { ferm: 19.2, amb: 4.1, hum: 0, rssi: -60 } }));
+        act(() => render({ lastPacketMs: Date.now(), rawPayload: { t: [19.2, 4.1, null, null], hum: 0, rssi: -60 } }));
 
         const hum = container.querySelector('[data-testid="sensor-row-hum"]');
         expect(hum?.getAttribute('data-status')).toBe('suspect');
-        expect(container.querySelector('[data-testid="sensor-row-ferm"]')?.getAttribute('data-status')).toBe('ok');
+        expect(container.querySelector('[data-testid="sensor-row-s1"]')?.getAttribute('data-status')).toBe('ok');
         expect(container.textContent).not.toContain('Sem resposta');
     });
 });

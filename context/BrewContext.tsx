@@ -270,8 +270,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // Only live (non-retained) MQTT packets update lastUpdate so powered-off devices are never marked online
-                // Sensores 1 e 2: lista "t" (fw 2.11+, null = sem leitura); firmware antigo: "ferm"/"amb" (nomes legados)
-                const sensorRaw = (i: number) => (Array.isArray(payload.t) ? payload.t[i] : (i === 0 ? payload.ferm : payload.amb));
+                // Sensores 1 e 2: lista "t" da placa (null = sem leitura)
+                const sensorRaw = (i: number) => (Array.isArray(payload.t) ? payload.t[i] : undefined);
                 const parsedS2 = sensorRaw(1) !== undefined && sensorRaw(1) !== null ? parseFloat(sensorRaw(1)) : NaN;
                 const parsedTarget = target !== undefined ? parseFloat(String(target)) : NaN;
                 const parsedS1 = sensorRaw(0) !== undefined && sensorRaw(0) !== null ? parseFloat(sensorRaw(0)) : NaN;
@@ -295,8 +295,8 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     currentDevice: {
                         temperature: !isNaN(parsedS1) ? parsedS1 : undefined,
                         // iSpindel desligado: o controlador repete a ultima leitura; velha nao aparece
-                        gravity: ispFresh === false ? 0 : payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
-                        battery: ispFresh === false ? 0 : payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
+                        gravity: !ispFresh ? 0 : payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
+                        battery: !ispFresh ? 0 : payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
                         rssi: !isNaN(parsedRssi) ? parsedRssi : undefined,
                         ...(isRetained ? {} : { lastUpdate: new Date().toISOString(), lastPacketMs: Date.now() }),
                         statOp: statusStr || 'INATIVO',

@@ -25,25 +25,18 @@ export const humidityInPayload = (payload) => {
 };
 
 /**
- * Sensores de temperatura 1-4 com leitura neste pacote ([s1, s2, s3, s4]). O site sempre mostra o sensor
- * que controla (a temperatura grande); os outros so se existem. fw 2.11+: lista "t" (null = sem leitura);
- * antes: "ferm" e "amb" validos (0,0 exato = nunca leu).
+ * Sensores de temperatura 1-4 com leitura neste pacote ([s1, s2, s3, s4]), pela lista "t" (null = sem
+ * leitura). O site sempre mostra o sensor que controla (a temperatura grande); os outros so se existem.
  */
 export const tempSlotsInPayload = (payload) => {
   const ok = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) && Number(v) > -55 && Number(v) < 125;
-  if (Array.isArray(payload?.t)) return [0, 1, 2, 3].map((i) => ok(payload.t[i]));
-  return [ok(payload?.ferm) && Number(payload.ferm) !== 0, ok(payload?.amb) && Number(payload.amb) !== 0, false, false];
+  return [0, 1, 2, 3].map((i) => Array.isArray(payload?.t) && ok(payload.t[i]));
 };
 
-/** Epoch (s) da ultima leitura do iSpindel no pacote, ou 0. Firmware antigo (sem is_epc): densidade > 0 = agora. */
+/** Epoch (s) da ultima leitura do iSpindel no pacote ("is_epc"), ou 0 */
 export const ispindelEpochInPayload = (payload, nowMs = Date.now()) => {
-  if (!payload) return 0;
-  if (Object.prototype.hasOwnProperty.call(payload, 'is_epc')) {
-    const epc = Number(payload.is_epc);
-    return Number.isFinite(epc) && epc >= 1600000000 && epc * 1000 <= nowMs + 5 * 60 * 1000 ? Math.floor(epc) : 0;
-  }
-  const sg = Number(payload.is_sg);
-  return Number.isFinite(sg) && sg > 0.98 ? Math.floor(nowMs / 1000) : 0;
+  const epc = Number(payload?.is_epc);
+  return Number.isFinite(epc) && epc >= 1600000000 && epc * 1000 <= nowMs + 5 * 60 * 1000 ? Math.floor(epc) : 0;
 };
 
 export function createDeviceRegistry({ now = Date.now } = {}) {

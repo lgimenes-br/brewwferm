@@ -6,7 +6,7 @@ const NOW = Date.UTC(2026, 10, 11, 12, 0, 0);
 const epc = msAgo => Math.floor((NOW - msAgo) / 1000);
 
 test('isIspindelFresh', () => {
-    assert.equal(isIspindelFresh({ is_sg: 1.05 }, NOW), null); // firmware antigo
+    assert.equal(isIspindelFresh({ is_sg: 1.05 }, NOW), false); // sem horario da leitura
     assert.equal(isIspindelFresh({ is_epc: 0 }, NOW), false); // desconhecido
     assert.equal(isIspindelFresh({ is_epc: 12345 }, NOW), false); // relogio sem sincronizar
     assert.equal(isIspindelFresh({ is_epc: epc(20 * 60 * 1000) }, NOW), true);
@@ -24,7 +24,7 @@ test('dropStaleIspindel zera so leitura velha', () => {
     const fresh = { is_sg: 1.032, is_bat: 3.9, is_epc: epc(60000) };
     assert.equal(dropStaleIspindel(fresh, NOW), false);
     assert.equal(fresh.is_sg, 1.032);
-    const legacy = { is_sg: 1.032, is_bat: 3.9 };
-    assert.equal(dropStaleIspindel(legacy, NOW), false);
-    assert.equal(legacy.is_bat, 3.9);
+    const noTime = { is_sg: 1.032, is_bat: 3.9 }; // sem horario da leitura: nao confia
+    assert.equal(dropStaleIspindel(noTime, NOW), true);
+    assert.equal(noTime.is_bat, 0);
 });

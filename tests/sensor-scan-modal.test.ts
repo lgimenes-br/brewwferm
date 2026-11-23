@@ -30,9 +30,9 @@ import { sensorView, otherSensors, DeviceMode } from '../types';
 
 describe('sensorView: quem controla e os outros sensores', () => {
     const base: any = { id: 'X', name: 'X', mode: DeviceMode.FERMENTER, sensor2Temp: 16, currentDevice: { temperature: 19, rawPayload: {} } };
-    it('firmware antigo: fermentador pelo Sensor 1, geladeira pelo Sensor 2', () => {
+    it('sem a placa informar quem controla (antes do primeiro pacote): Sensor 1, em qualquer modo', () => {
         expect(sensorView(base).control).toBe(0);
-        expect(sensorView({ ...base, mode: DeviceMode.FRIDGE }).control).toBe(1);
+        expect(sensorView({ ...base, mode: DeviceMode.FRIDGE }).control).toBe(0);
     });
     it('firmware 2.11: usa o sensor que o aparelho informa e lista os outros com nome', () => {
         const f = { ...base, sensor3_name: 'Ambiente', currentDevice: { rawPayload: { t: [19.1, 16.2, 24.5, null], ctl: 2, ctlMap: [2, -1, -1] } } };

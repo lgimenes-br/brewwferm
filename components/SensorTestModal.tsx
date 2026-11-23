@@ -132,8 +132,8 @@ export const SensorTestModal: React.FC<SensorTestModalProps> = ({
 
     const rows: SensorRow[] = useMemo(() => {
         const list: SensorRow[] = [
-            { key: 'ferm', label: names.sensor1, kind: 'temperature', raw: raw.ferm, unit: '°C' },
-            { key: 'amb', label: names.sensor2, kind: 'temperature', raw: raw.amb, unit: '°C' }
+            { key: 's1', label: names.sensor1, kind: 'temperature', raw: Array.isArray(raw.t) ? raw.t[0] : undefined, unit: '°C' },
+            { key: 's2', label: names.sensor2, kind: 'temperature', raw: Array.isArray(raw.t) ? raw.t[1] : undefined, unit: '°C' }
         ];
         const ext = raw.ext_s ?? raw.extSens;
         if (ext && typeof ext === 'object') {

@@ -262,6 +262,11 @@ const sanitizeNum = (val, precision) => {
     if (val === null || val === undefined || val === '' || isNaN(num) || !isFinite(num)) return null;
     return num.toFixed(precision);
 };
+/** Temperatura do Sensor N (0..3) no pacote: lista "t" da placa (null = sem leitura) */
+const payloadSensorTemp = (payload, slot) => (Array.isArray(payload?.t) ? sanitizeNum(payload.t[slot], 1) : null);
+/** Sensor que controla o modo agora (informado pela placa em "ctl"; 0 = Sensor 1) */
+const payloadControlSlot = (payload) => (Number.isInteger(payload?.ctl) && payload.ctl >= 0 && payload.ctl < 4 ? payload.ctl : 0);
+
 
 // Shared Gravity Normalizer (converts > 500 e.g. 1050 -> 1.050)
 const normalizeGravityVal = (val) => {
@@ -653,7 +658,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                 }
 
                 let dateSQL = 'NOW()';
-                // Extras da leitura: umidade e, no fw 2.11+, os Sensores 3 e 4 e qual sensor controlava (0 = Sensor 1)
+                // Extras da leitura: umidade, os Sensores 3 e 4 e qual sensor controlava (0 = Sensor 1)
                 const extra = payload.ext_s && typeof payload.ext_s === 'object' ? { ...payload.ext_s } : {};
                 if (Array.isArray(payload.t)) {
                     const t3 = sanitizeNum(payload.t[2], 1), t4 = sanitizeNum(payload.t[3], 1);
@@ -662,9 +667,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                 }
                 if (Number.isInteger(payload.ctl) && payload.ctl >= 0 && payload.ctl < 4) extra.ctl = payload.ctl;
                 let extraSensorsJSON = Object.keys(extra).length ? JSON.stringify(extra) : null;
-                // Sensores 1 e 2: da lista "t" (fw 2.11+, null = sem leitura); firmware antigo: "ferm"/"amb" (nomes legados)
-                const sensorTemp = (i) => (Array.isArray(payload.t) ? sanitizeNum(payload.t[i], 1) : sanitizeNum(i === 0 ? payload.ferm : payload.amb, 1));
-                let queryArgs = [deviceId, currentBatchId, sensorTemp(0), sensorTemp(1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
+                let queryArgs = [deviceId, currentBatchId, payloadSensorTemp(payload, 0), payloadSensorTemp(payload, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
                 
                 // Apenas confia no timestamp do ESP32 se ele for maior que o ano 2020 (NTP Sincronizado)
                 if (payload.ts && payload.ts > 1600000000) {
@@ -690,8 +693,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                             if (webhookUrl && isSafeExternalWebhookUrl(webhookUrl)) {
                                 const bfPayload = {
                                     name: `Breww-${serialCode}`,
-                                    temp: parseFloat(sanitizeNum(payload.ferm, 1)) || 0,
-                                    aux_temp: parseFloat(sanitizeNum(payload.amb, 1)) || 0,
+                                    // Brewfather: "temp" = o sensor que controla; "aux_temp" = o outro dos dois primeiros
+                                    temp: parseFloat(payloadSensorTemp(payload, payloadControlSlot(payload))) || 0,
+                                    aux_temp: parseFloat(payloadSensorTemp(payload, payloadControlSlot(payload) === 1 ? 0 : 1)) || 0,
                                     temp_unit: 'C',
                                     ...(finalGravity && parseFloat(finalGravity) > 0 ? { gravity: parseFloat(finalGravity), gravity_unit: 'G' } : {}),
                                     ...(payload.is_bat && parseFloat(payload.is_bat) > 0 ? { battery: parseFloat(sanitizeNum(payload.is_bat, 2)) } : {}),
@@ -715,10 +719,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                 const userCfg = await getUserAlertConfig(userId);
                 const tempMargin = Math.max(0.2, parseFloat(userCfg.tempDeviationMargin) || 1.5);
                 
-                // Alerta de Temperatura: pelo sensor que CONTROLA (fw 2.11+: t[ctl]); antes era sempre o Sensor 1
-                const ctlSlot = Number.isInteger(payload.ctl) && payload.ctl >= 0 && payload.ctl < 4 ? payload.ctl : 0;
-                const ctlRaw = Array.isArray(payload.t) ? payload.t[ctlSlot] : payload.ferm;
-                const controlTemp = ctlRaw === null || ctlRaw === undefined ? NaN : parseFloat(ctlRaw);
+                // Alerta de Temperatura: pelo sensor que CONTROLA o modo
+                const ctlValue = payloadSensorTemp(payload, payloadControlSlot(payload));
+                const controlTemp = ctlValue === null ? NaN : parseFloat(ctlValue);
                 const targetTemp = parseFloat(sanitizeNum(target, 1));
                 if (userCfg.tempDeviationEnabled !== false && !isNaN(controlTemp) && !isNaN(targetTemp) && payload.opm === 0) {
                     if (Math.abs(controlTemp - targetTemp) > tempMargin) {

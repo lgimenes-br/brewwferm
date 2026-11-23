@@ -1328,10 +1328,11 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             messageHandler(
                 'brewbrother/ESP32_MQTT/data',
                 Buffer.from(JSON.stringify({
-                    ferm: 19.7,
-                    amb: 11.4,
+                    t: [19.7, 11.4, null, null],
+                    ctl: 0,
                     csp: 19.5,
                     is_sg: 1.028,
+                    is_epc: Math.floor(Date.now() / 1000) - 60,
                     is_bat: 4.11,
                     rssi: -52,
                     statOp: 'RESFRIANDO',
@@ -1347,7 +1348,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
         expect(container.textContent).toContain('1 de 1 aparelho online');
         expect(container.querySelector('[aria-label="19.7 graus"]')).toBeTruthy();
         expect(container.textContent).toContain('19.5°C'); // alvo
-        expect(container.textContent).toContain('11.4°C'); // geladeira
+        expect(container.textContent).toContain('11.4°C'); // Sensor 2
         expect(container.textContent).toContain('1.028');
         // Wi-Fi e endereco ficam no detalhe do aparelho; o cartao so avisa quando o sinal esta fraco
     });

@@ -262,6 +262,7 @@ const finiteOrUndef = (v: unknown): number | undefined => {
 export const sensorView = (f: Fermenter): SensorView => {
     const raw: any = (f.currentDevice as any)?.rawPayload || {};
     const ext: any = f.currentDevice?.extSens || {};
+    // Pacote ao vivo: lista "t" da placa; antes do primeiro pacote, a ultima leitura gravada no servidor
     const t = Array.isArray(raw.t) ? raw.t : null;
     const temps = [
         t ? finiteOrUndef(t[0]) : finiteOrUndef(f.currentDevice?.temperature),
@@ -271,9 +272,8 @@ export const sensorView = (f: Fermenter): SensorView => {
     ];
     const names = [f.sensor1_name, f.sensor2_name, f.sensor3_name, f.sensor4_name].map((n, i) => (n || '').trim() || `Sensor ${i + 1}`);
     const reported = Number.isInteger(raw.ctl) ? raw.ctl : Number.isInteger(ext.ctl) ? ext.ctl : undefined;
-    const cold = f.mode === DeviceMode.FRIDGE || f.mode === DeviceMode.KEGERATOR;
-    // Sem o aparelho informar (firmware antigo): fermentador pelo Sensor 1; geladeira/choppeira pelo 2 (sem ele, pelo 1)
-    const control = reported !== undefined && reported >= 0 && reported < 4 ? reported : cold ? (temps[1] !== undefined || temps[0] === undefined ? 1 : 0) : 0;
+    // Qual sensor controla e a placa que diz ("ctl"); sem nenhum dado ainda, o Sensor 1
+    const control = reported !== undefined && reported >= 0 && reported < 4 ? reported : 0;
     const controlMap = Array.isArray(raw.ctlMap) ? raw.ctlMap.map((v: unknown) => (Number.isInteger(v) ? Number(v) : -1)) : undefined;
     return { temps, names, control, controlMap, supportsControl: !!controlMap };
 };
