@@ -43,6 +43,9 @@
     "web-push": "^3.6.7"
   },
   "overrides": {
-    "d3-color": "^3.1.0"
+    "d3-color": "^3.1.0",
+    "workbox-build": {
+      "glob": "^14.0.6"
+    }
   }
 }
