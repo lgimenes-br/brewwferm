@@ -103,14 +103,14 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
           if (!isMounted) return;
 
           const parsedReadings: Reading[] = (Array.isArray(logs) ? logs : []).map((l: any) => {
-            const rawBeer = l.temp_ferm !== null && l.temp_ferm !== undefined ? parseFloat(String(l.temp_ferm)) : NaN;
-            const rawFridge = l.temp_amb !== null && l.temp_amb !== undefined ? parseFloat(String(l.temp_amb)) : NaN;
+            const raw1 = l.temp_s1 !== null && l.temp_s1 !== undefined ? parseFloat(String(l.temp_s1)) : NaN;
+            const raw2 = l.temp_s2 !== null && l.temp_s2 !== undefined ? parseFloat(String(l.temp_s2)) : NaN;
             const rawTarget = l.target_temp !== null && l.target_temp !== undefined ? parseFloat(String(l.target_temp)) : NaN;
             const rawGrav = l.gravity !== null && l.gravity !== undefined ? parseFloat(String(l.gravity)) : NaN;
             return {
               timestamp: l.recorded_at,
-              beerTemp: !isNaN(rawBeer) ? rawBeer : (NaN as any),
-              fridgeTemp: !isNaN(rawFridge) ? rawFridge : (NaN as any),
+              sensor1Temp: !isNaN(raw1) ? raw1 : (NaN as any),
+              sensor2Temp: !isNaN(raw2) ? raw2 : (NaN as any),
               targetTemp: !isNaN(rawTarget) ? rawTarget : (NaN as any),
               gravity: !isNaN(rawGrav) ? rawGrav : 0,
               extra_sensors: l.extra_sensors
@@ -202,7 +202,7 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
   };
 
   const { maxTempFormatted, minTempFormatted } = useMemo(() => {
-    const validTemps = readings.map(r => r.beerTemp).filter(t => !isNaN(t));
+    const validTemps = readings.map(r => r.sensor1Temp).filter(t => !isNaN(t));
     if (validTemps.length === 0) {
       return { maxTempFormatted: '0.0', minTempFormatted: '0.0' };
     }
@@ -482,8 +482,8 @@ export const FinishedBrewDetail: React.FC<FinishedBrewDetailProps> = ({ brew }) 
               </div>
               <BatchCharts
                 readings={readings}
-                sensor1Name={brew.sensor1_name || 'Fermentador'}
-                sensor2Name={brew.sensor2_name || 'Geladeira'}
+                sensor1Name={brew.sensor1_name || 'Sensor 1'}
+                sensor2Name={brew.sensor2_name || 'Sensor 2'}
                 sensorSgName={brew.sensor_sg_name || 'Densidade'}
                 fg={Number(brew.fg) > 0 ? Number(brew.fg) : undefined}
               />

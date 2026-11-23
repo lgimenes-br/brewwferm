@@ -168,8 +168,8 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
     logInterval: 30,
     compressorDelay: 310,
     chartPoints: parseInt(localStorage.getItem('breww_chartPoints') || '50', 10) || 50,
-    sensor1Name: 'Fermentador',
-    sensor2Name: 'Geladeira',
+    sensor1Name: 'Sensor 1',
+    sensor2Name: 'Sensor 2',
     sensorSgName: 'iSpindel',
     offsetS1: 0,
     offsetS2: 0,
@@ -191,8 +191,8 @@ export const Settings: React.FC<{ mode?: 'device' | 'preferences' }> = ({ mode =
 
         setSettings(prev => ({
             ...prev,
-            sensor1Name: activeDevice.sensor1_name || 'Fermentador',
-            sensor2Name: activeDevice.sensor2_name || 'Geladeira',
+            sensor1Name: activeDevice.sensor1_name || 'Sensor 1',
+            sensor2Name: activeDevice.sensor2_name || 'Sensor 2',
             sensorSgName: activeDevice.sensor_sg_name || 'Gravidade',
             logInterval: dev.logInterval ?? prev.logInterval,
             compressorDelay: dev.compressorDelay ?? prev.compressorDelay,

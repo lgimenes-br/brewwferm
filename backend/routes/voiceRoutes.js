@@ -25,15 +25,15 @@ export const registerVoiceRoutes = (app, pool) => {
         }
         const batch = batches[0];
         const [telemetry] = await pool.execute(
-            `SELECT temp_ferm, temp_amb, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1`,
+            `SELECT temp_s1, temp_s2, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1`,
             [batch.id]
         );
         if (telemetry.length === 0) {
             return `O lote ${batch.name} está ativo, mas ainda não recebi dados de telemetria.`;
         }
         const t = telemetry[0];
-        const tempFerm = t.temp_ferm !== null && t.temp_ferm !== undefined ? parseFloat(t.temp_ferm).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
-        const tempAmb = t.temp_amb !== null && t.temp_amb !== undefined ? parseFloat(t.temp_amb).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+        const temp1 = t.temp_s1 !== null && t.temp_s1 !== undefined ? parseFloat(t.temp_s1).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
+        const temp2 = t.temp_s2 !== null && t.temp_s2 !== undefined ? parseFloat(t.temp_s2).toFixed(1).replace('.', ' vírgula ') : 'desconhecida';
         const s3 = batch.sensor_sg_name || 'Gravidade';
         let gravText = '';
         if (t.gravity && parseFloat(t.gravity) > 0) {
@@ -42,9 +42,9 @@ export const registerVoiceRoutes = (app, pool) => {
                 gravText = `e o sensor ${s3} está em ${parts[0]} ponto ${parts[1].split('').join(' ')}`;
             }
         }
-        const s1 = batch.sensor1_name || 'Fermentador';
-        const s2 = batch.sensor2_name || 'Geladeira';
-        return `O lote ${batch.name} está ativo. A temperatura do ${s1} é de ${tempFerm} graus, do ${s2} é ${tempAmb} graus, ${gravText}.`;
+        const s1 = batch.sensor1_name || 'Sensor 1';
+        const s2 = batch.sensor2_name || 'Sensor 2';
+        return `O lote ${batch.name} está ativo. A temperatura do ${s1} é de ${temp1} graus, do ${s2} é ${temp2} graus, ${gravText}.`;
     };
 
     app.get('/api/voice/status', async (req, res) => {

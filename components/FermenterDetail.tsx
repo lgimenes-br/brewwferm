@@ -110,9 +110,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     // SAFE PARSING OF NUMBERS (Fix for string data from API)
     const safeTargetTemp = parseFloat(String(fermenter.targetTemp || 0));
-    const safeCurrentTemp = (displayMode === DeviceMode.KEGERATOR || displayMode === DeviceMode.FRIDGE) 
-        ? parseFloat(String(fermenter.currentFridgeTemp || 0)) 
-        : parseFloat(String(fermenter.currentDevice?.temperature || 0));
     const lastChartGravity = fermenter.readings && fermenter.readings.length > 0 
         ? fermenter.readings[fermenter.readings.length - 1].gravity 
         : 0;
@@ -124,7 +121,6 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
         ? fermenter.currentDevice.gravity
         : lastChartGravity;
     const safeCurrentGravity = normalizeGravity(rawCurrentGravity, 0);
-    const safeCurrentFridgeTemp = parseFloat(String(fermenter.currentFridgeTemp || 0));
     const safeOG = normalizeGravity(fermenter.og, 0);
     const safeFG = fermenter.fg ? normalizeGravity(fermenter.fg, 0) : null;
     const safeBattery = parseFloat(String(fermenter.currentDevice?.battery || 0));
@@ -375,7 +371,10 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
 
     const isIdleFermenter = displayMode === DeviceMode.FERMENTER && (!fermenter.batchId || fermenter.status === FermenterStatus.IDLE);
     const hasMappedSensors = Boolean((fermenter.currentDevice as any)?.macCtrl);
-    const hasInvalidTemp = safeCurrentTemp <= -100 || safeCurrentTemp === 85;
+    // Leitura invalida (erro do DS18B20) no sensor que controla o modo (nao mais "geladeira = Sensor 2")
+    const svCtl = sensorView(fermenter);
+    const ctlReading = svCtl.temps[svCtl.control];
+    const hasInvalidTemp = ctlReading !== undefined && (ctlReading <= -100 || ctlReading === 85);
     const shouldSuggestSensorScan = !hasMappedSensors || hasInvalidTemp;
 
     const isOnline = isDeviceOnline(fermenter);

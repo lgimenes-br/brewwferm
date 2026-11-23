@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { fetchPublicBatch } from '../services/api';
 import { Reading, FermentationEvent, EventType, normalizeGravity, eventTypeFromServer } from '../types';
 import { BatchCharts } from './BatchCharts';
-import { Eye, RefreshCw, Snowflake, Target, Battery, ArrowDown, Percent, FlaskConical, Clock, CheckCircle2 } from 'lucide-react';
+import { Eye, RefreshCw, Thermometer, Target, Battery, ArrowDown, Percent, FlaskConical, Clock, CheckCircle2 } from 'lucide-react';
 
 export const PublicLiveBatch: React.FC = () => {
     const { token } = useParams<{ token: string }>();
@@ -62,8 +62,8 @@ export const PublicLiveBatch: React.FC = () => {
     const isActive = Boolean(batch.is_active);
     const readings: Reading[] = telemetry.map((l: any) => ({
         timestamp: l.recorded_at,
-        beerTemp: l.temp_ferm !== null && l.temp_ferm !== undefined ? parseFloat(String(l.temp_ferm)) : (NaN as any),
-        fridgeTemp: l.temp_amb !== null && l.temp_amb !== undefined ? parseFloat(String(l.temp_amb)) : (NaN as any),
+        sensor1Temp: l.temp_s1 !== null && l.temp_s1 !== undefined ? parseFloat(String(l.temp_s1)) : (NaN as any),
+        sensor2Temp: l.temp_s2 !== null && l.temp_s2 !== undefined ? parseFloat(String(l.temp_s2)) : (NaN as any),
         targetTemp: l.target_temp !== null && l.target_temp !== undefined ? parseFloat(String(l.target_temp)) : (NaN as any),
         gravity: l.gravity !== null && l.gravity !== undefined ? normalizeGravity(l.gravity, 0) : 0
     }));
@@ -76,8 +76,8 @@ export const PublicLiveBatch: React.FC = () => {
     }));
 
     const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null;
-    const currentTemp = latest?.temp_ferm != null ? parseFloat(String(latest.temp_ferm)) : 0;
-    const currentFridge = latest?.temp_amb != null ? parseFloat(String(latest.temp_amb)) : 0;
+    const currentS1 = latest?.temp_s1 != null ? parseFloat(String(latest.temp_s1)) : NaN;
+    const currentS2 = latest?.temp_s2 != null ? parseFloat(String(latest.temp_s2)) : NaN;
     const currentTarget = latest?.target_temp != null ? parseFloat(String(latest.target_temp)) : 0;
     const currentBattery = latest?.battery != null ? parseFloat(String(latest.battery)) : 0;
     const currentGravity = latest?.gravity != null ? normalizeGravity(latest.gravity, 0) : 0;
@@ -154,16 +154,16 @@ export const PublicLiveBatch: React.FC = () => {
                 {/* Live Telemetry Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
                     <div className="bg-white border border-black/[0.07] rounded-2xl p-4">
-                        <span className="text-[10px] font-bold text-[var(--muted)] block mb-1">{batch.sensor1_name || 'Mosto'}</span>
-                        <span className="text-2xl font-mono font-bold text-[var(--ink)]">{currentTemp.toFixed(1)}°C</span>
+                        <span className="text-[10px] font-bold text-[var(--muted)] block mb-1">{batch.sensor1_name || 'Sensor 1'}</span>
+                        <span className="text-2xl font-mono font-bold text-[var(--ink)]">{Number.isFinite(currentS1) ? `${currentS1.toFixed(1)}°C` : '--'}</span>
                     </div>
                     <div className="bg-white border border-black/[0.07] rounded-2xl p-4">
                         <span className="text-[10px] font-bold text-[var(--muted)] flex items-center gap-1 mb-1"><Target size={11} /> Set-Point</span>
                         <span className="text-2xl font-mono font-bold text-[#b45309]">{currentTarget.toFixed(1)}°C</span>
                     </div>
                     <div className="bg-white border border-black/[0.07] rounded-2xl p-4">
-                        <span className="text-[10px] font-bold text-[var(--muted)] flex items-center gap-1 mb-1"><Snowflake size={11} /> {batch.sensor2_name || 'Geladeira'}</span>
-                        <span className="text-2xl font-mono font-bold text-blue-600">{currentFridge.toFixed(1)}°C</span>
+                        <span className="text-[10px] font-bold text-[var(--muted)] flex items-center gap-1 mb-1"><Thermometer size={11} /> {batch.sensor2_name || 'Sensor 2'}</span>
+                        <span className="text-2xl font-mono font-bold text-blue-600">{Number.isFinite(currentS2) ? `${currentS2.toFixed(1)}°C` : '--'}</span>
                     </div>
                     <div className="bg-white border border-black/[0.07] rounded-2xl p-4">
                         <span className="text-[10px] font-bold text-[var(--muted)] block mb-1">{batch.sensor_sg_name || 'Densidade'}</span>
@@ -236,8 +236,8 @@ export const PublicLiveBatch: React.FC = () => {
                 <BatchCharts
                     readings={readings}
                     events={mappedEvents}
-                    sensor1Name={batch.sensor1_name || 'Fermentador'}
-                    sensor2Name={batch.sensor2_name || 'Geladeira'}
+                    sensor1Name={batch.sensor1_name || 'Sensor 1'}
+                    sensor2Name={batch.sensor2_name || 'Sensor 2'}
                     sensorSgName={batch.sensor_sg_name || 'Densidade'}
                     fg={safeFG > 0 ? safeFG : undefined}
                     live

@@ -84,8 +84,8 @@ const applyUpdateToFermenter = (f: Fermenter, updates: Partial<Fermenter>, appen
                 : undefined;
             const newReading: any = {
                 timestamp: new Date().toISOString(),
-                beerTemp: filteredRest.currentDevice.temperature,
-                fridgeTemp: filteredRest.currentFridgeTemp ?? f.currentFridgeTemp ?? 0,
+                sensor1Temp: filteredRest.currentDevice.temperature,
+                sensor2Temp: filteredRest.sensor2Temp ?? f.sensor2Temp ?? 0,
                 targetTemp: filteredRest.targetTemp ?? activeStepTemp ?? f.targetTemp ?? 0,
                 gravity: filteredRest.currentDevice.gravity,
                 extra_sensors: filteredRest.currentDevice.extSens
@@ -200,7 +200,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             targetTemp: (hasLiveDeviceData && prevDev?.targetTemp !== undefined) ? prevDev.targetTemp : safeNum(d.last_target, 20),
             readings: safeReadings,
             currentDevice: safeCurrentDevice,
-            currentFridgeTemp: (hasLiveDeviceData && prevDev?.currentFridgeTemp !== undefined) ? prevDev.currentFridgeTemp : safeNum(d.last_temp2, 20),
+            sensor2Temp: (hasLiveDeviceData && prevDev?.sensor2Temp !== undefined) ? prevDev.sensor2Temp : safeNum(d.last_temp2, NaN), // sem leitura: NaN ("--"), nunca um 20 inventado
             profile: (() => {
                 const newProfile = parseBackendProfileSteps(d.active_batch_profile || d.profile);
                 if (newProfile.length > 0) {
@@ -310,8 +310,8 @@ export const useFermenters = () => {
                             const sampledData = backendData.filter((_: any, i: number) => i % step === 0 || i === backendData.length - 1);
                             mappedReadings = sampledData.map((d: any) => ({
                                 id: d.id,
-                                beerTemp: parseFloat(d.temp_ferm ?? d.beerTemp ?? d.temperature ?? d.beer_temp ?? d.ferm ?? 0),
-                                fridgeTemp: parseFloat(d.temp_amb ?? d.fridgeTemp ?? d.ambient_temp ?? d.fridge_temp ?? d.amb ?? 0),
+                                sensor1Temp: parseFloat(d.temp_s1 ?? d.sensor1Temp ?? NaN),
+                                sensor2Temp: parseFloat(d.temp_s2 ?? d.sensor2Temp ?? NaN),
                                 targetTemp: parseFloat(d.target_temp ?? d.targetTemp ?? d.setpoint ?? 20),
                                 gravity: parseFloat(d.gravity ?? d.is_sg ?? 0),
                                 timestamp: d.recorded_at ?? d.timestamp,

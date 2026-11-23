@@ -350,29 +350,29 @@ describe('3. Charts, Forecasting, Advisor, Profile, Wizard, History & Details Ed
         readings: [
             {
                 timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-                beerTemp: 19.0,
-                fridgeTemp: 18.0,
+                sensor1Temp: 19.0,
+                sensor2Temp: 18.0,
                 targetTemp: 20.0,
                 gravity: 1.050
             },
             {
                 timestamp: new Date(Date.now() - 86400000).toISOString(),
-                beerTemp: 19.2,
-                fridgeTemp: 18.5,
+                sensor1Temp: 19.2,
+                sensor2Temp: 18.5,
                 targetTemp: 20.0,
                 gravity: 1.035
             },
             {
                 timestamp: new Date().toISOString(),
-                beerTemp: 19.5,
-                fridgeTemp: 19.0,
+                sensor1Temp: 19.5,
+                sensor2Temp: 19.0,
                 targetTemp: 20.0,
                 gravity: 1.020
             },
             {
                 timestamp: 'invalid-date',
-                beerTemp: NaN,
-                fridgeTemp: NaN,
+                sensor1Temp: NaN,
+                sensor2Temp: NaN,
                 targetTemp: 20.0,
                 gravity: NaN
             }
@@ -385,7 +385,7 @@ describe('3. Charts, Forecasting, Advisor, Profile, Wizard, History & Details Ed
             rssi: -55,
             lastUpdate: new Date().toISOString()
         },
-        currentFridgeTemp: 19.0,
+        sensor2Temp: 19.0,
         profile: [
             { id: 's1', name: 'Primária', temperature: 20, duration: 7 }
         ],
@@ -870,7 +870,7 @@ describe('5. Backend Server & PushService Code & Logic Verification', () => {
                 return {
                     ok: true,
                     status: 200,
-                    json: async () => [{ recorded_at: new Date().toISOString(), temp_ferm: 19.2, temp_amb: 16.0, target_temp: 19.0, gravity: 1.015 }]
+                    json: async () => [{ recorded_at: new Date().toISOString(), temp_s1: 19.2, temp_s2: 16.0, target_temp: 19.0, gravity: 1.015 }]
                 } as any;
             }
             return { ok: true, status: 200, json: async () => [] } as any;

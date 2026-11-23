@@ -231,7 +231,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
             }
             if (url.includes('/data') && method === 'GET') {
                 return new Response(JSON.stringify([
-                    { id: 1, temp_ferm: 18.5, temp_amb: 14.2, target_temp: 19.0, gravity: 1.040, recorded_at: new Date().toISOString() }
+                    { id: 1, temp_s1: 18.5, temp_s2: 14.2, target_temp: 19.0, gravity: 1.040, recorded_at: new Date().toISOString() }
                 ]), { status: 200 });
             }
             if (url.includes('/chopp_name') && method === 'PUT') {
@@ -265,7 +265,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
                         profile: JSON.stringify([{ name: 'Fermentação Primária', temperature: 19, duration: 7, triggerGravity: 1.018 }])
                     },
                     telemetry: [
-                        { temp_ferm: 19.1, temp_amb: 15.0, target_temp: 19.0, gravity: 1.042, battery: 4.02, recorded_at: new Date().toISOString() }
+                        { temp_s1: 19.1, temp_s2: 15.0, target_temp: 19.0, gravity: 1.042, battery: 4.02, recorded_at: new Date().toISOString() }
                     ],
                     events: []
                 }), { status: 200 });
@@ -761,7 +761,7 @@ describe('Testes Funcionais Interativos de Ponta a Ponta (E2E User Flows)', () =
                     abv: 6.0,
                     efficiency: 76,
                     notes: 'Torra intensa',
-                    readings: [{ timestamp: '2026-02-01T00:00:00Z', beerTemp: 19, fridgeTemp: 15, targetTemp: 19, gravity: 1.060 }]
+                    readings: [{ timestamp: '2026-02-01T00:00:00Z', sensor1Temp: 19, sensor2Temp: 15, targetTemp: 19, gravity: 1.060 }]
                 }}
             />
         );

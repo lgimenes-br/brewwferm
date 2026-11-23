@@ -103,7 +103,7 @@ const runMigration = async (sql) => {
 const initDb = async () => {
     try {
         await pool.execute(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(150) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', plan_type ENUM('free', 'premium') DEFAULT 'free', max_devices INT DEFAULT ${FREE_MAX_DEVICES}, lat FLOAT DEFAULT NULL, lon FLOAT DEFAULT NULL, brewfather_webhook_url VARCHAR(255) DEFAULT NULL, alert_config JSON DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
-        await pool.execute(`CREATE TABLE IF NOT EXISTS devices (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, serial_code VARCHAR(100) NOT NULL UNIQUE, device_name VARCHAR(100), sensor1_name VARCHAR(50) DEFAULT 'Fermentador', sensor2_name VARCHAR(50) DEFAULT 'Geladeira', sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade', chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp', firmware_version VARCHAR(20) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS devices (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, serial_code VARCHAR(100) NOT NULL UNIQUE, device_name VARCHAR(100), sensor1_name VARCHAR(50) DEFAULT NULL, sensor2_name VARCHAR(50) DEFAULT NULL, sensor_sg_name VARCHAR(50) DEFAULT 'Gravidade', chopp_name VARCHAR(100) DEFAULT 'Barril de Chopp', firmware_version VARCHAR(20) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS device_keys (serial_code VARCHAR(100) PRIMARY KEY, key_hash CHAR(64) NOT NULL, last_public_ip VARCHAR(64) DEFAULT NULL, last_seen DATETIME DEFAULT NULL, created_at DATETIME DEFAULT NOW())`);
         // Chaves ainda nao confirmadas no aparelho (pareamento seguro; ver routes/pairingRoutes.js)
         await pool.execute(`CREATE TABLE IF NOT EXISTS device_key_candidates (serial_code VARCHAR(100) NOT NULL, key_hash CHAR(64) NOT NULL, pair_code CHAR(8) NOT NULL, last_public_ip VARCHAR(64) DEFAULT NULL, first_seen DATETIME DEFAULT NOW(), last_seen DATETIME DEFAULT NOW(), PRIMARY KEY (serial_code, key_hash))`);
@@ -120,7 +120,10 @@ const initDb = async () => {
         // Candidatas abandonadas (nunca confirmadas) somem depois de 30 dias
         await pool.execute('DELETE FROM device_key_candidates WHERE last_seen < DATE_SUB(NOW(), INTERVAL 30 DAY)').catch(() => {});
         await pool.execute(`CREATE TABLE IF NOT EXISTS batches (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, name VARCHAR(150) NOT NULL, style VARCHAR(100), og VARCHAR(20), fg VARCHAR(20), volume FLOAT DEFAULT 20, profile JSON, ingredients JSON, public_token VARCHAR(64) DEFAULT NULL, current_step_index INT DEFAULT 0, step_started_at DATETIME DEFAULT NULL, started_at DATETIME DEFAULT NOW(), ended_at DATETIME DEFAULT NULL, is_active BOOLEAN DEFAULT 1, FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
-        await pool.execute(`CREATE TABLE IF NOT EXISTS telemetry (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, batch_id INT DEFAULT NULL, temp_ferm FLOAT, temp_amb FLOAT, target_temp FLOAT, gravity FLOAT, battery FLOAT, status_op VARCHAR(50), step_name VARCHAR(100), rssi INT DEFAULT NULL, extra_sensors JSON, recorded_at DATETIME DEFAULT NOW(), FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
+        // Sensores numerados (Sensor 1..4): as colunas eram temp_s1/temp_s2 (renomeadas em 23/11/2026)
+        await runMigration('ALTER TABLE telemetry RENAME COLUMN temp_ferm TO temp_s1');
+        await runMigration('ALTER TABLE telemetry RENAME COLUMN temp_amb TO temp_s2');
+        await pool.execute(`CREATE TABLE IF NOT EXISTS telemetry (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, batch_id INT DEFAULT NULL, temp_s1 FLOAT, temp_s2 FLOAT, target_temp FLOAT, gravity FLOAT, battery FLOAT, status_op VARCHAR(50), step_name VARCHAR(100), rssi INT DEFAULT NULL, extra_sensors JSON, recorded_at DATETIME DEFAULT NOW(), FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS batch_events (id INT AUTO_INCREMENT PRIMARY KEY, batch_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, description TEXT, recorded_at DATETIME NOT NULL, FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL, style VARCHAR(100), est_og VARCHAR(10), est_fg VARCHAR(10), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipe_steps (id INT AUTO_INCREMENT PRIMARY KEY, recipe_id INT NOT NULL, step_order INT NOT NULL, name VARCHAR(50), temperature FLOAT, days INT, trigger_gravity FLOAT DEFAULT NULL, FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE)`);
@@ -170,8 +173,14 @@ const initDb = async () => {
         await runMigration(`ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) DEFAULT NULL`);
         // Logins vinculados (Google/Apple) + migracao das contas antigas
         await ensureIdentityTable(pool).catch(e => console.error('⚠️ [DB Migration] user_identities:', e.message));
-        await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT 'Fermentador'`);
-        await runMigration(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT 'Geladeira'`);
+        // Nome do sensor e apelido do usuario; sem nome, o app e o site mostram "Sensor N"
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor1_name VARCHAR(50) DEFAULT NULL`);
+        await runMigration(`ALTER TABLE devices ADD COLUMN sensor2_name VARCHAR(50) DEFAULT NULL`);
+        await runMigration(`ALTER TABLE devices ALTER COLUMN sensor1_name SET DEFAULT NULL`);
+        await runMigration(`ALTER TABLE devices ALTER COLUMN sensor2_name SET DEFAULT NULL`);
+        // Os padroes antigos ("Fermentador"/"Geladeira") confundiam sensor com modo: voltam a "Sensor 1/2"
+        await runMigration(`UPDATE devices SET sensor1_name = NULL WHERE sensor1_name = 'Fermentador'`);
+        await runMigration(`UPDATE devices SET sensor2_name = NULL WHERE sensor2_name = 'Geladeira'`);
         // Sensores numerados (fw 2.11): ate 4; nome vazio = "Sensor N" nos apps
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor3_name VARCHAR(50) DEFAULT NULL`);
         await runMigration(`ALTER TABLE devices ADD COLUMN sensor4_name VARCHAR(50) DEFAULT NULL`);
@@ -653,7 +662,9 @@ mqttClient.on('message', async (topic, message, packet) => {
                 }
                 if (Number.isInteger(payload.ctl) && payload.ctl >= 0 && payload.ctl < 4) extra.ctl = payload.ctl;
                 let extraSensorsJSON = Object.keys(extra).length ? JSON.stringify(extra) : null;
-                let queryArgs = [deviceId, currentBatchId, sanitizeNum(payload.ferm, 1), sanitizeNum(payload.amb, 1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
+                // Sensores 1 e 2: da lista "t" (fw 2.11+, null = sem leitura); firmware antigo: "ferm"/"amb" (nomes legados)
+                const sensorTemp = (i) => (Array.isArray(payload.t) ? sanitizeNum(payload.t[i], 1) : sanitizeNum(i === 0 ? payload.ferm : payload.amb, 1));
+                let queryArgs = [deviceId, currentBatchId, sensorTemp(0), sensorTemp(1), sanitizeNum(target, 1), finalGravity, sanitizeNum(payload.is_bat, 2), payload.statOp ?? null, payload.profStat ?? null, payload.rssi ?? null, extraSensorsJSON];
                 
                 // Apenas confia no timestamp do ESP32 se ele for maior que o ano 2020 (NTP Sincronizado)
                 if (payload.ts && payload.ts > 1600000000) {
@@ -662,7 +673,7 @@ mqttClient.on('message', async (topic, message, packet) => {
                 }
 
                 await pool.execute(
-                    `INSERT INTO telemetry (device_id, batch_id, temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, rssi, extra_sensors, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
+                    `INSERT INTO telemetry (device_id, batch_id, temp_s1, temp_s2, target_temp, gravity, battery, status_op, step_name, rssi, extra_sensors, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${dateSQL})`,
                     queryArgs
                 ).catch((err) => { 
                     console.error("❌ Telemetry Insert Error:", err.message); 
@@ -704,23 +715,25 @@ mqttClient.on('message', async (topic, message, packet) => {
                 const userCfg = await getUserAlertConfig(userId);
                 const tempMargin = Math.max(0.2, parseFloat(userCfg.tempDeviationMargin) || 1.5);
                 
-                // Alerta de Temperatura
-                const tempFerm = parseFloat(payload.ferm);
+                // Alerta de Temperatura: pelo sensor que CONTROLA (fw 2.11+: t[ctl]); antes era sempre o Sensor 1
+                const ctlSlot = Number.isInteger(payload.ctl) && payload.ctl >= 0 && payload.ctl < 4 ? payload.ctl : 0;
+                const ctlRaw = Array.isArray(payload.t) ? payload.t[ctlSlot] : payload.ferm;
+                const controlTemp = ctlRaw === null || ctlRaw === undefined ? NaN : parseFloat(ctlRaw);
                 const targetTemp = parseFloat(sanitizeNum(target, 1));
-                if (userCfg.tempDeviationEnabled !== false && !isNaN(tempFerm) && !isNaN(targetTemp) && payload.opm === 0) {
-                    if (Math.abs(tempFerm - targetTemp) > tempMargin) {
+                if (userCfg.tempDeviationEnabled !== false && !isNaN(controlTemp) && !isNaN(targetTemp) && payload.opm === 0) {
+                    if (Math.abs(controlTemp - targetTemp) > tempMargin) {
                         if (!alertState[serialCode].tempAlertStartTime) {
                             alertState[serialCode].tempAlertStartTime = now;
                         } else if (now - alertState[serialCode].tempAlertStartTime > 15 * 60 * 1000) { // 15 min
                             if (!alertState[serialCode].tempAlertSent) {
-                                notify(userId, 'temp_out', 'Alerta de Temperatura', `Cerveja fora da temperatura alvo: ${tempFerm}ºC (Alvo: ${targetTemp}ºC ±${tempMargin}ºC)`);
+                                notify(userId, 'temp_out', 'Alerta de Temperatura', `Fora da temperatura alvo: ${controlTemp.toFixed(1)}ºC (alvo ${targetTemp}ºC ±${tempMargin}ºC)`);
                                 alertState[serialCode].tempAlertSent = true;
                             }
                         }
                     } else {
                         alertState[serialCode].tempAlertStartTime = null;
                         if (alertState[serialCode].tempAlertSent) {
-                            notify(userId, 'temp_back', 'Temperatura Normalizada', `A temperatura voltou ao alvo: ${tempFerm}ºC`);
+                            notify(userId, 'temp_back', 'Temperatura Normalizada', `A temperatura voltou ao alvo: ${controlTemp.toFixed(1)}ºC`);
                             alertState[serialCode].tempAlertSent = false;
                         }
                     }
@@ -1167,8 +1180,8 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             LEFT JOIN batches b ON b.device_id = d.id AND b.is_active = 1
             LEFT JOIN (
                 SELECT device_id,
-                       temp_ferm as last_temp,
-                       temp_amb as last_temp2,
+                       temp_s1 as last_temp,
+                       temp_s2 as last_temp2,
                        target_temp as last_target,
                        status_op as last_status,
                        battery as last_battery,
@@ -1702,14 +1715,17 @@ app.get('/api/export/:serial', authenticateToken, async (req, res) => {
         } else {
             queryWhere = `AND t.recorded_at > NOW() - INTERVAL 30 DAY`;
         }
-        const [rows] = await pool.execute(`SELECT t.recorded_at, t.temp_ferm, t.temp_amb, t.target_temp, t.gravity, t.battery, t.status_op, t.step_name, t.extra_sensors, b.name as batch_name FROM telemetry t JOIN devices d ON t.device_id = d.id LEFT JOIN batches b ON t.batch_id = b.id WHERE d.serial_code = ? AND d.user_id = ? ${queryWhere} ORDER BY t.recorded_at ASC`, queryParams);
+        const [rows] = await pool.execute(`SELECT t.recorded_at, t.temp_s1, t.temp_s2, t.target_temp, t.gravity, t.battery, t.status_op, t.step_name, t.extra_sensors, b.name as batch_name FROM telemetry t JOIN devices d ON t.device_id = d.id LEFT JOIN batches b ON t.batch_id = b.id WHERE d.serial_code = ? AND d.user_id = ? ${queryWhere} ORDER BY t.recorded_at ASC`, queryParams);
         if (rows.length === 0) return res.status(404).send('Sem dados');
         if (rows.length > 1 && (rows[0].status_op || '').includes('CONCLU') && !(rows[1].status_op || '').includes('CONCLU')) rows.shift();
-        if (currentBatch && !currentBatch.is_active && currentBatch.ended_at && rows.length > 0) { const last = rows[rows.length - 1]; rows.push({ recorded_at: currentBatch.ended_at, batch_name: last.batch_name, temp_ferm: last.temp_ferm, temp_amb: last.temp_amb, target_temp: last.target_temp, gravity: last.gravity, battery: last.battery, status_op: 'FINALIZADO', step_name: 'MANUAL' }); }
-        let csv = 'Data/Hora,Lote,Temp Fermentador,Temp Ambiente,Alvo,Densidade (SG),Bateria,Status,Etapa\n';
+        if (currentBatch && !currentBatch.is_active && currentBatch.ended_at && rows.length > 0) { const last = rows[rows.length - 1]; rows.push({ recorded_at: currentBatch.ended_at, batch_name: last.batch_name, temp_s1: last.temp_s1, temp_s2: last.temp_s2, target_temp: last.target_temp, gravity: last.gravity, battery: last.battery, status_op: 'FINALIZADO', step_name: 'MANUAL' }); }
+        // Colunas dos sensores com o nome que a pessoa deu (sem nome: "Sensor 1", "Sensor 2")
+        const [[names]] = await pool.execute('SELECT sensor1_name, sensor2_name FROM devices WHERE serial_code = ? AND user_id = ?', [req.params.serial, req.user.id]);
+        const col = (n, i) => String((n || '').trim() || `Sensor ${i}`).replace(/[",\r\n]/g, ' ');
+        let csv = `Data/Hora,Lote,${col(names?.sensor1_name, 1)} (°C),${col(names?.sensor2_name, 2)} (°C),Alvo,Densidade (SG),Bateria,Status,Etapa\n`;
         const f = (v) => v != null ? parseFloat(v).toFixed(1) : ''; const fs = (v) => v != null ? parseFloat(v).toFixed(3) : '';
         const esc = (s) => String(s ?? '').replace(/"/g, '""');
-        rows.forEach(r => { csv += `"${new Date(r.recorded_at).toLocaleString('pt-BR')}","${esc(r.batch_name)}",${f(r.temp_ferm)},${f(r.temp_amb)},${f(r.target_temp)},${fs(r.gravity)},${f(r.battery)},"${esc(r.status_op)}","${esc(r.step_name)}"\n`; });
+        rows.forEach(r => { csv += `"${new Date(r.recorded_at).toLocaleString('pt-BR')}","${esc(r.batch_name)}",${f(r.temp_s1)},${f(r.temp_s2)},${f(r.target_temp)},${fs(r.gravity)},${f(r.battery)},"${esc(r.status_op)}","${esc(r.step_name)}"\n`; });
         res.header('Content-Type', 'text/csv'); res.attachment(`${fileName}.csv`); res.send(csv);
     } catch (err) { console.error(err); res.status(500).send('Erro ao exportar'); }
 });
@@ -1724,8 +1740,8 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
         if (auth.length !== 2) return res.status(403).json({ error: 'Acesso negado aos lotes' });
 
         const [[rows1], [rows2]] = await Promise.all([
-            pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch1]),
-            pool.execute('SELECT temp_ferm, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch2])
+            pool.execute('SELECT temp_s1, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch1]),
+            pool.execute('SELECT temp_s1, gravity, recorded_at FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC', [batch2])
         ]);
 
         const normalize = (rows) => {
@@ -1733,7 +1749,7 @@ app.get('/api/batches/compare', authenticateToken, async (req, res) => {
             const t0 = new Date(rows[0].recorded_at).getTime();
             return rows.map(r => ({
                 hour: (new Date(r.recorded_at).getTime() - t0) / (1000 * 60 * 60),
-                temp: parseFloat(r.temp_ferm),
+                temp: parseFloat(r.temp_s1),
                 sg: parseFloat(r.gravity)
             }));
         };
@@ -1833,7 +1849,7 @@ app.get('/api/public/batch/:token', async (req, res) => {
         batch.is_online = deviceRegistry.isOnline(batch.device_serial, 2 * 60 * 1000, batch.is_online) ? 1 : 0;
         delete batch.device_serial; // link publico nao expoe o serial
         const [rows] = await pool.execute(
-            `SELECT temp_ferm, temp_amb, target_temp, gravity, battery, status_op, step_name, recorded_at
+            `SELECT temp_s1, temp_s2, target_temp, gravity, battery, status_op, step_name, recorded_at
              FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`,
             [batch.id]
         );
@@ -1932,14 +1948,14 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
         // Serie por hora (ate 30 dias) e a ultima leitura; tempos calculados no proprio banco (sem fuso)
         const [hourlyRows] = await pool.execute(
             `SELECT FLOOR(UNIX_TIMESTAMP(recorded_at) / 3600) AS h,
-                    AVG(NULLIF(temp_ferm, 0)) AS temp, AVG(target_temp) AS target,
+                    AVG(NULLIF(temp_s1, 0)) AS temp, AVG(target_temp) AS target,
                     AVG(CASE WHEN gravity BETWEEN 0.99 AND 1.15 THEN gravity END) AS sg,
                     AVG(status_op = 'Resfriando') AS cooling, AVG(status_op = 'Aquecendo') AS heating
              FROM telemetry WHERE batch_id = ? AND recorded_at > NOW() - INTERVAL 30 DAY
              GROUP BY h ORDER BY h`,
             [batchId]);
         const [lastRows] = await pool.execute(
-            'SELECT TIMESTAMPDIFF(SECOND, recorded_at, NOW()) AS age_s, temp_ferm, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1',
+            'SELECT TIMESTAMPDIFF(SECOND, recorded_at, NOW()) AS age_s, temp_s1, target_temp, gravity, status_op FROM telemetry WHERE batch_id = ? ORDER BY id DESC LIMIT 1',
             [batchId]);
         // Quantas vezes cada rele ligou nas ultimas 24 h (ciclos do compressor)
         const [[relay]] = await pool.execute(
@@ -1976,7 +1992,7 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
         const l = lastRows[0];
         const last = l ? {
             at: nowMs - Math.max(0, Number(l.age_s) || 0) * 1000,
-            temp: numOrNull(l.temp_ferm), target: numOrNull(l.target_temp), sg: numOrNull(l.gravity), status: l.status_op,
+            temp: numOrNull(l.temp_s1), target: numOrNull(l.target_temp), sg: numOrNull(l.gravity), status: l.status_op,
         } : null;
         const analysis = analyzeFermentation({
             batch: {
@@ -2029,7 +2045,7 @@ app.get('/api/batch/:id/data', authenticateToken, async (req, res) => {
     try {
         const [check] = await pool.execute(`SELECT b.id FROM batches b JOIN devices d ON b.device_id = d.id WHERE b.id = ? AND d.user_id = ?`, [req.params.id, req.user.id]);
         if (check.length === 0) return res.status(403).json({ error: 'Não autorizado' });
-        const [rows] = await pool.execute(`SELECT temp_ferm, temp_amb, target_temp, gravity, recorded_at, step_name, extra_sensors FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`, [req.params.id]);
+        const [rows] = await pool.execute(`SELECT temp_s1, temp_s2, target_temp, gravity, recorded_at, step_name, extra_sensors FROM telemetry WHERE batch_id = ? ORDER BY recorded_at ASC`, [req.params.id]);
         
         // Fill in missing/zero gravities with the previous valid value before downsampling so no valid reading is skipped
         let lastValidGravity = null;

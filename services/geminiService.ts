@@ -25,16 +25,6 @@ export interface AIAnalysis {
 export const PREMIUM_REQUIRED = 'O Breww.AI faz parte do plano Premium. Fale com a gente para ativar na sua conta.';
 
 export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalysis | string> => {
-  const filteredReadings = fermenter.readings
-    ? fermenter.readings.filter((_, i) => i % 4 === 0).slice(-15).map(r => ({
-        t: r.timestamp,
-        grav: r.gravity,
-        beerT: r.beerTemp,
-        fridgeT: r.fridgeTemp,
-        tgt: r.targetTemp
-      }))
-    : [];
-
   const controller = new AbortController();
   // O servidor pode tentar mais de um modelo (ate ~55 s): o navegador espera um pouco mais que isso
   const timeoutId = setTimeout(() => controller.abort(), 75000);
@@ -54,10 +44,7 @@ export const getBrewingInsights = async (fermenter: Fermenter): Promise<AIAnalys
         og: fermenter.og,
         volume: fermenter.volume,
         targetTemp: fermenter.targetTemp,
-        beerTemp: fermenter.currentDevice?.temperature || 0,
-        fridgeTemp: fermenter.currentFridgeTemp || 0,
-        gravity: fermenter.currentDevice?.gravity || 0,
-        readings: filteredReadings
+        gravity: fermenter.currentDevice?.gravity || 0
       }),
       signal: controller.signal
     });

@@ -56,8 +56,8 @@ export interface DeviceData {
 
 export interface Reading {
   timestamp: string;
-  beerTemp: number;
-  fridgeTemp: number;
+  sensor1Temp: number;
+  sensor2Temp: number;
   targetTemp: number;
   gravity: number;
   extra_sensors?: Record<string, number>;
@@ -111,7 +111,7 @@ export interface Fermenter {
   targetTemp: number;
   readings: Reading[];
   currentDevice: DeviceData;
-  currentFridgeTemp: number; // Ambient/Fridge Temperature
+  sensor2Temp: number; // Ambient/Fridge Temperature
   profile: FermentationStep[]; // Lista de rampas
   currentStepIndex: number; // Índice da rampa ativa
   isPaused: boolean; // Controle de pausa do perfil
@@ -265,7 +265,7 @@ export const sensorView = (f: Fermenter): SensorView => {
     const t = Array.isArray(raw.t) ? raw.t : null;
     const temps = [
         t ? finiteOrUndef(t[0]) : finiteOrUndef(f.currentDevice?.temperature),
-        t ? finiteOrUndef(t[1]) : finiteOrUndef(f.currentFridgeTemp),
+        t ? finiteOrUndef(t[1]) : finiteOrUndef(f.sensor2Temp),
         t ? finiteOrUndef(t[2]) : finiteOrUndef(ext.s3),
         t ? finiteOrUndef(t[3]) : finiteOrUndef(ext.s4),
     ];

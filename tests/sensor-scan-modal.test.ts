@@ -29,7 +29,7 @@ describe('initialRoles (Sensor 1..4, igual ao firmware 2.11)', () => {
 import { sensorView, otherSensors, DeviceMode } from '../types';
 
 describe('sensorView: quem controla e os outros sensores', () => {
-    const base: any = { id: 'X', name: 'X', mode: DeviceMode.FERMENTER, currentFridgeTemp: 16, currentDevice: { temperature: 19, rawPayload: {} } };
+    const base: any = { id: 'X', name: 'X', mode: DeviceMode.FERMENTER, sensor2Temp: 16, currentDevice: { temperature: 19, rawPayload: {} } };
     it('firmware antigo: fermentador pelo Sensor 1, geladeira pelo Sensor 2', () => {
         expect(sensorView(base).control).toBe(0);
         expect(sensorView({ ...base, mode: DeviceMode.FRIDGE }).control).toBe(1);

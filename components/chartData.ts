@@ -30,24 +30,25 @@ export const prepareTemperatureData = (data: any[] | null | undefined, maxPoints
           }
       }
 
-      const rawBeer = (d as any).beerTemp ?? (d as any).temp_ferm;
+      const raw1 = (d as any).sensor1Temp ?? (d as any).temp_s1;
       const rawTarget = (d as any).targetTemp ?? (d as any).target_temp;
-      const rawFridge = (d as any).fridgeTemp ?? (d as any).temp_amb;
-      const parsedBeer = rawBeer !== null && rawBeer !== undefined ? parseFloat(String(rawBeer)) : NaN;
+      const raw2 = (d as any).sensor2Temp ?? (d as any).temp_s2;
+      const parsed1 = raw1 !== null && raw1 !== undefined ? parseFloat(String(raw1)) : NaN;
       const parsedTarget = rawTarget !== null && rawTarget !== undefined ? parseFloat(String(rawTarget)) : NaN;
-      const parsedFridge = rawFridge !== null && rawFridge !== undefined ? parseFloat(String(rawFridge)) : NaN;
+      const parsed2 = raw2 !== null && raw2 !== undefined ? parseFloat(String(raw2)) : NaN;
 
       // o campo bruto extra_sensors (ex.: {hum: 61}) nao vira linha: so os extras numericos acima
       const { extra_sensors: _rawExtras, ...rest } = d as any;
       return {
         ...rest,
         timestamp: d.timestamp || (d as any).recorded_at,
-        beerTemp: parsedBeer,
+        sensor1Temp: parsed1,
         targetTemp: !isNaN(parsedTarget) ? parsedTarget : null,
-        fridgeTemp: !isNaN(parsedFridge) ? parsedFridge : null,
+        sensor2Temp: !isNaN(parsed2) ? parsed2 : null,
         ...extras
       };
-    }).filter(d => !isNaN(d.beerTemp));
+    // Leitura com algum sensor vale (o Sensor 1 nao e obrigatorio: na geladeira pode controlar o 2)
+    }).filter(d => !isNaN(d.sensor1Temp) || d.sensor2Temp !== null || Object.keys(d).some(k => k.startsWith('extra_')));
 
       return mapped.slice(-maxPoints);
 };

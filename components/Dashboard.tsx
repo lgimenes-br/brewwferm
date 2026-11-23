@@ -39,7 +39,7 @@ export const Dashboard: React.FC = () => {
     useEffect(() => {
         if (connectionStatus === 'connected' && fermenters.length > 0) {
             fermenters.forEach(f => {
-                const isCorrupted = !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0);
+                const isCorrupted = !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (!Number.isFinite(f.sensor2Temp) || f.sensor2Temp === 0);
                 
                 // Ask for status if it's the first time we see this device, OR if it's corrupted and we haven't asked recently
                 if (!askedDevices.current.has(f.id) || (isCorrupted && !askedDevices.current.has(`corrupted_${f.id}`))) {
@@ -317,7 +317,7 @@ export const Dashboard: React.FC = () => {
                     const has = sensorPresence(f); // umidade e densidade so de quem tem o sensor
                     const rssi = f.currentDevice?.rssi || 0;
 
-                    const isCorrupted = isOnline && isInitialSyncing && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (f.currentFridgeTemp === 20 || f.currentFridgeTemp === 0) && !f.currentDevice?.extSens?.hum;
+                    const isCorrupted = isOnline && isInitialSyncing && !f.currentDevice?.rssi && f.currentDevice?.temperature === 0 && (!Number.isFinite(f.sensor2Temp) || f.sensor2Temp === 0) && !f.currentDevice?.extSens?.hum;
                     const connecting = (!isOnline && isInitialSyncing) || isCorrupted;
                     // Sem conexao, 0,0 exato e "nunca leu", nao 0 °C: mostra "--" como o app
                     const shown = (v?: number) => (connecting || (!isOnline && v === 0) ? undefined : v);

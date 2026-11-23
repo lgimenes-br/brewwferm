@@ -270,9 +270,11 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Call local React Query update which triggers re-render via useFermenters without refetching
                 // Only live (non-retained) MQTT packets update lastUpdate so powered-off devices are never marked online
-                const parsedAmb = payload.amb !== undefined ? parseFloat(payload.amb) : NaN;
+                // Sensores 1 e 2: lista "t" (fw 2.11+, null = sem leitura); firmware antigo: "ferm"/"amb" (nomes legados)
+                const sensorRaw = (i: number) => (Array.isArray(payload.t) ? payload.t[i] : (i === 0 ? payload.ferm : payload.amb));
+                const parsedS2 = sensorRaw(1) !== undefined && sensorRaw(1) !== null ? parseFloat(sensorRaw(1)) : NaN;
                 const parsedTarget = target !== undefined ? parseFloat(String(target)) : NaN;
-                const parsedFerm = payload.ferm !== undefined ? parseFloat(payload.ferm) : NaN;
+                const parsedS1 = sensorRaw(0) !== undefined && sensorRaw(0) !== null ? parseFloat(sensorRaw(0)) : NaN;
                 const parsedRssi = payload.rssi !== undefined ? parseFloat(payload.rssi) : NaN;
                 const savedStepTimeStr = localStorage.getItem(`device_stepTime_${serial}`);
                 const parsedStepTime = (!isRetained && !isInCooldown && payload.stepTime !== undefined)
@@ -284,14 +286,14 @@ export const BrewProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...(!isInCooldown && newStatus ? { status: newStatus } : {}),
                     ...(!isInCooldown && currentModeUpdate ? { mode: currentModeUpdate } : {}),
                     ...(payload.ip ? { ipAddress: payload.ip } : {}),
-                    ...(!isNaN(parsedAmb) ? { currentFridgeTemp: parsedAmb } : {}),
+                    ...(!isNaN(parsedS2) ? { sensor2Temp: parsedS2 } : {}),
                     ...(!isInCooldown && !isNaN(parsedTarget) ? { targetTemp: parsedTarget } : {}),
                     ...(!isInCooldown && profileUpdate ? { profile: profileUpdate } : {}),
                     ...(!isInCooldown && currentStepIndexUpdate !== undefined ? { currentStepIndex: currentStepIndexUpdate } : {}),
                     ...(!isInCooldown && isPausedUpdate !== undefined ? { isPaused: isPausedUpdate } : {}),
                     ...(kegeratorConfigUpdate ? { kegeratorConfig: kegeratorConfigUpdate } : {}),
                     currentDevice: {
-                        temperature: !isNaN(parsedFerm) ? parsedFerm : undefined,
+                        temperature: !isNaN(parsedS1) ? parsedS1 : undefined,
                         // iSpindel desligado: o controlador repete a ultima leitura; velha nao aparece
                         gravity: ispFresh === false ? 0 : payload.is_sg !== undefined && parseFloat(payload.is_sg) > 0 ? parseFloat(payload.is_sg) : undefined,
                         battery: ispFresh === false ? 0 : payload.is_bat !== undefined && parseFloat(payload.is_bat) > 0 ? parseFloat(payload.is_bat) : undefined,
