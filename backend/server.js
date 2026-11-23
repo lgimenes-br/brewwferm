@@ -121,8 +121,11 @@ const initDb = async () => {
         await pool.execute('DELETE FROM device_key_candidates WHERE last_seen < DATE_SUB(NOW(), INTERVAL 30 DAY)').catch(() => {});
         await pool.execute(`CREATE TABLE IF NOT EXISTS batches (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, name VARCHAR(150) NOT NULL, style VARCHAR(100), og VARCHAR(20), fg VARCHAR(20), volume FLOAT DEFAULT 20, profile JSON, ingredients JSON, public_token VARCHAR(64) DEFAULT NULL, current_step_index INT DEFAULT 0, step_started_at DATETIME DEFAULT NULL, started_at DATETIME DEFAULT NOW(), ended_at DATETIME DEFAULT NULL, is_active BOOLEAN DEFAULT 1, FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
         // Sensores numerados (Sensor 1..4): as colunas eram temp_s1/temp_s2 (renomeadas em 23/11/2026)
-        await runMigration('ALTER TABLE telemetry RENAME COLUMN temp_ferm TO temp_s1');
-        await runMigration('ALTER TABLE telemetry RENAME COLUMN temp_amb TO temp_s2');
+        const [oldCols] = await pool.execute(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'telemetry' AND COLUMN_NAME IN ('temp_ferm', 'temp_amb')`).catch(() => [[]]);
+        if (oldCols.length) {
+            await runMigration('ALTER TABLE telemetry RENAME COLUMN temp_ferm TO temp_s1');
+            await runMigration('ALTER TABLE telemetry RENAME COLUMN temp_amb TO temp_s2');
+        }
         await pool.execute(`CREATE TABLE IF NOT EXISTS telemetry (id INT AUTO_INCREMENT PRIMARY KEY, device_id INT NOT NULL, batch_id INT DEFAULT NULL, temp_s1 FLOAT, temp_s2 FLOAT, target_temp FLOAT, gravity FLOAT, battery FLOAT, status_op VARCHAR(50), step_name VARCHAR(100), rssi INT DEFAULT NULL, extra_sensors JSON, recorded_at DATETIME DEFAULT NOW(), FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS batch_events (id INT AUTO_INCREMENT PRIMARY KEY, batch_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, description TEXT, recorded_at DATETIME NOT NULL, FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE)`);
         await pool.execute(`CREATE TABLE IF NOT EXISTS recipes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL, style VARCHAR(100), est_og VARCHAR(10), est_fg VARCHAR(10), created_at DATETIME DEFAULT NOW(), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
