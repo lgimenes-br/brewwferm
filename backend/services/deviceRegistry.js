@@ -24,6 +24,17 @@ export const humidityInPayload = (payload) => {
   return Array.isArray(payload?.mods) && payload.mods.some((m) => HUMIDITY_MODULES.includes(String(m).toLowerCase()));
 };
 
+/**
+ * Sensores de temperatura 2, 3 e 4 com leitura neste pacote ([s2, s3, s4]). O Sensor 1 e obrigatorio
+ * (sempre aparece). fw 2.11+: lista "t" (null = sem leitura); antes: "amb" valido = Sensor 2.
+ */
+export const tempSlotsInPayload = (payload) => {
+  const ok = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) && Number(v) > -55 && Number(v) < 125;
+  if (Array.isArray(payload?.t)) return [1, 2, 3].map((i) => ok(payload.t[i]));
+  const amb = Number(payload?.amb);
+  return [ok(payload?.amb) && amb !== 0, false, false];
+};
+
 /** Epoch (s) da ultima leitura do iSpindel no pacote, ou 0. Firmware antigo (sem is_epc): densidade > 0 = agora. */
 export const ispindelEpochInPayload = (payload, nowMs = Date.now()) => {
   if (!payload) return 0;
@@ -63,7 +74,7 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
   async function touch(pool, serial, deviceId, fw, info = {}) {
     const key = norm(serial);
     const t = now();
-    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, ispEpc: 0 };
+    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, ispEpc: 0, slotAt: [0, 0, 0] };
     s.ms = t;
     const writes = [];
     if (t - s.flushedAt >= LAST_SEEN_FLUSH_MS) {
@@ -88,6 +99,14 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
     if (info.humidity && t - (s.humAt || 0) >= SENSOR_SEEN_FLUSH_MS) {
       s.humAt = t;
       writes.push(pool.execute('UPDATE devices SET hum_seen_at = NOW() WHERE id = ?', [deviceId]).catch(() => { s.humAt = 0; }));
+    }
+    if (Array.isArray(info.tempSlots)) {
+      info.tempSlots.forEach((has, i) => {
+        if (!has || t - (s.slotAt?.[i] || 0) < SENSOR_SEEN_FLUSH_MS) return;
+        s.slotAt[i] = t;
+        const col = ['s2_seen_at', 's3_seen_at', 's4_seen_at'][i];
+        writes.push(pool.execute(`UPDATE devices SET ${col} = NOW() WHERE id = ?`, [deviceId]).catch(() => { s.slotAt[i] = 0; }));
+      });
     }
     const epc = Number(info.ispindelEpoch) || 0;
     if (epc > (s.ispEpc || 0)) {

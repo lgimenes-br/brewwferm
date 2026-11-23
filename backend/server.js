@@ -15,7 +15,7 @@ import 'dotenv/config'; // <--- ISSO CARREGA O ARQUIVO .ENV
 
 const execPromise = util.promisify(exec);
 import { sendPushToUser } from './pushService.js';
-import { deviceRegistry, humidityInPayload, ispindelEpochInPayload, SENSOR_PRESENT_DAYS } from './services/deviceRegistry.js';
+import { deviceRegistry, humidityInPayload, ispindelEpochInPayload, tempSlotsInPayload, SENSOR_PRESENT_DAYS } from './services/deviceRegistry.js';
 import { runTelemetryRetention } from './services/telemetryRetention.js';
 import { FREE_MAX_DEVICES } from './services/plans.js';
 import { buildCarryCommands } from './services/carrySettings.js';
@@ -146,6 +146,8 @@ const initDb = async () => {
         // Ultima vez que o sensor de umidade / iSpindel mandou dado: o site so mostra o que existe
         await runMigration('ALTER TABLE devices ADD COLUMN hum_seen_at DATETIME DEFAULT NULL');
         await runMigration('ALTER TABLE devices ADD COLUMN isp_seen_at DATETIME DEFAULT NULL');
+        // Sensores de temperatura 2-4 (o 1 e obrigatorio e sempre aparece)
+        for (const col of ['s2_seen_at', 's3_seen_at', 's4_seen_at']) await runMigration(`ALTER TABLE devices ADD COLUMN ${col} DATETIME DEFAULT NULL`);
         // Lixeira de contas (admin): conta "excluida" fica 30 dias sem login, podendo ser restaurada
         await runMigration('ALTER TABLE users ADD COLUMN deleted_at DATETIME DEFAULT NULL');
         await loadTrashedUsers();
@@ -547,6 +549,7 @@ mqttClient.on('message', async (topic, message, packet) => {
             await deviceRegistry.touch(pool, serialCode, deviceId, payload.fw || payload.ver, {
                 board: payload.board, mods: payload.mods,
                 humidity: humidityInPayload(payload), ispindelEpoch: ispindelEpochInPayload(payload),
+                tempSlots: tempSlotsInPayload(payload),
             });
             if (pendingCarry.has(serialCode)) applyCarriedSettings(serialCode, deviceId, payload).catch(e => console.error('Carry:', e.message));
 
@@ -1150,6 +1153,9 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 30 SECOND) as is_online,
                    (d.hum_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_humidity,
                    (d.isp_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_ispindel,
+                   (d.s2_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s2,
+                   (d.s3_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s3,
+                   (d.s4_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s4,
                    b.id as active_batch_id, b.name as active_batch_name, b.style as active_batch_style,
                    b.started_at as active_batch_start, b.step_started_at as active_batch_step_start,
                    b.profile as active_batch_profile, b.og as active_batch_og, b.fg as active_batch_fg,

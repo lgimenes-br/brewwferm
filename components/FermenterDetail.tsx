@@ -393,7 +393,8 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
     const sv = sensorView(fermenter);
     const ctlRaw = sv.temps[sv.control];
     const ctlTemp = ctlRaw === undefined ? undefined : readTemp(ctlRaw);
-    const others = otherSensors(sv).filter(o => isOnline || o.temp !== 0); // 0,0 com o aparelho fora = nunca leu
+    // 0,0 com o aparelho fora = nunca leu: mostra "--"
+    const others = otherSensors(sv, fermenter.tempSeen).map(o => (!isOnline && o.temp === 0 ? { ...o, temp: undefined } : o));
     const humidityNum = safeHumidity !== undefined && safeHumidity !== null ? parseFloat(String(safeHumidity)) : NaN;
     const step = fermenter.profile?.[fermenter.currentStepIndex || 0];
     const inputCls = 'w-full h-12 rounded-2xl bg-[var(--cell-2)] border border-[var(--line)] px-4 text-[16px] text-[var(--ink)] placeholder:text-[var(--tertiary)] focus:outline-none focus:border-[rgba(113,252,143,0.55)] transition-colors';
@@ -537,7 +538,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {/* Os outros sensores: so para ver (quem controla e a temperatura grande) */}
-                        {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
+                        {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp !== undefined ? o.temp.toFixed(1) : '--'} unit="°C" icon={<Thermometer size={14} />} />)}
                         {has.humidity && <StatTile label="Umidade" value={Number.isFinite(humidityNum) ? humidityNum.toFixed(0) : '--'} unit="%" icon={<Droplets size={14} />} />}
                         <StatTile label="Wi-Fi" value={fermenter.currentDevice?.rssi ? String(fermenter.currentDevice.rssi) : '--'} unit="dBm" icon={<Wifi size={14} />} />
                         <StatTile label="Firmware" value={fermenter.currentDevice?.version || '--'} icon={<Cpu size={14} />} />
@@ -608,7 +609,7 @@ export const FermenterDetail: React.FC<FermenterDetailProps> = ({ fermenter, onU
                         {/* Atenuacao e alcool vem da densidade: sem densimetro, nao aparecem */}
                         {has.gravity && <StatTile label="Atenuação" value={currentAttenuation} unit={currentAttenuation === '--' ? undefined : '%'} icon={<Percent size={14} />} />}
                         {has.gravity && <StatTile label="Álcool estimado" value={abv} unit={abv === '--' ? undefined : '%'} icon={<FlaskConical size={14} />} />}
-                        {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp.toFixed(1)} unit="°C" icon={<Thermometer size={14} />} />)}
+                        {others.map(o => <StatTile key={o.slot} label={o.name} value={o.temp !== undefined ? o.temp.toFixed(1) : '--'} unit="°C" icon={<Thermometer size={14} />} />)}
                         {has.ispindel && <StatTile
                             label="Bateria do densímetro"
                             value={safeBattery > 0 ? safeBattery.toFixed(2) : '--'}

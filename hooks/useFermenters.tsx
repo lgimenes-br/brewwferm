@@ -171,6 +171,7 @@ const mapDevices = (apiData: any[], prevFermenters: Fermenter[]): Fermenter[] =>
             lastSeen: d.last_seen || undefined,
             hasHumidity: Boolean(Number(d.has_humidity)),
             hasIspindel: Boolean(Number(d.has_ispindel)),
+            tempSeen: [true, Boolean(Number(d.has_s2)), Boolean(Number(d.has_s3)), Boolean(Number(d.has_s4))],
             sensor1_name: d.sensor1_name,
             sensor2_name: d.sensor2_name,
             sensor3_name: d.sensor3_name || undefined,

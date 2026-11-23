@@ -304,7 +304,7 @@ export const Dashboard: React.FC = () => {
                     // Temperatura grande: o sensor que controla o modo; os outros so para ver
                     const sv = sensorView(f);
                     const mainTemp = sv.temps[sv.control];
-                    const others = otherSensors(sv);
+                    const others = otherSensors(sv, f.tempSeen);
                     const target = num(f.targetTemp);
                     const lastChartGravity = f.readings && f.readings.length > 0 ? f.readings[f.readings.length - 1].gravity : 0;
                     const gravity = normalizeGravity(f.currentDevice?.gravity > 0 ? f.currentDevice.gravity : lastChartGravity, 0);
@@ -387,8 +387,8 @@ export const Dashboard: React.FC = () => {
                                 ) : (
                                     <Chip dot="off">Offline · {formatAgo(f.lastSeen)}</Chip>
                                 )}
-                                {others.filter(o => shown(o.temp) !== undefined).map(o => (
-                                    <Chip key={o.slot} icon={<Thermometer size={14} />} title={o.name}>{o.temp.toFixed(1)}°C</Chip>
+                                {others.map(o => (
+                                    <Chip key={o.slot} icon={<Thermometer size={14} />} title={o.name}>{shown(o.temp) !== undefined ? `${o.temp!.toFixed(1)}°C` : '--'}</Chip>
                                 ))}
                                 {isFermenter && humidity !== undefined && <Chip icon={<Droplets size={14} />} title="Umidade">{Math.round(humidity)}%</Chip>}
                                 {weakWifi && <Chip dot="warn">Wi-Fi fraco</Chip>}

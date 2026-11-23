@@ -89,6 +89,8 @@ export interface Fermenter {
   /** O servidor viu sensor de umidade / iSpindel neste aparelho nos ultimos 14 dias */
   hasHumidity?: boolean;
   hasIspindel?: boolean;
+  /** Sensores de temperatura que existem [1, 2, 3, 4]; o 1 e obrigatorio (sempre true) */
+  tempSeen?: boolean[];
   mode: DeviceMode; // Novo campo: Modo de Operação
   sensor1_name?: string;
   sensor2_name?: string;
@@ -276,7 +278,6 @@ export const sensorView = (f: Fermenter): SensorView => {
     return { temps, names, control, controlMap, supportsControl: !!controlMap };
 };
 
-/** Os outros sensores com leitura (nao controlam) */
 /**
  * Sensores opcionais que este aparelho TEM. Nao tem = nao aparece (antes ficava "--" para sempre).
  * Tem = o servidor viu o sensor nos ultimos 14 dias, ou ha leitura agora; tem e sem leitura = "--".
@@ -292,6 +293,10 @@ export const sensorPresence = (f: Fermenter): { humidity: boolean; gravity: bool
   };
 };
 
-export const otherSensors = (v: SensorView) =>
+/**
+ * Os outros sensores de temperatura (nao controlam). O Sensor 1 e obrigatorio: aparece sempre ("--" sem
+ * leitura). Os sensores 2-4 aparecem se tem leitura ou se existem (seen); sem nunca ter existido, nao aparecem.
+ */
+export const otherSensors = (v: SensorView, seen?: boolean[]): { slot: number; name: string; temp?: number }[] =>
     v.temps.map((temp, slot) => ({ slot, name: v.names[slot], temp }))
-        .filter((s): s is { slot: number; name: string; temp: number } => s.slot !== v.control && s.temp !== undefined);
+        .filter(s => s.slot !== v.control && (s.temp !== undefined || s.slot === 0 || !!seen?.[s.slot]));
