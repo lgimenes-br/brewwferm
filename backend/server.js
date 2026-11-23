@@ -146,8 +146,8 @@ const initDb = async () => {
         // Ultima vez que o sensor de umidade / iSpindel mandou dado: o site so mostra o que existe
         await runMigration('ALTER TABLE devices ADD COLUMN hum_seen_at DATETIME DEFAULT NULL');
         await runMigration('ALTER TABLE devices ADD COLUMN isp_seen_at DATETIME DEFAULT NULL');
-        // Sensores de temperatura 2-4 (o 1 e obrigatorio e sempre aparece)
-        for (const col of ['s2_seen_at', 's3_seen_at', 's4_seen_at']) await runMigration(`ALTER TABLE devices ADD COLUMN ${col} DATETIME DEFAULT NULL`);
+        // Sensores de temperatura 1-4 (o site sempre mostra o que controla; os outros, se existem)
+        for (const col of ['s1_seen_at', 's2_seen_at', 's3_seen_at', 's4_seen_at']) await runMigration(`ALTER TABLE devices ADD COLUMN ${col} DATETIME DEFAULT NULL`);
         // Lixeira de contas (admin): conta "excluida" fica 30 dias sem login, podendo ser restaurada
         await runMigration('ALTER TABLE users ADD COLUMN deleted_at DATETIME DEFAULT NULL');
         await loadTrashedUsers();
@@ -1153,6 +1153,7 @@ app.get('/api/devices', authenticateToken, async (req, res) => {
             SELECT d.*, d.chopp_name, (d.last_seen > NOW() - INTERVAL 30 SECOND) as is_online,
                    (d.hum_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_humidity,
                    (d.isp_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_ispindel,
+                   (d.s1_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s1,
                    (d.s2_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s2,
                    (d.s3_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s3,
                    (d.s4_seen_at > NOW() - INTERVAL ${SENSOR_PRESENT_DAYS} DAY) as has_s4,

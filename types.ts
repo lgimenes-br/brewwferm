@@ -89,7 +89,7 @@ export interface Fermenter {
   /** O servidor viu sensor de umidade / iSpindel neste aparelho nos ultimos 14 dias */
   hasHumidity?: boolean;
   hasIspindel?: boolean;
-  /** Sensores de temperatura que existem [1, 2, 3, 4]; o 1 e obrigatorio (sempre true) */
+  /** Sensores de temperatura que existem [1, 2, 3, 4] (vistos pelo servidor nos ultimos 14 dias) */
   tempSeen?: boolean[];
   mode: DeviceMode; // Novo campo: Modo de Operação
   sensor1_name?: string;
@@ -294,9 +294,9 @@ export const sensorPresence = (f: Fermenter): { humidity: boolean; gravity: bool
 };
 
 /**
- * Os outros sensores de temperatura (nao controlam). O Sensor 1 e obrigatorio: aparece sempre ("--" sem
- * leitura). Os sensores 2-4 aparecem se tem leitura ou se existem (seen); sem nunca ter existido, nao aparecem.
+ * Os outros sensores de temperatura (nao controlam). O que controla e a temperatura grande e sempre aparece;
+ * os outros aparecem se tem leitura ou se existem (seen, "--" sem leitura); sem nunca ter existido, nao.
  */
 export const otherSensors = (v: SensorView, seen?: boolean[]): { slot: number; name: string; temp?: number }[] =>
     v.temps.map((temp, slot) => ({ slot, name: v.names[slot], temp }))
-        .filter(s => s.slot !== v.control && (s.temp !== undefined || s.slot === 0 || !!seen?.[s.slot]));
+        .filter(s => s.slot !== v.control && (s.temp !== undefined || !!seen?.[s.slot]));

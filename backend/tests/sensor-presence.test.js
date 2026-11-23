@@ -18,9 +18,9 @@ test('iSpindel: epoch valido (fw novo) ou densidade (fw antigo)', () => {
     assert.equal(ispindelEpochInPayload({ is_sg: 0 }, now), 0);
 });
 
-test('sensores 2-4: lista t (null = sem leitura) ou amb no firmware antigo', () => {
-    assert.deepEqual(tempSlotsInPayload({ t: [18.5, 4.2, null, null] }), [true, false, false]);
-    assert.deepEqual(tempSlotsInPayload({ t: [18.5, null, 20.1, -127] }), [false, true, false]);
-    assert.deepEqual(tempSlotsInPayload({ amb: 4.2 }), [true, false, false]);
-    assert.deepEqual(tempSlotsInPayload({ amb: 0 }), [false, false, false]);
+test('sensores 1-4: lista t (null = sem leitura) ou ferm/amb no firmware antigo', () => {
+    assert.deepEqual(tempSlotsInPayload({ t: [18.5, 4.2, null, null] }), [true, true, false, false]);
+    assert.deepEqual(tempSlotsInPayload({ t: [null, null, 20.1, -127] }), [false, false, true, false]);
+    assert.deepEqual(tempSlotsInPayload({ ferm: 18.5, amb: 4.2 }), [true, true, false, false]);
+    assert.deepEqual(tempSlotsInPayload({ ferm: 0, amb: 0 }), [false, false, false, false]);
 });

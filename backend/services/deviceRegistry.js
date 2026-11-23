@@ -25,14 +25,14 @@ export const humidityInPayload = (payload) => {
 };
 
 /**
- * Sensores de temperatura 2, 3 e 4 com leitura neste pacote ([s2, s3, s4]). O Sensor 1 e obrigatorio
- * (sempre aparece). fw 2.11+: lista "t" (null = sem leitura); antes: "amb" valido = Sensor 2.
+ * Sensores de temperatura 1-4 com leitura neste pacote ([s1, s2, s3, s4]). O site sempre mostra o sensor
+ * que controla (a temperatura grande); os outros so se existem. fw 2.11+: lista "t" (null = sem leitura);
+ * antes: "ferm" e "amb" validos (0,0 exato = nunca leu).
  */
 export const tempSlotsInPayload = (payload) => {
   const ok = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) && Number(v) > -55 && Number(v) < 125;
-  if (Array.isArray(payload?.t)) return [1, 2, 3].map((i) => ok(payload.t[i]));
-  const amb = Number(payload?.amb);
-  return [ok(payload?.amb) && amb !== 0, false, false];
+  if (Array.isArray(payload?.t)) return [0, 1, 2, 3].map((i) => ok(payload.t[i]));
+  return [ok(payload?.ferm) && Number(payload.ferm) !== 0, ok(payload?.amb) && Number(payload.amb) !== 0, false, false];
 };
 
 /** Epoch (s) da ultima leitura do iSpindel no pacote, ou 0. Firmware antigo (sem is_epc): densidade > 0 = agora. */
@@ -74,7 +74,7 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
   async function touch(pool, serial, deviceId, fw, info = {}) {
     const key = norm(serial);
     const t = now();
-    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, ispEpc: 0, slotAt: [0, 0, 0] };
+    const s = seen.get(key) || { ms: 0, flushedAt: 0, fw: undefined, board: undefined, mods: undefined, humAt: 0, ispEpc: 0, slotAt: [0, 0, 0, 0] };
     s.ms = t;
     const writes = [];
     if (t - s.flushedAt >= LAST_SEEN_FLUSH_MS) {
@@ -104,7 +104,7 @@ export function createDeviceRegistry({ now = Date.now } = {}) {
       info.tempSlots.forEach((has, i) => {
         if (!has || t - (s.slotAt?.[i] || 0) < SENSOR_SEEN_FLUSH_MS) return;
         s.slotAt[i] = t;
-        const col = ['s2_seen_at', 's3_seen_at', 's4_seen_at'][i];
+        const col = ['s1_seen_at', 's2_seen_at', 's3_seen_at', 's4_seen_at'][i];
         writes.push(pool.execute(`UPDATE devices SET ${col} = NOW() WHERE id = ?`, [deviceId]).catch(() => { s.slotAt[i] = 0; }));
       });
     }
