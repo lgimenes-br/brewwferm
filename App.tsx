@@ -12,6 +12,8 @@ import { isFirmwareUpdateAvailable } from './services/firmware';
 import { isOtaFinal } from './services/otaSession';
 import { OtaProgressModal } from './components/OtaProgressModal';
 import { useAuth } from './context/AuthContext';
+import { useMe } from './hooks/useMe';
+import { UserAvatar } from './components/app/AppUI';
 import { Privacy, Terms } from './components/Legal';
 import { BrewwLogo } from './components/BrewwMark';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/AuthGuard';
@@ -38,7 +40,9 @@ const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').th
 const NavConfig = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { logout, role } = useAuth();
+    const { logout, role, token, user } = useAuth();
+    const me = useMe(token);
+    const displayName = me?.name || user || '';
     const { fermenters } = useFermenters();
     const { sendCommand, otaProgress, clearOtaProgress, otaSessions, startOta, dismissOta } = useBrew();
     // Modal de atualizacao: fechar durante a atualizacao so esconde; depois de concluida, descarta
@@ -238,6 +242,16 @@ const NavConfig = () => {
                         </button>
                     ))}
                 </div>
+                {/* Foto do usuario (como no app): abre as Preferencias da conta */}
+                <button
+                    type="button"
+                    onClick={() => navigate('/preferences')}
+                    aria-label={`Conta de ${displayName || 'usuário'}: preferências`}
+                    title={displayName || 'Conta'}
+                    className="hidden md:inline-flex shrink-0 rounded-full transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2"
+                >
+                    <UserAvatar name={displayName} url={me?.avatarUrl} size={40} />
+                </button>
                 <button type="button" onClick={() => logout()} aria-label="Sair" title="Sair" className="hidden md:inline-flex app-icon-btn shrink-0 text-[var(--muted)]">
                     <LogOut size={17} />
                 </button>
@@ -278,6 +292,15 @@ const NavConfig = () => {
 
             {isMobileMenuOpen && (
                 <div role="dialog" aria-modal="true" aria-label="Menu" className="md:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-[#04070B] overflow-y-auto overscroll-contain p-4 flex flex-col gap-2">
+                    {displayName && (
+                        <div className="flex items-center gap-4 px-4 pb-3 mb-1 border-b border-[var(--line)]">
+                            <UserAvatar name={displayName} url={me?.avatarUrl} size={48} />
+                            <div className="min-w-0">
+                                <div className="text-[17px] text-[var(--ink)] truncate">{displayName}</div>
+                                {me?.email && <div className="text-[13px] text-[var(--muted)] truncate">{me.email}</div>}
+                            </div>
+                        </div>
+                    )}
                     {tabs.map(t => (
                         <button
                             key={t.to}

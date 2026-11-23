@@ -96,3 +96,22 @@ export function SectionLabel({ children, action }: { children: React.ReactNode; 
         </div>
     );
 }
+
+/** Foto do usuario (Google) ou as iniciais, em circulo. A foto que nao carrega volta para as iniciais. */
+export function UserAvatar({ name, url, size = 36 }: { name: string; url?: string | null; size?: number }) {
+    const [broken, setBroken] = React.useState(false);
+    React.useEffect(() => setBroken(false), [url]);
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    const ini = ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
+    return (
+        <span
+            aria-hidden
+            className="inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden bg-[var(--accent)] text-[var(--on-accent)] font-medium select-none"
+            style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
+        >
+            {url && !broken
+                ? <img src={url} alt="" width={size} height={size} referrerPolicy="no-referrer" onError={() => setBroken(true)} className="w-full h-full object-cover" />
+                : ini}
+        </span>
+    );
+}

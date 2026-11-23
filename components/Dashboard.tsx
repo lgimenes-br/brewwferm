@@ -8,6 +8,8 @@ import { PageHeader, TempDisplay, SmallValue, Chip, formatAgo } from './app/AppU
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFermenters } from '../hooks/useFermenters';
 import { useBrew } from '../context/BrewContext';
+import { useAuth } from '../context/AuthContext';
+import { useMe, firstName } from '../hooks/useMe';
 import { fetchDiscoveryDevices, AddDeviceResult, fetchFirmwareVersion } from '../services/api';
 import { isFirmwareUpdateAvailable } from '../services/firmware';
 import { PairingWaitModal } from './PairingWaitModal';
@@ -24,6 +26,9 @@ export const Dashboard: React.FC = () => {
     const { fermenters, addDevice, updateDevice, deleteDevice, refetch } = useFermenters();
     const [pendingPairing, setPendingPairing] = useState<{ pairingId: string; serial: string; expiresIn: number } | null>(null);
     const { connectionStatus, isInitialSyncing, sendCommand } = useBrew();
+    const { token, user } = useAuth();
+    const me = useMe(token);
+    const first = firstName(me?.name || user);
     // Versao mais nova do firmware: cada cartao avisa so do proprio aparelho
     const [latestFw, setLatestFw] = useState<string | null>(null);
     useEffect(() => { fetchFirmwareVersion().then(d => { if (d?.version) setLatestFw(d.version); }).catch(() => {}); }, []);
@@ -259,7 +264,7 @@ export const Dashboard: React.FC = () => {
     return (
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 pt-8 pb-16">
             <PageHeader
-                title="Cheers!"
+                title={first ? `Cheers, ${first}!` : 'Cheers!'}
                 subtitle={fermenters.length ? `${onlineCount} de ${fermenters.length} ${fermenters.length === 1 ? 'aparelho online' : 'aparelhos online'}` : 'Seus aparelhos aparecem aqui'}
                 actions={<>
                     <button type="button" onClick={searchNetwork} className="app-btn-quiet"><Search size={16} aria-hidden /> Buscar na rede</button>
