@@ -103,7 +103,6 @@ jobs:
             bash deploy/setup-firewall.sh || true
             bash deploy/setup-backup.sh || true
             bash deploy/diag-firewall.sh || true
-            if [ ! -f .env ] || ! grep -q "^VITE_GEMINI_API_KEY=" .env; then echo "VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" >> .env; else sed -i "s|^VITE_GEMINI_API_KEY=.*|VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}|" .env; fi
             # Monitor de erros do servidor (Sentry): so quando o segredo existe
             if [ -n "${{ secrets.SENTRY_DSN }}" ]; then if grep -q "^SENTRY_DSN=" .env; then sed -i "s|^SENTRY_DSN=.*|SENTRY_DSN=${{ secrets.SENTRY_DSN }}|" .env; else echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> .env; fi; fi
             if [ -n "${{ secrets.FIRMWARE_UPLOAD_TOKEN }}" ]; then if grep -q "^FIRMWARE_UPLOAD_TOKEN=" .env; then sed -i "s|^FIRMWARE_UPLOAD_TOKEN=.*|FIRMWARE_UPLOAD_TOKEN=${{ secrets.FIRMWARE_UPLOAD_TOKEN }}|" .env; else echo "FIRMWARE_UPLOAD_TOKEN=${{ secrets.FIRMWARE_UPLOAD_TOKEN }}" >> .env; fi; fi
